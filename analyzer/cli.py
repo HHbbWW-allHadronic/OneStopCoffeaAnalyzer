@@ -2,6 +2,7 @@ import argparse
 import inspect
 import logging
 import sys
+import itertools as it
 from pathlib import Path
 
 from prompt_toolkit import PromptSession
@@ -75,13 +76,20 @@ def handleModules(args):
     import analyzer.modules
 
     all_modules = list(ac.modules.values())
-    table = Table("Name", "Categories", "Depends On", "Default", title="Analysis Modules")
+    table = Table(
+        "Name", "Categories", "Depends On", "After", "Default", title="Analysis Modules"
+    )
     for module in ac.modules.values():
         table.add_row(
             module.name,
             ",".join(x for x in module.categories),
             ",".join(x for x in module.depends_on),
-            str(module.default)
+            ",".join(
+                it.chain.from_iterable(
+                    ac.org.category_after.get(y,[]) for y in module.categories
+                )
+            ),
+            str(module.default),
         )
     console = Console()
     console.print(table)

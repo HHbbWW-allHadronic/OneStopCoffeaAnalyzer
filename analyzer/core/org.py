@@ -16,9 +16,11 @@ from typing import (
 
 logger = logging.getLogger(__name__)
 
+
 class AnalyzerGraphError(Exception):
     def __init__(self, message):
         super().__init__(message)
+
 
 def iterableNotStr(t):
     return isinstance(t, Iterable) and not isinstance(t, str)
@@ -124,4 +126,3 @@ def analyzerModule(name, **kwargs):
         return func
 
     return decorator
-
