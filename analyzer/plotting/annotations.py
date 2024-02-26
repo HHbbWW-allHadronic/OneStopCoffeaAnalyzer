@@ -51,6 +51,6 @@ def addText(ax, x, y, text, **kwargs):
         text,
         transform=ax.transAxes,
         fontsize=20,
-        *kwargs,
+        **kwargs,
     )
     return ax

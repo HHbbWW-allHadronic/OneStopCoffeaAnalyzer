@@ -71,7 +71,7 @@ def createSlices(model, observed, dim=1, window_2d=None, observed_title=""):
             ax,
             (observed.edges[1 - dim], observed.outputs[mask], observed.variances[mask]),
             (pred_mean, pred_var),
-            observed_title=observed_title
+            observed_title=observed_title,
         )
 
         if window:
@@ -86,6 +86,14 @@ def createSlices(model, observed, dim=1, window_2d=None, observed_title=""):
             )
         plotting.addEra(ax, "58")
         plotting.addPrelim(ax)
+        plotting.addText(
+            ax,
+            0.98,
+            0.5,
+            f"Val={round(float(val),2)}",
+            horizontalalignment="right",
+            verticalalignment="bottom",
+        )
         ax.bottom_axes[0].set_ylabel(r"$\frac{obs - pred}{\sigma_{o}}$")
         ax.legend()
         yield val, fig, ax
