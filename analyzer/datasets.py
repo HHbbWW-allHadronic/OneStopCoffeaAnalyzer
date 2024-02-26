@@ -26,6 +26,7 @@ class AnalyzerSample:
     name: str
     setname: str
     coffea_dataset: DatasetSpec
+    lumi_json: Optional[str] = None
 
 
 @dataclass
@@ -92,6 +93,7 @@ class SampleSet:
     isdata: bool = False
     forbid: Optional[bool] = False
     mc_campaign: Optional[str] = None
+    lumi_json: Optional[str] = None
 
     @staticmethod
     def fromDict(data):
@@ -106,20 +108,28 @@ class SampleSet:
         isdata = data.get("isdata", False)
         forbid = data.get("forbid", None)
         mc_campaign = data.get("mc_campaign", None)
+        lumi_json = data.get("lumi_json", None)
         if not (x_sec and n_events and lumi) and not (derived_from or isdata):
             raise Exception(
                 f"Every sample must either have a complete weight description, or a derivation. While processing\n {name}"
             )
-        if isdata and mc_campaign:
-            raise Exception(
+        if isdata:
+            if mc_campaign:
+                raise Exception(
                 f"A data sample cannot have an MC campaign."
             )
+            if not lumi_json and not derived_from:
+                raise Exception(
+                f"Data sample {name} does not have an associated lumi json"
+            )
+
             
         files = [SampleFile.fromDict(x) for x in data["files"]]
 
         style = data.get("style", {})
         if not isinstance(style, str):
             style = Style.fromDict(style)
+
 
         ss = SampleSet(
             name,
@@ -134,6 +144,8 @@ class SampleSet:
             style,
             isdata,
             forbid,
+            mc_campaign,
+            lumi_json
         )
         return ss
 
@@ -151,6 +163,18 @@ class SampleSet:
             return self.derived_from.lumi
         else:
             return self.lumi
+
+    def isData(self):
+        if self.derived_from:
+            return self.derived_from.isData()
+        else:
+            return self.isdata
+
+    def getLumiJson(self):
+        if self.derived_from:
+            return self.derived_from.getLumiJson()
+        else:
+            return self.lumi_json
 
     def getXSec(self):
         if self.derived_from:
@@ -170,7 +194,7 @@ class SampleSet:
         if self.derived_from:
             w = self.derived_from.getWeight()
         else:
-            if self.isdata:
+            if self.isData():
                 w = 1
             else:
                 w = self.lumi * self.x_sec / self.n_events
@@ -184,6 +208,7 @@ class SampleSet:
                 name=self.name,
                 setname=self.name,
                 coffea_dataset=self.toCoffeaDataset(),
+                lumi_json=self.getLumiJson()
             )
         ]
 
@@ -336,6 +361,7 @@ def createSetTable(manager, re_filter=None):
     table = Table(title="Samples Sets")
     table.add_column("Name")
     table.add_column("Number Events")
+    table.add_column("Data/MC")
     table.add_column("X-Sec")
     table.add_column("Lumi")
     table.add_column("Number Files")
@@ -350,6 +376,7 @@ def createSetTable(manager, re_filter=None):
         table.add_row(
             s.name,
             f"{str(s.totalEvents())}",
+            "Data" if s.isData() else "MC",
             f"{xs:0.2g}" if xs else "N/A",
             f"{lumi:0.4g}" if lumi else "N/A",
             f"{len(s.files)}",

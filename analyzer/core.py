@@ -2,7 +2,9 @@ import itertools as it
 import logging
 import pickle as pkl
 import warnings
+import os
 
+import requests
 from collections import defaultdict, namedtuple
 from collections.abc import Collection, Coroutine, Iterator, Sequence
 from dataclasses import dataclass, field
@@ -28,6 +30,7 @@ from urllib import parse
 import analyzer.utils as utils
 import awkward as ak
 import coffea.dataset_tools as dst
+import coffea.lumi_tools as ltools
 import dask
 import dask_awkward as dak
 import hist
@@ -170,13 +173,14 @@ class DatasetInput:
     dataset_name: str
     fill_name: str
     coffea_dataset: DatasetSpec
+    lumi_json: Optional[str] = None
 
     @staticmethod
     def fromSampleOrCollection(
         sample_or_collection: Union[SampleSet, SampleCollection]
     ):
         return [
-            DatasetInput(s.name, s.setname, s.coffea_dataset)
+            DatasetInput(s.name, s.setname, s.coffea_dataset, s.lumi_json)
             for s in sample_or_collection.getAnalyzerSamples()
         ]
 
@@ -358,6 +362,23 @@ def createFutureResult(modules, prepped_dataset):
     return daskres
 
 
+def getLumiMask(lumi_json):
+    scheme, netloc, path, *rest = parse.urlparse(lumi_json)
+    netpath = Path(path)
+    desired_fname = netpath.name
+    lumi_data = Path("analyzer_resources") / "lumi_json"
+    target_file = lumi_data / desired_fname
+    if not target_file.is_file():
+        logger.info(f"Json data file {target_file} does not exist.")
+        lumi_data.mkdir(parents=True, exist_ok=True)
+        logger.info(f"Fetching data from \"{lumi_json}\"")
+        req = requests.get(lumi_json)
+        with open(target_file, "wb") as f:
+            f.write(req.content)
+    lmask = ltools.LumiMask(target_file)
+    return lmask
+
+
 class Analyzer:
     """
     Represents an analysis, a collection of modules.
@@ -384,6 +405,7 @@ class Analyzer:
     ) -> DatasetDaskRunResult:
         # return createFutureResult(self.modules, dsprep)
         dataset_name = dsprep.dataset_input.dataset_name
+        lumi_json = dsprep.dataset_input.lumi_json
         logger.debug(f"Generating futures for dataset {dataset_name}")
         files = dsprep.getCoffeaDataset()["files"]
         maybe_base_form = dsprep.coffea_dataset_split.get("form", None)
@@ -398,6 +420,11 @@ class Analyzer:
             known_base_form=maybe_base_form,
             persistent_cache=self.cache,
         ).events()
+
+        if lumi_json:
+            logger.info(f'Dataset {dataset_name}: Using lumi json file "{lumi_json}".')
+            lmask = getLumiMask(lumi_json)
+            events = events[lmask(events.run, events.luminosityBlock)]
 
         if delayed:
             daskres = DatasetDaskRunResult(dsprep, {}, ak.num(events, axis=0), report)
