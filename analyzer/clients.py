@@ -43,8 +43,11 @@ def createLPCCondorCluster(configuration):
     if not compressed_env.exists():
         compressDirectory(venv, compressed_env.parent)
 
-    transfer_input_files = [str(base / "setup.sh"), str(base / str(compressed_env))]
-    transfer_input_files = ["setup.sh", compressed_env]
+    transfer_input_files = [
+        str(base / "setup.sh"),
+        str(base / str(compressed_env)),
+    ]
+    # transfer_input_files = ["setup.sh", compressed_env]
     # transfer_input_files = ["setup.sh"]
     kwargs = {}
     kwargs["worker_extra_args"] = [
