@@ -3,6 +3,7 @@
   isdata: true
   lumi: 41.48
   forbid: true
+  lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions17/13TeV/Legacy_2017/Cert_294927-306462_13TeV_UL2017_Collisions17_GoldenJSON.txt
   files: 
     - root://cmsxrootd.fnal.gov//store/data/Run2017B/JetHT/NANOAOD/UL2017_MiniAODv2_NanoAODv9-v1/120000/62E9EA6D-8AD2-CC42-B2FD-2817FECF47F0.root
     - root://cmsxrootd.fnal.gov//store/data/Run2017B/JetHT/NANOAOD/UL2017_MiniAODv2_NanoAODv9-v1/120000/65B3314E-0E25-A14A-921A-B33BF5695C33.root
