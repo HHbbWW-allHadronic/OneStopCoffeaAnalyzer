@@ -22,9 +22,9 @@ class ForbiddenDataset(Exception):
 
 
 @dataclass
-class AnalyzerSample:
-    name: str
-    setname: str
+class AnalyzerInput:
+    dataset_name: str
+    fill_name: str
     coffea_dataset: DatasetSpec
     lumi_json: Optional[str] = None
 
@@ -40,7 +40,6 @@ class Style:
         op = data.get("alpha")
         return Style(color, op)
 
-
     def keys(self):
         return (
             field.name
@@ -50,7 +49,6 @@ class Style:
 
     def __getitem__(self, key):
         return getattr(self, key)
-        
 
     def toDict(self):
         return dict(
@@ -115,21 +113,17 @@ class SampleSet:
             )
         if isdata:
             if mc_campaign:
-                raise Exception(
-                f"A data sample cannot have an MC campaign."
-            )
+                raise Exception(f"A data sample cannot have an MC campaign.")
             if not lumi_json and not derived_from:
                 raise Exception(
-                f"Data sample {name} does not have an associated lumi json"
-            )
+                    f"Data sample {name} does not have an associated lumi json"
+                )
 
-            
         files = [SampleFile.fromDict(x) for x in data["files"]]
 
         style = data.get("style", {})
         if not isinstance(style, str):
             style = Style.fromDict(style)
-
 
         ss = SampleSet(
             name,
@@ -145,7 +139,7 @@ class SampleSet:
             isdata,
             forbid,
             mc_campaign,
-            lumi_json
+            lumi_json,
         )
         return ss
 
@@ -202,13 +196,13 @@ class SampleSet:
             w = w * target_lumi / self.getLumi()
         return w
 
-    def getAnalyzerSamples(self, target_lumi=None):
+    def getAnalyzerInput(self, setname=None):
         return [
-            AnalyzerSample(
-                name=self.name,
-                setname=self.name,
+            AnalyzerInput(
+                dataset_name=self.name,
+                fill_name=setname or self.name,
                 coffea_dataset=self.toCoffeaDataset(),
-                lumi_json=self.getLumiJson()
+                lumi_json=self.getLumiJson(),
             )
         ]
 
@@ -259,13 +253,9 @@ class SampleCollection:
     def getSets(self):
         return self.sets
 
-    def getAnalyzerSamples(self, target_lumi=None):
+    def getAnalyzerInput(self):
         return [
-            AnalyzerSample(
-                name=x.name,
-                setname=x.name if self.treat_separate else self.name,
-                coffea_dataset=x.toCoffeaDataset(),
-            )
+            x.getAnalyzerInput(None if self.treat_separate else self.name)
             for x in self.getSets()
         ]
 
@@ -334,8 +324,6 @@ class SampleManager:
         for x in it.chain(self.sets.values(), self.collections.values()):
             if isinstance(x.style, str):
                 x.style = self[x.style].style
-            
-        
 
 
 def createSampleAndCollectionTable(manager, re_filter=None):

@@ -75,15 +75,16 @@ def handleModules(args):
     import analyzer.modules
 
     all_modules = list(ac.modules.values())
-    table = Table("Name", "Categories", "Depends On", title="Analysis Modules")
+    table = Table("Name", "Categories", "Depends On", "Default", title="Analysis Modules")
     for module in ac.modules.values():
         table.add_row(
             module.name,
             ",".join(x for x in module.categories),
             ",".join(x for x in module.depends_on),
+            str(module.default)
         )
-        console = Console()
-        console.print(table)
+    console = Console()
+    console.print(table)
 
 
 def addSubparserSamples(subparsers):

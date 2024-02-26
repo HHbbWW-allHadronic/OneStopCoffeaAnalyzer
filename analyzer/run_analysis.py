@@ -74,11 +74,7 @@ def runAnalysisOnSamples(
     logger.info(f"Creating analyzer using {len(modules)} modules")
     analyzer = ac.Analyzer(modules, cache)
     samples = [sample_manager[x] for x in samples]
-    all_sets = list(
-        it.chain.from_iterable(
-            ac.DatasetInput.fromSampleOrCollection(x) for x in samples
-        )
-    )
+    all_sets = list(it.chain.from_iterable(x.getAnalyzerInput() for x in samples))
     logger.info(f"Preprocessing {len(all_sets)} ")
     with ProgressBar():
         dataset_preps = ac.preprocessBulk(all_sets, step_size=step_size)
