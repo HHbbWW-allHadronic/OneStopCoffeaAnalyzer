@@ -64,7 +64,7 @@ function create_venv(){
     python3 -m ipykernel install --user --name "$env"
     pip3 install -I boost-histogram
 
-    rm -rf "$env/lib/*/site-packages/analyzer"
+    rm -rf $env/lib/*/site-packages/analyzer
 
     rm -rf $TMPDIR && unset TMPDIR
 
@@ -126,7 +126,7 @@ function rcmode(){
     export HISTIGNORE=:"&:[ ]*:exit:ls:bg:fg:history:clear"
     shopt -s histappend
     shopt -s cmdhist &>/dev/null
-    export HISTFILE=~/.bash_eternal_history
+    export HISTFILE=~/.bash_history
     export CONDOR_CONFIG="/srv/.condor_config"
     export JUPYTER_PATH=/srv/.local/$env/.jupyter
     export JUPYTER_RUNTIME_DIR=/srv/.local/$env/share/jupyter/runtime
