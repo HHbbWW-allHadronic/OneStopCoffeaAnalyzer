@@ -1,10 +1,16 @@
 import argparse
 import inspect
+import itertools as it
 import logging
 import sys
-import itertools as it
 from pathlib import Path
 
+import analyzer.core as ac
+import analyzer.datasets as ds
+import analyzer.run_analysis as ra
+from analyzer.clients import cluster_factory, createNewCluster, runNewCluster
+from analyzer.core import modules as all_modules
+from analyzer.plotting.simple_plot import Plotter
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import (
     DynamicCompleter,
@@ -16,13 +22,6 @@ from prompt_toolkit.history import FileHistory
 from rich import print
 from rich.console import Console
 from rich.table import Table
-
-import analyzer.core as ac
-import analyzer.datasets as ds
-import analyzer.run_analysis as ra
-from analyzer.clients import cluster_factory, createNewCluster, runNewCluster
-from analyzer.core import modules as all_modules
-from analyzer.plotting.simple_plot import Plotter
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +48,7 @@ def handleRunAnalysis(args):
         sample_manager,
         dask_schedd_address=args.scheduler_address,
         delayed=not args.no_delayed,
+        step_size=args.step_size,
     )
     ret.save(args.output)
     if args.print_after:
@@ -86,7 +86,7 @@ def handleModules(args):
             ",".join(x for x in module.depends_on),
             ",".join(
                 it.chain.from_iterable(
-                    ac.org.category_after.get(y,[]) for y in module.categories
+                    ac.org.category_after.get(y, []) for y in module.categories
                 )
             ),
             str(module.default),
@@ -390,6 +390,13 @@ def addSubparserRun(subparsers):
         default=False,
         action="store_true",
         help="If true, print the result.",
+    )
+
+    subparser.add_argument(
+        "--step-size",
+        default=100000,
+        type=int,
+        help="Number of events per chunk",
     )
 
     subparser.set_defaults(func=handleRunAnalysis)
