@@ -84,7 +84,7 @@ def createSlices(model, observed, dim=1, window_2d=None, observed_title=""):
             ax.bottom_axes[0].axvline(
                 window[1], color="red", linewidth=0.3, linestyle="-."
             )
-        plotting.addEra(ax, "58")
+        plotting.addEra(ax, "59.83")
         plotting.addPrelim(ax)
         plotting.addText(
             ax,

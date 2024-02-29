@@ -31,65 +31,69 @@ class GaussianMean(gpytorch.means.Mean):
         return ret
 
 
-class MatrixRBF(gpytorch.kernels.Kernel):
-    is_stationary = True
-
-    def __init__(self, kmatrix_prior=None, kmatrix_constraint=None, **kwargs):
-        super().__init__(**kwargs)
+class RotMixin:
+    def __init__(self, *args, rot_prior=None, rot_constraint=None, **kwargs):
+        super().__init__(*args, **kwargs)
         self.register_parameter(
-            name="raw_kmatrix",
-            parameter=torch.nn.Parameter(torch.tensor([[1.0, 0.0], [0.0, 1.0]])),
+            name="raw_rot",
+            parameter=torch.nn.Parameter(torch.tensor(0.0, requires_grad=True)),
         )
 
-        # set the parameter constraint to be positive, when nothing is specified
-        if kmatrix_constraint is None:
-            kmatrix_constraint = gpytorch.constraints.Interval(-30, 30)
+        if rot_constraint is None:
+            rot_constraint = gpytorch.constraints.Interval(-3.14, 3.14)
 
-        # register the constraint
+        self.register_constraint("raw_rot", rot_constraint)
 
-        self.register_constraint("raw_kmatrix", kmatrix_constraint)
-
-        # set the parameter prior, see
-        # https://docs.gpytorch.ai/en/latest/module.html#gpytorch.Module.register_prior
-        if kmatrix_prior is not None:
+        if rot_prior is not None:
             self.register_prior(
-                "kmatrix_prior",
-                kmatrix_prior,
-                lambda m: m.kmatrix,
-                lambda m, v: m._set_kmatrix(v),
+                "rot_prior", rot_prior, lambda m: m.rot, lambda m, v: m._rot_setter(v)
             )
 
-        # self.kmatrix = torch.tensor([[1.0, -1.0], [-1.0, 1.0]])
-
-    # now set up the 'actual' paramter
     @property
-    def kmatrix(self):
-        # when accessing the parameter, apply the constraint transform
-        return self.raw_kmatrix_constraint.transform(self.raw_kmatrix)
+    def rot(self):
+        return self.raw_rot_constraint.transform(self.raw_rot)
 
-    @kmatrix.setter
-    def kmatrix(self, value):
-        return self._set_kmatrix(value)
+    @rot.setter
+    def rot(self, rot):
+        self._rot_setter(rot)
 
-    def _set_kmatrix(self, value):
+    def _rot_setter(self, value):
         if not torch.is_tensor(value):
-            value = torch.as_tensor(value).to(self.raw_kmatrix)
-        # when setting the paramater, transform the actual value to a raw one by applying the inverse transform
-        self.initialize(
-            raw_kmatrix=self.raw_kmatrix_constraint.inverse_transform(value)
-        )
+            value = torch.as_tensor(value).to(self.raw_rot)
+        self.initialize(raw_rot=self.raw_rot_constraint.inverse_transform(value))
 
-    # this is the kernel function
+    def getMatrix(self):
+        c = torch.cos(self.rot)
+        s = torch.sin(self.rot)
+        orth_mat = torch.stack((torch.stack([c, -s]), torch.stack([s, c])))
+        return orth_mat
+
     def forward(self, x1, x2, diag=False, **params):
         diff = torch.unsqueeze(x1, dim=1) - x2
-        transformed = diff @ self.kmatrix
-        mat = torch.einsum("ijk,ijk->ij", transformed, diff)
-        covar = torch.exp(-mat)
-        # print(self.kmatrix)
+        m = self.getMatrix()
+        d = torch.diag(1 / torch.squeeze(self.lengthscale) ** 2)
+        # print(f"Matrix is {m}")
+        # print(f"LS is {d}")
+        real_mat = m.t() @ d @ m
+        c = torch.einsum("abi,ij,abj->ab", diff, real_mat, diff)
+        covar = self.post_function(c)
         if diag:
             return covar.diagonal()
         else:
             return covar
+
+
+class GeneralRQ(RotMixin, gpytorch.kernels.RQKernel):
+    def post_function(self, dist_mat):
+        alpha = self.alpha
+        for _ in range(1, len(dist_mat.shape) - len(self.batch_shape)):
+            alpha = alpha.unsqueeze(-1)
+        return (1 + dist_mat.div(2 * alpha)).pow(-alpha)
+
+
+class GeneralRBF(RotMixin, gpytorch.kernels.RBFKernel):
+    def post_function(self, dist_mat):
+        return gpytorch.kernels.rbf_kernel.postprocess_rbf(dist_mat)
 
 
 class ExactProjGPModel(gpytorch.models.ExactGP):
