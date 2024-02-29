@@ -8,14 +8,13 @@ import sys
 import time
 from pathlib import Path
 
+import analyzer.resources
 import dask
 import yaml
+from analyzer.file_utils import compressDirectory
 from distributed import Client, LocalCluster, TimeoutError
 from lpcjobqueue import LPCCondorCluster
 from lpcjobqueue.schedd import SCHEDD
-
-import analyzer.resources
-from analyzer.file_utils import compressDirectory
 
 logger = logging.getLogger(__name__)
 
@@ -43,19 +42,18 @@ def createLPCCondorCluster(configuration):
     if not compressed_env.exists():
         compressDirectory(venv, compressed_env.parent)
 
-    transfer_input_files = [
-        str(base / "setup.sh"),
-        str(base / str(compressed_env)),
-    ]
-    # transfer_input_files = ["setup.sh", compressed_env]
-    # transfer_input_files = ["setup.sh"]
+    # transfer_input_files = [
+    #    str(base / "setup.sh"),
+    #    str(base / str(compressed_env)),
+    # ]
+    transfer_input_files = ["setup.sh", compressed_env]
     kwargs = {}
     kwargs["worker_extra_args"] = [
         *dask.config.get("jobqueue.lpccondor.worker_extra_args"),
         # "--preload",
         # "lpcjobqueue.patch",
     ]
-
+    kwargs["job_extra_directives"] = {"+MaxRuntime": configuration["timeout"]}
     kwargs["python"] = f"{venv}/bin/python"
 
     logger.info(f"Transfering input files: \n{transfer_input_files}")

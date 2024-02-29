@@ -1,13 +1,4 @@
-from .results import DatasetDaskRunResult
-from .org import AnalyzerModule, sortModules, namesToModules, generateTopology
-from .inputs import DatasetPreprocessed
-from .lumi import getLumiMask
-from .processor import DatasetProcessor
-from distributed import Client, get_client, rejoin, secede
 import logging
-import dask
-import awkward as ak
-from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from typing import (
     Any,
     Callable,
@@ -21,6 +12,16 @@ from typing import (
     Union,
 )
 
+import awkward as ak
+import dask
+from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
+from distributed import Client, get_client, rejoin, secede
+
+from .inputs import DatasetPreprocessed
+from .lumi import getLumiMask
+from .org import AnalyzerModule, generateTopology, namesToModules, sortModules
+from .processor import DatasetProcessor
+from .results import DatasetDaskRunResult, DatasetRunResult
 
 logger = logging.getLogger(__name__)
 
@@ -38,10 +39,22 @@ def execute(futures: Iterable[DatasetDaskRunResult], client: Client):
         for x in futures
     }
 
+    optims = [
+        (
+            lambda dsk, keys: dask.optimization.inline(
+                dsk, [x for x in keys if "phi" in x]
+            )
+        )
+    ]
+    optims=[]
+
     if client is None:
         computed, *rest = dask.compute(dsk, scheduler="single-threaded")
     else:
-        f = client.compute(dsk)
+        f = client.compute(
+            dsk,
+            optimizations=optims,
+        )
         computed = client.gather(f)
 
     return {

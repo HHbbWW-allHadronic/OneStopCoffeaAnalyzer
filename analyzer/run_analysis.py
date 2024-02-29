@@ -14,7 +14,18 @@ from dask.diagnostics import ProgressBar
 from dask.distributed import Client
 from rich.console import Console
 
+
 logger = logging.getLogger(__name__)
+
+
+import collections
+
+
+def makeIterable(x):
+    if isinstance(x, collections.abc.Iterable):
+        return x
+    else:
+        return (x,)
 
 
 def createPackageArchive(zip_path=None, archive_type="zip"):
@@ -74,18 +85,13 @@ def runAnalysisOnSamples(
     logger.info(f"Creating analyzer using {len(modules)} modules")
     analyzer = ac.Analyzer(modules, cache)
     samples = [sample_manager[x] for x in samples]
-    all_sets = list(it.chain.from_iterable(x.getAnalyzerInput() for x in samples))
+
+    all_sets = list(
+        it.chain.from_iterable(makeIterable(x.getAnalyzerInput()) for x in samples)
+    )
     logger.info(f"Preprocessing {len(all_sets)} ")
     with ProgressBar():
         dataset_preps = ac.preprocessBulk(all_sets, step_size=step_size)
-
-    # x = dict((d.dataset_input.dataset_name, d.coffea_dataset_split) for d in dataset_preps)
-    # import json
-
-    # print(x)
-    # json.dump(x, open("out.json", "w"))
-    # return None
-
     logger.info(f"Preprocessed data in to {len(dataset_preps)} set")
     if delayed:
         futures = [analyzer.getDatasetFutures(x) for x in dataset_preps]
@@ -95,7 +101,5 @@ def runAnalysisOnSamples(
     else:
         results = [analyzer.getDatasetFutures(x, delayed=False) for x in dataset_preps]
         ret = {x.getName(): x for x in results}
-    print(ret)
-
     ret = ac.AnalysisResult(ret)
     return ret

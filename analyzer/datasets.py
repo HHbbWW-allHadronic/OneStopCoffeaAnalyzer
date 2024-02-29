@@ -197,14 +197,12 @@ class SampleSet:
         return w
 
     def getAnalyzerInput(self, setname=None):
-        return [
-            AnalyzerInput(
-                dataset_name=self.name,
-                fill_name=setname or self.name,
-                coffea_dataset=self.toCoffeaDataset(),
-                lumi_json=self.getLumiJson(),
-            )
-        ]
+        return AnalyzerInput(
+            dataset_name=self.name,
+            fill_name=setname or self.name,
+            coffea_dataset=self.toCoffeaDataset(),
+            lumi_json=self.getLumiJson(),
+        )
 
     def totalEvents(self):
         return self.n_events

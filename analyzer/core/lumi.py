@@ -2,6 +2,9 @@ from urllib import parse
 import coffea.lumi_tools as ltools
 from pathlib import Path
 import requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def getLumiMask(lumi_json):

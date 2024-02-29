@@ -1,7 +1,9 @@
 from dataclasses import dataclass
 import pickle as pkl
+from pathlib import Path
 import awkward as ak
 from datetime import datetime
+import analyzer.utils as utils
 from .inputs import DatasetPreprocessed
 import dask_awkward as dak
 import hist.dask as dah
@@ -52,7 +54,7 @@ class DatasetRunResult:
         weight = sample.getWeight(target_lumi)
         reweighted = sample.n_events / self.raw_events_processed
         final_weight = reweighted * weight
-        return {name: final_weight * h for name, h in self.histograms.items()}
+        return {name: h * final_weight for name, h in self.histograms.items()}
 
     def update(self, other):
         if self.dataset_preprocessed != other.dataset_preprocessed:
