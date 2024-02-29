@@ -53,18 +53,21 @@ class PlotObject:
     title: Optional[str] = None
     style: Optional[Dict[str, Any]] = None
 
+    mask: Optional[np.typing.NDArray[Any]] = None
+
     @staticmethod
-    def fromHist(hist, title=None, style=None):
+    def fromHist(hist, title=None, style=None, mask=None):
         return PlotObject(
             values=hist.values(),
             axes=tuple(PlotAxis.fromHist(a) for a in hist.axes),
             variances=hist.variances(),
             title=title,
             style=style or {},
+            mask=mask,
         )
 
     @staticmethod
-    def fromNumpy(hist, variances=None, title=None, style=None):
+    def fromNumpy(hist, variances=None, title=None, style=None, mask=None):
         return PlotObject(
             values=hist[0],
             axes=tuple(
@@ -74,6 +77,7 @@ class PlotObject:
             variances=variances,
             title=title,
             style=style or {},
+            mask=mask,
         )
 
 

@@ -1,8 +1,9 @@
+import numpy as np
+
+import hist
 import hist.intervals as hinter
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-import numpy as np
-import hist
 
 
 def drawAsScatter(ax, p, yerr=True, **kwargs):
@@ -11,11 +12,22 @@ def drawAsScatter(ax, p, yerr=True, **kwargs):
     x = p.axes[0].centers
     ed = p.axes[0].flat_edges
     y = p.values
+    if p.mask is not None:
+        x = x[p.mask]
+        y = y[p.mask]
 
     if yerr:
+        e_start = ed[1:]
+        e_end = ed[:-1]
+
         if p.variances is None:
             raise ValueError(f"Plot object does not have variance")
         var = np.sqrt(p.variances)
+        if p.mask is not None:
+            var = var[p.mask]
+            e_start = e_start[p.mask]
+            e_end = e_end[p.mask]
+
         ax.errorbar(
             x,
             y,
@@ -26,8 +38,8 @@ def drawAsScatter(ax, p, yerr=True, **kwargs):
         )
         ax.hlines(
             y,
-            ed[1:],
-            ed[:-1],
+            e_start,
+            e_end,
             label=p.title,
             **style,
         )
@@ -130,8 +142,9 @@ def drawPull(ax, pred, obs, uncertainty_type="poisson", hline_list=None, **kwarg
     ov, pv = obs.values, pred.values
     unc = np.sqrt(pred.variances)
     ounc = np.sqrt(obs.variances)
-    #real_unc = np.sqrt(unc**2 + ounc**2)
+    # real_unc = np.sqrt(unc**2 + ounc**2)
     real_unc = ounc
+
     pull = np.divide(
         ov - pv,
         real_unc,
@@ -139,6 +152,11 @@ def drawPull(ax, pred, obs, uncertainty_type="poisson", hline_list=None, **kwarg
         where=real_unc != 0,
     )
     x = obs.axes[0].centers
+
+    if pred.mask is not None:
+        x=x[pred.mask]
+        pull=pull[pred.mask]
+
     ax.plot(
         x,
         pull,

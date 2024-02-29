@@ -72,8 +72,6 @@ class RotMixin:
         diff = torch.unsqueeze(x1, dim=1) - x2
         m = self.getMatrix()
         d = torch.diag(1 / torch.squeeze(self.lengthscale) ** 2)
-        # print(f"Matrix is {m}")
-        # print(f"LS is {d}")
         real_mat = m.t() @ d @ m
         c = torch.einsum("abi,ij,abj->ab", diff, real_mat, diff)
         covar = self.post_function(c)

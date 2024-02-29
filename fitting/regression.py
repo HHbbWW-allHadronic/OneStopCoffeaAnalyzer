@@ -35,6 +35,14 @@ class SimpleTransformer:
         return v * self.slope**2
 
 
+def pointsToGrid(points_x, points_y, edges, set_unfilled=None):
+    filled = torch.histogramdd(
+        points_x, bins=edges, weight=torch.full_like(points_y, True)
+    )
+    ret = torch.histogramdd(points_x, bins=edges, weight=points_y)
+    return ret, filled.hist.bool()
+
+
 def preprocessHistograms(background_hist, mask_region, exclude_less=None):
     def make_mask(x1, x2, vals=None):
         if mask_region is None:
@@ -76,6 +84,8 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
     ma = torch.max(flat_centers.T, axis=1).values
     mi = torch.min(flat_centers.T, axis=1).values
     transformed_centers = (flat_centers - mi) / (ma - mi)
+    transformed_edges_x1 = (edges_x1 - mi[0]) / (ma[0] - mi[0])
+    transformed_edges_x2 = (edges_x2 - mi[1]) / (ma[1] - mi[1])
 
     ma = torch.max(flat_bin_values)
     mi = torch.min(flat_bin_values)
@@ -105,12 +115,22 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
                 (edges_x1, edges_x2),
             ),
             DataValues(
-                flat_centers, flat_bin_values, flat_bin_vars, (edges_x1, edges_x2)
+                flat_centers[torch.flatten(~values_mask)],
+                flat_bin_values[torch.flatten(~values_mask)],
+                flat_bin_vars[torch.flatten(~values_mask)],
+                (edges_x1, edges_x2),
             ),
         ),
         (
-            DataValues(train_x, train_y, train_vars, (edges_x1, edges_x2)),
-            DataValues(test_x, test_y, test_vars, (edges_x1, edges_x2)),
+            DataValues(
+                train_x,
+                train_y,
+                train_vars,
+                (transformed_edges_x1, transformed_edges_x2),
+            ),
+            DataValues(
+                test_x, test_y, test_vars, (transformed_edges_x1, transformed_edges_x2)
+            ),
         ),
         centers_mask,
         values_mask,
