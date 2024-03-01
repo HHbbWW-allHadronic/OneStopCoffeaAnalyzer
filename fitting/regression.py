@@ -9,6 +9,8 @@ import hist
 import torch
 from analyzer.core import AnalysisResult
 from analyzer.datasets import SampleManager
+from analyzer.file_utils import DirectoryData
+from analyzer.plotting.utils import subplots_context
 from rich.progress import Progress, track
 from torch.masked import as_masked_tensor, masked_tensor
 
@@ -203,3 +205,4 @@ def getPrediction(model, likelihood, test_data):
     with torch.no_grad(), gpytorch.settings.fast_computations():
         observed_pred = likelihood(model(test_data.inputs), noise=test_data.variances)
     return observed_pred
+

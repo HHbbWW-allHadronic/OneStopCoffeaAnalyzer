@@ -1,6 +1,7 @@
 import numpy as np
 
 import analyzer.plotting as plotting
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 import matplotlib.pyplot as plt
 import torch
 
@@ -121,3 +122,20 @@ def createSlices(
         ax.bottom_axes[0].set_ylabel(r"$\frac{obs - pred}{\sigma_{o}}$")
         ax.legend()
         yield val, fig, ax
+
+def simpleGrid(ax, edges, inx, iny):
+    def addColorbar(ax, vals):
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.05)
+        cbar = plt.colorbar(vals, cax=cax)
+        cax.get_yaxis().set_offset_position("left")
+        ax.cax = cax
+    X,Y = np.meshgrid(*edges)
+    z=iny
+    Z, filled = pointsToGrid(inx,iny,edges)
+    Z=Z.hist.T
+    filled=filled.T
+    Z = np.ma.masked_where(~filled, Z)
+    f = ax.pcolormesh(X,Y,Z)
+    addColorbar(ax,f)
+    return f

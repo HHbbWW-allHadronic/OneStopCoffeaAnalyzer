@@ -101,23 +101,29 @@ class DirectoryData:
             return {}
 
     def __updateData(self, newdata):
-        f=tempfile.NamedTemporaryFile(delete=False, mode="w", dir=self.directory)
+        f = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=self.directory)
         f.write(yaml.dump(newdata))
         Path(f.name).rename(self.directory_data_file)
 
+    def __key(self, path):
+        k = str(Path(path).relative_to(self.directory))
+        return k
+
     def get(self, path):
-        return self.getAll()[path]
+        k = self.__key(path)
+        return self.getAll()[k]
 
     def set(self, path, data):
-        current_data = self.get(path)
-        current_data[path] = data
+        k = self.__key(path)
+        current_data = self.getAll()
+        current_data[k] = data
         self.__updateData(current_data)
 
     def sync(self):
         current_data = self.getAll()
         for p in self.directory.glob("**/*"):
             if p.is_file() and p != self.directory_data_file:
-                key = str(p.relative_to(self.directory))
+                key = self.__key(path)
                 if key not in current_data:
                     current_data[key] = {}
         self.__updateData(current_data)

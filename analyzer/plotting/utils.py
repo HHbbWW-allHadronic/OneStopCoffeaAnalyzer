@@ -1,7 +1,10 @@
-import matplotlib.pyplot as plt
-import numpy as np
-from mpl_toolkits.axes_grid1 import make_axes_locatable
+import contextlib
 import re
+
+import numpy as np
+
+import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 
 class _Split(object):
@@ -85,3 +88,11 @@ def addAxesToHist(
         ax_histx = divider.append_axes("right", 1, pad=right_pad, sharey=ax)
         ax.right_axes.append(ax_histx)
     return ax
+
+
+@contextlib.contextmanager
+def subplots_context(*args, **kwargs):
+    fig, ax = plt.subplots(*args, **kwargs)
+    yield fig, ax
+    plt.close(fig)
+
