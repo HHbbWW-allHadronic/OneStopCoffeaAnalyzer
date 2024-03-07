@@ -28,7 +28,7 @@ def plotGaussianProcess(ax, pobj, mask=None):
     return ax
 
 
-def generatePulls(ax, observed, model, observed_title="", mask=None):
+def generatePulls(ax, observed, model, observed_title="", mask=None, domain=None):
     edges, data, variances = observed
     mean, model_variance = model
 
@@ -45,6 +45,9 @@ def generatePulls(ax, observed, model, observed_title="", mask=None):
     # if sig_hist:
     #   drawAs1DHist(ax, PlotObject(sig_hist, "Injected Signal"), yerr=True, fill=None)
     ax.set_yscale("linear")
+    if domain:
+        ax.set_xrange(domain)
+    
     ab = ax.bottom_axes[0]
     plotting.drawPull(ab, model_obj, obs_obj, hline_list=[-1, 0, 1])
 
@@ -67,6 +70,7 @@ def createSlices(
     dim=1,
     window_2d=None,
     observed_title="",
+    domain=None
 ):
     num_slices = pred_mean.shape[dim]
     centers = bin_edges[dim][:-1] + torch.diff(bin_edges[dim]) / 2
@@ -97,6 +101,7 @@ def createSlices(
             (slice_pred_mean, slice_pred_var),
             observed_title=observed_title,
             mask=fill_mask,
+            domain=domain,
         )
 
         if window:

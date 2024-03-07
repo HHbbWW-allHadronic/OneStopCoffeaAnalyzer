@@ -18,7 +18,6 @@ from .models import ExactAnyKernelModel, ExactGPModel, ExactProjGPModel
 
 DataValues = namedtuple("DataValues", "inputs outputs variances edges")
 
-
 class SimpleTransformer:
     def __init__(self, slope, intercept):
         self.slope = slope
@@ -35,6 +34,42 @@ class SimpleTransformer:
 
     def transformVariances(self, v):
         return v * self.slope**2
+
+
+class DataValuesX:
+    def __init__(self, x, y, v, edges):
+        self.x = x
+        self.y = y
+        self.v = v
+        self.edges = edges
+
+
+    def scaled(self, value):
+        return DataValues(self.x, self.y * scale, self.v * scale**2, self.edges)
+
+    def inputsNormalized(self):
+        ma = torch.max(self.edges.T, axis=1).values
+        mi = torch.min(self.edges.T, axis=1).values
+        #return DataValues((self.x - mi / ))
+
+
+
+
+class TransformedDataValues:
+    def __init__(self, transformer,*args, **kwargs):
+        self.data_values = DataValues(*args, **kwargs)
+        self.transformer=transformer
+
+    def scaled(self, value):
+        self.bin_scale_value = value
+        
+    
+
+        
+        
+    
+
+
 
 
 def pointsToGrid(points_x, points_y, edges, set_unfilled=None):
@@ -134,13 +169,11 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
                 test_x, test_y, test_vars, (transformed_edges_x1, transformed_edges_x2)
             ),
         ),
-        centers_mask,
-        values_mask,
         value_scale,
     )
 
 
-def createModel(train_data, kernel=None, model_maker=None):
+def createModel(train_data, kernel=None, model_maker=None, **kwargs):
     # v = torch.maximum(train_data.variances, torch.tensor(0.00001))
     v = train_data.variances
 
@@ -153,7 +186,7 @@ def createModel(train_data, kernel=None, model_maker=None):
 
     if kernel:
         model = model_maker(
-            train_data.inputs, train_data.outputs, likelihood, kernel=kernel
+            train_data.inputs, train_data.outputs, likelihood, kernel=kernel, **kwargs
         )
     else:
         model = model_maker(train_data.inputs, train_data.outputs, likelihood)
@@ -190,12 +223,17 @@ def optimizeHyperparams(model, likelihood, train_data, iterations=100, bar=True)
             #    )
             #    # print(model.proj_mat)
             optimizer.step()
-            progress.update(
-                task1,
-                advance=1,
-                description=f"[red]Optimizing(Loss is {round(loss.item(),3)})...",
-            )
-            progress.refresh()
+            if bar:
+                progress.update(
+                    task1,
+                    advance=1,
+                    description=f"[red]Optimizing(Loss is {round(loss.item(),3)})...",
+                )
+                progress.refresh()
+            else:
+                if i % ( iterations // 10) == 0:
+                    print(f"Iter {i}: Loss = {loss.item()}")
+
     return model, likelihood
 
 
@@ -206,3 +244,14 @@ def getPrediction(model, likelihood, test_data):
         observed_pred = likelihood(model(test_data.inputs), noise=test_data.variances)
     return observed_pred
 
+
+def getChi2Blinded(inputs, pred_mean, test_mean, test_var, window):
+    imask_x = (inputs[:, 0] > window[0][0]) & (inputs[:, 0] < window[0][1])
+    imask_y = (inputs[:, 1] > window[1][0]) & (inputs[:, 1] < window[1][1])
+    mask = imask_x & imask_y
+
+    pred_mean = pred_mean[mask]
+    test_mean = test_mean[mask]
+    test_var = test_var[mask]
+    num = torch.count_nonzero(mask)
+    return torch.sum((pred_mean - test_mean) ** 2 / test_var) / num
