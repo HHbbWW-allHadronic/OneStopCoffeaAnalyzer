@@ -39,22 +39,16 @@ def execute(futures: Iterable[DatasetDaskRunResult], client: Client):
         for x in futures
     }
 
-    optims = [
-        (
-            lambda dsk, keys: dask.optimization.inline(
-                dsk, [x for x in keys if "phi" in x]
-            )
-        )
-    ]
-    optims=[]
+
 
     if client is None:
         computed, *rest = dask.compute(dsk, scheduler="single-threaded")
     else:
-        f = client.compute(
-            dsk,
-            optimizations=optims,
-        )
+        #delayed = dask.delayed(dsk)
+        #out = client.persist(delayed)
+        #computed = out.compute()
+        #print(computed)
+        f = client.compute(dsk)
         computed = client.gather(f)
 
     return {

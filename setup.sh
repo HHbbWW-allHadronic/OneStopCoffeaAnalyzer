@@ -15,7 +15,7 @@ fi
 
 env_configs[torch,venv]="cmsmlenv"
 env_configs[torch,extras]="torch"
-#env_configs[torch,apptainer_flags]="--nv"
+env_configs[torch,apptainer_flags]="--nv"
 env_configs[torch,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
 #env_configs[torch,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:pytorch-2.0.0-cuda11.7-cudnn8-runtime-singularity"
 
