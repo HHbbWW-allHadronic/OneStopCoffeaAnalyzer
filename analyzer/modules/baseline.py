@@ -1,5 +1,4 @@
 import awkward as ak
-
 from analyzer.core import analyzerModule
 
 
@@ -30,7 +29,6 @@ def createSelection(events, analyzer):
     selection.add("1tightbjet", (ak.num(tight_b) >= 1))
     # selection.add("jet_dr", ((top_two_dr < 4) & (top_two_dr > 2)).to_numpy())
     selection.add("b_dr", (med_dr > 1))
-    events = analyzer.applySelection(events)
     return events, analyzer
 
 
@@ -41,7 +39,6 @@ def createSelection(events, analyzer):
     filled_med = ak.pad_none(med_b, 2, axis=1)
     bbpt = ak.fill_none((filled_med[:, 0] + filled_med[:, 1]).pt, False)
     selection.add("bbpt", (bbpt > 200).to_numpy())
-    events = analyzer.applySelection(events)
     return events, analyzer
 
 
@@ -64,5 +61,4 @@ def createCRSelection(events, analyzer):
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))
     selection.add("0looseb", (ak.num(loose_b) == 0))
-    events = analyzer.applySelection(events)
     return events, analyzer

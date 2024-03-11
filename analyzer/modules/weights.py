@@ -3,7 +3,7 @@ from analyzer.core import analyzerModule
 from coffea.analysis_tools import Weights
 
 
-@analyzerModule("weights", categories="weights", default=True)
+@analyzerModule("weights", categories="weights", always=True)
 def addWeights(events, analyzer):
     if analyzer.delayed:
         analyzer.weights = Weights(None)
