@@ -32,11 +32,13 @@ function activate_venv(){
 }
 
 function version_info(){
-    local packages_to_show=("coffea" "awkward" "dask-awkward" "dask")
-    local package_info="$(pip3 show ${packages_to_show[@]} )"
-    for package in ${packages_to_show[@]}; do
-        awk -v package="$package" 'BEGIN{pat=package "$" } a==1{printf("%s: %s\n", package, $2); exit} $0~pat{a++}' <<< "$package_info"
+    local packages_to_show=("coffea" "awkward" "dask" "dask-awkward" "dask-histogram")
+    local package_info="$(pip3 show "${packages_to_show[@]}")"
+    for package in "${packages_to_show[@]}"; do
+        awk -v package="$package" 'BEGIN{pat=package "$" } a==1{printf("%s: %s\n", package, $2); exit} $0~pat{a++}' \
+            <<< "$package_info"
     done  >&2 
+
 }
 
 function create_venv(){
@@ -64,7 +66,7 @@ function create_venv(){
     python3 -m ipykernel install --user --name "$env"
     pip3 install -I boost-histogram
 
-    rm -rf $env/lib/*/site-packages/analyzer
+    rm -rf "$env"/lib/*/site-packages/analyzer
 
     rm -rf $TMPDIR && unset TMPDIR
 
