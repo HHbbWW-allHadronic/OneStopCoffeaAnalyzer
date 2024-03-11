@@ -3,6 +3,18 @@ import math
 import pickle as pkl
 import sys
 from collections import namedtuple
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Hashable,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import gpytorch
 import hist
@@ -16,60 +28,82 @@ from torch.masked import as_masked_tensor, masked_tensor
 
 from .models import ExactAnyKernelModel, ExactGPModel, ExactProjGPModel
 
-DataValues = namedtuple("DataValues", "inputs outputs variances edges")
 
-class SimpleTransformer:
-    def __init__(self, slope, intercept):
-        self.slope = slope
-        self.intercept = intercept
+class LinearTransform:
+    def __init__(self, slope, intercept=None):
+        self.slope = torch.atleast_1d(slope)
+        if intercept is None:
+            self.intercept = torch.zeros_like(self.slope)
+        else:
+            self.intercept = torch.atleast_1d(intercept)
 
-    def transformData(self, data):
-        return (data - self.intercept) / slope
+    def transformData(self, *data):
+        if len(data) == 1:
+            data = data[0]
+            return (data - self.intercept) / self.slope
+        else:
+            ret = tuple(
+                (d - self.intercept[i]) / self.slope[i] for i, d in enumerate(data)
+            )
+            return ret
 
-    def iTransformData(self, data):
-        return (data * slope) + intercept
+    def iTransformData(self, *data):
+        if len(data) == 1:
+            data = data[0]
+            return (data * self.slope) + self.intercept
+        else:
+            return tuple(
+                (d * self.slope[i]) + self.intercept[i] for i, d in enumerate(data)
+            )
 
     def transformVariances(self, v):
         return v / self.slope**2
 
-    def transformVariances(self, v):
+    def iTransformVariances(self, v):
         return v * self.slope**2
 
-
-class DataValuesX:
-    def __init__(self, x, y, v, edges):
-        self.x = x
-        self.y = y
-        self.v = v
-        self.edges = edges
+    def __repr__(self):
+        return f"LinearTransform({self.slope}, {self.intercept})"
 
 
-    def scaled(self, value):
-        return DataValues(self.x, self.y * scale, self.v * scale**2, self.edges)
-
-    def inputsNormalized(self):
-        ma = torch.max(self.edges.T, axis=1).values
-        mi = torch.min(self.edges.T, axis=1).values
-        #return DataValues((self.x - mi / ))
+DataValues = namedtuple("DataValues", "X Y V E")
 
 
+class DataTransformation:
+    def __init__(self, transform_x, transform_y):
+        self.transform_x = transform_x
+        self.transform_y = transform_y
 
+    def transformX(self, edges, X):
+        return (
+            self.transform_x.transformData(*edges),
+            self.transform_x.transformData(X),
+        )
 
-class TransformedDataValues:
-    def __init__(self, transformer,*args, **kwargs):
-        self.data_values = DataValues(*args, **kwargs)
-        self.transformer=transformer
+    def transformY(self, Y, V):
+        return (self.transform_y.transformData(Y), self.transform_y.transformVariances(V))
 
-    def scaled(self, value):
-        self.bin_scale_value = value
-        
-    
+    def transform(self, dv: DataValues) -> DataValues:
+        E, X = self.transformX(dv.E, dv.X)
+        Y, V = self.transformY(dv.Y, dv.V)
+        return DataValues(X, Y, V, E)
 
-        
-        
-    
+    def iTransformX(self, edges, X):
+        return (
+            self.transform_x.iTransformData(*edges),
+            self.transform_x.iTransformData(X),
+        )
 
+    def iTransformY(self, Y, V):
+        return (self.transform_y.iTransformData(Y), self.transform_y.iTransformVariances(V))
 
+    def iTransform(self, dv: DataValues) -> DataValues:
+        E, X = self.iTransformX(dv.E, dv.X)
+        Y, V = self.iTransformY(dv.Y, dv.V)
+        return DataValues(X, Y, V, E)
+
+    def __repr__(self):
+        return f"DataTransformation({self.transform_x}, {self.transform_y})"
 
 
 def pointsToGrid(points_x, points_y, edges, set_unfilled=None):
@@ -80,7 +114,62 @@ def pointsToGrid(points_x, points_y, edges, set_unfilled=None):
     return ret, filled.hist.bool()
 
 
-def preprocessHistograms(background_hist, mask_region, exclude_less=None):
+def getNormalizationTransform(dv) -> DataTransformation:
+    X, Y, V, E = dv
+
+    max_x, min_x = torch.max(X, axis=0).values, torch.min(X, axis=0).values
+    max_y, min_y = torch.max(Y), torch.min(Y)
+
+    value_scale = max_y - min_y
+    input_scale = max_x - min_x
+
+    transform_x = LinearTransform(max_x - min_x, min_x)
+    transform_y = LinearTransform(value_scale, min_y)
+
+    return DataTransformation(transform_x, transform_y)
+
+
+def makeRegressionData(histogram, mask_region, exclude_less=None):
+    def make_mask(x1, x2, vals=None):
+        if mask_region is None:
+            a = torch.full_like(x1, False, dtype=torch.bool)
+            b = torch.full_like(x2, False, dtype=torch.bool)
+        else:
+            a = (x1 > mask_region[0][0]) & (x1 < mask_region[0][1])
+            b = (x2 > mask_region[1][0]) & (x2 < mask_region[1][1])
+        return a, b
+
+    edges_x1 = torch.from_numpy(histogram.axes[0].edges)
+    edges_x2 = torch.from_numpy(histogram.axes[1].edges)
+
+    centers_x1 = torch.diff(edges_x1) / 2 + edges_x1[:-1]
+    centers_x2 = torch.diff(edges_x2) / 2 + edges_x2[:-1]
+
+    bin_values = torch.from_numpy(histogram.values()).T
+    bin_vars = torch.from_numpy(histogram.variances()).T
+    centers_grid_x1, centers_grid_x2 = torch.meshgrid(
+        centers_x1, centers_x2, indexing="xy"
+    )
+    if exclude_less:
+        domain_mask = bin_values < exclude_less
+    else:
+        domain_mask = torch.full_like(bin_values, False, dtype=torch.bool)
+
+    centers_grid = torch.stack((centers_grid_x1, centers_grid_x2), axis=2)
+    m1, m2 = make_mask(centers_grid[:, :, 0], centers_grid[:, :, 1], bin_values)
+    centers_mask = (m1 | domain_mask) & (m2 | domain_mask)
+    flat_centers = torch.flatten(centers_grid, end_dim=1)
+    flat_bin_values = torch.flatten(bin_values)
+    flat_bin_vars = torch.flatten(bin_vars)
+    return DataValues(
+        flat_centers[torch.flatten(~centers_mask)],
+        flat_bin_values[torch.flatten(~centers_mask)],
+        flat_bin_vars[torch.flatten(~centers_mask)],
+        (edges_x1, edges_x2),
+    )
+
+
+def preprocessHistograms(background_hist, mask_region, exclude_less=None, rebin=1):
     def make_mask(x1, x2, vals=None):
         if mask_region is None:
             a = torch.full_like(x1, False, dtype=torch.bool)
@@ -98,6 +187,7 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
 
     edges_x1 = torch.from_numpy(background_hist.axes[0].edges)
     edges_x2 = torch.from_numpy(background_hist.axes[1].edges)
+
     centers_x1 = torch.diff(edges_x1) / 2 + edges_x1[:-1]
     centers_x2 = torch.diff(edges_x2) / 2 + edges_x2[:-1]
 
@@ -106,7 +196,6 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
     centers_grid_x1, centers_grid_x2 = torch.meshgrid(
         centers_x1, centers_x2, indexing="xy"
     )
-
     if exclude_less:
         values_mask = bin_values < exclude_less
     else:
@@ -139,6 +228,7 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
     train_x = transformed_centers_masked
     train_y = transformed_bin_values_masked
     train_vars = transformed_bin_vars_masked
+
     test_x = transformed_centers[torch.flatten(~values_mask)]
     test_y = transformed_values[torch.flatten(~values_mask)]
     test_vars = transformed_vars[torch.flatten(~values_mask)]
@@ -173,30 +263,32 @@ def preprocessHistograms(background_hist, mask_region, exclude_less=None):
     )
 
 
-def createModel(train_data, kernel=None, model_maker=None, **kwargs):
+def createModel(train_data, kernel=None, model_maker=None, learn_noise=False, **kwargs):
     # v = torch.maximum(train_data.variances, torch.tensor(0.00001))
-    v = train_data.variances
+    v = train_data.V
 
     likelihood = gpytorch.likelihoods.FixedNoiseGaussianLikelihood(
         noise=v,
-        learn_additional_noise=False,
+        learn_additional_noise=learn_noise,
     )
     if model_maker is None:
         model_maker = ExactAnyKernelModel
 
     if kernel:
         model = model_maker(
-            train_data.inputs, train_data.outputs, likelihood, kernel=kernel, **kwargs
+            train_data.X, train_data.Y, likelihood, kernel=kernel, **kwargs
         )
     else:
-        model = model_maker(train_data.inputs, train_data.outputs, likelihood)
+        model = model_maker(train_data.X, train_data.Y, likelihood, **kwargs)
     return model, likelihood
 
 
-def optimizeHyperparams(model, likelihood, train_data, iterations=100, bar=True):
+def optimizeHyperparams(
+    model, likelihood, train_data, iterations=100, bar=True, lr=0.05
+):
     model.train()
     likelihood.train()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.05)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     mll = gpytorch.mlls.ExactMarginalLogLikelihood(likelihood, model)
 
     context = Progress() if bar else contextlib.nullcontext()
@@ -206,8 +298,8 @@ def optimizeHyperparams(model, likelihood, train_data, iterations=100, bar=True)
             task1 = progress.add_task("[red]Optimizing...", total=iterations)
         for i in range(iterations):
             optimizer.zero_grad()
-            output = model(train_data.inputs)
-            loss = -mll(output, train_data.outputs)
+            output = model(train_data.X)
+            loss = -mll(output, train_data.Y)
             loss.backward()
             # if not (i + 1) % (iterations / 10) or i == 0:
             #    print(
@@ -231,8 +323,10 @@ def optimizeHyperparams(model, likelihood, train_data, iterations=100, bar=True)
                 )
                 progress.refresh()
             else:
-                if i % ( iterations // 10) == 0:
+                if i % (iterations // 10) == 0:
                     print(f"Iter {i}: Loss = {loss.item()}")
+                    pass
+                    # print(f"Covar is {output.covariance_matrix}")
 
     return model, likelihood
 
@@ -241,7 +335,7 @@ def getPrediction(model, likelihood, test_data):
     model.eval()
     likelihood.eval()
     with torch.no_grad(), gpytorch.settings.fast_computations():
-        observed_pred = likelihood(model(test_data.inputs), noise=test_data.variances)
+        observed_pred = likelihood(model(test_data.X), noise=test_data.V)
     return observed_pred
 
 

@@ -3,7 +3,8 @@ import sys
 
 import gpytorch
 import torch
-
+from gpytorch.variational import CholeskyVariationalDistribution
+from gpytorch.variational import VariationalStrategy
 
 class GaussianMean(gpytorch.means.Mean):
     def __init__(self, prior=None, init_mean=0.0, init_sigma=1.0, init_scale=1.0):
@@ -30,6 +31,17 @@ class GaussianMean(gpytorch.means.Mean):
         e = torch.exp(-inner)
         ret = self.scale * e
         return ret
+
+
+class HeterogenousConstantMean(gpytorch.means.Mean):
+    def __init__(self, init, prior=None):
+        super().__init__()
+        self.register_parameter(name="values", parameter=torch.nn.Parameter(init))
+        if prior is not None:
+            self.register_prior("contant_prior", prior, "mean")
+
+    def forward(self, input):
+        return self.values
 
 
 class RotParamMixin:
@@ -138,16 +150,15 @@ class GeneralSpectralMixture(RotParamMixin, gpytorch.kernels.SpectralMixtureKern
         real_mat = self.getMatrix()
         exp_val = torch.einsum("cabi,ij,cabj->cab", exp_diff, real_mat, exp_diff)
 
-
-        #print(self.mixture_means.shape)
+        # print(self.mixture_means.shape)
         # Compute the exponential and cosine terms
         exp_term = exp_val.mul_(-2 * math.pi**2)
-        #exp_term = exp_diff.pow_(2).mul_(-2 * math.pi**2)
+        # exp_term = exp_diff.pow_(2).mul_(-2 * math.pi**2)
         cos_term = cos_diff.mul_(2 * math.pi)
-        exp_term = torch.unsqueeze(exp_term,3)
-        cos_term = torch.unsqueeze(cos_term.sum(3),3)
-        #print(exp_term.shape)
-        #print(cos_term.shape)
+        exp_term = torch.unsqueeze(exp_term, 3)
+        cos_term = torch.unsqueeze(cos_term.sum(3), 3)
+        # print(exp_term.shape)
+        # print(cos_term.shape)
         res = exp_term.exp_() * cos_term.cos_()
 
         # Sum over mixtures
@@ -211,6 +222,41 @@ class ExactAnyKernelModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, kernel=None, mean=None):
         super().__init__(train_x, train_y, likelihood)
         # self.mean_module = gpytorch.means.ConstantMean()
+        self.mean_module = mean or gpytorch.means.ConstantMean()
+        if kernel is None:
+            kernel = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel(ard_num_dims=2)
+            )
+        self.covar_module = kernel
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+class InducingPointModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y, likelihood, kernel=None, mean=None):
+        super().__init__(train_x, train_y, likelihood)
+        # self.mean_module = gpytorch.means.ConstantMean()
+        self.mean_module = mean or gpytorch.means.ConstantMean()
+        if kernel is None:
+            kernel = gpytorch.kernels.ScaleKernel(
+                gpytorch.kernels.RBFKernel(ard_num_dims=2)
+            )
+        self.covar_module = gpytorch.kernels.InducingPointKernel
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+class VariationalAnyKernelModel(gpytorch.models.ApproximateGP):
+    def __init__(self, inducing_points, kernel=None, mean=None):
+        variational_distribution = CholeskyVariationalDistribution(inducing_points.size(0))
+        variational_strategy = VariationalStrategy(self, inducing_points, variational_distribution, learn_inducing_locations=True)
+        super().__init__(variational_strategy)
         self.mean_module = mean or gpytorch.means.ConstantMean()
         if kernel is None:
             kernel = gpytorch.kernels.ScaleKernel(
