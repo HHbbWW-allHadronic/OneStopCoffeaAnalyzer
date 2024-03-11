@@ -77,9 +77,9 @@ def handleModules(args):
 
     all_modules = list(ac.modules.values())
     table = Table(
-        "Name", "Categories", "Depends On", "After", "Default", title="Analysis Modules"
+        "Name", "Categories", "Depends On", "After", "Always", title="Analysis Modules"
     )
-    for module in ac.modules.values():
+    for module in sorted(ac.modules.values(),key=lambda x:x.name):
         table.add_row(
             module.name,
             ",".join(x for x in module.categories),
@@ -89,7 +89,7 @@ def handleModules(args):
                     ac.org.category_after.get(y, []) for y in module.categories
                 )
             ),
-            str(module.default),
+            str(module.always),
         )
     console = Console()
     console.print(table)
