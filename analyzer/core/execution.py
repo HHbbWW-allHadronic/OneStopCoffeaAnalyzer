@@ -17,6 +17,7 @@ import dask
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from distributed import Client, get_client, rejoin, secede
 
+from .events import getEvents
 from .inputs import DatasetPreprocessed
 from .lumi import getLumiMask
 from .org import AnalyzerModule, generateTopology, namesToModules, sortModules
@@ -39,15 +40,13 @@ def execute(futures: Iterable[DatasetDaskRunResult], client: Client):
         for x in futures
     }
 
-
-
     if client is None:
         computed, *rest = dask.compute(dsk, scheduler="single-threaded")
     else:
-        #delayed = dask.delayed(dsk)
-        #out = client.persist(delayed)
-        #computed = out.compute()
-        #print(computed)
+        # delayed = dask.delayed(dsk)
+        # out = client.persist(delayed)
+        # computed = out.compute()
+        # print(computed)
         f = client.compute(dsk)
         computed = client.gather(f)
 
@@ -70,6 +69,7 @@ def createFutureResult(modules, prepped_dataset):
         schemaclass=NanoAODSchema,
         uproot_options=dict(
             allow_read_errors_with_report=True,
+            use_threads=False,
         ),
         known_base_form=maybe_base_form,
     ).events()
@@ -107,9 +107,8 @@ class Analyzer:
         return modules
 
     def getDatasetFutures(
-        self, dsprep: DatasetPreprocessed, delayed=True
+        self, dsprep: DatasetPreprocessed, delayed: bool = True
     ) -> DatasetDaskRunResult:
-        # return createFutureResult(self.modules, dsprep)
         dataset_name = dsprep.dataset_input.dataset_name
         lumi_json = dsprep.dataset_input.lumi_json
         logger.debug(f"Generating futures for dataset {dataset_name}")
@@ -117,16 +116,7 @@ class Analyzer:
         maybe_base_form = dsprep.coffea_dataset_split.get("form", None)
         if maybe_base_form is not None:
             maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
-        events, report = NanoEventsFactory.from_root(
-            files,
-            schemaclass=NanoAODSchema,
-            uproot_options=dict(
-                allow_read_errors_with_report=True,
-            ),
-            known_base_form=maybe_base_form,
-            persistent_cache=self.cache,
-        ).events()
-
+        events, report = getEvents(files, maybe_base_form, self.cache)
         if lumi_json:
             logger.info(f'Dataset {dataset_name}: Using lumi json file "{lumi_json}".')
             lmask = getLumiMask(lumi_json)
