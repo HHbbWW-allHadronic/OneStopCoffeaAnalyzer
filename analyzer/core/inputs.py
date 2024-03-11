@@ -28,9 +28,9 @@ class DatasetPreprocessed:
     coffea_dataset_split: DatasetSpec
 
     @staticmethod
-    def fromDatasetInput(dataset_input, client, **kwargs):
+    def fromDatasetInput(dataset_input, **kwargs):
         out, x = dst.preprocess(dataset_input.coffea_dataset, save_form=False, **kwargs)
-        return DatasetPreprocessed(dataset_input, out)
+        return DatasetPreprocessed(dataset_input, out[dataset_input.dataset_name])
 
     def getCoffeaDataset(self) -> DatasetSpec:
         return self.coffea_dataset_split
