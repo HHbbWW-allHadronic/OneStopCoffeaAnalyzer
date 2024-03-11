@@ -39,15 +39,15 @@ class AnalyzerModule:
         name,
         function,
         depends_on=None,
-        categories=None,
+        categories="main",
         after=None,
-        default=False,
+        always=False,
     ):
         self.name = name
         self.function = function
         self.depends_on = toSet(depends_on) if depends_on else set()
         self.categories = toSet(categories) if categories else set()
-        self.default = default
+        self.always = always
 
     def __call__(self, events, analyzer):
         return self.function(events, analyzer)
@@ -61,42 +61,39 @@ class AnalyzerModule:
 
 modules = {}
 category_after = {
-    "main": ["selection", "weights", "category"],
-    "category": ["selection"],
-    "weights": ["selection"],
+    "post_selection": ["selection"],
+
+    "weights": ["post_selection"],
+    "category": ["post_selection"],
+    "main": ["post_selection", "weights", "category"],
 }
 
 
 def generateTopology(module_list):
     mods = [x.name for x in module_list]
-    mods.extend([x.name for x in modules.values() if x.default])
+    mods.extend([x.name for x in modules.values() if x.always])
 
     cats = defaultdict(list)
 
-    for x in module_list:
+    for x in [modules[n] for n in mods]:
         for c in x.categories:
             cats[c].append(x.name)
 
     graph = {}
 
-    for i, module in enumerate(module_list):
-        graph[module.name] = module.depends_on
-        # if i > 0:
-        #    graph[module.name].update(
-        #        {
-        #            mods[i - 1],
-        #        }
-        #    )
-
+    for name in mods:
+        module = modules[name]
+        graph[name] = module.depends_on
         for c in module.categories:
             for a in category_after.get(c, []):
-                graph[module.name].update(set(cats[a]))
+                graph[name].update(set(cats[a]))
 
-        for m in graph[module.name]:
+        for m in graph[name]:
             if m not in mods:
                 raise AnalyzerGraphError(
-                    f"Module {module.name} depends on {m}, but was this dependency was not supplied"
+                    f"Module {name} depends on {m}, but was this dependency was not supplied"
                 )
+
     return graph
 
 
