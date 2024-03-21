@@ -91,8 +91,9 @@ def addAxesToHist(
 
 
 @contextlib.contextmanager
-def subplots_context(*args, **kwargs):
+def subplots_context(*args,close_after=True, **kwargs):
     fig, ax = plt.subplots(*args, **kwargs)
     yield fig, ax
-    plt.close(fig)
+    if close_after:
+        plt.close(fig)
 
