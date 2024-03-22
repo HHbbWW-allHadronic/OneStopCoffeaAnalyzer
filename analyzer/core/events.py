@@ -26,12 +26,14 @@ def _(arg: AnalyzerInput):
 
 @getEvents.register
 def _(arg: str, sample_manager=None):
-    if isinstance(sample_manager,str):
-        d = sample_manager
-        sample_manager = SampleManager()
-        sample_manager.loadSamplesFromDirectory(d)
-        
-    s = sample_manager.getSet(arg)
-    return getEvents(s.getAnalyzerInput())
+    if "/" in arg:
+        return getEvents({arg : "Events"})
+    else:
+        if isinstance(sample_manager,str):
+            d = sample_manager
+            sample_manager = SampleManager()
+            sample_manager.loadSamplesFromDirectory(d)
 
+        s = sample_manager.getSet(arg)
+        return getEvents(s.getAnalyzerInput())
 
