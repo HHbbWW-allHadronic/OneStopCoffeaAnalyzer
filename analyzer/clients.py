@@ -72,9 +72,9 @@ def createLPCCondorCluster(configuration):
         ),
         **kwargs,
     )
-    cluster.scale(workers)
+    cluster.scale(jobs=workers)
     # print(cluster)
-    # cluster.adapt(minimum=workers, maximum=workers)
+    #cluster.adapt(minimum=workers, maximum=workers)
 
     return cluster
 

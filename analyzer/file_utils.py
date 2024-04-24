@@ -4,6 +4,7 @@ import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
+import collections.abc
 
 import yaml
 
@@ -85,14 +86,24 @@ def getStem(url):
     return str(Path(path).stem)
 
 
+
+def update(d, u):
+    for k, v in u.items():
+        if isinstance(v, collections.abc.Mapping):
+            d[k] = update(d.get(k, {}), v)
+        else:
+            d[k] = v
+    return d
+
 class DirectoryData:
     data_file_name = "directory_data.yaml"
+    file_data_key = "file_data"
 
     def __init__(self, directory):
         self.directory = Path(directory)
         self.directory_data_file = self.directory / self.data_file_name
 
-    def getAll(self):
+    def getComplete(self):
         if self.directory_data_file.is_file():
             with open(self.directory_data_file, "r") as f:
                 data = yaml.safe_load(f)
@@ -101,8 +112,10 @@ class DirectoryData:
             return {}
 
     def __updateData(self, newdata):
+        current_data = self.getComplete()
+        new_dict = update(current_data, newdata)
         f = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=self.directory)
-        f.write(yaml.dump(newdata))
+        f.write(yaml.dump(new_dict))
         Path(f.name).rename(self.directory_data_file)
 
     def __key(self, path):
@@ -111,13 +124,19 @@ class DirectoryData:
 
     def get(self, path):
         k = self.__key(path)
-        return self.getAll()[k]
+        return self.getComplete()[self.file_data_key][k]
 
     def set(self, path, data):
         k = self.__key(path)
-        current_data = self.getAll()
-        current_data[k] = data
-        self.__updateData(current_data)
+        d = {self.file_data_key : {k : data}}
+        self.__updateData(d)
+
+    def getGlobal(self):
+        return self.getComplete()["global_data"]
+
+    def setGlobal(self, data):
+        self.__updateData({"global_data" : data})
+
 
     def sync(self):
         current_data = self.getAll()
@@ -125,5 +144,5 @@ class DirectoryData:
             if p.is_file() and p != self.directory_data_file:
                 key = self.__key(path)
                 if key not in current_data:
-                    current_data[key] = {}
+                    current_data[self.file_data_key][key] = {}
         self.__updateData(current_data)

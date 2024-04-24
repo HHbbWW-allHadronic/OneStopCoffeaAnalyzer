@@ -62,7 +62,7 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
     raw_vals = plot_object.values
     vals = np.append(raw_vals, raw_vals[-1])
     if yerr:
-        errs = plot_object.variances
+        errs = np.sqrt(plot_object.variances)
         if orient == "h":
             ax.errorbar(
                 x,

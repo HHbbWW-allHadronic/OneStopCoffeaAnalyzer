@@ -2,11 +2,8 @@
 
 declare -A env_configs
 env_configs[coffea,venv]="coffeaenv"
-env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask:latest-py3.10"
-#env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask:l"
-#env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-base:v2024.1.2"
-#env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/cs9:x86_64"
-#env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
+env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.4.0-py3.10"
+
 if [[ $(hostname) =~ "fnal" ]]; then
     env_configs[coffea,extras]="lpcqueue"
 else
@@ -19,16 +16,25 @@ if nvidia-modprobe 2> /dev/null; then
     env_configs[torch,apptainer_flags]="--nv"
 fi
 env_configs[torch,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
-#env_configs[torch,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:pytorch-2.0.0-cuda11.7-cudnn8-runtime-singularity"
+
+env_configs[jaxenv,venv]="jaxenv"
+env_configs[jaxenv,extras]="torch"
+env_configs[jaxenv,empty]="true"
+if nvidia-modprobe 2> /dev/null; then 
+    env_configs[jaxenv,apptainer_flags]="--nv"
+fi
+#env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
+#env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:pytorch-2.0.0-cuda11.7-cudnn8-runtime-singularity"
+env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:tensorflow-2.12.0-gpu-singularity"
 
 
 function activate_venv(){
-    local env=$1
+    local config_name=$1
+    local env=${env_configs[$config_name,venv]}
     source "$env"/bin/activate
     local localpath="$VIRTUAL_ENV$(python3 -c 'import sys; print(f"/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')"
     export PYTHONPATH=${localpath}:$PYTHONPATH
     printf "Python path is %s\n" "$PYTHONPATH"
-    printf "Python bin is %s\n" "$(which python)"
     printf "Python version is %s\n" "$(python3 --version)"
     printf "Using environment %s\n" "$VIRTUAL_ENV"
 }
@@ -44,24 +50,34 @@ function version_info(){
 }
 
 function create_venv(){
-    local env=$1
-    local extras=$2
+    local config_name=$1
+    local env=${env_configs[$config_name,venv]}
+    local extras=${env_configs[$config_name,extras]}
+
     export TMPDIR=$(mktemp -d -p .)
+    export PIP_DOWNLOAD_CACHE=".pipcache"
     
     trap 'rm -rf -- "$TMPDIR"' EXIT
 
     python3 -m venv --system-site-packages "$env"
-    activate_venv "$env"
+    activate_venv $1
 
+    if [[ "${env_configs[$config_name,empty]:-X}" == "true" ]]; then
+        return
+    fi
 
     printf "Created virtual environment %s\n" "$env"
+
+
+
     printf "Upgrading installation tools\n"
+    python3 -m pip install pip  --upgrade
     python3 -m pip install setuptools pip wheel --upgrade
     printf "Installing project\n"
     if [[ -z $extras ]]; then
-        python3 -m pip install .
+        python3 -m pip install -U . 
     else
-        python3 -m pip install ".[$extras]"
+        python3 -m pip install -U ".[$extras]" 
     fi
 
     pip3 install ipython --upgrade
@@ -109,13 +125,15 @@ function rcmode(){
     BGC="\[\033[46m\]"
     BGW="\[\033[47m\]"
     NONE="\[\033[0m\]"    # unsets color to term's fg color
-    local env=${env_configs[$1,venv]}
-    local extras=${env_configs[$1,extras]}
+
+    local config_name=$1
+    local env=${env_configs[$config_name,venv]}
+
     if [[ ! -d $env ]]; then
         printf "Virtual environment does not exist, creating virtual environment\n"
-        create_venv "$env" "$extras"
+        create_venv "$1"
     fi
-    activate_venv "$env"
+    activate_venv "$1"
 
     [ -z "$PS1" ] && return
 
