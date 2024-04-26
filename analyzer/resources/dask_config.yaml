@@ -11,7 +11,7 @@ jobqueue:
     # Dask worker options
     cores: 1                 # Total number of cores per job
     memory: 2GB                # Total amount of memory per job
-    processes: 2                # Number of Python processes per job
+    processes: 1                # Number of Python processes per job
 
     interface: null             # Network interface to use like eth0 or ib0
     death-timeout: 60           # Number of seconds to wait if a worker can not find a scheduler

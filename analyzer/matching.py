@@ -93,7 +93,7 @@ def object_matching(obj, obj2, dr_min, dpt_max=None, return_indices=False):
 
     # Get the indexing to sort the pairs sorted by deltaR without any cut
     idx_pairs_sorted = ak.argsort(deltaR, axis=1)
-    pairs = ak.argcartesian([obj, obj2])
+    pairs = ak.cartesian([ak.local_index(obj,axis=1), ak.local_index(obj2,axis=1)])
     # Sort all the collection over pairs by deltaR
     pairs_sorted = pairs[idx_pairs_sorted]
     deltaR_sorted = deltaR[idx_pairs_sorted]

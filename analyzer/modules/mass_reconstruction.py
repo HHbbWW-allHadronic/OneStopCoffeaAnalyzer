@@ -21,7 +21,7 @@ def makeIdxHist(analyzer, idxs, name, axlabel):
 
 
 @analyzerModule(
-    "reco_efficiency", categories="main", depends_on=["chargino_hists", "combo_mass"]
+    "reco_efficiency", categories="main", depends_on=["chargino_hists", "delta_r"]
 )
 def recoEfficiency(events, analyzer):
     ret = {}
@@ -150,32 +150,32 @@ def recoEfficiency(events, analyzer):
         name="Number of jets in this set that are also in the gen level matching",
         mask=all_three_mask,
     )
-    analyzer.H(
-        f"m3_top_3_no_lead_b_dr_cut_matching",
-        hist.axis.IntCategory(
-            [0, 1, 2, 3],
-            name="num_matched_chi",
-            label=r"|GenMatcher($\Delta R < 0.2$) $\cap$ top 3 no lead b dr cut|",
-        ),
-        numMatching(
-            events.matched_jet_idx[:, 1:4], events.matching_algos.top_3_no_lead_b_dr_cut
-        ),
-        name="Number of jets in this set that are also in the gen level matching",
-    )
-    analyzer.H(
-        f"m3_top_3_no_lead_b_dr_cut_matching_all_three",
-        hist.axis.IntCategory(
-            [0, 1, 2, 3],
-            name="num_matched_chi",
-            label=r"|GenMatcher($\Delta R < 0.2$) $\cap$ top 3 no lead b dr cut| All Three Matched",
-        ),
-        numMatching(
-            events.matched_jet_idx[:, 1:4], events.matching_algos.top_3_no_lead_b_dr_cut
-        )[all_three_mask],
-        name="Number of jets in this set that are also in the gen level matching",
-        mask=all_three_mask,
-    )
-    return ret
+    # analyzer.H(
+    #     f"m3_top_3_no_lead_b_dr_cut_matching",
+    #     hist.axis.IntCategory(
+    #         [0, 1, 2, 3],
+    #         name="num_matched_chi",
+    #         label=r"|GenMatcher($\Delta R < 0.2$) $\cap$ top 3 no lead b dr cut|",
+    #     ),
+    #     numMatching(
+    #         events.matched_jet_idx[:, 1:4], events.matching_algos.top_3_no_lead_b_dr_cut
+    #     ),
+    #     name="Number of jets in this set that are also in the gen level matching",
+    # )
+    # analyzer.H(
+    #     f"m3_top_3_no_lead_b_dr_cut_matching_all_three",
+    #     hist.axis.IntCategory(
+    #         [0, 1, 2, 3],
+    #         name="num_matched_chi",
+    #         label=r"|GenMatcher($\Delta R < 0.2$) $\cap$ top 3 no lead b dr cut| All Three Matched",
+    #     ),
+    #     numMatching(
+    #         events.matched_jet_idx[:, 1:4], events.matching_algos.top_3_no_lead_b_dr_cut
+    #     )[all_three_mask],
+    #     name="Number of jets in this set that are also in the gen level matching",
+    #     mask=all_three_mask,
+    # )
+    return events, analyzer
 
 
 @analyzerModule("combo_mass", depends_on=["chargino_hists"], categories="main")

@@ -45,9 +45,9 @@ def goodGenParticles(events, analyzer):
     return events, analyzer
 
 
-# @analyzerModule("delta_r", ModuleType.MainProducer,require_tags=["signal"], after=["good_gen"])
-def deltaRMatch(events):
-    # ret =  object_matching(events.SignalQuarks, events.good_jets, 0.3, None, False)
+#@analyzerModule("delta_r", ModuleType.MainProducer,require_tags=["signal"], after=["good_gen"])
+@analyzerModule("delta_r", depends_on=["good_gen"], categories="main")
+def deltaRMatch(events, analyzer):
     matched_jets, matched_quarks, dr, idx_j, idx_q, _ = object_matching(
         events.good_jets, events.SignalQuarks, 0.2, 0.5, True
     )
