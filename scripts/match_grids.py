@@ -1,21 +1,22 @@
-import json
+import sys
+sys.path.append("/srv")
+
 from analyzer.plotting.simple_plot import Plotter
-from analyzer.plotting.core_plots import *
-import argparse
-import pandas as pd
-import json
-from dataclasses import dataclass
+from analyzer.plotting.plots_2d import AnnotRectangle, drawRectangles
+from analyzer.datasets import SampleManager
+from analyzer.core import AnalysisResult
+
 import matplotlib.pyplot as plt
-from matplotlib.collections import RegularPolyCollection, PatchCollection
 from pathlib import Path
-from matplotlib.patches import Rectangle
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-import pickle as pkl
 import numpy as np
 
-file_name="analyzerout/chargino_reco.pkl"
-data = pkl.load(open(file_name, 'rb'))
-histos = data["histograms"]
+file_name="signal24-04-26.pkl"
+
+sample_manager = SampleManager()
+sample_manager.loadSamplesFromDirectory("datasets")
+
+res = AnalysisResult.fromFile(file_name)
+histos = res.getMergedHistograms(sample_manager)
 
 
 def histMean(histogram):
@@ -31,6 +32,7 @@ def histVariance(histogram):
 
 def makeRecoPlot(hname, hist, savedir ,prefix=""):
     savedir=Path(savedir)
+    savedir.mkdir(exist_ok=True, parents=True)
     signals = [x for x in hist.axes[0] if "signal" in x]
 
     rects = []
@@ -53,6 +55,7 @@ def makeRecoPlot(hname, hist, savedir ,prefix=""):
 
 def makeMatchPlot(hname, target_range, savedir ,prefix=""):
     savedir=Path(savedir)
+    savedir.mkdir(exist_ok=True, parents=True)
     hist = histos[hname]
     signals = [x for x in hist.axes[0] if "signal" in x]
 
@@ -74,7 +77,7 @@ def makeMatchPlot(hname, target_range, savedir ,prefix=""):
     fig.savefig(savedir /( (prefix or "") + hname + ".pdf"))
 
 def makeReco(hname):
-    makeRecoPlot(hname, histos[hname][{"number_jets": sum}], "figures", "recoplot_")
+    makeRecoPlot(hname, histos[hname], "figures", "recoplot_")
 
 makeReco("m24_m")
 makeReco("m13_m")
