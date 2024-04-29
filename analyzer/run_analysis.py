@@ -29,6 +29,9 @@ def makeIterable(x):
 
 
 def createPackageArchive(zip_path=None, archive_type="zip"):
+    """Compress the local analyzer package so that it can be used on worker nodes.
+    """
+
     logger.info("Creating analyzer archive")
     if not zip_path:
         temp_path = Path(tempfile.gettempdir())
@@ -38,6 +41,7 @@ def createPackageArchive(zip_path=None, archive_type="zip"):
     trimmed_path = temp_path / "trimmedanalyzer" / "analyzer"
     if trimmed_path.is_dir():
         shutil.rmtree(trimmed_path)
+    # Copy analyzer directory, ignoring useless files
     temp_analyzer = shutil.copytree(
         analyzer_path,
         trimmed_path,
@@ -70,6 +74,9 @@ def runAnalysisOnSamples(
     step_size=75000,
     delayed=True,
 ):
+    """Run a collection of analysis modules on some samples.
+    """
+
     import analyzer.modules
 
     cache = {}

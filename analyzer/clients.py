@@ -20,8 +20,12 @@ logger = logging.getLogger(__name__)
 
 
 def createLPCCondorCluster(configuration):
+    """Create a new dask cluster for use with LPC condor.
+    """
+
+    # Need container to tell condor what singularity image to use
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
-    print(apptainer_container)
+
     workers = configuration["n_workers"]
     memory = configuration["memory"]
     schedd_host = configuration["schedd_host"]
@@ -38,6 +42,7 @@ def createLPCCondorCluster(configuration):
     for p in base_log_path.glob("tmp*"):
         shutil.rmtree(p)
 
+    # Compress environment to transport to the condor workers
     compressed_env = Path("compressed") / "environment.tar.gz"
     if not compressed_env.exists():
         compressDirectory(venv, compressed_env.parent)
@@ -80,6 +85,9 @@ def createLPCCondorCluster(configuration):
 
 
 def createLocalCluster(configuration):
+    """Create a local dask cluster for running on a single node.
+    """
+
     workers = configuration["n_workers"]
     memory = configuration["memory"]
     schedd_host = configuration["schedd_host"]
@@ -100,6 +108,9 @@ cluster_factory = dict(
 
 
 def createNewCluster(cluster_type, config):
+    """Creates a general new cluster of a certain given a configuration.
+    """
+
     with importlib.resources.as_file(
         importlib.resources.files(analyzer.resources)
     ) as f:

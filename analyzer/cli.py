@@ -21,7 +21,10 @@ from prompt_toolkit.completion import (
 from prompt_toolkit.history import FileHistory
 from rich import print
 from rich.console import Console
+from rich.markdown import Markdown
+from rich.pretty import Pretty
 from rich.table import Table
+from rich.columns import Columns
 
 logger = logging.getLogger(__name__)
 
@@ -75,24 +78,60 @@ def handleModules(args):
     logger.info("Handling module inspection")
     import analyzer.modules
 
-    all_modules = list(ac.modules.values())
-    table = Table(
-        "Name", "Categories", "Depends On", "After", "Always", title="Analysis Modules"
-    )
-    for module in sorted(ac.modules.values(),key=lambda x:x.name):
-        table.add_row(
-            module.name,
-            ",".join(x for x in module.categories),
-            ",".join(x for x in module.depends_on),
-            ",".join(
-                it.chain.from_iterable(
-                    ac.org.category_after.get(y, []) for y in module.categories
-                )
-            ),
-            str(module.always),
-        )
     console = Console()
-    console.print(table)
+
+    if args.modules:
+        for m in args.modules:
+
+            try:
+                module = ac.modules[m]
+            except KeyError as e:
+                print(f"No module {m}")
+                continue
+            text = f"""
+# Module: {module.name}
+{module.documenation or ''}"""
+            console.print(Markdown(text))
+            used_fields, created_fields, hists = ac.org.inspectModule(module)
+            if len(used_fields):
+                used_text = "## Used Fields"
+                columns = Columns(sorted(used_fields), equal=True, expand=True)
+                console.print(Markdown(used_text))
+                console.print(columns)
+            if len(created_fields):
+                created_text = "## Created Fields"
+                columns = Columns(sorted(created_fields), equal=True, expand=True)
+                console.print(Markdown(created_text))
+                console.print(columns)
+            if len(hists):
+                h_text = "## Created Histograms"
+                columns = Columns(sorted(hists), equal=True, expand=True)
+                console.print(Markdown(h_text))
+                console.print(columns)
+
+    else:
+        all_modules = list(ac.modules.values())
+        table = Table(
+            "Name",
+            "Categories",
+            "Depends On",
+            "After",
+            "Always",
+            title="Analysis Modules",
+        )
+        for module in sorted(ac.modules.values(), key=lambda x: x.name):
+            table.add_row(
+                module.name,
+                ",".join(x for x in module.categories),
+                ",".join(x for x in module.depends_on),
+                ",".join(
+                    it.chain.from_iterable(
+                        ac.org.category_after.get(y, []) for y in module.categories
+                    )
+                ),
+                str(module.always),
+            )
+        console.print(table)
 
 
 def addSubparserSamples(subparsers):
@@ -115,6 +154,11 @@ def addSubparserModules(subparsers):
         "modules", help="Get information on available analysis modules"
     )
     subparser.set_defaults(func=handleModules)
+    subparser.add_argument(
+        "modules",
+        nargs="*",
+        help="If provided, give verbose information on listed modules.",
+    )
 
 
 def handleCheck(args):

@@ -4,6 +4,15 @@ from analyzer.core import analyzerModule
 
 @analyzerModule("baseline_selection", categories="selection", depends_on=["objects"])
 def createSelection(events, analyzer):
+    """Baseline selection for the analysis.
+Applies the following selection:
+- Jets[0].pt > 300
+- 4 <= nJets <= 6
+- 0 leptons
+- 2 medium bjets, at least one of which is tight
+- delta_R(med_bjets[0],med_bjets[1]) > 1
+    """
+
     selection = analyzer.selection
     good_jets = events.good_jets
     fat_jets = events.FatJet
