@@ -20,6 +20,7 @@ lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "mai
 
 gpytorch  = {version = ">=1.11", optional=true}
 pyro-ppl = "*"
+numexpr = ">=2.8.4"
 
 
 [tool.poetry.extras]
