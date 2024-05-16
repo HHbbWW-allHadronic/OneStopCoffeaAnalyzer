@@ -28,15 +28,31 @@ fi
 env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:tensorflow-2.12.0-gpu-singularity"
 
 
+function box_out()
+{
+    local box_h="#"
+    local box_v="#"
+    local s=("$@") b w
+    for l in "${s[@]}"; do
+        ((w<${#l})) && { b="$l"; w="${#l}"; }
+    done
+    echo " ${box_h}${b//?/${box_h}}${box_h}
+${box_v} ${b//?/ } ${box_v}"
+    for l in "${s[@]}"; do
+        printf "${box_v} %*s ${box_v}\n" "-$w" "$l"
+    done
+    echo "${box_v} ${b//?/ } ${box_v}
+ ${box_h}${b//?/${box_h}}${box_h}"
+}
+
+
+
 function activate_venv(){
     local config_name=$1
     local env=${env_configs[$config_name,venv]}
     source "$env"/bin/activate
     local localpath="$VIRTUAL_ENV$(python3 -c 'import sys; print(f"/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')"
     export PYTHONPATH=${localpath}:$PYTHONPATH
-    printf "Python path is %s\n" "$PYTHONPATH"
-    printf "Python version is %s\n" "$(python3 --version)"
-    printf "Using environment %s\n" "$VIRTUAL_ENV"
 }
 
 function version_info(){
@@ -48,6 +64,7 @@ function version_info(){
     done  >&2 
 
 }
+
 
 function create_venv(){
     local config_name=$1
@@ -65,11 +82,7 @@ function create_venv(){
     if [[ "${env_configs[$config_name,empty]:-X}" == "true" ]]; then
         return
     fi
-
     printf "Created virtual environment %s\n" "$env"
-
-
-
     printf "Upgrading installation tools\n"
     python3 -m pip install pip  --upgrade
     python3 -m pip install setuptools pip wheel --upgrade
@@ -83,21 +96,11 @@ function create_venv(){
     pip3 install ipython --upgrade
     python3 -m ipykernel install --user --name "$env"
     pip3 install -I boost-histogram
-
     rm -rf "$env"/lib/*/site-packages/analyzer
-
     rm -rf $TMPDIR && unset TMPDIR
-
     sed -i "/PS1=/d" "$env"/bin/activate
-    #for file in $NAME/bin/*; do
-    #    sed -i '1s/#!.*python$/#!\/usr\/bin\/env python3/' "$file"
-    #done
-    #sed -i '40s/.*/VIRTUAL_ENV="$(cd "$(dirname "$(dirname "${BASH_SOURCE[0]}" )")" \&\& pwd)"/' $ENVNAME/bin/activate
     trap - EXIT
 }
-
-
-
 
 function rcmode(){
     K="\[\033[0;30m\]"    # black
@@ -126,20 +129,9 @@ function rcmode(){
     BGW="\[\033[47m\]"
     NONE="\[\033[0m\]"    # unsets color to term's fg color
 
-    local config_name=$1
-    local env=${env_configs[$config_name,venv]}
-
-    if [[ ! -d $env ]]; then
-        printf "Virtual environment does not exist, creating virtual environment\n"
-        create_venv "$1"
-    fi
-    activate_venv "$1"
 
     [ -z "$PS1" ] && return
 
-    PS1="${R}[APPTAINER\$( [[ ! -z \${VIRTUAL_ENV} ]] && echo "/\${VIRTUAL_ENV##*/}")]${M}[\t]${W}\u@${C}\h:${G}[\w]> ${NONE}"
-
-    unset PROMPT_COMMAND
 
     HISTSIZE=50000
     HISTFILESIZE=20000
@@ -156,7 +148,33 @@ function rcmode(){
     export IPYTHONDIR=/srv/.local/$env/.ipython
     export MPLCONFIGDIR=/srv/.local/$env/.mpl
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
+
+    local config_name=$1
+    local env=${env_configs[$config_name,venv]}
+
+    if [[ ! -d $env ]]; then
+        printf "Virtual environment does not exist, creating virtual environment\n"
+        create_venv "$1"
+    fi
+    activate_venv "$1"
+
+    PS1="${R}[APPTAINER\$( [[ ! -z \${VIRTUAL_ENV} ]] && echo "/\${VIRTUAL_ENV##*/}")]${M}[\t]${W}\u@${C}\h:${G}[\w]> ${NONE}"
+    unset PROMPT_COMMAND
+
+    welcome_message="
+             Single Stop Analysis Framework
+........................................................
+  Python version is $(python3 --version)
+  Using environment $VIRTUAL_ENV
+........................................................
+  Run the following command to get started      
+  $ python3 -m analyzer --help
+"
+    IFS=$'\n' read -rd '' -a split_welcome_message <<<"$welcome_message"
+    mkdir -p .private
+    box_out "${split_welcome_message[@]}"
 }
+
 
 
 function startup_with_container(){
@@ -172,12 +190,20 @@ function startup_with_container(){
         if [[ -e $HISTFILE ]]; then
             apptainer_flags="$apptainer_flags --bind $HISTFILE:/srv/.bash_eternal_history"
         fi
+        if [[ $(hostname) =~ "fnal" ]]; then
+            apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch/"
+        fi
+        if [[ -z "${X509_USER_PROXY}" ]]; then
+            apptainer_flags="$apptainer_flags --bind ${X509_USER_PROXY%/*}"
+        fi
+        if [[ -d "$HOME/.globus" ]]; then
+            apptainer_flags="$apptainer_flags --bind $HOME/.globus" # --bind $HOME/.rnd"
+        fi
+
         apptainer exec \
                   --env "APPTAINER_WORKING_DIR=$PWD" \
                   --env "APPTAINER_IMAGE=$container" $apptainer_flags \
-                  --bind /uscmst1b_scratch/ \
                   --bind /cvmfs \
-                  --bind ${X509_USER_PROXY%/*} \
                   --bind ${PWD}:/srv \
                   --pwd /srv "$container" /bin/bash \
                   --rcfile <(printf "source setup.sh '$1' bashrc")
@@ -186,13 +212,10 @@ function startup_with_container(){
     fi
 }
 
-
 function start_jupyter(){
     local port=${1:-8999}
     python3 -m jupyter lab --no-browser --port "$port" --allow-root
 }
-
-
 
 function main(){
     local config="$1"

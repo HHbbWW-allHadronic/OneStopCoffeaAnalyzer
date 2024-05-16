@@ -13,8 +13,13 @@ import dask
 import yaml
 from analyzer.file_utils import compressDirectory
 from distributed import Client, LocalCluster, TimeoutError
-from lpcjobqueue import LPCCondorCluster
-from lpcjobqueue.schedd import SCHEDD
+
+try:
+    from lpcjobqueue import LPCCondorCluster
+    from lpcjobqueue.schedd import SCHEDD
+    LPCQUEUE_AVAILABLE=True
+except ImportError as e:
+    LPCQUEUE_AVAILABLE=False
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +27,8 @@ logger = logging.getLogger(__name__)
 def createLPCCondorCluster(configuration):
     """Create a new dask cluster for use with LPC condor.
     """
+    if not LPCQUEUE_AVAILABLE:
+        raise NotImplemented("LPC Condor can only be used at the LPC.")
 
     # Need container to tell condor what singularity image to use
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
