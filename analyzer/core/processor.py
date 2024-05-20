@@ -40,7 +40,8 @@ class DatasetProcessor:
         self.__weights = val
 
     def applySelection(self, events):
-        events = events[self.selection.all(*self.selection.names)]
+        if self.selection.names:
+            events = events[self.selection.all(*self.selection.names)]
         return events
 
     def maybeCreateAndFill(
