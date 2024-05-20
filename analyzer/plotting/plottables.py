@@ -2,8 +2,9 @@ import re
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple, Union
 
-import hist
 import numpy as np
+
+import hist
 
 
 class PlotAxis:
@@ -39,10 +40,11 @@ class PlotAxis:
         )
 
     def __str__(self):
-        return f"Axis([{self.edges[0][0]},{self.edges[-1][1]}], bins={len(self.edges)}, title=\"{self.title}\" )"
+        return f'Axis([{self.edges[0][0]},{self.edges[-1][1]}], bins={len(self.edges)}, title="{self.title}" )'
 
     def __repr__(self):
         return str(self)
+
 
 @dataclass
 class PlotObject:
@@ -87,7 +89,7 @@ def createPlotObjects(hist, cat_axis, manager, cat_filter=None):
     ret = [
         PlotObject.fromHist(hist[{cat_axis: n}], manager[n].title, manager[n].style)
         for n in hist.axes[cat_axis]
-        #if cat_filter is None or (re.search(cat_filter, n))
+        # if cat_filter is None or (re.search(cat_filter, n))
         if cat_filter is None or cat_filter(n)
     ]
     return ret
