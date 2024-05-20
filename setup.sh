@@ -193,12 +193,17 @@ function startup_with_container(){
         if [[ $(hostname) =~ "fnal" ]]; then
             apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch/"
         fi
-        if [[ -z "${X509_USER_PROXY}" ]]; then
+        if [[ $(hostname) =~ "umn" ]]; then
+            apptainer_flags="$apptainer_flags --bind /local/cms/user/"
+        fi
+        if [[ ! -z "${X509_USER_PROXY}" ]]; then
             apptainer_flags="$apptainer_flags --bind ${X509_USER_PROXY%/*}"
         fi
         if [[ -d "$HOME/.globus" ]]; then
             apptainer_flags="$apptainer_flags --bind $HOME/.globus" # --bind $HOME/.rnd"
         fi
+
+        echo "$apptainer_flags"
 
         apptainer exec \
                   --env "APPTAINER_WORKING_DIR=$PWD" \
