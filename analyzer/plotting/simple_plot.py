@@ -7,12 +7,14 @@ from pathlib import Path
 import analyzer.core as ac
 import hist
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 from analyzer.datasets import SampleManager
 from analyzer.utils import accumulate
 
 from .high_level_plots import plot1D, plot2D, plotPulls, plotRatio
 from .mplstyles import loadStyles
 from .plottables import PlotObject, createPlotObjects
+from .utils import getNormalized
 
 
 class Plotter:
@@ -24,6 +26,7 @@ class Plotter:
         stream_handler.setFormatter(logging.Formatter(f"[Plotter]: %(message)s"))
         self.logger.addHandler(stream_handler)
         self.logger.info("Creating plotter")
+
 
     def __init__(
         self,
@@ -192,12 +195,16 @@ class Plotter:
         if normalize:
             hc = getNormalized(hc, "dataset")
         background_plobjs = createPlotObjects(
-            hc, "dataset", self.sample_manager, cat_filter="^(?!signal)"
+            hc, "dataset", self.sample_manager,
+            #cat_filter=".*(?!signal).*"
+            cat_filter=lambda x: not re.search("signal",x)
         )
         signal_plobjs = createPlotObjects(
-            hc, "dataset", self.sample_manager, cat_filter="signal"
+            hc, "dataset", self.sample_manager, #cat_filter="signal"
+            cat_filter=lambda x: re.search("signal", x)
         )
         if len(hist.axes) == 2:
+            print(len(signal_plobjs))
             fig = plot1D(
                 signal_plobjs,
                 background_plobjs,

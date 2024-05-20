@@ -87,6 +87,7 @@ def createPlotObjects(hist, cat_axis, manager, cat_filter=None):
     ret = [
         PlotObject.fromHist(hist[{cat_axis: n}], manager[n].title, manager[n].style)
         for n in hist.axes[cat_axis]
-        if cat_filter is None or (re.search(cat_filter, n))
+        #if cat_filter is None or (re.search(cat_filter, n))
+        if cat_filter is None or cat_filter(n)
     ]
     return ret

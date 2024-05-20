@@ -69,6 +69,7 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
                 raw_vals,
                 yerr=errs,
                 fmt="none",
+                label=None,
                 **kwargs,
                 **style,
             )
@@ -78,6 +79,7 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
                 x,
                 xerr=errs,
                 fmt="none",
+                label=None,
                 **style,
                 **kwargs,
             )
