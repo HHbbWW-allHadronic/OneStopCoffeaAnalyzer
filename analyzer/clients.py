@@ -42,6 +42,7 @@ def createLPCCondorCluster(configuration):
 
     base = Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
     venv = Path(os.environ.get("VIRTUAL_ENV"))
+    x509 = Path(os.environ.get("X509_USER_PROXY")).absolute()
 
     logger.info("Deleting old dask logs")
     base_log_path = Path("/uscmst1b_scratch/lpc1/3DayLifetime/ckapsiak/")
@@ -59,6 +60,8 @@ def createLPCCondorCluster(configuration):
     #    str(base / str(compressed_env)),
     # ]
     transfer_input_files = ["setup.sh", compressed_env]
+    if x509:
+        transfer_input_files.append(x509)
     kwargs = {}
     kwargs["worker_extra_args"] = [
         *dask.config.get("jobqueue.lpccondor.worker_extra_args"),
