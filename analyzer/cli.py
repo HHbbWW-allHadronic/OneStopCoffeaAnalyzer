@@ -52,6 +52,8 @@ def handleRunAnalysis(args):
         dask_schedd_address=args.scheduler_address,
         delayed=not args.no_delayed,
         step_size=args.step_size,
+        prefer_location=args.prefer_location,
+        require_location=args.require_location,
     )
     ret.save(args.output)
     if args.print_after:
@@ -434,6 +436,20 @@ def addSubparserRun(subparsers):
         default=False,
         action="store_true",
         help="If true, print the result.",
+    )
+
+    subparser.add_argument(
+        "--require-location",
+        default=None,
+        type=str,
+        help="If provided, require that all samples be found at provided location.",
+    )
+
+    subparser.add_argument(
+        "--prefer-location",
+        default="eos",
+        type=str,
+        help="If provided, prefer that all samples be found at provided location.",
     )
 
     subparser.add_argument(

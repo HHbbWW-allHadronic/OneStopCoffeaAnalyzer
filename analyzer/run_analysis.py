@@ -1,3 +1,4 @@
+import collections
 import importlib.resources as ir
 import itertools as it
 import logging
@@ -14,11 +15,7 @@ from dask.diagnostics import ProgressBar
 from dask.distributed import Client
 from rich.console import Console
 
-
 logger = logging.getLogger(__name__)
-
-
-import collections
 
 
 def makeIterable(x):
@@ -29,8 +26,7 @@ def makeIterable(x):
 
 
 def createPackageArchive(zip_path=None, archive_type="zip"):
-    """Compress the local analyzer package so that it can be used on worker nodes.
-    """
+    """Compress the local analyzer package so that it can be used on worker nodes."""
 
     logger.info("Creating analyzer archive")
     if not zip_path:
@@ -73,9 +69,11 @@ def runAnalysisOnSamples(
     dataset_directory="datasets",
     step_size=75000,
     delayed=True,
+    no_execute=False,
+    require_location=None,
+    prefer_location=None,
 ):
-    """Run a collection of analysis modules on some samples.
-    """
+    """Run a collection of analysis modules on some samples."""
 
     import analyzer.modules
 
@@ -94,7 +92,14 @@ def runAnalysisOnSamples(
     samples = [sample_manager[x] for x in samples]
 
     all_sets = list(
-        it.chain.from_iterable(makeIterable(x.getAnalyzerInput()) for x in samples)
+        it.chain.from_iterable(
+            makeIterable(
+                x.getAnalyzerInput(
+                    require_location=require_location, prefer_location=prefer_location
+                )
+            )
+            for x in samples
+        )
     )
     logger.info(f"Preprocessing {len(all_sets)} ")
     with ProgressBar():
@@ -102,6 +107,8 @@ def runAnalysisOnSamples(
     logger.info(f"Preprocessed data in to {len(dataset_preps)} set")
     if delayed:
         futures = [analyzer.getDatasetFutures(x) for x in dataset_preps]
+        if no_execute:
+            return futures
         logger.info(f"Generated {len(futures)} analysis futures")
         with ProgressBar():
             ret = ac.execute(futures, client)

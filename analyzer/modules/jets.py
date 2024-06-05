@@ -10,6 +10,12 @@ from .axes import *
 from .objects import b_tag_wps
 from .utils import numMatching
 
+@analyzerModule("tiny", categories="main")
+def tiny(events, analyzer):
+    gj = events.good_jets
+    analyzer.H(f"h_njet", nj_axis, ak.num(gj), name="njets")
+    return events,analyzer
+
 
 @analyzerModule("jets", categories="main", depends_on=["objects", "event_level"])
 def createJetHistograms(events, analyzer):

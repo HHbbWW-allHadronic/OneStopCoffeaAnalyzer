@@ -5,10 +5,11 @@ from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
 
+from yaml import dump, load
+
 import rich
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
-from yaml import dump, load
 
 try:
     from yaml import CDumper as Dumper
@@ -60,20 +61,24 @@ class Style:
 
 @dataclass
 class SampleFile:
-    paths: List[str] = field(default_factory=list)
+    paths: Dict[str, str] = field(default_factory=dict)
 
     @staticmethod
     def fromDict(data):
-        if isinstance(data, List):
+        if isinstance(data, Dict):
             return SampleFile(data)
         else:
-            return SampleFile([data])
+            return SampleFile({"eos": data})
 
     def getRootDir(self):
         return "Events"
 
-    def getFile(self):
-        return self.paths[0]
+    def getFile(self, prefer_location=None, require_location=None):
+        if prefer_location and require_location:
+            raise ValueError(f"Cannot have both a preferred and required location")
+        if require_location:
+            return self.paths[require_location]
+        return self.paths.get(prefer_location, next(iter(self.paths.values())))
 
 
 @dataclass(frozen=True)
@@ -176,13 +181,20 @@ class SampleSet:
         else:
             return self.x_sec
 
-    def toCoffeaDataset(self):
+    def toCoffeaDataset(self, prefer_location=None, require_location=None):
         if self.isForbidden():
             raise ForbiddenDataset(
                 f"Attempting to access the files for forbidden dataset {self.name}"
             )
 
-        return {self.name: {"files": {f.getFile(): f.getRootDir() for f in self.files}}}
+        return {
+            self.name: {
+                "files": {
+                    f.getFile(prefer_location, require_location): f.getRootDir()
+                    for f in self.files
+                }
+            }
+        }
 
     def getWeight(self, target_lumi=None):
         if self.derived_from:
@@ -196,11 +208,13 @@ class SampleSet:
             w = w * target_lumi / self.getLumi()
         return w
 
-    def getAnalyzerInput(self, setname=None):
+    def getAnalyzerInput(
+        self, setname=None, prefer_location=None, require_location=None
+    ):
         return AnalyzerInput(
             dataset_name=self.name,
             fill_name=setname or self.name,
-            coffea_dataset=self.toCoffeaDataset(),
+            coffea_dataset=self.toCoffeaDataset(prefer_location, require_location),
             lumi_json=self.getLumiJson(),
         )
 
