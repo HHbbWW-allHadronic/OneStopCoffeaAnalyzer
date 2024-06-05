@@ -8,10 +8,10 @@ Begin by cloning and entering the repository.
 #+begin_src bash
 git clone git@github.com:UMN-CMS/SingleStopCoffea.git
 cd SingleStopCoffea
-source setup.sh coffea
 #+end_src
 
-** Other environments
+
+** Running on a CMS Machine
 We are using a container based system, using different containers for different analysis states (in the future we may build a custom container with everything we need).
 
 For basic analysis, use the =coffea= mode, which includes =dask= and =coffea= to produce histograms. 
@@ -22,6 +22,12 @@ source setup.sh coffea
 If performing post processing, use the =torch= mode, which includes tools for performing the gaussian process regression.
 #+begin_src bash
 source setup.sh torch
+#+end_src
+
+** Running on a non-CMS Machine
+If you are not using a CMS machine, you can still try to install the analyzer locally by creating a virtual environment, then running
+#+begin_src bash
+python3 -m pip install .
 #+end_src
 
 
