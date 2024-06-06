@@ -265,9 +265,13 @@ class SampleCollection:
     def getSets(self):
         return self.sets
 
-    def getAnalyzerInput(self):
+    def getAnalyzerInput(self, prefer_location=None, require_location=None):
         return [
-            x.getAnalyzerInput(None if self.treat_separate else self.name)
+            x.getAnalyzerInput(
+                None if self.treat_separate else self.name,
+                prefer_location,
+                require_location,
+            )
             for x in self.getSets()
         ]
 

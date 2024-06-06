@@ -43,6 +43,8 @@ def handleCluster(args):
 
 def handleRunAnalysis(args):
     logger.info("Handling run analysis")
+    if args.require_location:
+        prefer_location=None
     sample_manager = ds.SampleManager()
     sample_manager.loadSamplesFromDirectory(args.dataset_path)
     ret = ra.runAnalysisOnSamples(
@@ -52,7 +54,7 @@ def handleRunAnalysis(args):
         dask_schedd_address=args.scheduler_address,
         delayed=not args.no_delayed,
         step_size=args.step_size,
-        prefer_location=args.prefer_location,
+        prefer_location=prefer_location,
         require_location=args.require_location,
     )
     ret.save(args.output)

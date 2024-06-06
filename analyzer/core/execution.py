@@ -125,8 +125,8 @@ class Analyzer:
         if delayed:
             daskres = DatasetDaskRunResult(dsprep, {}, ak.num(events, axis=0), report)
         else:
-            events = events.compute()
-            report = report.compute()
+            events = events.compute(scheduler="synchronous")
+            report = report.compute(scheduler="single-threaded")
             daskres = DatasetRunResult(dsprep, {}, ak.num(events, axis=0), report)
 
         dataset_analyzer = DatasetProcessor(
