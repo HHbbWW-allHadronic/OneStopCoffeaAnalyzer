@@ -56,7 +56,7 @@ def createPackageArchive(zip_path=None, archive_type="zip"):
 
 def transferAnalyzerToClient(client):
     analyzer_path = Path(ir.files(analyzer))
-    p = str(compressDirectory(analyzer_path, name="analyzer", archive_type="zip"))
+    p = str(compressDirectory(analyzer_path, "compressed", name="analyzer", archive_type="zip"))
     logger.info(f"Transfer file {p} to workers.")
     client.upload_file(p)
 
