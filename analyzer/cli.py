@@ -43,6 +43,7 @@ def handleCluster(args):
 
 def handleRunAnalysis(args):
     logger.info("Handling run analysis")
+    prefer_location = args.prefer_location
     if args.require_location:
         prefer_location=None
     sample_manager = ds.SampleManager()
