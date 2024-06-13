@@ -10,6 +10,8 @@ from yaml import dump, load
 import rich
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
+from analyzer.plotting.styles import Style
+from analyzer.core.inputs import AnalyzerInput
 
 try:
     from yaml import CDumper as Dumper
@@ -20,43 +22,6 @@ except ImportError:
 
 class ForbiddenDataset(Exception):
     pass
-
-
-@dataclass
-class AnalyzerInput:
-    dataset_name: str
-    fill_name: str
-    coffea_dataset: DatasetSpec
-    lumi_json: Optional[str] = None
-
-
-@dataclass
-class Style:
-    color: Optional[str]
-    alpha: Optional[float]
-
-    @staticmethod
-    def fromDict(data):
-        color = data.get("color")
-        op = data.get("alpha")
-        return Style(color, op)
-
-    def keys(self):
-        return (
-            field.name
-            for field in fields(self)
-            if getattr(self, field.name) is not None
-        )
-
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def toDict(self):
-        return dict(
-            (field.name, getattr(self, field.name))
-            for field in fields(self)
-            if getattr(self, field.name) is not None
-        )
 
 
 @dataclass
@@ -86,6 +51,7 @@ class SampleSet:
     name: str
     title: str
     derived_from: Optional[Union[str, "SampleSet"]]
+    sample_type: Optional[str]
     produced_on: Optional[str]
     lumi: Optional[float]
     x_sec: Optional[float]
@@ -112,6 +78,7 @@ class SampleSet:
         forbid = data.get("forbid", None)
         mc_campaign = data.get("mc_campaign", None)
         lumi_json = data.get("lumi_json", None)
+        sample_type = data.get("sample_type", None)
         if not (x_sec and n_events and lumi) and not (derived_from or isdata):
             raise Exception(
                 f"Every sample must either have a complete weight description, or a derivation. While processing\n {name}"
@@ -134,6 +101,7 @@ class SampleSet:
             name,
             title,
             derived_from,
+            sample_type,
             produced_on,
             lumi,
             x_sec,
@@ -283,124 +251,3 @@ class SampleCollection:
 
     def __repr__(self):
         return str(self)
-
-
-@dataclass
-class SampleManager:
-    sets: Dict[str, SampleSet] = field(default_factory=dict)
-    collections: Dict[str, SampleCollection] = field(default_factory=dict)
-
-    def possibleInputs(self):
-        return [*self.sets, *self.collections]
-
-    def getSet(self, name):
-        return self.sets[name]
-
-    def getCollection(self, name):
-        return self.collections[name]
-
-    def __getitem__(self, key):
-        return self.sets.get(key, None) or self.collections[key]
-
-    def loadSamplesFromDirectory(self, directory, force_separate=False):
-        directory = Path(directory)
-        files = list(directory.glob("*.yaml"))
-        file_contents = {}
-        for f in files:
-            with open(f, "r") as fo:
-                data = load(fo, Loader=Loader)
-                file_contents[f] = data
-            for d in [x for x in data if x.get("type", "") == "set" or "files" in x]:
-                s = SampleSet.fromDict(d)
-                if s.name in self.sets:
-                    raise KeyError(
-                        f"Dataset name '{s.name}' is already use. Please use a different name for this dataset."
-                    )
-                self.sets[s.name] = s
-        for name, val in self.sets.items():
-            derived = val.derived_from
-            if derived:
-                self.sets[name] = replace(val, derived_from=self.sets[derived])
-
-        for data in file_contents.values():
-            for d in [
-                x for x in data if x.get("type", "") == "collection" or "sets" in x
-            ]:
-                s = SampleCollection.fromDict(d, self, force_separate)
-                if s.name in self.sets:
-                    raise KeyError(
-                        f"SampleCollection name '{s.name}' is already used by a set. Please use a different name for this dataset."
-                    )
-                if s.name in self.collections:
-                    raise KeyError(
-                        f"SampleCollection name '{s.name}' is already used by a collection. Please use a different name for this dataset."
-                    )
-                self.collections[s.name] = s
-
-        for x in it.chain(self.sets.values(), self.collections.values()):
-            if isinstance(x.style, str):
-                x.style = self[x.style].style
-
-
-def createSampleAndCollectionTable(manager, re_filter=None):
-    table = Table(title="Samples And Collections")
-    table.add_column("Name")
-    table.add_column("Type")
-    table.add_column("Number Events")
-    everything = list(
-        it.chain(
-            zip(manager.sets.values(), it.repeat("Set")),
-            zip(manager.collections.values(), it.repeat("Colletions")),
-        )
-    )
-    if re_filter:
-        p = re.compile(re_filter)
-        everything = [x for x in everything if p.search(x[0].name)]
-    for s, t in everything:
-        table.add_row(s.name, t, str(s.totalEvents()))
-    return table
-
-
-def createSetTable(manager, re_filter=None):
-    table = Table(title="Samples Sets")
-    table.add_column("Name")
-    table.add_column("Number Events")
-    table.add_column("Data/MC")
-    table.add_column("X-Sec")
-    table.add_column("Lumi")
-    table.add_column("Number Files")
-    table.add_column("Derived From")
-    everything = list(manager.sets.values())
-    if re_filter:
-        p = re.compile(re_filter)
-        everything = [x for x in everything if p.search(x.name)]
-    for s in everything:
-        xs = s.getXSec()
-        lumi = s.getLumi()
-        table.add_row(
-            s.name,
-            f"{str(s.totalEvents())}",
-            "Data" if s.isData() else "MC",
-            f"{xs:0.2g}" if xs else "N/A",
-            f"{lumi:0.4g}" if lumi else "N/A",
-            f"{len(s.files)}",
-            f"{s.derived_from.name}" if s.derived_from else "N/A",
-        )
-    return table
-
-
-def createCollectionTable(manager, re_filter=None):
-    table = Table(title="Samples Collections")
-    table.add_column("Name")
-    table.add_column("Number Events")
-    table.add_column("Number Sets")
-    table.add_column("Treat Separate")
-    everything = list(manager.collections.values())
-    if re_filter:
-        p = re.compile(re_filter)
-        everything = [x for x in everything if p.search(x.name)]
-    for s in everything:
-        table.add_row(
-            s.name, f"{str(s.totalEvents())}", f"{len(s.sets)}", f"{s.treat_separate}"
-        )
-    return table

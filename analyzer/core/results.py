@@ -1,12 +1,8 @@
-from dataclasses import dataclass
+import logging
 import pickle as pkl
-from pathlib import Path
-import awkward as ak
+from dataclasses import dataclass
 from datetime import datetime
-import analyzer.utils as utils
-from .inputs import DatasetPreprocessed
-import dask_awkward as dak
-import hist.dask as dah
+from pathlib import Path
 from typing import (
     Any,
     Callable,
@@ -19,11 +15,18 @@ from typing import (
     Tuple,
     Union,
 )
-import logging
-import hist
+from urllib import parse
 
+import analyzer.utils as utils
+import awkward as ak
+import dask_awkward as dak
+import hist
+import hist.dask as dah
+
+from .inputs import DatasetPreprocessed
 
 logger = logging.getLogger()
+
 
 @dataclass
 class ResultModification:
@@ -136,11 +139,11 @@ class InputChecker:
 
     def __call__(self, result):
         sample = self.sample_manager.getSet(result.getName())
-        files = set(parse.urlparse(x.getFile())[2] for x in sample.files)
+        files = [tuple(parse.urlparse(y)[2] for y in x.paths.values()) for x in sample.files]
         prepped = result.dataset_preprocessed
         cof_dataset = prepped.coffea_dataset_split
         cof_files = set(parse.urlparse(x)[2] for x in cof_dataset["files"].keys())
-        diff = files.difference(cof_files)
+        diff = [x for x in files if not any(y in cof_files for y in x)]
         if diff:
             return AnalysisInspectionResult(
                 "Input Files",

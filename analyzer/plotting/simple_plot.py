@@ -8,7 +8,7 @@ import analyzer.core as ac
 import hist
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from analyzer.datasets import SampleManager
+import analyzer.datasets as ad
 from analyzer.utils import accumulate
 
 from .high_level_plots import plot1D, plot2D, plotPulls, plotRatio
@@ -43,7 +43,7 @@ class Plotter:
         self.default_backgrounds = default_backgrounds or []
         self.default_axis_opts = default_axis_opts
 
-        self.sample_manager = SampleManager()
+        self.sample_manager = ad.SampleManager()
         self.sample_manager.loadSamplesFromDirectory(dataset_dir)
 
         if isinstance(input_data, ac.AnalysisResult):

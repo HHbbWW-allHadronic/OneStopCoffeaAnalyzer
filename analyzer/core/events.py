@@ -1,7 +1,7 @@
 from functools import singledispatch
 from typing import Any, Dict, Optional, Set, Tuple, Union
-from analyzer.datasets import AnalyzerInput, SampleManager
-from  .inputs import DatasetPreprocessed
+from analyzer.datasets import SampleManager
+from  .inputs import DatasetPreprocessed,AnalyzerInput
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 

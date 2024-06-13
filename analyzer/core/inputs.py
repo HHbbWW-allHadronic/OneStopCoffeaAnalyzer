@@ -1,8 +1,9 @@
 import logging
 import analyzer.utils as utils
 from coffea.dataset_tools.preprocess import DatasetSpec
-from analyzer.datasets import SampleCollection, SampleSet
+import analyzer.datasets as ad
 import coffea.dataset_tools as dst
+from coffea.dataset_tools.preprocess import DatasetSpec
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -17,10 +18,15 @@ from typing import (
     Union,
 )
 
-from analyzer.datasets import AnalyzerInput
 
 logger = logging.getLogger(__name__)
 
+@dataclass
+class AnalyzerInput:
+    dataset_name: str
+    fill_name: str
+    coffea_dataset: DatasetSpec
+    lumi_json: Optional[str] = None
 
 @dataclass
 class DatasetPreprocessed:
