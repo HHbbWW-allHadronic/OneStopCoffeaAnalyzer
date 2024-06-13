@@ -179,13 +179,15 @@ def handleCheck(args):
     table.add_column("Check Name")
     table.add_column("Passed")
     table.add_column("Info")
-    print(checks)
+    #print(checks)
     for sample, sample_checks in checks.items():
         for c in sample_checks:
             table.add_row(sample, c.type, str(c.passed), c.description)
 
     console = Console()
     console.print(table)
+    if all(x.passed for x in it.chain.from_iterable(checks.values())):
+        print("ALL CHECKS HAVE PASSED")
 
 
 def addSubparserCheck(subparsers):
