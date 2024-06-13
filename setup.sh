@@ -149,6 +149,11 @@ function rcmode(){
     export MPLCONFIGDIR=/srv/.local/$env/.mpl
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
 
+    #export POETRY_HOME=/srv/.local/poetry
+    #if [[ ! -d $POETRY_HOME ]]; then
+    #    curl -sSL https://install.python-poetry.org | python3 -
+    #fi
+    
     local config_name=$1
     local env=${env_configs[$config_name,venv]}
 
