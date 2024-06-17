@@ -39,12 +39,7 @@ def execute(futures: Iterable[DatasetDaskRunResult], client: Client):
         ]
         for x in futures
     }
-
-    if client is None:
-        computed, *rest = dask.compute(dsk, scheduler="single-threaded")
-    else:
-        computed,*rest = dask.compute(dsk)
-        #computed = client.gather(f)
+    computed, *rest = dask.compute(dsk)
 
     return {
         name: DatasetRunResult(prep, h, r, rep)
