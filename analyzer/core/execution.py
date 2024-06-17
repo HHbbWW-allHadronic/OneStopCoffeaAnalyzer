@@ -17,7 +17,9 @@ import dask
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from distributed import Client, get_client, rejoin, secede
 
-import analyzer.core as ac
+from .events import getEvents
+from .inputs import DatasetPreprocessed
+from .lumi import getLumiMask
 from .org import AnalyzerModule, generateTopology, namesToModules, sortModules
 from .processor import DatasetProcessor
 from .results import DatasetDaskRunResult, DatasetRunResult
@@ -79,8 +81,8 @@ class Analyzer:
     Represents an analysis, a collection of modules.
     """
 
-    def __init__(self, modules: Iterable[ac.org.AnalyzerModule], cache: Any):
-        self.modules: List[ac.org.AnalyzerModule] = self.__createAndSortModules(*modules)
+    def __init__(self, modules: Iterable[AnalyzerModule], cache: Any):
+        self.modules: List[AnalyzerModule] = self.__createAndSortModules(*modules)
         logger.info(
             "Will run modules in the following order:\n"
             + "\n".join(f"\t{i+1}. {x.name}" for i, x in enumerate(self.modules))
@@ -96,7 +98,7 @@ class Analyzer:
         return modules
 
     def getDatasetFutures(
-        self, dsprep: ac.inputs.DatasetPreprocessed, delayed: bool = True
+        self, dsprep: DatasetPreprocessed, delayed: bool = True
     ) -> DatasetDaskRunResult:
         dataset_name = dsprep.dataset_input.dataset_name
         lumi_json = dsprep.dataset_input.lumi_json
@@ -105,10 +107,10 @@ class Analyzer:
         maybe_base_form = dsprep.coffea_dataset_split.get("form", None)
         if maybe_base_form is not None:
             maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
-        events, report = ac.events.getEvents(files, maybe_base_form, self.cache)
+        events, report = getEvents(files, maybe_base_form, self.cache)
         if lumi_json:
             logger.info(f'Dataset {dataset_name}: Using lumi json file "{lumi_json}".')
-            lmask = ac.lumi.getLumiMask(lumi_json)
+            lmask = getLumiMask(lumi_json)
             events = events[lmask(events.run, events.luminosityBlock)]
 
         if delayed:

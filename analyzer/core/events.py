@@ -1,6 +1,5 @@
 from functools import singledispatch
 from typing import Any, Dict, Optional, Set, Tuple, Union
-from analyzer.datasets import SampleManager
 from  .inputs import DatasetPreprocessed,AnalyzerInput
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
@@ -26,6 +25,7 @@ def _(arg: AnalyzerInput):
 
 @getEvents.register
 def _(arg: str, sample_manager=None):
+    from analyzer.datasets import SampleManager
     if "/" in arg:
         return getEvents({arg : "Events"})
     else:
