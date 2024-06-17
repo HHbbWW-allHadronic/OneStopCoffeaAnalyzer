@@ -8,10 +8,10 @@ from typing import Dict, List, Optional, Set, Union
 from yaml import dump, load
 
 import rich
+from analyzer.core.inputs import AnalyzerInput
+from analyzer.plotting.styles import Style
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
-from analyzer.plotting.styles import Style
-from analyzer.core.inputs import AnalyzerInput
 
 try:
     from yaml import CDumper as Dumper
@@ -42,7 +42,13 @@ class SampleFile:
         if prefer_location and require_location:
             raise ValueError(f"Cannot have both a preferred and required location")
         if require_location:
-            return self.paths[require_location]
+            try:
+                return self.paths[require_location]
+            except KeyError:
+                raise KeyError(
+                    f"Sample file does not have a path registered for location '{require_location}'.\n"
+                    f"known locations are: {self.paths}"
+                )
         return self.paths.get(prefer_location, next(iter(self.paths.values())))
 
 
@@ -62,6 +68,7 @@ class SampleSet:
     isdata: bool = False
     forbid: Optional[bool] = False
     mc_campaign: Optional[str] = None
+    lumi_json: Optional[str] = None
     lumi_json: Optional[str] = None
 
     @staticmethod
