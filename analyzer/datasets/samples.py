@@ -9,7 +9,7 @@ from yaml import dump, load
 
 import rich
 from analyzer.core.inputs import AnalyzerInput
-from analyzer.plotting.styles import Style
+from analyzer.datasets.styles import Style
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 
