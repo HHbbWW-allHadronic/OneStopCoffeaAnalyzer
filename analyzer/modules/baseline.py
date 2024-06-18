@@ -33,6 +33,7 @@ Applies the following selection:
     hlt_names = analyzer.profile.hlt
     if "HLT" in events.fields:
         hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+        selection.add('hlt',hlt)
     selection.add("highptjet", (ak.fill_none(filled_jets[:, 0].pt > 300, False)))
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))
@@ -66,8 +67,10 @@ def createCRSelection(events, analyzer):
     tight_top = events.tight_tops
     filled_jets = ak.pad_none(good_jets, 4, axis=1)
     top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
+    hlt_names = analyzer.profile.hlt
     if "HLT" in events.fields:
-        selection.add("hlt", (events.HLT.PFHT1050 | events.HLT.AK8PFJet360_TrimMass30))
+        hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+        selection.add('hlt',hlt)
     selection.add("highptjet", (ak.fill_none(filled_jets[:, 0].pt > 300, False)))
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))
