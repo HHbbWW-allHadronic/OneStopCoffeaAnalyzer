@@ -1,6 +1,7 @@
 from .results import DatasetDaskRunResult
 from analyzer.histogram_builder import HistogramBuilder
 from coffea.analysis_tools import PackedSelection, Weights
+from typing import Any
 
 import logging
 
@@ -12,11 +13,13 @@ class DatasetProcessor:
         self,
         dask_result: DatasetDaskRunResult,
         setname: str,
+        profile: Any, 
         delayed=True,
     ):
         self.setname = setname
         self.dask_result = dask_result
         self.delayed = delayed
+        self.profile = profile
 
         self.__selection = PackedSelection()
         self.__weights = Weights(None)

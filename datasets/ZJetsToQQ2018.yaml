@@ -11,6 +11,7 @@
   lumi: 59.8
   x_sec: 1012000
   n_events: 15002757
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/2540000/49369D5F-5E46-FD41-A7EB-EDFD74FDE9C8.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/30000/BC66FF4B-3A74-2D4F-9941-FE8E24D38E8E.root
@@ -62,6 +63,7 @@
   lumi: 59.8
   x_sec: 114200
   n_events: 13930474
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/260000/C9E002CC-759A-0E40-A97F-AC9691668B57.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/260000/320DC0C6-3746-2949-91B2-11019D087C0B.root
@@ -93,6 +95,7 @@
   lumi: 59.8
   x_sec: 25340
   n_events: 12029507
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/80000/63893BE3-D6AC-6248-9DA2-FBE3A4A5EBC6.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/30000/6C990199-BBAB-304F-A286-A6D67365743F.root
@@ -144,6 +147,7 @@
   lumi: 59.8
   x_sec: 12990
   n_events: 9681521
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/80000/21935FFB-6689-1445-9842-4C2F42542789.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v2/30000/51ED3485-59BD-2D4F-9F36-16B0EE8A60AC.root

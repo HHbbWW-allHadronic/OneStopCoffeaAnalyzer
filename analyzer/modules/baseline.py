@@ -1,5 +1,7 @@
 import awkward as ak
 from analyzer.core import analyzerModule
+import functools
+import operator as op
 
 
 @analyzerModule("baseline_selection", categories="selection", depends_on=["objects"])
@@ -21,7 +23,6 @@ Applies the following selection:
     loose_b = events.loose_bs
     med_b = events.med_bs
     tight_b = events.tight_bs
-    tight_top = events.tight_tops
     # selection = PackedSelection()
     filled_jets = ak.pad_none(good_jets, 4, axis=1)
     top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
@@ -29,8 +30,9 @@ Applies the following selection:
     filled_med = ak.pad_none(med_b, 2, axis=1)
     med_dr = ak.fill_none(filled_med[:, 0].delta_r(filled_med[:, 1]), False)
     # selection.add("trigger", (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6))
+    hlt_names = analyzer.profile.hlt
     if "HLT" in events.fields:
-        selection.add("hlt", (events.HLT.PFHT1050 | events.HLT.AK8PFJet360_TrimMass30))
+        hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
     selection.add("highptjet", (ak.fill_none(filled_jets[:, 0].pt > 300, False)))
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))

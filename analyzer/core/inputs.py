@@ -25,6 +25,7 @@ class AnalyzerInput:
     dataset_name: str
     fill_name: str
     coffea_dataset: DatasetSpec
+    profile: Any
     lumi_json: Optional[str] = None
 
 @dataclass

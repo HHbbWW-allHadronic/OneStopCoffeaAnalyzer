@@ -1,0 +1,11 @@
+profile_name: 2016_postVFP
+
+btag_working_points:
+  loose: 0.0480
+  medium: 0.2489
+  tight: 0.6377
+
+HLT:
+  - PFHT900
+  - AK8PFJet360_TrimMass30
+  

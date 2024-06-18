@@ -85,9 +85,15 @@ def runAnalysisOnSamples(
     else:
         client = None
         logger.info("No scheduler address provided, running locally")
+
+    profile_repo = ds.ProfileRepo()
+    profile_repo.loadFromDirectory("profiles")
     sample_manager = ds.SampleManager()
-    sample_manager.loadSamplesFromDirectory("datasets")
+    sample_manager.loadSamplesFromDirectory("datasets", profile_repo)
+
     logger.info(f"Creating analyzer using {len(modules)} modules")
+
+
     analyzer = ac.Analyzer(modules, cache)
     samples = [sample_manager[x] for x in samples]
 

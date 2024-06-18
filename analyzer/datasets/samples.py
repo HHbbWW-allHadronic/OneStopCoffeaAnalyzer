@@ -13,6 +13,8 @@ from analyzer.datasets.styles import Style
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 
+from .profiles import Profile
+
 try:
     from yaml import CDumper as Dumper
     from yaml import CLoader as Loader
@@ -52,16 +54,17 @@ class SampleFile:
         return self.paths.get(prefer_location, next(iter(self.paths.values())))
 
 
-@dataclass(frozen=True)
+@dataclass
 class SampleSet:
     name: str
     title: str
+    n_events: int
+    profile: Optional[Union[str, Profile]]
     derived_from: Optional[Union[str, "SampleSet"]]
     sample_type: Optional[str]
     produced_on: Optional[str]
     lumi: Optional[float]
     x_sec: Optional[float]
-    n_events: int
     files: List[SampleFile] = field(default_factory=list)
     tags: Set[str] = field(default_factory=set)
     style: Optional[Union[Style, str]] = None
@@ -76,6 +79,7 @@ class SampleSet:
         name = data["name"]
         derived_from = data.get("derived_from", None)
         produced_on = data.get("produced_on", None)
+        profile = data.get("profile",None)
         lumi = data.get("lumi", None)
         x_sec = data.get("x_sec", None)
         n_events = data.get("n_events", None)
@@ -89,6 +93,10 @@ class SampleSet:
         if not (x_sec and n_events and lumi) and not (derived_from or isdata):
             raise Exception(
                 f"Every sample must either have a complete weight description, or a derivation. While processing\n {name}"
+            )
+        if  not derived_from and not profile:
+            raise Exception(
+                f"Every non-derived sample must have a profile. While processing\n {name}"
             )
         if isdata:
             if mc_campaign:
@@ -105,21 +113,22 @@ class SampleSet:
             style = Style.fromDict(style)
 
         ss = SampleSet(
-            name,
-            title,
-            derived_from,
-            sample_type,
-            produced_on,
-            lumi,
-            x_sec,
-            n_events,
-            files,
-            tags,
-            style,
-            isdata,
-            forbid,
-            mc_campaign,
-            lumi_json,
+            name=name,
+            title=title,
+            n_events=n_events,
+            derived_from=derived_from,
+            profile=profile,
+            sample_type=sample_type,
+            produced_on=produced_on,
+            lumi=lumi,
+            x_sec=x_sec,
+            files=files,
+            tags=tags,
+            style=style,
+            isdata=isdata,
+            forbid=forbid,
+            mc_campaign=mc_campaign,
+            lumi_json=lumi_json,
         )
         return ss
 
@@ -156,6 +165,12 @@ class SampleSet:
         else:
             return self.x_sec
 
+    def getProfile(self):
+        if self.derived_from:
+            return self.derived_from.getProfile()
+        else:
+            return self.profile
+
     def toCoffeaDataset(self, prefer_location=None, require_location=None):
         if self.isForbidden():
             raise ForbiddenDataset(
@@ -190,6 +205,7 @@ class SampleSet:
             dataset_name=self.name,
             fill_name=setname or self.name,
             coffea_dataset=self.toCoffeaDataset(prefer_location, require_location),
+            profile=self.getProfile(),
             lumi_json=self.getLumiJson(),
         )
 

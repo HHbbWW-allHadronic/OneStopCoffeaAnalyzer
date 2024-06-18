@@ -1,9 +1,10 @@
-- name: Data2016
+- name: Data2016_preVFP
   type: set
   isdata: true
-  lumi: 36.31
+  lumi: 19.5
   forbid: true
   lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  profile: 2016_preVFP
   files:
     - root://cmsxrootd.fnal.gov//store/data/Run2016B/JetHT/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/2430000/877D2E27-E1EB-6244-BBCC-1730058E95A4.root
     - root://cmsxrootd.fnal.gov//store/data/Run2016B/JetHT/NANOAOD/ver1_HIPM_UL2016_MiniAODv2_NanoAODv9-v2/2430000/9AB2226C-E3DB-784D-8ABB-8DAB7B168EC7.root
@@ -301,6 +302,15 @@
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/HIPM_UL2016_MiniAODv2_NanoAODv9-v2/25240000/F10C6081-99CF-E14B-9EEA-F2402CDBA380.root
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/HIPM_UL2016_MiniAODv2_NanoAODv9-v2/25250000/37E03852-95A3-B244-8FDF-995206225B68.root
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/HIPM_UL2016_MiniAODv2_NanoAODv9-v2/25360000/BBD574C1-B33E-6D42-ACB1-63A3CCBD083E.root
+
+- name: Data2016_postVFP
+  type: set
+  isdata: true
+  lumi: 16.8
+  forbid: true
+  lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  profile: 2016_postVFP
+  files:
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/UL2016_MiniAODv2_NanoAODv9-v1/70000/F77A6FC2-0D11-6445-880B-5B8509DC4AB2.root
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/UL2016_MiniAODv2_NanoAODv9-v1/70000/4CF30F76-B083-4946-9F06-053FE8395464.root
     - root://cmsxrootd.fnal.gov//store/data/Run2016F/JetHT/NANOAOD/UL2016_MiniAODv2_NanoAODv9-v1/70000/F901FFB3-64AA-A349-A162-36D029C626DC.root

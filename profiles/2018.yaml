@@ -1,0 +1,11 @@
+profile_name: 2018
+
+btag_working_points:
+  loose: 0.049
+  medium: 0.2783
+  tight: 0.7100
+
+HLT:
+  - PFHT1050
+  - AK8PFJet400_TrimMass30
+  

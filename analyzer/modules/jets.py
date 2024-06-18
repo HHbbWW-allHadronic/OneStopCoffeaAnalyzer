@@ -7,7 +7,6 @@ from analyzer.core import analyzerModule
 from analyzer.math_funcs import angleToNPiToPi
 
 from .axes import *
-from .objects import b_tag_wps
 from .utils import numMatching
 
 @analyzerModule("tiny", categories="main")

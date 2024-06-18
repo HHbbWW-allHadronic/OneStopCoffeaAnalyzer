@@ -46,8 +46,11 @@ def handleRunAnalysis(args):
     prefer_location = args.prefer_location
     if args.require_location:
         prefer_location=None
+
+    profile_repo = ds.ProfileRepo()
+    profile_repo.loadFromDirectory("profiles")
     sample_manager = ds.SampleManager()
-    sample_manager.loadSamplesFromDirectory(args.dataset_path)
+    sample_manager.loadSamplesFromDirectory(args.dataset_path, profile_repo)
     ret = ra.runAnalysisOnSamples(
         args.modules,
         args.samples,

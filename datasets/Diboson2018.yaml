@@ -13,6 +13,7 @@
   x_sec: 118700
   tags: 
     - background
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/WW_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/130000/A8E505B7-EEFF-5F41-BF3E-8D9C4EF39EDC.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/WW_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/42F22656-6D2B-804B-9208-294237DF9422.root
@@ -54,6 +55,7 @@
   x_sec: 47130
   tags: 
     - background
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/WZ_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/E21431E1-5A66-4244-B47D-899569CBA45A.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/WZ_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/70000/034356D0-103E-0A46-817B-5C7A1EBDBF7E.root
@@ -80,6 +82,7 @@
   x_sec: 16523
   tags: 
     - background
+  profile: 2018
   files: 
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZZ_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/40000/29E7B7EF-D0FD-7343-9437-5C4F253A7B49.root
     - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/ZZ_TuneCP5_13TeV-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/40000/96839BBA-5815-6849-9CCB-0FCFBFDFD1A4.root

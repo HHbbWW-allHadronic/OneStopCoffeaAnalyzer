@@ -7,7 +7,6 @@ from analyzer.core import analyzerModule
 from analyzer.math_funcs import angleToNPiToPi
 
 from .axes import *
-from .objects import b_tag_wps
 from .utils import numMatching
 
 
@@ -184,7 +183,8 @@ def combo_method(events, analyzer):
     gj = events.good_jets
 
     idx = ak.local_index(gj, axis=1)
-    med_bjet_mask = gj.btagDeepFlavB > b_tag_wps[1]
+    bwps = analyzer.profile.btag_working_points
+    med_bjet_mask = gj.btagDeepFlavB > bwps["medium"]
 
     lead_b_idx = idx[med_bjet_mask][:, 0]
     sublead_b_idx = idx[med_bjet_mask][:, 1]
@@ -266,7 +266,9 @@ def charginoRecoHistograms(events, analyzer):
     gj = events.good_jets
 
     idx = ak.local_index(gj, axis=1)
-    med_bjet_mask = gj.btagDeepFlavB > b_tag_wps[1]
+
+    bwps = analyzer.profile.btag_working_points
+    med_bjet_mask = gj.btagDeepFlavB > bwps["medium"]
 
     t_lead_b_idx = idx[med_bjet_mask]
     lead_b_idx = t_lead_b_idx[:, 0]

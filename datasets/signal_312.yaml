@@ -49,6 +49,7 @@
     - signal
   style:
     color: "#FF0C00"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_400.root
@@ -64,6 +65,7 @@
     - signal
   style:
     color: "#FF5500"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_600.root
@@ -79,6 +81,7 @@
     - signal
   style:
     color: "#FFA900"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_900.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_900.root
@@ -94,6 +97,7 @@
     - signal
   style:
     color: "#0079C2"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_400.root
@@ -109,6 +113,7 @@
     - signal
   style:
     color: "#C4FF01"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_600.root
@@ -124,6 +129,7 @@
     - signal
   style:
     color: "#FF1D00"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_1100.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_1100.root
@@ -139,6 +145,7 @@
     - signal
   style:
     color: "#00FF8B"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1300_400.root
@@ -154,6 +161,7 @@
     - signal
   style:
     color: "#00FFE9"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1300_600.root
@@ -169,6 +177,7 @@
     - signal
   style:
     color: "#00A4FF"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_1200.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1300_1200.root
@@ -184,6 +193,7 @@
     - signal
   style:
     color: "#004AFF"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1400_400.root
@@ -199,6 +209,7 @@
     - signal
   style:
     color: "#3F00FF"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1400_600.root
@@ -214,6 +225,7 @@
     - signal
   style:
     color: "#8500FF"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_1300.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1400_1300.root
@@ -229,6 +241,7 @@
     - signal
   style:
     color: "#DF00FF"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_400.root
@@ -244,6 +257,7 @@
     - signal
   style:
     color: "#FF00CA"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_600.root
@@ -259,6 +273,7 @@
     - signal
   style:
     color: "#00AAA9"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_900.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_900.root
@@ -274,6 +289,7 @@
     - signal
   style:
     color: "#FFD201"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1400.root
@@ -289,6 +305,7 @@
     - signal
   style:
     color: "#21A785"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_400.root
@@ -303,6 +320,7 @@
     - signal
   style:
     color: "#48C06D"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_600.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_600.root
@@ -318,6 +336,7 @@
     - signal
   style:
     color: "#83D34B"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_900.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_900.root
@@ -333,6 +352,7 @@
     - signal
   style:
     color: "#00C69C"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1400.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1400.root
@@ -348,12 +368,14 @@
     - signal
   style:
     color: "#FF7C00"
+  profile: 2018
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1900.root
       umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1900.root
 
 - name: signal_312_1000_100
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_100.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_100.root
@@ -365,6 +387,7 @@
     - signal
 - name: signal_312_1000_700
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_700.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_700.root
@@ -376,6 +399,7 @@
     - signal
 - name: signal_312_1000_800
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_800.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1000_800.root
@@ -387,6 +411,7 @@
     - signal
 - name: signal_312_1200_1000
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_1000.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_1000.root
@@ -398,6 +423,7 @@
     - signal
 - name: signal_312_1200_700
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_700.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_700.root
@@ -409,6 +435,7 @@
     - signal
 - name: signal_312_1200_800
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_800.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_800.root
@@ -420,6 +447,7 @@
     - signal
 - name: signal_312_1200_900
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_900.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1200_900.root
@@ -431,6 +459,7 @@
     - signal
 - name: signal_312_1500_100
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_100.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_100.root
@@ -442,6 +471,7 @@
     - signal
 - name: signal_312_1500_1000
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1000.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1000.root
@@ -453,6 +483,7 @@
     - signal
 - name: signal_312_1500_1100
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1100.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1100.root
@@ -464,6 +495,7 @@
     - signal
 - name: signal_312_1500_1200
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1200.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1200.root
@@ -475,6 +507,7 @@
     - signal
 - name: signal_312_1500_1300
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1300.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1300.root
@@ -486,6 +519,7 @@
     - signal
 - name: signal_312_1500_1350
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1350.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1350.root
@@ -497,6 +531,7 @@
     - signal
 - name: signal_312_1500_1450
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1450.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-1500_1450.root
@@ -508,6 +543,7 @@
     - signal
 - name: signal_312_2000_100
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_100.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_100.root
@@ -519,6 +555,7 @@
     - signal
 - name: signal_312_2000_1200
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1200.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1200.root
@@ -530,6 +567,7 @@
     - signal
 - name: signal_312_2000_1300
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1300.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1300.root
@@ -541,6 +579,7 @@
     - signal
 - name: signal_312_2000_1500
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1500.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1500.root
@@ -553,6 +592,7 @@
 
 - name: signal_312_2000_1600
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1600.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1600.root
@@ -565,6 +605,7 @@
 
 - name: signal_312_2000_1700
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1700.root
     umn: /local/cms/user/ckapsiak/SingleStop/datafiles/NANOAOD-ALL/NANOAOD-2000_1700.root
@@ -578,6 +619,7 @@
 
 - name: signal_312_1500_400_MG
   mc_campaign: 2018UL
+  profile: 2018
   files:
   - file:NANOAOD-MadGraph-1500_400.root
   n_events: 100

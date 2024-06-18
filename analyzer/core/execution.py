@@ -121,7 +121,7 @@ class Analyzer:
             daskres = DatasetRunResult(dsprep, {}, ak.num(events, axis=0), report)
 
         dataset_analyzer = DatasetProcessor(
-            daskres, dsprep.dataset_input.fill_name, delayed=delayed
+            daskres, dsprep.dataset_input.fill_name, dsprep.dataset_input.profile, delayed=delayed
         )
         for m in self.modules:
             logger.info(f"Adding module {m.name} to dataset {dataset_name}")
