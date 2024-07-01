@@ -1,8 +1,4 @@
 import logging
-import analyzer.utils as utils
-from coffea.dataset_tools.preprocess import DatasetSpec
-import coffea.dataset_tools as dst
-from coffea.dataset_tools.preprocess import DatasetSpec
 from dataclasses import dataclass
 from typing import (
     Any,
@@ -17,8 +13,12 @@ from typing import (
     Union,
 )
 
+import analyzer.utils as utils
+import coffea.dataset_tools as dst
+from coffea.dataset_tools.preprocess import DatasetSpec
 
 logger = logging.getLogger(__name__)
+
 
 @dataclass
 class AnalyzerInput:
@@ -27,6 +27,7 @@ class AnalyzerInput:
     coffea_dataset: DatasetSpec
     profile: Any
     lumi_json: Optional[str] = None
+
 
 @dataclass
 class DatasetPreprocessed:
@@ -45,6 +46,13 @@ class DatasetPreprocessed:
 def preprocessBulk(dataset_input: Iterable[AnalyzerInput], **kwargs):
     mapping = {x.dataset_name: x for x in dataset_input}
     all_inputs = utils.accumulate([x.coffea_dataset for x in dataset_input])
-    out, x = dst.preprocess(all_inputs, **kwargs)
+    out, bad = dst.preprocess(
+        all_inputs,
+        align_clusters=True,
+        save_form=True,
+        skip_bad_files=True,
+        uproot_options={"timeout": 15},
+        **kwargs
+    )
     ret = [DatasetPreprocessed(mapping[k], v) for k, v in out.items()]
     return ret
