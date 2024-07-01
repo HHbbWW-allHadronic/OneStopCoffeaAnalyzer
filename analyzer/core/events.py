@@ -12,6 +12,7 @@ def getEvents(arg, known_form=None, cache=None):
         schemaclass=NanoAODSchema,
         uproot_options=dict(
             allow_read_errors_with_report=True,
+            timeout=15,
         ),
         known_base_form=known_form,
         persistent_cache=cache,
