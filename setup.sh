@@ -93,9 +93,9 @@ function create_venv(){
         python3 -m pip install -U ".[$extras]" 
     fi
 
-    pip3 install ipython --upgrade
+    # pip3 install ipython --upgrade
     python3 -m ipykernel install --user --name "$env"
-    pip3 install -I boost-histogram
+    # pip3 install -I boost-histogram
     rm -rf "$env"/lib/*/site-packages/analyzer
     rm -rf $TMPDIR && unset TMPDIR
     sed -i "/PS1=/d" "$env"/bin/activate
