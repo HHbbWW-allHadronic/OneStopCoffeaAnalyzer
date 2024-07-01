@@ -20,11 +20,11 @@ from prompt_toolkit.completion import (
 )
 from prompt_toolkit.history import FileHistory
 from rich import print
+from rich.columns import Columns
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.pretty import Pretty
 from rich.table import Table
-from rich.columns import Columns
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def handleRunAnalysis(args):
     logger.info("Handling run analysis")
     prefer_location = args.prefer_location
     if args.require_location:
-        prefer_location=None
+        prefer_location = None
 
     profile_repo = ds.ProfileRepo()
     profile_repo.loadFromDirectory("profiles")
@@ -53,13 +53,16 @@ def handleRunAnalysis(args):
     sample_manager.loadSamplesFromDirectory(args.dataset_path, profile_repo)
     ret = ra.runAnalysisOnSamples(
         args.modules,
-        args.samples,
         sample_manager,
+        samples=args.samples,
+        preprocessed_path=args.preprocessed_input,
         dask_schedd_address=args.scheduler_address,
         delayed=not args.no_delayed,
         step_size=args.step_size,
         prefer_location=prefer_location,
         require_location=args.require_location,
+        save_preprocessed=args.save_preprocessed,
+        transfer_analyzer=not args.no_transfer_analyzer,
     )
     ret.save(args.output)
     if args.print_after:
@@ -170,8 +173,11 @@ def addSubparserModules(subparsers):
 
 
 def handleCheck(args):
+
+    profile_repo = ds.ProfileRepo()
+    profile_repo.loadFromDirectory("profiles")
     manager = ds.SampleManager()
-    manager.loadSamplesFromDirectory(args.dataset_path)
+    manager.loadSamplesFromDirectory(args.dataset_path, profile_repo)
 
     print(f"Running checks on file {args.input}")
     res = ac.AnalysisResult.fromFile(args.input)
@@ -182,7 +188,7 @@ def handleCheck(args):
     table.add_column("Check Name")
     table.add_column("Passed")
     table.add_column("Info")
-    #print(checks)
+    # print(checks)
     for sample, sample_checks in checks.items():
         for c in sample_checks:
             table.add_row(sample, c.type, str(c.passed), c.description)
@@ -433,6 +439,13 @@ def addSubparserRun(subparsers):
     )
 
     subparser.add_argument(
+        "--save-preprocessed",
+        default=None,
+        type=str,
+        help="If provided, the path to a file to save preprocessed datasets to. This data may later be used as input to the analyzer.",
+    )
+
+    subparser.add_argument(
         "--save-graph",
         default=None,
         type=str,
@@ -465,6 +478,20 @@ def addSubparserRun(subparsers):
         default=100000,
         type=int,
         help="Number of events per chunk",
+    )
+
+    subparser.add_argument(
+        "--no-transfer-analyzer",
+        default=False,
+        action="store_true",
+        help="If set, do not transfer the analyzer. Useful if rerunning over an existing cluster when the analyzer has not changed.",
+    )
+
+    subparser.add_argument(
+        "--preprocessed-input",
+        type=str,
+        default=None,
+        help="If set, use the provided preprocessed input data as input to the analyzer, rather than the datasets provided with -s",
     )
 
     subparser.set_defaults(func=handleRunAnalysis)

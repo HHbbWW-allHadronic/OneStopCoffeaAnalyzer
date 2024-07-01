@@ -1,7 +1,9 @@
 import collections
+import datetime
 import importlib.resources as ir
 import itertools as it
 import logging
+import pickle
 import shutil
 import tempfile
 from pathlib import Path
@@ -56,15 +58,20 @@ def createPackageArchive(zip_path=None, archive_type="zip"):
 
 def transferAnalyzerToClient(client):
     analyzer_path = Path(ir.files(analyzer))
-    p = str(compressDirectory(analyzer_path, "compressed", name="analyzer", archive_type="zip"))
+    p = str(
+        compressDirectory(
+            analyzer_path, "compressed", name="analyzer", archive_type="zip"
+        )
+    )
     logger.info(f"Transfer file {p} to workers.")
     client.upload_file(p)
 
 
 def runAnalysisOnSamples(
     modules,
-    samples,
     sample_manager,
+    samples=None,
+    preprocessed_path=None,
     dask_schedd_address=None,
     dataset_directory="datasets",
     step_size=75000,
@@ -72,16 +79,25 @@ def runAnalysisOnSamples(
     no_execute=False,
     require_location=None,
     prefer_location=None,
+    save_preprocessed=None,
+    transfer_analyzer=True,
 ):
     """Run a collection of analysis modules on some samples."""
+    start_time = datetime.datetime.now()
 
     import analyzer.modules
+
+    if bool(samples) == bool(preprocessed_path):
+        raise ValueError(
+            "Must provide exactly one of sample input or preprocessed input"
+        )
 
     cache = {}
     if dask_schedd_address:
         logger.info(f"Connecting client to scheduler at {dask_schedd_address}")
         client = Client(dask_schedd_address)
-        transferAnalyzerToClient(client)
+        if transfer_analyzer:
+            transferAnalyzerToClient(client)
     else:
         client = None
         logger.info("No scheduler address provided, running locally")
@@ -93,26 +109,38 @@ def runAnalysisOnSamples(
 
     logger.info(f"Creating analyzer using {len(modules)} modules")
 
-
     analyzer = ac.Analyzer(modules, cache)
-    samples = [sample_manager[x] for x in samples]
 
-    all_sets = list(
-        it.chain.from_iterable(
-            makeIterable(
-                x.getAnalyzerInput(
-                    require_location=require_location, prefer_location=prefer_location
+    if samples:
+        samples = [sample_manager[x] for x in samples]
+        if save_preprocessed:
+            save_preprocessed = Path(save_preprocessed)
+
+        all_sets = list(
+            it.chain.from_iterable(
+                makeIterable(
+                    x.getAnalyzerInput(
+                        require_location=require_location,
+                        prefer_location=prefer_location,
+                    )
                 )
+                for x in samples
             )
-            for x in samples
         )
-    )
-    logger.info(f"Preprocessing {len(all_sets)} ")
-    with ProgressBar():
-        dataset_preps = ac.preprocessBulk(all_sets, step_size=step_size)
+        logger.info(f"Preprocessing {len(all_sets)} ")
+        with ProgressBar():
+            dataset_preps = ac.preprocessBulk(all_sets, step_size=step_size)
+
+        if save_preprocessed is not None:
+            with open(save_preprocessed, "wb") as f:
+                pickle.dump(dataset_preps, f)
+    else:
+        with open(preprocessed_path, "rb") as f:
+            dataset_preps = pickle.load(f)
+
     logger.info(f"Preprocessed data in to {len(dataset_preps)} set")
     if delayed:
-        futures = [analyzer.getDatasetFutures(x) for x in dataset_preps]
+        futures = [analyzer.getDatasetFutures(x) for x in dataset_preps][:4]
         if no_execute:
             return futures
         logger.info(f"Generated {len(futures)} analysis futures")
@@ -122,4 +150,9 @@ def runAnalysisOnSamples(
         results = [analyzer.getDatasetFutures(x, delayed=False) for x in dataset_preps]
         ret = {x.getName(): x for x in results}
     ret = ac.AnalysisResult(ret)
+
+    end_time = datetime.datetime.now()
+    d = end_time - start_time
+    print(f"Total running time: {d}")
+
     return ret
