@@ -38,8 +38,8 @@ class ResultModification:
 class DatasetDaskRunResult:
     dataset_preprocessed: DatasetPreprocessed
     histograms: Dict[str, dah.Hist]
-    raw_events_processed: Any
     run_report: dak.Array
+
 
     def getName(self):
         return self.dataset_preprocessed.dataset_input.dataset_name
@@ -49,8 +49,21 @@ class DatasetDaskRunResult:
 class DatasetRunResult:
     dataset_preprocessed: DatasetPreprocessed
     histograms: Dict[str, hist.Hist]
-    raw_events_processed: int
     dataset_run_report: ak.Array
+
+    @property
+    def raw_events_processed(self):
+        good_mask = ak.is_none(self.dataset_run_report["exception"])
+        rr = self.dataset_run_report[good_mask]
+        starts = ak.strings_astype(rr["args"][:,2],int)
+        ends = ak.strings_astype(rr["args"][:,3],int)
+        return ak.sum(ends-starts)
+
+    def getBadChunks(self):
+        good_mask = ak.is_none(self.dataset_run_report["exception"])
+        rr = self.dataset_run_report[~good_mask]
+        return rr
+        
 
     def getScaledHistograms(self, sample_manager, target_lumi):
         sample = sample_manager[self.dataset_preprocessed.dataset_input.dataset_name]
@@ -123,13 +136,13 @@ class NEventChecker:
             return AnalysisInspectionResult(
                 "Number Events",
                 True,
-                f"Expected {expected}, found {expected}",
+                f"Expected {expected}, found {actual}",
             )
         else:
             return AnalysisInspectionResult(
                 "Number Events",
-                True,
-                f"Expected {expected}, found {expected}",
+                False,
+                f"Expected {expected}, found {actual}",
             )
 
 
@@ -148,7 +161,7 @@ class InputChecker:
             return AnalysisInspectionResult(
                 "Input Files",
                 False,
-                f"Missing files from input {diff} from analysis input",
+                f"Missing {len(diff)} file{'s' if len(diff) > 1 else ''} from analysis input",
             )
         else:
             return AnalysisInspectionResult(
