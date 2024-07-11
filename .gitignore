@@ -30,3 +30,13 @@ share/python-wheels/
 auto-save-list
 tramp
 .\#*
+
+
+*.pdf
+*.pth
+*env/
+*.log
+*.dot
+.local
+.condor_config
+results/
