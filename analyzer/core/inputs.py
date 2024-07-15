@@ -61,7 +61,6 @@ class AnalyzerInput:
 class DatasetPreprocessed:
     dataset_input: AnalyzerInput
     chunk_info: Dict[str, Dict[str, Any]]
-    # coffea_dataset_split: DatasetSpec
     form: str = None
     limit_chunks: Set[Tuple[str, int, int]] = None
 
