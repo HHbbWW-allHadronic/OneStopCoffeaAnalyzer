@@ -18,9 +18,10 @@ jobqueue:
     local-directory: /srv       # Location of fast local storage like /scratch or $TMPDIR
     shared-temp-directory: null
     extra: null
+
     worker-extra-args:
       - "--worker-port 10000:10070"
-      - "--nanny-port 10070:10100"
+      - "--nanny-port 10071:10100"
       #- "--no-dashboard"
 
     # HTCondor Resource Manager options

@@ -1,21 +1,25 @@
-from .results import DatasetDaskRunResult
-from analyzer.histogram_builder import HistogramBuilder
-from coffea.analysis_tools import PackedSelection, Weights
+import logging
 from typing import Any
 
-import logging
+from analyzer.histogram_builder import HistogramBuilder
+from coffea.analysis_tools import PackedSelection, Weights
 
+from .results import DatasetDaskRunResult
 
 logger = logging.getLogger(__name__)
+
 
 class DatasetProcessor:
     def __init__(
         self,
         dask_result: DatasetDaskRunResult,
+        dataset_name: str,
         setname: str,
-        profile: Any, 
+        profile: Any,
         delayed=True,
+        skim_save_path=None,
     ):
+        self.dataset_name = dataset_name
         self.setname = setname
         self.dask_result = dask_result
         self.delayed = delayed
@@ -25,6 +29,10 @@ class DatasetProcessor:
         self.__weights = Weights(None)
 
         self.histogram_builder = HistogramBuilder(self.weights)
+
+        self.skim_save_path = skim_save_path
+        self.skim_save_cols = ["HLT", "Jet", "Electron", "Muon", "FatJet"]
+        self.side_effect_computes= None
 
     @property
     def selection(self):

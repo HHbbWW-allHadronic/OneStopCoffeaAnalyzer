@@ -11,7 +11,7 @@ import rich
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 from analyzer.core.inputs import AnalyzerInput
-from .samples import SampleSet,SampleCollection
+from .samples import SampleSet, SampleCollection
 from .profiles import ProfileRepo
 
 try:
@@ -38,14 +38,14 @@ class SampleManager:
     def __getitem__(self, key):
         return self.sets.get(key, None) or self.collections[key]
 
-
     def linkProfiles(self, profile_repo):
         for sample in self.sets:
             if self.sets[sample].profile:
                 self.sets[sample].profile = profile_repo[self.sets[sample].profile]
-            
 
-    def loadSamplesFromDirectory(self, directory, profile_repo, force_separate=False):
+    def loadSamplesFromDirectory(
+        self, directory, profile_repo, force_separate=False, use_replicas=True
+    ):
         directory = Path(directory)
         files = list(directory.glob("*.yaml"))
         file_contents = {}
@@ -86,21 +86,17 @@ class SampleManager:
 
         self.linkProfiles(profile_repo)
 
+        if use_replicas:
+            self.useReplicaCache()
 
-def createSampleAndCollectionTable(manager, re_filter=None):
-    table = Table(title="Samples And Collections")
-    table.add_column("Name")
-    table.add_column("Type")
-    table.add_column("Number Events")
-    everything = list(
-        it.chain(
-            zip(manager.sets.values(), it.repeat("Set")),
-            zip(manager.collections.values(), it.repeat("Colletions")),
-        )
-    )
-    if re_filter:
-        p = re.compile(re_filter)
-        everything = [x for x in everything if p.search(x[0].name)]
-    for s, t in everything:
-        table.add_row(s.name, t, str(s.totalEvents()))
-    return table
+    def buildReplicaCache(self, force=False):
+        for sample in self.sets.values():
+            if sample.cms_dataset_regex:
+                sample.discoverAndCacheReplicas(force=force)
+
+    def useReplicaCache(self):
+        for sample in self.sets.values():
+            if sample.cms_dataset_regex:
+                sample.useFilesFromReplicaCache()
+
+

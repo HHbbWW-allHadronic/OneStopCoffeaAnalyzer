@@ -66,3 +66,21 @@ def createCollectionTable(manager, re_filter=None):
             s.name, f"{str(s.totalEvents())}", f"{len(s.sets)}", f"{s.treat_separate}"
         )
     return table
+
+def createSampleAndCollectionTable(manager, re_filter=None):
+    table = Table(title="Samples And Collections")
+    table.add_column("Name")
+    table.add_column("Type")
+    table.add_column("Number Events")
+    everything = list(
+        it.chain(
+            zip(manager.sets.values(), it.repeat("Set")),
+            zip(manager.collections.values(), it.repeat("Colletions")),
+        )
+    )
+    if re_filter:
+        p = re.compile(re_filter)
+        everything = [x for x in everything if p.search(x[0].name)]
+    for s, t in everything:
+        table.add_row(s.name, t, str(s.totalEvents()))
+    return table

@@ -1,14 +1,51 @@
+import collections.abc
 import logging
 import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
-import collections.abc
+import pickle
 
 import yaml
 
+from dask.distributed import print as dprint
+
 logger = logging.getLogger(__name__)
+
+
+def stripPort(url):
+    protocol, netloc, *rest = urlparse(url)
+    netloc = netloc.split(":")[0]
+    return urlunparse((protocol, netloc, *rest))
+
+def stripPrefix(url):
+    protocol, netloc, *rest = urlparse(url)
+    netloc = netloc.split(":")[0]
+    return urlunparse(("", "", *rest))
+
+def getPath(url):
+    _,_, p, *rest = urlparse(url)
+    return Path(p)
+
+def extractCmsLocation(url):
+    _, _, p, *rest = urlparse(url)
+    parts = Path(p).parts
+    store_idx = next((i for i, x in enumerate(parts) if x == "store"), None)
+    if store_idx is None:
+        raise RuntimeError(f"Could not find 'store' in {parts}")
+
+    good_parts = parts[store_idx:]
+    cms_path = Path("/", *good_parts)
+    return str(cms_path)
+
+def pickleWithParents(outpath, data):
+    p = Path(outpath)
+    p.parent.mkdir(exist_ok=True, parents=True)
+    with open(p,'wb') as f:
+        pickle.dump(data, f)
+
+    
 
 
 def compressDirectory(
@@ -46,6 +83,7 @@ def compressDirectory(
 
 
 def copyFile(fr, to):
+    dprint("HERE")
     fr_scheme, fr_netloc, fr_path, *fr_rest = urlparse(str(fr))
     to_scheme, to_netloc, to_path, *to_rest = urlparse(str(to))
     if not fr_scheme:
@@ -54,20 +92,23 @@ def copyFile(fr, to):
         to_path = str(Path(to_path).resolve().absolute())
     fr = urlunparse((fr_scheme, fr_netloc, fr_path, *fr_rest))
     to = urlunparse((to_scheme, to_netloc, to_path, *to_rest))
-    xrootd = any(x == "root" for x in (fr_scheme, to_scheme))
+    xrootd = any("root" in x for x in (fr_scheme, to_scheme))
+    dprint(xrootd)
     if xrootd:
         import XRootD
         import XRootD.client
 
-        copyproc = XRootD.client.CopyProcess()
-        copyproc.add_job(str(fr), str(to))
-        copyproc.prepare()
-        copyproc.run()
         client = XRootD.client.FileSystem(to_netloc)
-        status = client.locate(to_path, XRootD.client.flags.OpenFlags.READ)
-        assert status[0].ok
+
+        # copyproc = XRootD.client.CopyProcess()
+        # copyproc.add_job(str(fr), str(to))
+        dprint(str(fr))
+        dprint(str(to))
+
+        status = client.copy(str(fr), str(to), force=True)[0]
+        dprint(status)
+        assert status.ok
         del client
-        del copyproc
     else:
         to = Path(to)
         if not to.parent.is_dir():
@@ -86,7 +127,6 @@ def getStem(url):
     return str(Path(path).stem)
 
 
-
 def update(d, u):
     for k, v in u.items():
         if isinstance(v, collections.abc.Mapping):
@@ -94,6 +134,7 @@ def update(d, u):
         else:
             d[k] = v
     return d
+
 
 class DirectoryData:
     data_file_name = "directory_data.yaml"
@@ -128,15 +169,14 @@ class DirectoryData:
 
     def set(self, path, data):
         k = self.__key(path)
-        d = {self.file_data_key : {k : data}}
+        d = {self.file_data_key: {k: data}}
         self.__updateData(d)
 
     def getGlobal(self):
         return self.getComplete()["global_data"]
 
     def setGlobal(self, data):
-        self.__updateData({"global_data" : data})
-
+        self.__updateData({"global_data": data})
 
     def sync(self):
         current_data = self.getAll()

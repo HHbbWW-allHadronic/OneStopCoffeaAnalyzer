@@ -13,20 +13,23 @@ import dask
 import yaml
 from analyzer.file_utils import compressDirectory
 from distributed import Client, LocalCluster, TimeoutError
+from rich.progress import Progress
+import datetime
+from .configuration import getConfiguration
 
 try:
     from lpcjobqueue import LPCCondorCluster
     from lpcjobqueue.schedd import SCHEDD
-    LPCQUEUE_AVAILABLE=True
+
+    LPCQUEUE_AVAILABLE = True
 except ImportError as e:
-    LPCQUEUE_AVAILABLE=False
+    LPCQUEUE_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
 
 def createLPCCondorCluster(configuration):
-    """Create a new dask cluster for use with LPC condor.
-    """
+    """Create a new dask cluster for use with LPC condor."""
     if not LPCQUEUE_AVAILABLE:
         raise NotImplemented("LPC Condor can only be used at the LPC.")
 
@@ -51,7 +54,11 @@ def createLPCCondorCluster(configuration):
         shutil.rmtree(p)
 
     # Compress environment to transport to the condor workers
-    compressed_env = Path("compressed") / "environment.tar.gz"
+    compressed_env = (
+        Path(getConfiguration()["ENV_LOCAL_APPLICATION_DATA"])
+        / "compressed"
+        / "environment.tar.gz"
+    )
     if not compressed_env.exists():
         compressDirectory(venv, compressed_env.parent)
 
@@ -89,14 +96,13 @@ def createLPCCondorCluster(configuration):
     )
     cluster.scale(jobs=workers)
     # print(cluster)
-    #cluster.adapt(minimum=workers, maximum=workers)
+    # cluster.adapt(minimum=workers, maximum=workers)
 
     return cluster
 
 
 def createLocalCluster(configuration):
-    """Create a local dask cluster for running on a single node.
-    """
+    """Create a local dask cluster for running on a single node."""
 
     workers = configuration["n_workers"]
     memory = configuration["memory"]
@@ -118,8 +124,7 @@ cluster_factory = dict(
 
 
 def createNewCluster(cluster_type, config):
-    """Creates a general new cluster of a certain given a configuration.
-    """
+    """Creates a general new cluster of a certain given a configuration."""
 
     with importlib.resources.as_file(
         importlib.resources.files(analyzer.resources)
@@ -143,4 +148,13 @@ def cleanup(p):
 
 def runNewCluster(cluster_type, config):
     cluster = createNewCluster(cluster_type, config)
-    time.sleep(config["timeout"])
+    start_time = datetime.datetime.now()
+    end_time = start_time + datetime.timedelta(seconds=config["timeout"])
+    with Progress() as progress:
+        running = progress.add_task("[red]Remaining Time...", total=(config["timeout"]))
+        while True:
+            time.sleep(1)
+            now = datetime.datetime.now()
+            progress.update(running, advance=1)
+            if now > end_time:
+                break

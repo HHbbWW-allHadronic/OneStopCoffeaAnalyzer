@@ -40,3 +40,4 @@ tramp
 .local
 .condor_config
 results/
+compressed/
