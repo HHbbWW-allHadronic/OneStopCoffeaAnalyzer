@@ -45,7 +45,7 @@ Applies the following selection:
 
 
 @analyzerModule("bbpt_selection", categories="selection", depends_on=["objects"])
-def createSelection(events, analyzer):
+def createBBptSelection(events, analyzer):
     selection = analyzer.selection
     med_b = events.med_bs
     filled_med = ak.pad_none(med_b, 2, axis=1)
@@ -64,7 +64,6 @@ def createCRSelection(events, analyzer):
     loose_b = events.loose_bs
     med_b = events.med_bs
     tight_b = events.tight_bs
-    tight_top = events.tight_tops
     filled_jets = ak.pad_none(good_jets, 4, axis=1)
     top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
     hlt_names = analyzer.profile.hlt
