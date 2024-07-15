@@ -62,9 +62,10 @@ class DatasetRunResult:
         b = self.processed_chunks
         return a.difference(b)
 
-
     def getMissingCoffeaDataset(self):
-        missing_chunks = self.dataset_preprocessed.chunks.difference(self.getProcessedChunks())
+        missing_chunks = self.dataset_preprocessed.chunks.difference(
+            self.getProcessedChunks()
+        )
         input_dataset = copy.deepcopy(self.getCoffeaDataset())
 
         def filterSteps(name, steps, missing):
@@ -92,7 +93,10 @@ class DatasetRunResult:
         return {name: h * final_weight for name, h in self.histograms.items()}
 
     def merge(self, other):
-        if self.dataset_preprocessed.dataset_name != other.dataset_preprocessed.dataset_name:
+        if (
+            self.dataset_preprocessed.dataset_name
+            != other.dataset_preprocessed.dataset_name
+        ):
             raise ValueError()
         if self.processed_chunks.intersection(other.processed_chunks):
             raise ValueError()
@@ -153,11 +157,12 @@ class AnalysisResult:
         updated_results = copy.deepcopy(self.results)
         for dataset_name, results in other.results.items():
             if dataset_name in updated_results:
-                updated_results[dataset_name] = updated_results[dataset_name].merge(results)
+                updated_results[dataset_name] = updated_results[dataset_name].merge(
+                    results
+                )
             else:
                 updated_results[dataset_name] = results
         return AnalysisResult(updated_results, self.module_list)
-
 
 
 @dataclass
@@ -181,10 +186,11 @@ class NEventChecker:
                 f"Expected {expected}, found {actual}",
             )
         else:
+            bad_chunks = result.getBadChunks()
             return AnalysisInspectionResult(
                 "Number Events",
                 False,
-                f"Expected {expected}, found {actual}",
+                f"Expected {expected}, found {actual}. Missing {expected-actual} in {len(bad_chunks)} bad chunks.",
             )
 
 
@@ -193,23 +199,18 @@ class InputChecker:
         self.sample_manager = sample_manager
 
     def __call__(self, result):
-        sample = self.sample_manager.getSet(result.getName())
-        files = [tuple(stripPort(y) for y in x.paths.values()) for x in sample.files]
-        prepped = result.dataset_preprocessed
-        cof_dataset = prepped.coffea_dataset_split
-        cof_files = set(stripPort(x) for x in cof_dataset["files"].keys())
-        diff = [x for x in files if not any(y in cof_files for y in x)]
-        if diff:
+        missing_files = result.dataset_preprocessed.missingFiles()
+        if missing_files:
             return AnalysisInspectionResult(
-                "Input Files",
+                "Preprocessing",
                 False,
-                f"Missing {len(diff)} file{'s' if len(diff) > 1 else ''} from analysis input",
+                f"Missing {len(missing_files)} file{'s' if len(missing_files) > 1 else ''} from preprocessed input. This means not all files were preprocessed correctly.",
             )
         else:
             return AnalysisInspectionResult(
-                "Input Files",
+                "Preprocessing",
                 True,
-                f"All files in sample found in input to analyzer",
+                f"All files peprocessed",
             )
 
 
