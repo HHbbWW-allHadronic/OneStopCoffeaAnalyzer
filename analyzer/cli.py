@@ -1,16 +1,10 @@
 import argparse
 import inspect
 import itertools as it
-import logging
 import sys
+import pickle as pkl
 from pathlib import Path
 
-import analyzer.core as ac
-import analyzer.datasets as ds
-import analyzer.run_analysis as ra
-from analyzer.clients import cluster_factory, createNewCluster, runNewCluster
-from analyzer.core import modules as all_modules
-from analyzer.plotting.simple_plot import Plotter
 from prompt_toolkit import PromptSession
 from prompt_toolkit.completion import (
     DynamicCompleter,
@@ -19,17 +13,50 @@ from prompt_toolkit.completion import (
     WordCompleter,
 )
 from prompt_toolkit.history import FileHistory
-from rich import print
-from rich.columns import Columns
-from rich.console import Console
-from rich.markdown import Markdown
-from rich.pretty import Pretty
-from rich.table import Table
+import argcomplete
+from .configuration import getConfiguration
+
+from .logging import setup_logging
+import logging
 
 logger = logging.getLogger(__name__)
 
 
+def saveCachedArgparseList(name, data):
+    from analyzer.file_utils import pickleWithParents
+
+    config_path = Path(getConfiguration()["APPLICATION_DATA"])
+    path = config_path / "argparse_cache" / f"{name}.pkl"
+    pickleWithParents(path, data)
+
+
+def loadCachedArgparseList(name):
+    config_path = Path(getConfiguration()["APPLICATION_DATA"])
+    path = config_path / "argparse_cache" / f"{name}.pkl"
+    if path.exists():
+        with open(path, "rb") as f:
+            return pkl.load(f)
+    else:
+        return None
+
+
+def getSampleRepos(args):
+    import analyzer.datasets as ds
+    profile_repo = ds.ProfileRepo()
+    profile_repo.loadFromDirectory("profiles")
+    sample_manager = ds.SampleManager()
+    sample_manager.loadSamplesFromDirectory(
+        args.dataset_path, profile_repo, use_replicas=args.use_replicas
+    )
+    saveCachedArgparseList(
+        "samples", list(it.chain(sample_manager.sets, sample_manager.collections))
+    )
+    return sample_manager, profile_repo
+
+
 def handleCluster(args):
+    from analyzer.clients import cluster_factory, createNewCluster, runNewCluster
+
     logger.info("Handling cluster-start")
     config = {
         "n_workers": args.workers,
@@ -41,38 +68,147 @@ def handleCluster(args):
     client = runNewCluster(args.type, config)
 
 
-def handleRunAnalysis(args):
-    logger.info("Handling run analysis")
+def handlePreprocess(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    logger.info("Handling preprocess")
     prefer_location = args.prefer_location
     if args.require_location:
         prefer_location = None
+
+    sample_manager, profile_repo = getSampleRepos(args)
+    client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
+    prepped = ra.createPreprocessedSamples(
+        sample_manager,
+        args.samples,
+        args.step_size,
+        args.require_location,
+        args.prefer_location,
+    )
+    pickleWithParents(args.output, prepped)
+
+
+def handleCheckPreprocess(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    logger.info("Handling preprocess")
+
+    sample_manager, profile_repo = getSampleRepos(args)
+    with open(args.input, "rb") as f:
+        prepped = pkl.load(f)
+
+    for dataset in prepped:
+        print(dataset.dataset_name, dataset.missingFiles())
+
+
+def handlePatchPreprocess(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    sample_manager, profile_repo = getSampleRepos(args)
+    client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
+
+    with open(args.input, "rb") as f:
+        prepped = pkl.load(f)
+
+    patched = ra.patchPreprocessed(sample_manager, prepped, step_size=args.step_size)
+
+    pickleWithParents(args.output, patched)
+
+
+def handleRunPreprocessed(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    logger.info("Handling run-preprocessed")
+    sample_manager, profile_repo = getSampleRepos(args)
+    client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
+
+    with open(args.preprocessed_inputs, "rb") as f:
+        prepped = pkl.load(f)
+    result = ra.runModulesOnDatasets(
+        args.modules,
+        prepped,
+        client,
+        args.skim_save_path,
+        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*"]),
+    )
+
+    pickleWithParents(args.output, result)
+
+
+def handleGenReplicas(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
 
     profile_repo = ds.ProfileRepo()
     profile_repo.loadFromDirectory("profiles")
     sample_manager = ds.SampleManager()
     sample_manager.loadSamplesFromDirectory(args.dataset_path, profile_repo)
-    ret = ra.runAnalysisOnSamples(
-        args.modules,
+
+    sample_manager.buildReplicaCache(args.force)
+
+
+def handleRunSamples(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    sample_manager, profile_repo = getSampleRepos(args)
+    client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
+
+    prepped = ra.createPreprocessedSamples(
         sample_manager,
-        samples=args.samples,
-        preprocessed_path=args.preprocessed_input,
-        dask_schedd_address=args.scheduler_address,
-        delayed=not args.no_delayed,
-        step_size=args.step_size,
-        prefer_location=prefer_location,
-        require_location=args.require_location,
-        save_preprocessed=args.save_preprocessed,
-        transfer_analyzer=not args.no_transfer_analyzer,
+        args.samples,
+        args.step_size,
+        args.require_location,
+        args.prefer_location,
     )
-    ret.save(args.output)
-    if args.print_after:
-        print(ret)
+    if args.save_preprocessed:
+        pickleWithParents(args.save_preprocessed, prepped)
+    result = ra.runModulesOnDatasets(
+        args.modules, prepped, client=client, skim_save_path=args.skim_save_path
+    )
+    pickleWithParents(args.output, result)
+
+
+def handlePatchRun(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+
+    sample_manager, profile_repo = getSampleRepos(args)
+    client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
+
+    with open(args.input, "rb") as f:
+        results = pkl.load(f)
+
+    patched = ra.patchResult(results, client=client, skim_save_path=args.skim_save_path)
+
+    pickleWithParents(args.output, patched)
 
 
 def handleSamples(args):
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
+    from rich import print
+    from rich.columns import Columns
+    from rich.console import Console
+    from rich.markdown import Markdown
+    from rich.pretty import Pretty
+    from rich.table import Table
+
     logger.info("Handling sample inspection")
-    manager = ds.SampleManager()
-    manager.loadSamplesFromDirectory("datasets")
+
+    manager, profile_repo = getSampleRepos(args)
 
     if args.type is None:
         table = ds.createSampleAndCollectionTable(manager, re_filter=args.filter)
@@ -86,8 +222,17 @@ def handleSamples(args):
 
 
 def handleModules(args):
-    logger.info("Handling module inspection")
+    import analyzer.core as ac
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from analyzer.file_utils import pickleWithParents
     import analyzer.modules
+    from rich import print
+    from rich.columns import Columns
+    from rich.console import Console
+    from rich.markdown import Markdown
+    from rich.pretty import Pretty
+    from rich.table import Table
 
     console = Console()
 
@@ -149,7 +294,8 @@ def addSubparserSamples(subparsers):
     subparser = subparsers.add_parser(
         "samples", help="Get information on available data samples"
     )
-    subparser.set_defaults(func=handleSamples)
+    subparser = addCommonPathArgs(subparser)
+
     subparser.add_argument("-f", "--filter", default=None, help="Regex to filter names")
     subparser.add_argument(
         "-t",
@@ -158,6 +304,8 @@ def addSubparserSamples(subparsers):
         default=None,
         help="Show information for only samples or collections",
     )
+
+    subparser.set_defaults(func=handleSamples)
 
 
 def addSubparserModules(subparsers):
@@ -173,6 +321,16 @@ def addSubparserModules(subparsers):
 
 
 def handleCheck(args):
+
+    import analyzer.core as ac
+    import analyzer.datasets as ds
+    import analyzer.run_analysis as ra
+    from rich import print
+    from rich.columns import Columns
+    from rich.console import Console
+    from rich.markdown import Markdown
+    from rich.pretty import Pretty
+    from rich.table import Table
 
     profile_repo = ds.ProfileRepo()
     profile_repo.loadFromDirectory("profiles")
@@ -191,17 +349,20 @@ def handleCheck(args):
     # print(checks)
     for sample, sample_checks in checks.items():
         for c in sample_checks:
-            table.add_row(sample, c.type, str(c.passed), c.description)
+            if not args.only_bad or not c.passed:
+                table.add_row(sample, c.type, str(c.passed), c.description)
 
     console = Console()
     console.print(table)
     if all(x.passed for x in it.chain.from_iterable(checks.values())):
         print("ALL CHECKS HAVE PASSED")
+    else:
+        print("THERE WERE FAILED CHECKS, YOU LIKELY WANT TO PATCH THIS RESULTS FILE")
 
 
 def addSubparserCheck(subparsers):
     subparser = subparsers.add_parser(
-        "check-file", help="Identify potential problems in an output file"
+        "check-result", help="Identify potential problems in a results file"
     )
     subparser.add_argument("input", type=str, help="Path to the results file to check")
     subparser.add_argument(
@@ -209,6 +370,13 @@ def addSubparserCheck(subparsers):
         default="datasets",
         type=str,
         help="Path to directory containing dataset files",
+    )
+
+    subparser.add_argument(
+        "--only-bad",
+        default=False,
+        action="store_true",
+        help="Only show problems",
     )
 
     subparser.set_defaults(func=handleCheck)
@@ -361,7 +529,7 @@ def addSubparserCluster(subparsers):
         "--type",
         type=str,
         required=True,
-        choices=list(cluster_factory),
+        # choices=list(cluster_factory),
         help="Type of cluster",
     )
     subparser.add_argument(
@@ -391,52 +559,178 @@ def addSubparserCluster(subparsers):
     subparser.set_defaults(func=handleCluster)
 
 
-def addSubparserRun(subparsers):
-    subparser = subparsers.add_parser(
-        "run", help="Run analyzer over some collection of samples"
-    )
-    subparser.add_argument(
-        "-o", "--output", required=True, type=Path, help="Output data path."
+def addCommonPathArgs(parser):
+    parser.add_argument(
+        "--dataset-path",
+        default="datasets",
+        type=str,
+        help="Path to directory containing dataset files",
     )
 
-    run_mode = subparser.add_mutually_exclusive_group()
-    run_mode.add_argument(
+    parser.add_argument(
+        "--profile-path",
+        default="profiles",
+        type=str,
+        help="Path to directory containing profile files",
+    )
+    parser.add_argument(
+        "--use-replicas",
+        type=bool,
+        default=True,
+        help="Use replicas for samples",
+    )
+    return parser
+
+
+def addCommonDaskArgs(parser):
+    parser.add_argument(
+        "--no-transfer-analyzer",
+        default=False,
+        action="store_true",
+        help="If set, do not transfer the analyzer. Useful if rerunning over an existing cluster when the analyzer has not changed.",
+    )
+
+    parser.add_argument(
         "-a",
         "--scheduler-address",
         type=str,
         help="Address of the scheduler to use for dask",
     )
 
-    run_mode.add_argument(
-        "--no-delayed",
-        action="store_true",
-        default=False,
-        help="Do not use dask, instead run synchronously. Good for testing.",
+    return parser
+
+
+def addCommonPrepArgs(parser):
+    sample_choices = loadCachedArgparseList("samples")
+    if not sample_choices:
+        import analyzer.datasets as ds
+        import analyzer.run_analysis as ra
+        from analyzer.file_utils import pickleWithParents
+
+        profile_repo = ds.ProfileRepo()
+        profile_repo.loadFromDirectory("profiles")
+        s = ds.SampleManager()
+        s.loadSamplesFromDirectory(
+            "datasets",
+            profile_repo,
+            use_replicas=False,
+        )
+        saveCachedArgparseList("samples", list(it.chain(s.sets, s.collections)))
+
+    parser.add_argument(
+        "--step-size",
+        default=100000,
+        type=int,
+        help="Number of events per chunk",
     )
 
-    subparser.add_argument(
+    parser.add_argument(
+        "--require-location",
+        default=None,
+        type=str,
+        help="If provided, require that all samples be found at provided location.",
+    )
+
+    parser.add_argument(
+        "--prefer-location",
+        default="eos",
+        type=str,
+        help="If provided, prefer that all samples be found at provided location.",
+    )
+
+    parser.add_argument(
         "-s",
         "--samples",
         type=str,
         nargs="+",
         help="List of samples to run over",
         metavar="",
+        choices=sample_choices,
     )
+
+    return parser
+
+
+def addSubparserPreprocess(subparsers):
+    """Just produce preprocessed inputs"""
+    subparser = subparsers.add_parser("preprocess", help="Create preprocessed inputs")
+    subparser = addCommonPathArgs(subparser)
+    subparser = addCommonDaskArgs(subparser)
+    subparser = addCommonPrepArgs(subparser)
+
     subparser.add_argument(
+        "-o", "--output", required=True, type=Path, help="Output data path."
+    )
+    subparser.set_defaults(func=handlePreprocess)
+
+
+def addCommonRunArgs(parser):
+    module_choices = loadCachedArgparseList("modules")
+    if not module_choices:
+        import analyzer.modules
+
+        saveCachedArgparseList("modules", list(analyzer.core.org.modules))
+
+    parser.add_argument(
         "-m",
         "--modules",
         type=str,
         nargs="+",
         help="List of modules to execute.",
+        choices=module_choices,
         metavar="",
     )
 
-    subparser.add_argument(
-        "--dataset-path",
-        default="datasets",
+    parser.add_argument(
+        "--save-graph",
+        default=None,
         type=str,
-        help="Path to directory containing dataset files",
+        help="In set, interpret as a path to which the task-graph should be saved.",
     )
+
+    parser.add_argument(
+        "--skim-save-path",
+        type=str,
+        default=None,
+        help="Path to use to save skims.",
+    )
+
+    parser.add_argument(
+        "-o", "--output", required=True, type=Path, help="Output data path."
+    )
+    return parser
+
+
+def addSubparserRunPreprocessed(subparsers):
+    """Run over a preprocessed fileset"""
+    subparser = subparsers.add_parser(
+        "run-preprocessed", help="Run analyzer over preprocessed inputs"
+    )
+    subparser = addCommonPathArgs(subparser)
+    subparser = addCommonDaskArgs(subparser)
+    subparser = addCommonRunArgs(subparser)
+
+    subparser.add_argument(
+        "--preprocessed-inputs",
+        default=None,
+        required=True,
+        type=str,
+        help="The path to a the preprocessed dataset",
+    )
+    subparser.set_defaults(func=handleRunPreprocessed)
+
+
+def addSubparserRunSamples(subparsers):
+    """Run over samples"""
+
+    subparser = subparsers.add_parser(
+        "run-samples", help="Run analyzer over some collection of samples"
+    )
+
+    subparser = addCommonPathArgs(subparser)
+    subparser = addCommonDaskArgs(subparser)
+    subparser = addCommonPrepArgs(subparser)
+    subparser = addCommonRunArgs(subparser)
 
     subparser.add_argument(
         "--save-preprocessed",
@@ -445,56 +739,98 @@ def addSubparserRun(subparsers):
         help="If provided, the path to a file to save preprocessed datasets to. This data may later be used as input to the analyzer.",
     )
 
-    subparser.add_argument(
-        "--save-graph",
-        default=None,
-        type=str,
-        help="In set, interpret as a path to which the task-graph should be saved.",
+    subparser.set_defaults(func=handleRunSamples)
+
+
+def addSubparserPatchPreprocess(subparsers):
+    """Update an existing preprocessed file with any missing info"""
+    subparser = subparsers.add_parser(
+        "patch-preprocessed", help="Run analyzer over some collection of samples"
     )
 
-    subparser.add_argument(
-        "--print-after",
-        default=False,
-        action="store_true",
-        help="If true, print the result.",
-    )
-
-    subparser.add_argument(
-        "--require-location",
-        default=None,
-        type=str,
-        help="If provided, require that all samples be found at provided location.",
-    )
-
-    subparser.add_argument(
-        "--prefer-location",
-        default="eos",
-        type=str,
-        help="If provided, prefer that all samples be found at provided location.",
-    )
+    subparser = addCommonPathArgs(subparser)
+    subparser = addCommonDaskArgs(subparser)
 
     subparser.add_argument(
         "--step-size",
-        default=100000,
+        default=150000,
         type=int,
         help="Number of events per chunk",
     )
 
     subparser.add_argument(
-        "--no-transfer-analyzer",
-        default=False,
-        action="store_true",
-        help="If set, do not transfer the analyzer. Useful if rerunning over an existing cluster when the analyzer has not changed.",
+        "-o", "--output", required=True, type=Path, help="Output data path."
     )
+    subparser.add_argument(
+        "-i",
+        "--input",
+        default=None,
+        type=str,
+        help="Input file",
+    )
+    subparser.set_defaults(func=handlePatchPreprocess)
+
+
+def addSubparserCheckPreprocess(subparsers):
+    """Update an existing preprocessed file with any missing info"""
+    subparser = subparsers.add_parser(
+        "check-preprocessed", help="Run analyzer over some collection of samples"
+    )
+
+    subparser = addCommonPathArgs(subparser)
 
     subparser.add_argument(
-        "--preprocessed-input",
-        type=str,
+        "-i",
+        "--input",
         default=None,
-        help="If set, use the provided preprocessed input data as input to the analyzer, rather than the datasets provided with -s",
+        type=str,
+        help="Input file",
     )
 
-    subparser.set_defaults(func=handleRunAnalysis)
+    subparser.set_defaults(func=handleCheckPreprocess)
+
+
+def addSubparserGenerateReplicaCache(subparsers):
+
+    subparser = subparsers.add_parser(
+        "generate-replicas",
+        help="Use Rucio to get the replicas for datasets representing a standard CMS sample",
+    )
+
+    subparser = addCommonPathArgs(subparser)
+    subparser.add_argument(
+        "-f",
+        "--force",
+        action="store_true",
+        help="Regenerate already existing replicas as well.",
+    )
+    subparser.set_defaults(func=handleGenReplicas)
+
+
+def addSubparserPatchRun(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser(
+        "patch-result", help="Attempt to patch issues in a results file."
+    )
+    subparser = addCommonPathArgs(subparser)
+    subparser = addCommonDaskArgs(subparser)
+    subparser.add_argument(
+        "-i",
+        "--input",
+        default=None,
+        type=str,
+        help="Input file",
+    )
+    subparser.add_argument(
+        "-o", "--output", required=True, type=Path, help="Output data path."
+    )
+    subparser.add_argument(
+        "--skim-save-path",
+        type=str,
+        default=None,
+        help="Path to use to save skims.",
+    )
+    subparser.set_defaults(func=handlePatchRun)
 
 
 def addGeneralArguments(parser):
@@ -507,11 +843,20 @@ def runCli():
 
     subparsers = parser.add_subparsers()
     addSubparserCluster(subparsers)
-    addSubparserRun(subparsers)
+    addSubparserRunPreprocessed(subparsers)
+    addSubparserRunSamples(subparsers)
+    addSubparserPreprocess(subparsers)
+    addSubparserPatchRun(subparsers)
+    addSubparserPatchPreprocess(subparsers)
+    addSubparserCheckPreprocess(subparsers)
+    addSubparserGenerateReplicaCache(subparsers)
+
     addSubparserSamples(subparsers)
     addSubparserCheck(subparsers)
     addSubparserModules(subparsers)
     addSubparserInspect(subparsers)
+
+    argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 
@@ -519,3 +864,11 @@ def runCli():
         parser.print_help(sys.stderr)
 
     return args
+
+
+def main():
+    args = runCli()
+
+    setup_logging(default_level=args.log_level)
+    if hasattr(args, "func"):
+        args.func(args)
