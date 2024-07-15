@@ -34,6 +34,7 @@ class Plotter:
         target_lumi=None,
         default_backgrounds=None,
         dataset_dir="datasets",
+        profile_dir="profiles",
         coupling="312",
         default_axis_opts=None,
     ):
@@ -43,8 +44,10 @@ class Plotter:
         self.default_backgrounds = default_backgrounds or []
         self.default_axis_opts = default_axis_opts
 
+        profile_repo = ad.ProfileRepo()
+        profile_repo.loadFromDirectory(profile_dir)
         self.sample_manager = ad.SampleManager()
-        self.sample_manager.loadSamplesFromDirectory(dataset_dir)
+        self.sample_manager.loadSamplesFromDirectory(dataset_dir, profile_repo)
 
         if isinstance(input_data, ac.AnalysisResult):
             results = [input_data]
