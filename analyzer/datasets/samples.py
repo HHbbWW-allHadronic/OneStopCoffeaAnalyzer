@@ -4,16 +4,29 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Union
+from collections import OrderedDict
+import operator as op
+import random
 
+import copy
 from yaml import dump, load
 
 import rich
+import json
 from analyzer.core.inputs import AnalyzerInput
 from analyzer.datasets.styles import Style
+from analyzer.file_utils import stripPrefix
+from analyzer.configuration import getConfiguration
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
+from urllib.parse import urlparse, urlunparse
+from coffea.dataset_tools import rucio_utils
+from analyzer.file_utils import extractCmsLocation
+import re
+
 
 from .profiles import Profile
+
 
 try:
     from yaml import CDumper as Dumper
@@ -26,9 +39,51 @@ class ForbiddenDataset(Exception):
     pass
 
 
+def getDatasets(query, client):
+    outlist, outtree = rucio_utils.query_dataset(
+        query,
+        client=client,
+        tree=True,
+        scope="cms",
+    )
+    return outlist
+
+
+def getReplicas(dataset, client):
+    (
+        outfiles,
+        outsites,
+        sites_counts,
+    ) = rucio_utils.get_dataset_files_replicas(
+        dataset,
+        allowlist_sites=[],
+        blocklist_sites=[],
+        regex_sites=[],
+        mode="full",  # full or first. "full"==all the available replicas
+        client=client,
+    )
+    ret = {}
+    for f, s in zip(outfiles, outsites):
+        ret[extractCmsLocation(f[0])] = dict(zip(s, f))
+    return ret
+
+
 @dataclass
 class SampleFile:
-    paths: Dict[str, str] = field(default_factory=dict)
+    paths: OrderedDict[str, str] = field(default_factory=OrderedDict)
+    object_path: str = "Events"
+    # steps: Optional[List[List[int]]] = None
+    # number_events: Optional[int] = None
+
+    def __post_init__(self):
+        self.cmsLocation()
+
+    def setFile(self, location, url):
+        if self.cmsLocation() != extractCmsLocation(url):
+            raise ValueError(
+                f"Url '{url}' does not have the same correct cms-location {self.cmsLocation()}"
+            )
+        self.paths[location] = url
 
     @staticmethod
     def fromDict(data):
@@ -38,20 +93,80 @@ class SampleFile:
             return SampleFile({"eos": data})
 
     def getRootDir(self):
-        return "Events"
+        return self.object_path
 
-    def getFile(self, prefer_location=None, require_location=None):
-        if prefer_location and require_location:
+    def getFile(
+        self, require_location=None, location_priority_regex=None, require_protocol=None
+    ):
+        if location_priority_regex and require_location:
             raise ValueError(f"Cannot have both a preferred and required location")
-        if require_location:
+        if require_protocol:
+            paths = {
+                k: v
+                for k, v in self.paths.items()
+                if urlparse(v)[0] == require_protocol
+            }
+        else:
+            paths = self.paths
+
+        if require_location is not None:
             try:
-                return self.paths[require_location]
+                return paths[require_location]
             except KeyError:
                 raise KeyError(
                     f"Sample file does not have a path registered for location '{require_location}'.\n"
                     f"known locations are: {self.paths}"
                 )
-        return self.paths.get(prefer_location, next(iter(self.paths.values())))
+
+        def rank(val):
+            x = list(
+                (i for i, x in enumerate(location_priority_regex) if re.match(x, val)),
+            )
+            return next(iter(x), len(location_priority_regex))
+
+        if location_priority_regex:
+            sites_ranked = [(s, rank(s)) for s in paths.keys()]
+            sites_ranked = list(sorted(sites_ranked, key=op.itemgetter(1)))
+            groups = [
+                (x, [z[0] for z in y])
+                for x, y in it.groupby(sites_ranked, key=op.itemgetter(1))
+            ]
+            good = [
+                x[1] for x in sorted((x for x in groups if x), key=op.itemgetter(0))
+            ]
+            s = next(iter(good), [])
+        else:
+            s = list(paths.keys())
+
+        return paths[random.choice(s)]
+
+    def getNarrowed(self, *args, **kwargs):
+        f = self.getFile(*args, **kwargs)
+        return SampleFile(
+            {x: y for x, y in self.paths.items() if y == f},
+            self.object_path,
+            self.steps,
+            self.number_events,
+        )
+
+    def cmsLocation(self):
+        s = set(extractCmsLocation(x) for x in self.paths.values())
+        if len(s) != 1:
+            raise RuntimeError(
+                f"File has more than 1 associated CMS location. This will cause problems since the file's identity can't be uniquely determined.\n{s}"
+            )
+        return next(iter(s))
+
+    def __eq__(self, other):
+        if isinstance(other, str):
+            return self.cmsLocation() == other
+        elif isinstance(other, Sample):
+            return self.cmsLocation() == other.cmsLocation()
+        else:
+            raise NotImplementedError()
+
+    def __hash__(self):
+        return hash(self.cmsLocation())
 
 
 @dataclass
@@ -73,13 +188,14 @@ class SampleSet:
     mc_campaign: Optional[str] = None
     lumi_json: Optional[str] = None
     lumi_json: Optional[str] = None
+    cms_dataset_regex: Optional[str] = None
 
     @staticmethod
     def fromDict(data):
         name = data["name"]
         derived_from = data.get("derived_from", None)
         produced_on = data.get("produced_on", None)
-        profile = data.get("profile",None)
+        profile = data.get("profile", None)
         lumi = data.get("lumi", None)
         x_sec = data.get("x_sec", None)
         n_events = data.get("n_events", None)
@@ -90,11 +206,12 @@ class SampleSet:
         mc_campaign = data.get("mc_campaign", None)
         lumi_json = data.get("lumi_json", None)
         sample_type = data.get("sample_type", None)
+        cms_dataset = data.get("cms_dataset", None)
         if not (x_sec and n_events and lumi) and not (derived_from or isdata):
             raise Exception(
                 f"Every sample must either have a complete weight description, or a derivation. While processing\n {name}"
             )
-        if  not derived_from and not profile:
+        if not derived_from and not profile:
             raise Exception(
                 f"Every non-derived sample must have a profile. While processing\n {name}"
             )
@@ -129,8 +246,56 @@ class SampleSet:
             forbid=forbid,
             mc_campaign=mc_campaign,
             lumi_json=lumi_json,
+            cms_dataset_regex=cms_dataset,
         )
         return ss
+
+    def useFilesFromReplicaCache(self):
+        config = getConfiguration()
+        replica_cache = Path(config["APPLICATION_DATA"]) / "replica_cache"
+        look_for = replica_cache / f"{self.name}.json"
+        if not look_for.exists():
+            return
+        with open(look_for, "r") as f:
+            replicas = json.load(f)
+        t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
+        flat = dict(t)
+        #if len(flat) != len(self.files):
+        #    raise RuntimeError()
+        for f in self.files:
+            cms_loc = f.cmsLocation()
+            for l, p in flat[cms_loc].items():
+                f.setFile(l, p)
+
+    def discoverAndCacheReplicas(self, force=False):
+        from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
+
+        if not self.cms_dataset_regex:
+            raise RuntimeError(
+                "Cannot call discoverReplicas on a sample with no CMS dataset"
+            )
+
+        config = getConfiguration()
+        replica_cache = Path(config["APPLICATION_DATA"]) / "replica_cache"
+        look_for = replica_cache / f"{self.name}.json"
+
+        if look_for.exists() and not force:
+            return
+
+        client = rucio_utils.get_rucio_client()
+        datasets = getDatasets(self.cms_dataset_regex, client)
+        replicas = {dataset: getReplicas(dataset, client) for dataset in datasets}
+        # ddc = DataDiscoveryCLI()
+        # ddc.do_regex_sites(r"T[123]_(CH|IT|UK|FR|DE|US)_\w+")
+        # ddc.load_dataset_definition(
+        #    dd,
+        #    query_results_strategy="all",
+        #    replicas_strategy="round-robin",
+        # )
+
+        look_for.parent.mkdir(exist_ok=True, parents=True)
+        with open(look_for, "w") as f:
+            json.dump(replicas, f, indent=2)
 
     def isForbidden(self):
         if self.forbid is None:
@@ -171,7 +336,7 @@ class SampleSet:
         else:
             return self.profile
 
-    def toCoffeaDataset(self, prefer_location=None, require_location=None):
+    def toCoffeaDataset(self, location_priority_regex=None, require_location=None):
         if self.isForbidden():
             raise ForbiddenDataset(
                 f"Attempting to access the files for forbidden dataset {self.name}"
@@ -180,11 +345,19 @@ class SampleSet:
         return {
             self.name: {
                 "files": {
-                    f.getFile(prefer_location, require_location): f.getRootDir()
+                    f.getFile(location_priority_regex, require_location): f.getRootDir()
                     for f in self.files
                 }
             }
         }
+
+    def fileList(self, prefer_location=None, require_location=None):
+        if self.isForbidden():
+            raise ForbiddenDataset(
+                f"Attempting to access the files for forbidden dataset {self.name}"
+            )
+
+        return [f.getNarrowed(prefer_location, require_location) for f in self.files]
 
     def getWeight(self, target_lumi=None):
         if self.derived_from:
@@ -204,10 +377,11 @@ class SampleSet:
         return AnalyzerInput(
             dataset_name=self.name,
             fill_name=setname or self.name,
-            coffea_dataset=self.toCoffeaDataset(prefer_location, require_location),
+            files={f.cmsLocation(): f for f in self.files},
             profile=self.getProfile(),
             lumi_json=self.getLumiJson(),
         )
+
 
     def totalEvents(self):
         return self.n_events
