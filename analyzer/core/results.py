@@ -187,10 +187,12 @@ class NEventChecker:
             )
         else:
             bad_chunks = result.getBadChunks()
+            diff = expected - actual
+            percent = diff / expected * 100
             return AnalysisInspectionResult(
                 "Number Events",
                 False,
-                f"Expected {expected}, found {actual}. Missing {expected-actual} in {len(bad_chunks)} bad chunks.",
+                f"Expected {expected}, found {actual}. Missing {diff} ({percent:0.2f}%) in {len(bad_chunks)} bad chunks.",
             )
 
 
