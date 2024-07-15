@@ -1,6 +1,6 @@
 from functools import singledispatch
 from typing import Any, Dict, Optional, Set, Tuple, Union
-from  .inputs import DatasetPreprocessed,AnalyzerInput
+from .inputs import DatasetPreprocessed, AnalyzerInput
 
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 
@@ -19,22 +19,24 @@ def getEvents(arg, known_form=None, cache=None):
     ).events()
     return events, report
 
-@getEvents.register
-def _(arg: AnalyzerInput):
-    ds_pre = DatasetPreprocessed.fromDatasetInput(arg)
-    return getEvents(ds_pre.coffea_dataset_split["files"])
 
 @getEvents.register
-def _(arg: str, sample_manager=None):
+def _(arg: AnalyzerInput, **kwargs):
+    ds_pre = DatasetPreprocessed.fromDatasetInput(arg, **kwargs)
+    return getEvents(ds_pre.coffea_dataset_split["files"])
+
+
+@getEvents.register
+def _(arg: str, sample_manager=None, **kwargs):
     from analyzer.datasets import SampleManager
+
     if "/" in arg:
-        return getEvents({arg : "Events"})
+        return getEvents({arg: "Events"})
     else:
-        if isinstance(sample_manager,str):
+        if isinstance(sample_manager, str):
             d = sample_manager
             sample_manager = SampleManager()
             sample_manager.loadSamplesFromDirectory(d)
 
         s = sample_manager.getSet(arg)
-        return getEvents(s.getAnalyzerInput())
-
+        return getEvents(s.getAnalyzerInput(), **kwargs)
