@@ -141,7 +141,7 @@ class AnalysisResult:
         return ret
 
     def getMergedHistograms(self, sample_manager, target_lumi=None):
-        return utils.accumulate(
+        r = utils.accumulate(
             [
                 {
                     v.dataset_preprocessed.dataset_input.fill_name: v.getScaledHistograms(
@@ -151,7 +151,8 @@ class AnalysisResult:
                 for k, v in self.results.items()
             ]
         )
-        # return mergeAndWeightResults(self.results.values(), sample_manager, target_lumi)
+        keys = list(it.chain.from_iterable(x.keys() for x in r.values()))
+        return {key: {k: r[k][key] for k in r if key in r[k]} for key in keys}
 
     def merge(self, other):
         updated_results = copy.deepcopy(self.results)
