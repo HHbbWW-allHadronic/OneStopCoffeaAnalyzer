@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 import matplotlib.pyplot as plt
+from .plottables import FillType
 import numpy as np
 from matplotlib.collections import PatchCollection, RegularPolyCollection
 from matplotlib.patches import Rectangle
@@ -12,7 +13,7 @@ from .utils import addAxesToHist
 def drawAs2DHist(ax, plot_object, divider=None, add_color_bar=True, **kwargs):
     a1, a2 = plot_object.axes
     ex, ey = a1.flat_edges, a2.flat_edges
-    vals = plot_object.values
+    vals = plot_object.values()
     vx, vy = np.meshgrid(ex, ey)
     im = ax.pcolormesh(vx, vy, vals.T, **kwargs)
     ax.set_xlabel(a1.title)
@@ -39,17 +40,20 @@ def set_xmargin(ax, left=0.0, right=0.3):
 
 
 def addTitles2D(ax, plot_object):
-    values = plot_object.values
+    values = plot_object.values()
     axes = plot_object.axes
     x_unit = getattr(axes[0], "unit", None)
     y_unit = getattr(axes[1], "unit", None)
     ax.set_xlabel(axes[0].title + (f" [{x_unit}]" if x_unit else ""))
     ax.set_ylabel(axes[1].title + (f" [{y_unit}]" if y_unit else ""))
 
-    if np.sum(np.ravel(plot_object.values)) < 20:
+    if np.sum(np.ravel(plot_object.values())) < 20:
         zlab = "Normalized Events"
     else:
         zlab = "Weighted Events"
+
+    zlab = FillType.getAxisTitle(plot_object.fill_type)
+
     if x_unit and y_unit and x_unit == y_unit:
         zlab += f" / {x_unit or ''}$^2$"
     elif x_unit or y_unit:
@@ -58,6 +62,7 @@ def addTitles2D(ax, plot_object):
     if hasattr(ax, "cax"):
         cax = ax.cax
         cax.set_ylabel(zlab)
+
     return ax
 
 

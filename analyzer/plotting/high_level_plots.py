@@ -2,7 +2,7 @@ import itertools as it
 
 import matplotlib.pyplot as plt
 
-from .annotations import addEra, addPrelim
+from .annotations import addEra, addCmsInfo
 from .plots_1d import addTitles1D, drawAs1DHist, drawPull, drawRatio
 from .plots_2d import addTitles2D, drawAs2DHist
 from .utils import addAxesToHist
@@ -22,7 +22,7 @@ def plotPulls(plotobj_pred, plotobj_obs, coupling, lumi):
     drawPull(ab, hppo, hopo)
     ab.set_ylabel(r"$\frac{pred - obs}{\sigma_{pred}}$")
     addEra(ax, lumi or 59.8)
-    addPrelim(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
+    addCmsInfo(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
     addTitles1D(ax, hopo, top_pad=0.2)
     fig.tight_layout()
     return fig
@@ -42,8 +42,8 @@ def plotRatio(plotobj_pred, plotobj_obs, coupling, lumi):
     drawRatio(ab, hppo, hopo)
 
     ab.set_ylabel("Ratio")
-    addEra(ax, lumi)
-    addPrelim(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
+    addEra(ax, lumi, era)
+    addCmsInfo(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
     addTitles1D(ax, hopo, top_pad=0.2)
     fig.tight_layout()
     return fig
@@ -54,6 +54,7 @@ def plot1D(
     background_plobjs,
     lumi,
     coupling,
+    era,
     sig_style="hist",
     scale="log",
     xlabel_override=None,
@@ -72,8 +73,8 @@ def plot1D(
             drawAs1DHist(ax, o, yerr=True, fill=False)
 
     ax.set_yscale(scale)
-    addEra(ax, lumi)
-    addPrelim(
+    addEra(ax, lumi, era)
+    addCmsInfo(
         ax,
         additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
         + (add_label or ""),
@@ -96,6 +97,7 @@ def plot2D(
     plot_obj,
     lumi,
     coupling,
+    era,
     sig_style="hist",
     scale="log",
     add_label=None,
@@ -103,9 +105,9 @@ def plot2D(
     fig, ax = plt.subplots()
 
     drawAs2DHist(ax, plot_obj)
-    addEra(ax, lumi)
+    addEra(ax, lumi, era)
     pos = "in"
-    addPrelim(
+    addCmsInfo(
         ax,
         additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
         + (f"{add_label}," if add_label else "")
