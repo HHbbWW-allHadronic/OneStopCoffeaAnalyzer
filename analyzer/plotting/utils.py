@@ -135,7 +135,12 @@ def splitHistDict(hname, hist_dict, axes_options, split_val_separator="__", **kw
         for x, y in hist_dict.items()
     }
     keys = set(it.chain.from_iterable(x.keys() for x in split.values()))
-    return {
-        hname + split_val_separator + key: {k: split[k][key] for k in split}
+    s = split_val_separator if len(keys) > 1 else ""
+
+    r = {
+        hname
+        + (split_val_separator if key else "")
+        + key: {k: split[k][key] for k in split}
         for key in keys
     }
+    return r
