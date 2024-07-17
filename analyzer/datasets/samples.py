@@ -20,7 +20,6 @@ from analyzer.configuration import getConfiguration
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 from urllib.parse import urlparse, urlunparse
-from coffea.dataset_tools import rucio_utils
 from analyzer.file_utils import extractCmsLocation
 import re
 
@@ -50,6 +49,7 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
+    from coffea.dataset_tools import rucio_utils
     (
         outfiles,
         outsites,
@@ -269,6 +269,7 @@ class SampleSet:
 
     def discoverAndCacheReplicas(self, force=False):
         from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
+        from coffea.dataset_tools import rucio_utils
 
         if not self.cms_dataset_regex:
             raise RuntimeError(
