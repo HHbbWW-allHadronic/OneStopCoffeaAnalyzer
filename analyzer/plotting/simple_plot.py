@@ -87,6 +87,8 @@ class Plotter:
         if outdir:
             self.outdir = Path(outdir)
             self.outdir.mkdir(exist_ok=True, parents=True)
+        else:
+            self.outdir = None
 
     def __call__(self, *args, **kwargs):
         self.doPlot(*args, **kwargs)
@@ -177,8 +179,8 @@ class Plotter:
             if n in sig_set
         }
         if normalize:
-            signal_plobjs = {n: h.normalize() for n, h in signal_plotobjs}
-            background_plobjs = {n: h.normalize() for n, h in background_plotobjs}
+            signal_plobjs = {n: h.normalize() for n, h in signal_plobjs.items()}
+            background_plobjs = {n: h.normalize() for n, h in background_plobjs.items()}
 
         r = next(iter(signal_plobjs.values()))
         if len(r.axes) == 1:
