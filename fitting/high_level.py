@@ -262,23 +262,26 @@ def scan(hist):
 
 
 def main():
-    from analyzer.datasets import SampleManager
+    from analyzer.datasets import SampleManager, ProfileRepo
     from analyzer.core import AnalysisResult
 
-    res = AnalysisResult.fromFile("results/data_control.pkl")
+    res = AnalysisResult.fromFile("results/data2018.pkl")
+
+
+    profile_repo = ProfileRepo()
+    profile_repo.loadFromDirectory("profiles")
     sample_manager = SampleManager()
-    sample_manager.loadSamplesFromDirectory("datasets")
-    res.results["CR0b_Data2018"].histograms["h_njet"]
-    bkg_name = "CR0b_Data2018"
+    sample_manager.loadSamplesFromDirectory("datasets", profile_repo, False)
+
     hists = res.getMergedHistograms(sample_manager)
-    complete_hist = hists["ratio_m14_vs_m24"]
-    narrowed = hist
+
+    complete_hist = hists["ratio_m14_vs_m24"]["Data2018"]
     orig = complete_hist[
         ..., hist.loc(1150) : hist.loc(3000), hist.loc(0.4) : hist.loc(1)
     ]
     narrowed = orig[..., :: hist.rebin(2), :: hist.rebin(2)]
-    qcd_hist = narrowed[bkg_name, ...]
-    qcd_hist = narrowed[bkg_name, ...]
+    #qcd_hist = narrowed[bkg_name, ...]
+    qcd_hist = narrowed
     scan(qcd_hist)
 
 
