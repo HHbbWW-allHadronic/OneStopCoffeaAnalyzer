@@ -139,7 +139,7 @@ class PlotObject:
             title=self.title,
             style=self.style,
             mask=self.mask,
-            fill_type=self.fill_type,
+            fill_type=FillType.NormalizedEvents,
         )
 
     @staticmethod
