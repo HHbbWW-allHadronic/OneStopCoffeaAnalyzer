@@ -60,7 +60,7 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
         },
         "side_effects": [y for _, y in futures],
     }
-    computed, *rest = dask.compute(dsk)
+    computed, *rest = dask.compute(dsk, retries=3)
 
     ret = {
         name: DatasetRunResult(prep, h, getProcessedChunks(rep))
