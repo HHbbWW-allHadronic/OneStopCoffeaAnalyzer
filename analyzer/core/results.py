@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import itertools as it
 import logging
@@ -25,10 +26,19 @@ import dask_awkward as dak
 import hist
 import hist.dask as dah
 from analyzer.file_utils import stripPort
+from collections import namedtuple
 
+from coffea.dataset_tools.preprocess import DatasetSpec
 from .inputs import DatasetPreprocessed
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from analyzer.datasets import SampleManager
+
 logger = logging.getLogger()
+
+
+Chunk = namedtuple("Chunk", "file start end")
 
 
 @dataclass
@@ -51,18 +61,18 @@ class DatasetDaskRunResult:
 class DatasetRunResult:
     dataset_preprocessed: DatasetPreprocessed
     histograms: Dict[str, hist.Hist]
-    processed_chunks: Any
+    processed_chunks: Chunk
 
     @property
     def raw_events_processed(self):
         return sum(e - s for _, s, e in self.processed_chunks)
 
-    def getBadChunks(self):
+    def getBadChunks(self) -> Set[Chunk]:
         a = self.dataset_preprocessed.chunks
         b = self.processed_chunks
         return a.difference(b)
 
-    def getMissingCoffeaDataset(self):
+    def getMissingCoffeaDataset(self) -> DatasetSpec:
         missing_chunks = self.dataset_preprocessed.chunks.difference(
             self.getProcessedChunks()
         )
@@ -80,19 +90,21 @@ class DatasetRunResult:
 
         return input_dataset
 
-    def getMissingDataset(self):
+    def getMissingDataset(self) -> Set[Chunk]:
         ds_prepped = copy.deepcopy(self.dataset_preprocessed)
         ds_prepped.limit_chunks = self.getBadChunks()
         return ds_prepped
 
-    def getScaledHistograms(self, sample_manager, target_lumi):
+    def getScaledHistograms(
+        self, sample_manager: "SampleManager", target_lumi: float
+    ) -> Dict[str, hist.Hist]:
         sample = sample_manager[self.dataset_preprocessed.dataset_input.dataset_name]
         weight = sample.getWeight(target_lumi)
         reweighted = sample.n_events / self.raw_events_processed
         final_weight = reweighted * weight
         return {name: h * final_weight for name, h in self.histograms.items()}
 
-    def merge(self, other):
+    def merge(self, other: DatasetRunResult) -> DatasetRunResult:
         if (
             self.dataset_preprocessed.dataset_name
             != other.dataset_preprocessed.dataset_name
@@ -108,11 +120,15 @@ class DatasetRunResult:
         )
         return result
 
-    def getName(self):
+    def getName(self) -> str:
         return self.dataset_preprocessed.dataset_input.dataset_name
 
 
-def mergeAndWeightResults(results, sample_manager, target_lumi=None):
+def mergeAndWeightResults(
+    results: Sequence[DatasetRunResult],
+    sample_manager: "SampleManager",
+    target_lumi: float = None,
+) -> Dict[str, hist.Hist]:
     return utils.accumulate(
         [x.getScaledHistograms(sample_manager, target_lumi) for x in results]
     )
@@ -140,7 +156,7 @@ class AnalysisResult:
             raise RuntimeError(f"File {path} does not contain an analysis result")
         return ret
 
-    def getMergedHistograms(self, sample_manager, target_lumi=None):
+    def getMergedHistograms(self, sample_manager: "SampleManager", target_lumi=None):
         r = utils.accumulate(
             [
                 {
@@ -174,10 +190,10 @@ class AnalysisInspectionResult:
 
 
 class NEventChecker:
-    def __init__(self, sample_manager):
+    def __init__(self, sample_manager: "SampleManager"):
         self.sample_manager = sample_manager
 
-    def __call__(self, result):
+    def __call__(self, result: DatasetRunResult) -> AnalysisInspectionResult:
         expected = self.sample_manager.getSet(result.getName()).n_events
         actual = result.raw_events_processed
         if expected == actual:
@@ -198,10 +214,10 @@ class NEventChecker:
 
 
 class InputChecker:
-    def __init__(self, sample_manager):
+    def __init__(self, sample_manager: "SampleManager"):
         self.sample_manager = sample_manager
 
-    def __call__(self, result):
+    def __call__(self, result: DatasetRunResult) -> AnalysisInspectionResult:
         missing_files = result.dataset_preprocessed.missingFiles()
         if missing_files:
             return AnalysisInspectionResult(
@@ -217,15 +233,19 @@ class InputChecker:
             )
 
 
-def checkDatasetResult(ds_result, sample_manager):
+def checkDatasetRunResult(
+    ds_result: DatasetRunResult, sample_manager
+) -> List[AnalysisInspectionResult]:
     checkers = [NEventChecker(sample_manager), InputChecker(sample_manager)]
     results = [checker(ds_result) for checker in checkers]
     return results
 
 
-def checkAnalysisResult(result, sample_manager):
+def checkAnalysisResult(
+    result: AnalysisResult, sample_manager
+) -> Dict[str, List[AnalysisInspectionResult]]:
     ret = {
-        name: checkDatasetResult(ds_res, sample_manager)
+        name: checkDatasetRunResult(ds_res, sample_manager)
         for name, ds_res in result.results.items()
     }
     return ret
