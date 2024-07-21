@@ -122,9 +122,10 @@ class Analyzer:
         files = dsprep.getCoffeaDataset(**file_retrieval_kwargs)["files"]
         files = {k: v for k, v in files.items() if v["num_entries"] is not None}
         maybe_base_form = dsprep.form
+
         if maybe_base_form is not None:
             maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
-        events, report = getEvents(files, maybe_base_form, self.cache)
+        events, report = getEvents(files, known_form=maybe_base_form, cache=self.cache)
 
         if lumi_json:
             logger.info(f'Dataset {dataset_name}: Using lumi json file "{lumi_json}".')
@@ -141,6 +142,7 @@ class Analyzer:
             skim_save_path=skim_save_path,
         )
         prog_bar_updater(visible=True)
+
         for m in self.modules:
             logger.info(f"Adding module {m.name} to dataset {dataset_name}")
             test = m(events, dataset_analyzer)
