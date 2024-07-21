@@ -54,7 +54,9 @@ def createPackageArchive(zip_path=None, archive_type="zip"):
     temp_analyzer = shutil.copytree(
         analyzer_path,
         trimmed_path,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "**/site-packages/*analyzer*"),
+        ignore=shutil.ignore_patterns(
+            "__pycache__", "*.pyc", "*~", "**/site-packages/*analyzer*"
+        ),
     )
     package_path = shutil.make_archive(
         temp_path / "analyzer",
@@ -98,25 +100,22 @@ def createPreprocessedSamples(
     sample_manager,
     samples,
     step_size=150000,
-    require_location=None,
-    prefer_location=None,
+    file_retrieval_kwargs=None,
 ):
+    if file_retrieval_kwargs is None:
+        file_retrieval_kwargs = {}
     samples = [sample_manager[x] for x in samples]
     all_sets = list(
         it.chain.from_iterable(
-            makeIterable(
-                x.getAnalyzerInput(
-                    require_location=require_location,
-                    prefer_location=prefer_location,
-                )
-            )
-            for x in samples
+            makeIterable(x.getAnalyzerInput(**file_retrieval_kwargs)) for x in samples
         )
     )
     logger.info(f"Preprocessing {len(all_sets)} ")
     with Progress(TextColumn("{task.description}"), BarColumn()) as p:
         t = p.add_task("Preprocessing Files", total=None)
-        dataset_preps = ac.preprocessBulk(all_sets, step_size=step_size)
+        dataset_preps = ac.preprocessBulk(
+            all_sets, step_size=step_size, file_retrieval_kwargs=file_retrieval_kwargs
+        )
     return dataset_preps
 
 

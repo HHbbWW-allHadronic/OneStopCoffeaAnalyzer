@@ -42,6 +42,7 @@ def loadCachedArgparseList(name):
 
 def getSampleRepos(args):
     import analyzer.datasets as ds
+
     profile_repo = ds.ProfileRepo()
     profile_repo.loadFromDirectory("profiles")
     sample_manager = ds.SampleManager()
@@ -74,9 +75,6 @@ def handlePreprocess(args):
     from analyzer.file_utils import pickleWithParents
 
     logger.info("Handling preprocess")
-    prefer_location = args.prefer_location
-    if args.require_location:
-        prefer_location = None
 
     sample_manager, profile_repo = getSampleRepos(args)
     client = ra.createClient(args.scheduler_address, not args.no_transfer_analyzer)
@@ -84,8 +82,7 @@ def handlePreprocess(args):
         sample_manager,
         args.samples,
         args.step_size,
-        args.require_location,
-        args.prefer_location,
+        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*", "eos"]),
     )
     pickleWithParents(args.output, prepped)
 
@@ -137,7 +134,7 @@ def handleRunPreprocessed(args):
         prepped,
         client,
         args.skim_save_path,
-        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*"]),
+        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*", "eos"]),
     )
 
     pickleWithParents(args.output, result)
@@ -168,13 +165,16 @@ def handleRunSamples(args):
         sample_manager,
         args.samples,
         args.step_size,
-        args.require_location,
-        args.prefer_location,
+        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*", "eos"]),
     )
     if args.save_preprocessed:
         pickleWithParents(args.save_preprocessed, prepped)
     result = ra.runModulesOnDatasets(
-        args.modules, prepped, client=client, skim_save_path=args.skim_save_path
+        args.modules,
+        prepped,
+        client=client,
+        skim_save_path=args.skim_save_path,
+        file_retrieval_kwargs=dict(location_priority_regex=[r".*(US|CH|FR).*", "eos"]),
     )
     pickleWithParents(args.output, result)
 
