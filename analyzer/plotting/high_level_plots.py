@@ -84,8 +84,7 @@ def plot1D(
     handles, labels = ax.get_legend_handles_labels()
     labels, handles = zip(*reversed(sorted(zip(labels, handles), key=lambda t: t[0])))
     extra_legend_args = {}
-    if len(labels) > 5:
-        extra_legend_args["prop"] = {"size": 10}
+    extra_legend_args["prop"] = {"size": max(14, min(round(60 / len(labels)), 30))}
     ax.legend(handles, labels, **extra_legend_args)
     if xlabel_override:
         ax.set_xlabel(xlabel_override)
