@@ -16,7 +16,8 @@ from typing import (
 )
 
 import analyzer.utils as utils
-import coffea.dataset_tools as dst
+#import coffea.dataset_tools as dst
+import analyzer.core.preprocess as dst
 from analyzer.file_utils import stripPort, extractCmsLocation
 from coffea.dataset_tools.preprocess import DatasetSpec
 
@@ -71,7 +72,7 @@ class DatasetPreprocessed:
         )
         return DatasetPreprocessed(dataset_input, out[dataset_input.dataset_name])
 
-    def getCoffeaDataset(self, allow_incomplete=False, **kwargs) -> DatasetSpec:
+    def getCoffeaDataset(self, allow_incomplete=True, **kwargs) -> DatasetSpec:
         if (
             len(self.chunk_info) != len(self.dataset_input.files)
             and not allow_incomplete
@@ -113,7 +114,9 @@ class DatasetPreprocessed:
 
         new_data.update(updates)
 
-        return DatasetPreprocessed(self.dataset_input, new_data, self.limit_chunks)
+        return DatasetPreprocessed(
+            self.dataset_input, new_data, self.form, self.limit_chunks
+        )
 
     def missingFiles(self):
         a = set(self.dataset_input.files)
@@ -163,7 +166,7 @@ def preprocessBulk(
         all_inputs,
         save_form=True,
         skip_bad_files=True,
-        uproot_options={"timeout": 15},
+        uproot_options={"timeout": 30},
         **kwargs,
     )
 
