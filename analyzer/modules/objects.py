@@ -10,9 +10,9 @@ def makeCutSet(x, s, args):
 def createObjects(events, analyzer):
     good_jets = events.Jet[(events.Jet.pt > 30) & (abs(events.Jet.eta) < 2.4)]
     fat_jets = events.FatJet[(events.FatJet.pt > 30) & (abs(events.FatJet.eta) < 2.4)]
-    #loose_top, med_top, tight_top = makeCutSet(
+    # loose_top, med_top, tight_top = makeCutSet(
     #    fat_jets, fat_jets.particleNet_TvsQCD, [0.58, 0.80, 0.97]
-    #)
+    # )
     # loose_W, med_W, tight_W = makeCutSet(
     #    fat_jets, fat_jets.particleNet_WvsQCD, 0.7, 0.94, 0.98
     # )
@@ -41,15 +41,18 @@ def createObjects(events, analyzer):
     good_muons = mu[
         (mu.mediumId) & (mu.miniPFRelIso_all < 0.2) & (mu.pt > 30) & (abs(mu.eta) < 2.4)
     ]
-    events["good_jets"] = good_jets
+    ht = ak.sum(good_jets.pt, axis=1)
+
+    events["HT"] = ht
     events["good_electrons"] = good_electrons
     events["good_muons"] = good_muons
 
     events["loose_bs"] = loose_b
     events["med_bs"] = med_b
     events["tight_bs"] = tight_b
+    events["good_jets"] = good_jets
 
-    #events["tight_tops"] = tight_top
+    # events["tight_tops"] = tight_top
     # events["med_tops"] = med_top
     # events["loose_tops"] = loose_top
 
