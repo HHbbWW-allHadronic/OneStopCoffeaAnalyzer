@@ -20,8 +20,8 @@ def createObjects(events, analyzer):
     el = events.Electron
     mu = events.Muon
 
-    good_electrons = el[(el.cutBased == 1) & (el.pt > 10) & (ak.abs(el.eta) < 2.4)]
-    good_muons = mu[(mu.looseId) & (mu.pfIsoId == 2) & (ak.abs(mu.eta) < 2.4)]
+    good_electrons = el[(el.cutBased == 1) & (el.pt > 10) & (abs(el.eta) < 2.4)]
+    good_muons = mu[(mu.looseId) & (mu.pfIsoId == 2) & (abs(mu.eta) < 2.4)]
     ht = ak.sum(good_jets.pt, axis=1)
 
     events["good_jets"] = good_jets
