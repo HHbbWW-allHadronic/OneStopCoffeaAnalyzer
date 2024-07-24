@@ -1,5 +1,7 @@
 import awkward as ak
+import functools
 import hist
+import operator as op
 
 from analyzer.core import analyzerModule
 from analyzer.modules.axes import *
@@ -25,6 +27,10 @@ def selectionCategories(events, analyzer):
     passes_1tightbjet = ak.num(tight_b) >= 1
     passes_b_dr = med_dr > 1
 
+    if "HLT" in events.fields:
+        hlt_names = analyzer.profile.hlt
+        passes_hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+        analyzer.histogram_builder.addCategory(hist.axis.Boolean(name="passes_hlt"), passes_hlt)
     analyzer.histogram_builder.addCategory(hist.axis.Boolean(name="passes_highptjet"), passes_highptjet)
     analyzer.histogram_builder.addCategory(hist.axis.Boolean(name="passes_njets"), passes_njets)
     analyzer.histogram_builder.addCategory(hist.axis.Boolean(name="passes_0Lep"), passes_0Lep)
