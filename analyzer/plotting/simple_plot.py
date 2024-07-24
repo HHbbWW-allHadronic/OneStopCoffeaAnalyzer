@@ -36,10 +36,12 @@ class Plotter:
         dataset_dir="datasets",
         profile_dir="profiles",
         coupling="312",
+        year=2018,
         default_axis_opts=None,
     ):
         loadStyles()
         self._createLogger()
+        self.year = year
 
         self.default_backgrounds = default_backgrounds or []
         self.default_axis_opts = default_axis_opts
@@ -189,7 +191,7 @@ class Plotter:
                 background_plobjs.values(),
                 self.target_lumi,
                 self.coupling,
-                "",
+                self.year,
                 sig_style=sig_style,
                 xlabel_override=xlabel_override,
                 add_label=add_label,
