@@ -57,9 +57,9 @@ def selectionHists(events, analyzer):
     nj = ak.num(gj, axis=1)
     analyzer.H("njets", makeAxis(10, 0, 10, f"NJets"), nj)
 
-    m = nj >= 1
+    mnj = nj >= 1
     analyzer.H(
-        "pt0", makeAxis(100, 0, 1500, "$p_{T,0}$", unit="GeV"), gj[:, 0].pt, mask=m
+        "pt0", makeAxis(100, 0, 1500, "$p_{T,0}$", unit="GeV"), gj[mnj][:, 0].pt, mask=mnj
     )
 
     good_muons = events.good_muons
@@ -72,15 +72,15 @@ def selectionHists(events, analyzer):
     med_b = events.med_bs
     tight_b = events.tight_bs
 
-    nb = ak.num(med_b)
+    nb = ak.num(med_b, axis=1)
 
     analyzer.H("n_medb", makeAxis(6, 0, 6, f"N Medium b"), nb)
     analyzer.H("n_tightb", makeAxis(6, 0, 6, f"N Tight b"), ak.num(tight_b))
 
-    m = nb >= 2
-    twob = med_b[m]
+    mnb = nb >= 2
+    twob = med_b[mnb]
     med_dr = twob[:, 0].delta_r(twob[:, 1])
-    analyzer.H("med_b_dr", makeAxis(20, 0, 5, "$\Delta R$"), med_dr, mask=m)
+    analyzer.H("med_b_dr", makeAxis(20, 0, 5, "$\Delta R$"), med_dr, mask=mnb)
 
     analyzer.H(
         "HT",
