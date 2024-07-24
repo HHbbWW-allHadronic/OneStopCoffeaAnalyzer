@@ -42,6 +42,8 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
     edges = plot_object.axes[0].flat_edges
     raw_vals = plot_object.values()
     vals = np.append(raw_vals, raw_vals[-1])
+    w = mpl.rcParams["lines.linewidth"]
+
     if yerr:
         errs = np.sqrt(plot_object.variances())
         if orient == "h":
@@ -67,6 +69,7 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
             edges,
             label=plot_object.title,
             orientation="vertical" if orient == "h" else "horizontal",
+            linewidth=w,
             **style,
             **kwargs,
         )
