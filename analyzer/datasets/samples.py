@@ -20,7 +20,6 @@ from analyzer.configuration import getConfiguration
 from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 from urllib.parse import urlparse, urlunparse
-from coffea.dataset_tools import rucio_utils
 from analyzer.file_utils import extractCmsLocation
 import re
 
@@ -40,6 +39,8 @@ class ForbiddenDataset(Exception):
 
 
 def getDatasets(query, client):
+    from coffea.dataset_tools import rucio_utils
+
     outlist, outtree = rucio_utils.query_dataset(
         query,
         client=client,
@@ -50,6 +51,8 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
+    from coffea.dataset_tools import rucio_utils
+
     (
         outfiles,
         outsites,
@@ -99,7 +102,8 @@ class SampleFile:
         self, require_location=None, location_priority_regex=None, require_protocol=None
     ):
         if location_priority_regex and require_location:
-            raise ValueError(f"Cannot have both a preferred and required location")
+            location_priority_regex = None
+            # raise ValueError(f"Cannot have both a preferred and required location")
         if require_protocol:
             paths = {
                 k: v
@@ -260,7 +264,7 @@ class SampleSet:
             replicas = json.load(f)
         t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
         flat = dict(t)
-        #if len(flat) != len(self.files):
+        # if len(flat) != len(self.files):
         #    raise RuntimeError()
         for f in self.files:
             cms_loc = f.cmsLocation()
@@ -269,6 +273,7 @@ class SampleSet:
 
     def discoverAndCacheReplicas(self, force=False):
         from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
+        from coffea.dataset_tools import rucio_utils
 
         if not self.cms_dataset_regex:
             raise RuntimeError(
@@ -371,9 +376,7 @@ class SampleSet:
             w = w * target_lumi / self.getLumi()
         return w
 
-    def getAnalyzerInput(
-        self, setname=None, prefer_location=None, require_location=None
-    ):
+    def getAnalyzerInput(self, setname=None, **kwargs):
         return AnalyzerInput(
             dataset_name=self.name,
             fill_name=setname or self.name,
@@ -381,7 +384,6 @@ class SampleSet:
             profile=self.getProfile(),
             lumi_json=self.getLumiJson(),
         )
-
 
     def totalEvents(self):
         return self.n_events
@@ -430,12 +432,11 @@ class SampleCollection:
     def getSets(self):
         return self.sets
 
-    def getAnalyzerInput(self, prefer_location=None, require_location=None):
+    def getAnalyzerInput(self, **kwargs):
         return [
             x.getAnalyzerInput(
                 None if self.treat_separate else self.name,
-                prefer_location,
-                require_location,
+                **kwargs,
             )
             for x in self.getSets()
         ]

@@ -13,8 +13,8 @@ from analyzer.utils import accumulate
 
 from .high_level_plots import plot1D, plot2D, plotPulls, plotRatio
 from .mplstyles import loadStyles
-from .plottables import PlotObject, createPlotObjects
-from .utils import getNormalized
+from .plottables import PlotObject, createPlotObject
+from .utils import getNormalized, splitHistDict
 
 
 class Plotter:
@@ -36,10 +36,12 @@ class Plotter:
         dataset_dir="datasets",
         profile_dir="profiles",
         coupling="312",
+        year=2018,
         default_axis_opts=None,
     ):
         loadStyles()
         self._createLogger()
+        self.year = year
 
         self.default_backgrounds = default_backgrounds or []
         self.default_axis_opts = default_axis_opts
@@ -59,7 +61,7 @@ class Plotter:
 
         self.target_lumi = (
             target_lumi
-            or self.sample_manager.getSet(list(results[0].results.keys())[0]).getLumi()
+            or self.sample_manager[list(results[0].results.keys())[0]].getLumi()
         )
 
         self.histos = accumulate(
@@ -72,16 +74,11 @@ class Plotter:
         self.coupling = coupling
 
         used_samples = set(it.chain.from_iterable(x.results.keys() for x in results))
-        lumis = [
-            round(self.sample_manager.getSet(x).getLumi(), 4) for x in used_samples
-        ]
+        lumis = [round(self.sample_manager[x].getLumi(), 4) for x in used_samples]
         if (
             not target_lumi
             and len(
-                set(
-                    round(self.sample_manager.getSet(x).getLumi(), 4)
-                    for x in used_samples
-                )
+                set(round(self.sample_manager[x].getLumi(), 4) for x in used_samples)
             )
             > 1
         ):
@@ -92,13 +89,15 @@ class Plotter:
         if outdir:
             self.outdir = Path(outdir)
             self.outdir.mkdir(exist_ok=True, parents=True)
+        else:
+            self.outdir = None
 
     def __call__(self, *args, **kwargs):
         self.doPlot(*args, **kwargs)
 
     def plotPulls(self, target, hist_obs, hist_pred):
-        ho = self.histos[target][hist_obs, ...]
-        hp = self.histos[target][hist_pred, ...]
+        ho = self.histos[target][hist_obs]
+        hp = self.histos[target][hist_pred]
         hopo = PlotObject.fromHist(
             ho, self.sample_manager[hist_obs].getTitle(), self.sample_manager[hist_obs]
         )
@@ -116,8 +115,8 @@ class Plotter:
             return fig
 
     def plotRatio(self, target, hist_obs, hist_pred):
-        ho = self.histos[target][hist_obs, ...]
-        hp = self.histos[target][hist_pred, ...]
+        ho = self.histos[target][hist_obs]
+        hp = self.histos[target][hist_pred]
         hopo = PlotObject.fromHist(
             ho, self.sample_manager[hist_obs].getTitle(), self.sample_manager[hist_obs]
         )
@@ -143,37 +142,15 @@ class Plotter:
     ):
         all_axis_opts = {**(self.default_axis_opts or {})}
         all_axis_opts.update((axis_opts or {}))
-        h = self.histos[hist_name]
-        axes_names = {x.name for x in h.axes}
-        for n in all_axis_opts.keys():
-            if n not in axes_names:
-                raise KeyError(f"Name {n} is not an axis in {h}")
-        to_split = [x for x, y in all_axis_opts.items() if y is Plotter.Split]
-        all_axis_opts = {
-            x: y for x, y in all_axis_opts.items() if y is not Plotter.Split
-        }
-        h = h[all_axis_opts]
-        if to_split:
-            split_axes = [list(x) for x in h.axes if x.name in to_split]
-            split_names = [x.name for x in h.axes if x.name in to_split]
-            for combo in it.product(*split_axes):
-                if add_name:
-                    add_name = add_name + "_"
-                else:
-                    add_name = ""
-                new_name = add_name + "cuts__" + "_".join(str(x) for x in combo)
-                f = dict(zip(split_names, (hist.loc(x) for x in combo)))
-                to_pass = h[f]
-                return self.__doPlot(
-                    hist_name, to_pass, *args, **kwargs, add_name=new_name
-                )
-        else:
-            return self.__doPlot(hist_name, h, *args, **kwargs, add_name=add_name)
+        hist_dict = self.histos[hist_name]
+        split = splitHistDict(hist_name, hist_dict, all_axis_opts)
+        for name, hists in split.items():
+            return self.__doPlot(name, hists, *args, **kwargs)
 
     def __doPlot(
         self,
         hist_name,
-        hist,
+        hist_dict,
         sig_set,
         bkg_set=None,
         scale=None,
@@ -193,28 +170,28 @@ class Plotter:
             add_label = add_name.title()
         self.logger.info(f"Now plotting {hist_name}")
         add_name = add_name + "_" if add_name else ""
-        hc = hist[{"dataset": bkg_set + sig_set}]
+        background_plobjs = {
+            n: createPlotObject(n, h, self.sample_manager)
+            for n, h in hist_dict.items()
+            if n in bkg_set
+        }
+        signal_plobjs = {
+            n: createPlotObject(n, h, self.sample_manager)
+            for n, h in hist_dict.items()
+            if n in sig_set
+        }
         if normalize:
-            hc = getNormalized(hc, "dataset")
-        background_plobjs = createPlotObjects(
-            hc,
-            "dataset",
-            self.sample_manager,
-            cat_filter=lambda x: not re.search("signal", x),
-        )
-        signal_plobjs = createPlotObjects(
-            hc,
-            "dataset",
-            self.sample_manager,
-            cat_filter=lambda x: re.search("signal", x),
-        )
-        if len(hist.axes) == 2:
-            print(len(signal_plobjs))
+            signal_plobjs = {n: h.normalize() for n, h in signal_plobjs.items()}
+            background_plobjs = {n: h.normalize() for n, h in background_plobjs.items()}
+
+        r = next(iter(signal_plobjs.values()))
+        if len(r.axes) == 1:
             fig = plot1D(
-                signal_plobjs,
-                background_plobjs,
+                signal_plobjs.values(),
+                background_plobjs.values(),
                 self.target_lumi,
                 self.coupling,
+                self.year,
                 sig_style=sig_style,
                 xlabel_override=xlabel_override,
                 add_label=add_label,
@@ -229,23 +206,24 @@ class Plotter:
             else:
                 return fig
 
-        elif len(hist.axes) == 3:
+        elif len(r.axes) == 2:
             ret = []
-            for x in hc.axes[0]:
-                realh = hc[{"dataset": x}]
-                po = PlotObject.fromHist(realh, x, self.sample_manager[x].style)
+            for n, realh in hist_dict.items():
+                po = createPlotObject(n, realh, self.sample_manager)
                 fig = plot2D(
                     po,
                     self.coupling,
                     self.target_lumi,
+                    "",
                     sig_style=sig_style,
                     add_label=add_label,
                     scale=scale,
                 )
                 fig.tight_layout()
                 if self.outdir:
-                    fig.savefig(self.outdir / f"{add_name}{hist_name}_{x}.pdf")
+                    fig.savefig(self.outdir / f"{add_name}{hist_name}_{n}.pdf")
                     plt.close(fig)
                 else:
                     ret.append(fig)
-            return ret
+            if not self.outdir:
+                return ret

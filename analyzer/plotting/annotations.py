@@ -2,7 +2,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 
 
-def addPrelim(ax, pos="in", additional_text=None, color="black") -> mpl.axis.Axis:
+def addCmsInfo(ax, pos="in", additional_text=None, color="black") -> mpl.axis.Axis:
     text = r"$\bf{CMS}\ \it{Preliminary}$"
     if additional_text:
         text += additional_text
@@ -31,11 +31,13 @@ def addPrelim(ax, pos="in", additional_text=None, color="black") -> mpl.axis.Axi
     return ax
 
 
-def addEra(ax, lumi, energy="13 TeV") -> mpl.axis.Axis:
+def addEra(ax, lumi, era, energy="13 TeV") -> mpl.axis.Axis:
+    text = f"${lumi}\\, \\mathrm{{fb}}^{{-1}}$,  {era} ({energy}) "
+
     ax.text(
         1,
         1,
-        f"${lumi}\\, \\mathrm{{fb}}^{{-1}}$ ({energy}) ",
+        text,
         horizontalalignment="right",
         verticalalignment="bottom",
         transform=ax.transAxes,

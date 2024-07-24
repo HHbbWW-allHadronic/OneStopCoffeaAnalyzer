@@ -41,3 +41,5 @@ tramp
 .condor_config
 results/
 compressed/
+.application_data
+.ipynb_checkpoints

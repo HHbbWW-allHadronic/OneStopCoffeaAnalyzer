@@ -155,7 +155,8 @@ function rcmode(){
     export JUPYTER_RUNTIME_DIR=$application_data/envlocal/$env/share/jupyter/runtime
     export JUPYTER_DATA_DIR=$application_data/envlocal/$env/share/jupyter
     export IPYTHONDIR=$application_data/envlocal/$env/.ipython
-    export MPLCONFIGDIR=$application_data/envlocal/$env/.mpl
+    export MPLCONFIGDIR=$application_data/envlocal/$env/mpl
+    export MPLBACKEND="Agg"
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
 
     #export POETRY_HOME=/srv/.local/poetry
