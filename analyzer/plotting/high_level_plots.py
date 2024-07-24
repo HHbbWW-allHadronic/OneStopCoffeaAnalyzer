@@ -1,6 +1,7 @@
 import itertools as it
 
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 from .annotations import addEra, addCmsInfo
 from .plots_1d import addTitles1D, drawAs1DHist, drawPull, drawRatio
@@ -85,7 +86,12 @@ def plot1D(
     labels, handles = zip(*reversed(sorted(zip(labels, handles), key=lambda t: t[0])))
     extra_legend_args = {}
     extra_legend_args["prop"] = {"size": max(14, min(round(60 / len(labels)), 30))}
-    ax.legend(handles, labels, **extra_legend_args)
+    l = ax.legend(handles, labels, **extra_legend_args)
+    w = mpl.rcParams["lines.linewidth"]
+    for l in ax.get_legend().legendHandles:
+        if isinstance(l, mpl.lines.Line2D):
+            l.set_linewidth(w)
+
     if xlabel_override:
         ax.set_xlabel(xlabel_override)
     fig.tight_layout()
