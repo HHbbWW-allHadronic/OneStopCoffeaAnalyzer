@@ -102,7 +102,8 @@ class SampleFile:
         self, require_location=None, location_priority_regex=None, require_protocol=None
     ):
         if location_priority_regex and require_location:
-            raise ValueError(f"Cannot have both a preferred and required location")
+            location_priority_regex = None
+            # raise ValueError(f"Cannot have both a preferred and required location")
         if require_protocol:
             paths = {
                 k: v
