@@ -5,4 +5,5 @@ from .annotations import addText, addEra, addCmsInfo
 from .utils import addAxesToHist
 from .mplstyles import loadStyles
 from .simple_plot import Plotter
+from .high_level_plots import plotPulls, plotRatio, plot1D, plot2D
 
