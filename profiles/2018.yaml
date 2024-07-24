@@ -5,6 +5,8 @@ btag_working_points:
   medium: 0.2783
   tight: 0.7100
 
+btag_scale_factors: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2018_UL/btagging.json.gz
+
 HLT:
   - PFHT1050
   - AK8PFJet400_TrimMass30
