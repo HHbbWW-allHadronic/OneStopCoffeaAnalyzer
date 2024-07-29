@@ -729,6 +729,19 @@ def addSubparserRunPreprocessed(subparsers):
         type=str,
         help="The path to a the preprocessed dataset",
     )
+    subparser.add_argument(
+        "--require-location",
+        default=None,
+        type=str,
+        help="If provided, require that all samples be found at provided location.",
+    )
+
+    subparser.add_argument(
+        "--prefer-location",
+        default="eos",
+        type=str,
+        help="If provided, prefer that all samples be found at provided location.",
+    )
     subparser.set_defaults(func=handleRunPreprocessed)
 
 
@@ -743,6 +756,8 @@ def addSubparserRunSamples(subparsers):
     subparser = addCommonDaskArgs(subparser)
     subparser = addCommonPrepArgs(subparser)
     subparser = addCommonRunArgs(subparser)
+
+
 
     subparser.add_argument(
         "--save-preprocessed",
