@@ -74,19 +74,12 @@ def plot1D(
             drawAs1DHist(ax, o, yerr=True, fill=False)
 
     ax.set_yscale(scale)
-    addEra(ax, lumi, era)
-    addCmsInfo(
-        ax,
-        additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
-        + (add_label or ""),
-    )
     hc = next(it.chain(signal_plobjs, background_plobjs))
-    addTitles1D(ax, hc, top_pad=top_pad)
     handles, labels = ax.get_legend_handles_labels()
     labels, handles = zip(*reversed(sorted(zip(labels, handles), key=lambda t: t[0])))
     extra_legend_args = {}
-    extra_legend_args["prop"] = {"size": max(14, min(round(60 / len(labels)), 30))}
-    l = ax.legend(handles, labels, **extra_legend_args)
+    extra_legend_args["prop"] = {"size": max(14, min(round(50 / len(labels)), 30))}
+    l = ax.legend(handles, labels, loc="upper right", **extra_legend_args)
     w = mpl.rcParams["lines.linewidth"]
     for l in ax.get_legend().legendHandles:
         if isinstance(l, mpl.lines.Line2D):
@@ -94,7 +87,17 @@ def plot1D(
 
     if xlabel_override:
         ax.set_xlabel(xlabel_override)
+
+    addEra(ax, lumi, era)
+    addCmsInfo(
+        ax,
+        additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
+        + (add_label or ""),
+    )
+    addTitles1D(ax, hc, top_pad=top_pad)
+
     fig.tight_layout()
+
     return fig
 
 
