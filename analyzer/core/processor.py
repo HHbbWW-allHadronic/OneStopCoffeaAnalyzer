@@ -34,8 +34,17 @@ class DatasetProcessor:
         self.histogram_builder = HistogramBuilder(self.weights)
 
         self.skim_save_path = skim_save_path
-        self.skim_save_cols = ["HLT", "Jet", "Electron", "Muon", "FatJet"]
-        self.side_effect_computes= None
+        self.skim_save_cols = [
+            "HLT",
+            "Jet",
+            #"Electron",
+            "Muon",
+            #"FatJet",
+            "run",
+            "luminosityBlock",
+            "event",
+        ]
+        self.side_effect_computes = None
 
     @property
     def selection(self):
