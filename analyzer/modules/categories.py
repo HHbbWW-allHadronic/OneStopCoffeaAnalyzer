@@ -25,7 +25,7 @@ def selectionCategories(events, analyzer):
     passes_njets = (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     passes_2bjet = ak.num(med_b) >= 2
-    passes_3bjet = ak.num(med_b) >= 3
+    #passes_3bjet = ak.num(med_b) >= 3
     passes_1tightbjet = ak.num(tight_b) >= 1
     passes_b_dr = med_dr > 1
 
@@ -47,9 +47,9 @@ def selectionCategories(events, analyzer):
     analyzer.histogram_builder.addCategory(
         hist.axis.Boolean(name="passes_2bjet"), passes_2bjet
     )
-    analyzer.histogram_builder.addCategory(
-        hist.axis.Boolean(name="passes_3bjet"), passes_3bjet
-    )
+    #analyzer.histogram_builder.addCategory(
+    #    hist.axis.Boolean(name="passes_3bjet"), passes_3bjet
+    #)
     analyzer.histogram_builder.addCategory(
         hist.axis.Boolean(name="passes_1tightbjet"), passes_1tightbjet
     )
