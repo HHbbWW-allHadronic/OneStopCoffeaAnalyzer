@@ -223,7 +223,7 @@ def handleSamples(args):
     manager, profile_repo = getSampleRepos(args)
 
     if args.type is None:
-        table = ds.createSampleAndCollectionTable(manager, re_filter=args.filter)
+        table = ds.createCollectionTable(manager, re_filter=args.filter)
     elif args.type == "set":
         table = ds.createSetTable(manager, re_filter=args.filter)
     elif args.type == "collection":

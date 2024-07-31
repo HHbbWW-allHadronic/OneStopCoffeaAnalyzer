@@ -1,4 +1,5 @@
 import logging
+import uproot
 import sys
 import time
 from typing import (
@@ -20,7 +21,9 @@ import dask.base as daskb
 import dask.optimization as dop
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
-from distributed import Client, get_client, rejoin, secede
+from distributed import Client, get_client, rejoin, secede, progress
+
+import dask.optimization as dop
 
 from .events import getEvents
 from .inputs import DatasetPreprocessed
@@ -54,6 +57,8 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
             x.getName(): [
                 x.dataset_preprocessed,
                 x.histograms,
+                x.non_scaled_histograms,
+                x.non_scaled_histograms_labels,
                 x.run_report,
             ]
             for x, _ in futures
@@ -63,8 +68,8 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
     computed, *rest = dask.compute(dsk, retries=3)
 
     ret = {
-        name: DatasetRunResult(prep, h, getProcessedChunks(rep))
-        for name, (prep, h, rep) in computed["main"].items()
+        name: DatasetRunResult(prep, h, getProcessedChunks(rep), nsh, nshl)
+        for name, (prep, h, nsh, nshl, rep) in computed["main"].items()
     }
 
     return ret
@@ -85,9 +90,37 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
 #     computed, *rest = compute(dsk, optimize_graph=False)
 #
 #     return {
-#         name: DatasetRunResult(prep, h, r, rep)
-#         for name, (prep, h, r, rep) in computed.items()
+#         name: DatasetRunResult(prep, h, r, nsh, nshl, rep)
+#         for name, (prep, h, nsh, nshl, r, rep) in computed.items()
 #     }
+
+@dask.delayed
+def createFutureResult(modules, prepped_dataset):
+    dataset_name = prepped_dataset.dataset_input.dataset_name
+    logger.debug(f"Generating futures for dataset {dataset_name}")
+    files = prepped_dataset.getCoffeaDataset()["files"]
+    maybe_base_form = prepped_dataset.coffea_dataset_split.get("form", None)
+    if maybe_base_form is not None:
+        maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
+    events, report = NanoEventsFactory.from_root(
+        files,
+        schemaclass=NanoAODSchema,
+        uproot_options=dict(
+            allow_read_errors_with_report=True,
+            use_threads=False,
+        ),
+        known_base_form=maybe_base_form,
+    ).events()
+    daskres = DatasetDaskRunResult(prepped_dataset, {}, {}, {}, report)
+    dataset_analyzer = DatasetProcessor(
+        daskres, prepped_dataset.dataset_input.fill_name
+    )
+    for m in modules:
+        logger.info(f"Adding module {m.name} to dataset {dataset_name}")
+        test = m(events, dataset_analyzer)
+        events, dataset_analyzer = test
+
+    return daskres
 
 
 class Analyzer:
@@ -132,7 +165,7 @@ class Analyzer:
             lmask = getLumiMask(lumi_json)
             events = events[lmask(events.run, events.luminosityBlock)]
 
-        daskres = DatasetDaskRunResult(dsprep, {}, report)
+        daskres = DatasetDaskRunResult(dsprep, {}, {}, {}, report)
         dataset_analyzer = DatasetProcessor(
             daskres,
             dsprep.dataset_input.dataset_name,

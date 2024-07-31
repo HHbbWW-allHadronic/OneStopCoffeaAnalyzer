@@ -2,6 +2,7 @@ import itertools as it
 import logging
 import pickle as pkl
 import re
+import numpy as np
 from pathlib import Path
 
 import analyzer.core as ac
@@ -13,7 +14,7 @@ from analyzer.utils import accumulate
 
 from .high_level_plots import plot1D, plot2D, plotPulls, plotRatio
 from .mplstyles import loadStyles
-from .plottables import PlotObject, createPlotObject
+from .plottables import PlotObject, createPlotObject, PlotAxis
 from .utils import getNormalized, splitHistDict
 
 
@@ -38,6 +39,7 @@ class Plotter:
         coupling="312",
         year=2018,
         default_axis_opts=None,
+        non_scaled_histos=False,
     ):
         loadStyles()
         self._createLogger()
@@ -58,7 +60,6 @@ class Plotter:
                 [input_data] if isinstance(input_data, str) else list(input_data)
             )
             results = [pkl.load(open(f, "rb")) for f in filenames]
-
         self.target_lumi = (
             target_lumi
             or self.sample_manager[list(results[0].results.keys())[0]].getLumi()
@@ -70,7 +71,20 @@ class Plotter:
                 for f in results
             ]
         )
-
+        
+        if non_scaled_histos:
+            self.non_scaled_histos = accumulate(
+                [
+                    f.getNonScaledHistograms() 
+                    for f in results
+                ]
+            )
+            self.non_scaled_histos_labels = accumulate(
+                [
+                    f.getNonScaledHistogramsLabels()
+                    for f in results
+                ]
+            )
         self.coupling = coupling
 
         used_samples = set(it.chain.from_iterable(x.results.keys() for x in results))
@@ -83,9 +97,8 @@ class Plotter:
             > 1
         ):
             raise ValueError(
-                "The underlying sampels have different luminosities, and you are not performing scaling"
+                "The underlying samples have different luminosities, and you are not performing scaling"
             )
-
         if outdir:
             self.outdir = Path(outdir)
             self.outdir.mkdir(exist_ok=True, parents=True)
@@ -118,14 +131,14 @@ class Plotter:
         ho = self.histos[target][hist_obs]
         hp = self.histos[target][hist_pred]
         hopo = PlotObject.fromHist(
-            ho, self.sample_manager[hist_obs].getTitle(), self.sample_manager[hist_obs]
+            ho, self.sample_manager[hist_obs].title, self.sample_manager[hist_obs].style
         )
         hppo = PlotObject.fromHist(
             hp,
-            self.sample_manager[hist_pred].getTitle(),
-            self.sample_manager[hist_pred],
+            self.sample_manager[hist_pred].title,
+            self.sample_manager[hist_pred].style,
         )
-        fig = plotPulls(hppo, hopo, self.coupling, self.target_lumi)
+        fig = plotRatio(hppo, hopo, self.coupling, self.target_lumi)
         if self.outdir:
             fig.savefig(self.outdir / f"pull_{hist_obs}_{hist_pred}.pdf")
             plt.close(fig)
@@ -136,7 +149,6 @@ class Plotter:
         self,
         hist_name,
         *args,
-        add_name=None,
         axis_opts=None,
         **kwargs,
     ):
@@ -161,11 +173,13 @@ class Plotter:
         add_label=None,
         top_pad=0.4,
         xlabel_override=None,
+        ratio=False,
+        energy='13 TeV',
+        control_region=False,
     ):
         bkg_set = bkg_set if bkg_set is not None else self.default_backgrounds
         if not scale:
             scale = "linear"
-
         if add_label is None and add_name:
             add_label = add_name.title()
         self.logger.info(f"Now plotting {hist_name}")
@@ -179,11 +193,14 @@ class Plotter:
             n: createPlotObject(n, h, self.sample_manager)
             for n, h in hist_dict.items()
             if n in sig_set
-        }
+        }        
+        self.sample_manager.weights_normalized = self.sample_manager.weights.copy()
         if normalize:
+            for i,o in enumerate(signal_plobjs.values()):
+                self.sample_manager.weights_normalized[i] *= 1/o.sum()
             signal_plobjs = {n: h.normalize() for n, h in signal_plobjs.items()}
             background_plobjs = {n: h.normalize() for n, h in background_plobjs.items()}
-
+        
         r = next(iter(signal_plobjs.values()))
         if len(r.axes) == 1:
             fig = plot1D(
@@ -197,6 +214,10 @@ class Plotter:
                 add_label=add_label,
                 top_pad=top_pad,
                 scale=scale,
+                ratio=ratio,
+                energy=energy,
+                control_region=control_region,
+                weights=self.sample_manager.weights_normalized,
             )
             fig.tight_layout()
             if self.outdir:
@@ -208,22 +229,52 @@ class Plotter:
 
         elif len(r.axes) == 2:
             ret = []
-            for n, realh in hist_dict.items():
-                po = createPlotObject(n, realh, self.sample_manager)
+            for obj in signal_plobjs.values():
                 fig = plot2D(
-                    po,
-                    self.coupling,
-                    self.target_lumi,
-                    "",
+                    obj,
+                    coupling=self.coupling,
+                    lumi=self.target_lumi,
+                    era=self.year,
                     sig_style=sig_style,
                     add_label=add_label,
                     scale=scale,
+                    energy=energy,
+                    control_region=control_region,
                 )
                 fig.tight_layout()
                 if self.outdir:
-                    fig.savefig(self.outdir / f"{add_name}{hist_name}_{n}.pdf")
+                    fig.savefig(self.outdir / f"{add_name}{hist_name}_{obj.title}.pdf")
                     plt.close(fig)
                 else:
                     ret.append(fig)
-            if not self.outdir:
-                return ret
+            if ratio:
+                keys = list(signal_plobjs.keys())
+                ob1 = signal_plobjs[keys[0]]
+                ob2 = signal_plobjs[keys[1]]
+
+                zscorename = f'({keys[0]}-{keys[1]})/Std[{keys[0]}]'
+                varone = ob1.variances()
+                one=ob1.values()
+                two=ob2.values()
+                ratio_histv = np.divide((one-two), np.sqrt(varone), out=np.zeros_like(one), where=varone != 0)
+                ob1.update_values(ratio_histv)
+                fig = plot2D(
+                    ob1,
+                    coupling=self.coupling,
+                    lumi=self.target_lumi,
+                    era=self.year,
+                    sig_style=sig_style,
+                    add_label=add_label,
+                    scale=scale,
+                    zscore=ratio,
+                    control_region=control_region,
+                    energy=energy,
+                    zscorename=zscorename,
+                )
+                if self.outdir:
+                    fig.savefig(self.outdir / f"{add_name}{hist_name}_zscore.pdf")
+                    plt.close(fig)
+                else:
+                    ret.append(fig)
+                if not self.outdir:
+                    return ret

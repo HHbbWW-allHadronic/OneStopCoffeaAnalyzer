@@ -103,6 +103,9 @@ class PlotObject:
             return self.__values[cuts]
         else:
             return self.__values
+    
+    def update_values(self,new_values):
+        self.__values = new_values
 
     def sum(self, flow=False):
         return np.sum(self.values(flow))

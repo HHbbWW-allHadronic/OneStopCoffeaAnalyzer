@@ -246,6 +246,21 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_400.root
 
+- name: signal_312_1500_400_mg
+  mc_campaign: 2018UL
+  title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
+  type: set
+  lumi: 59.8
+  profile: 2018
+  n_events: 10000
+  x_sec: 73
+  tags: 
+    - signal
+  style:
+    color: "#000000"
+  files: 
+    - root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_400.root
+
 - name: signal_312_1500_600
   mc_campaign: 2018UL
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
@@ -293,6 +308,21 @@
   files: 
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1400.root
+
+- name: signal_312_1500_1400_mg
+  mc_campaign: 2018UL
+  type: set
+  title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1400\\ \\mathrm{GeV}$"
+  lumi: 59.8
+  n_events: 10000
+  profile: 2018
+  x_sec: 73
+  tags: 
+    - signal
+  style:
+    color: "#000000"
+  files: 
+    - root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_1400.root
 
 - name: signal_312_2000_400
   mc_campaign: 2018UL
@@ -493,6 +523,19 @@
   lumi: 59.8
   tags: 
     - signal
+- name: signal_312_1500_1100_mg
+  mc_campaign: 2018UL
+  files:
+  - root://cmseos.fnal.gov////store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_1100.root
+  n_events: 10000
+  profile: 2018
+  title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1100\\ \\mathrm{GeV}$"
+  x_sec: 73
+  lumi: 59.8
+  tags: 
+    - signal
+  style:
+    color: "#000000"
 - name: signal_312_1500_1200
   mc_campaign: 2018UL
   profile: 2018

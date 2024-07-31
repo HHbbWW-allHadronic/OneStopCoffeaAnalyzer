@@ -43,18 +43,20 @@ def reformatHist(
         yield h
 
 
-def getNormalized(hist, dataset_axis=None):
+def getNormalized(hist, dataset_axis=None, sample_manager=None):
     ret = hist.copy(deep=True)
     if dataset_axis is None:
         val, var = ret.values(flow=True), ret.variances(flow=True)
         s = ret.sum(flow=True).value
         ret[...] = np.stack([val / s, var / s**2], axis=-1)
     else:
-        for x in ret.axes[dataset_axis]:
+        for i,x in enumerate(ret.axes[dataset_axis]):
             this = ret[{dataset_axis: x}]
             val, var = this.values(flow=True), this.variances(flow=True)
             s = this.sum(flow=True).value
             ret[{dataset_axis: x}] = np.stack([val / s, var / s**2], axis=-1)
+            if sample_manager is not None:
+                sample_manager.weights_normalized[i] *= 1/s
     return ret
 
 

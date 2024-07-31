@@ -2,6 +2,7 @@ import numpy as np
 
 import hist
 import hist.intervals as hinter
+import hist.basehist as hbhist
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from .plottables import FillType
@@ -9,7 +10,6 @@ from .plottables import FillType
 
 def drawAsScatter(ax, p, yerr=True, **kwargs):
     style = p.style
-
     x = p.axes[0].centers
     ed = p.axes[0].flat_edges
     y = p.values()
@@ -23,14 +23,47 @@ def drawAsScatter(ax, p, yerr=True, **kwargs):
 
         if p.variances() is None:
             raise ValueError(f"Plot object does not have variance")
-        var = np.sqrt(p.variances())
+        unc = np.sqrt(p.variances)
+
+        # import csv
+        # with open('uncertainty_check.csv', 'a', newline='') as file:
+        #     writer = csv.writer(file)
+        #     writer.writerow(p.values)
+        #     writer.writerow(p.variances)
+        #     writer.writerow(unc)
+        #     file.close()
+
+        # print("Mask: ", p.mask)
+        # print("Values: ", p.values)
+        # print("Variances: ", p.variances)
+        # print("Uncert: ", unc)
+        # print("--------------------------------------")
+        # input()
+
+        # for i,val in enumerate(y):
+        #     print(f"Value: {val} ± {unc[i]}")
+        # input()
         if p.mask is not None:
             var = var[p.mask]
             e_start = e_start[p.mask]
             e_end = e_end[p.mask]
 
-        ax.errorbar(x, y, yerr=var, fmt="none", **style, **kwargs)
-        ax.hlines(y, e_start, e_end, label=p.title, **style)
+        ax.errorbar(
+            x,
+            y,
+            yerr=unc,
+            linestyle="none",
+            marker='.',
+            label=p.title,
+            **style,
+            **kwargs,
+        )
+        # ax.hlines(
+        #     y,
+        #     e_start,
+        #     e_end,
+        #     **style,
+        # )
     else:
         ax.scatter(x, y, label=p.title, marker="+", **style, **kwargs)
     return ax
@@ -78,19 +111,31 @@ def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
 
 
 def drawRatio(
-    ax, numerator, denominator, uncertainty_type="poisson", hline_list=None, **kwargs
+    ax, numerator, denominator, uncertainty_type="poisson-ratio", hline_list=None, weights=None, **kwargs
 ):
+    ax.axhline(y=1,linestyle='--',linewidth='1',color='k')
     hline_list = hline_list or []
     nv, dv = numerator.values(), denominator.values()
-    ratio = np.divide(nv, dv, out=np.ones_like(nv), where=dv != 0)
-
+    n, d = nv/weights[0], dv/weights[1]
+    with np.errstate(divide='ignore',invalid='ignore'):
+        ratio = np.divide(nv, dv, out=np.ones_like(nv), where=(dv != 0))
+    
     unc = hinter.ratio_uncertainty(
-        numerator.variances(),
-        denominator.variances(),
+        n.astype(int),
+        d.astype(int),
         uncertainty_type=uncertainty_type,
-    )
+    )*(weights[0]/weights[1])
+
     x = numerator.axes[0].centers
-    ax.errorbar(x, ratio, yerr=unc, marker="+", linestyle="none", **kwargs)
+
+    ax.errorbar(
+        x,
+        ratio,
+        yerr=unc,
+        marker="_",
+        linestyle="none",
+        **kwargs,
+    )
     return ax
 
 

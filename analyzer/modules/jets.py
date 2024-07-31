@@ -16,11 +16,11 @@ def tiny(events, analyzer):
     return events,analyzer
 
 
-@analyzerModule("jets", categories="main", depends_on=["objects", "event_level"])
+@analyzerModule("jets", categories="main", depends_on=["objects"])
 def createJetHistograms(events, analyzer):
     gj = events.good_jets
     analyzer.H(f"h_njet", nj_axis, ak.num(gj), name="njets")
-    jet_combos = [(0, 4), (0, 3), (1, 4), (0, 2), (1, 3)]
+    jet_combos = [(0, 4), (0, 3), (1, 4)]
     co = lambda x: it.combinations(x, 2)
 
     masses = {}
@@ -32,8 +32,8 @@ def createJetHistograms(events, analyzer):
             makeAxis(
                 100,
                 0,
-                1500,
-                f"$p_T ( \\sum_{{n={i+1}}}^{{{j}}} jet_{{n}})$ ",
+                1000,
+                f"$p_T ( \sum_{{n={i+1}}}^{{{j}}} jet_{{n}})$ ",
                 unit="GeV",
             ),
             jets.pt,
@@ -54,117 +54,98 @@ def createJetHistograms(events, analyzer):
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
 
-    for p1, p2 in co(jet_combos):
+    for p1, p2 in [((0,3),(0,4)),((1,4),(0,4))]:
         p1_1, p1_2 = p1
         p2_1, p2_2 = p2
-        mtitle1 = 4 if p1_2 - p1_1 == 4 else 3
-        mtitle2 = 4 if p2_2 - p2_1 == 4 else 3
+        mtitle1 = 3
+        mtitle2 = 4
         analyzer.H(f"m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}", 
-            [
+            [   
                 makeAxis(
-                    60, 0, 3000, rf"$m_{{{mtitle1}}}$", unit="GeV", append_name="1"
-                ),
+                    30, 0, 3000, rf"$m_{{{mtitle2}}}$", unit="GeV"),
                 makeAxis(
-                    60, 0, 3000, rf"$m_{{{mtitle2}}}$", unit="GeV", append_name="2"
-                ),
+                    30, 0, 3000, rf"$m_{{{mtitle1}}}$", unit="GeV"),
+                
             ],
-            [masses[p1], masses[p2]],
+            [masses[p2], masses[p1]],
             name="Comp mass",
         )
 
         analyzer.H(f"ratio_m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}", 
-            [
-                makeAxis(60, 0, 3000, rf"$m_{{{mtitle1}}}$", unit="GeV"),
+            [   makeAxis(30, 0, 3000, rf"$m_{{{mtitle2}}}$", unit="GeV"),
                 makeAxis(
-                    50,
+                    30,
                     0,
                     1,
-                    rf"$\frac{{m_{{ {mtitle2} }} }}{{ m_{{ {mtitle1} }} }}$",
+                    rf"$\frac{{m_{{ {mtitle1} }} }}{{ m_{{ {mtitle2} }} }}$",
                 ),
             ],
-            [masses[p1], masses[p2] / masses[p1]],
+            [masses[p2],masses[p1] / masses[p2]],
             name=f"ratio_m{mtitle1}_vs_m{mtitle2}",
         )
 
     for i in range(0, 4):
         analyzer.H(rf"pt_{i}", 
-            makeAxis(60, 0, 3000, f"$p_{{T, {i}}}$", unit="GeV"),
+            makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
             gj[:, i].pt,
             name=f"$p_T$ of jet {i+1}",
             description=f"$p_T$ of jet {i+1} ",
         )
         analyzer.H(f"eta_{i}", 
-            makeAxis(20, 0, 5, f"$\eta_{{{i}}}$"),
-            abs(gj[:, i].eta),
+            makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
+            gj[:, i].eta,
             name=f"$\eta$ of jet {i+1}",
             description=f"$\eta$ of jet {i+1}",
         )
         analyzer.H(f"phi_{i}", 
-            makeAxis(50, 0, 4, f"$\phi_{{{i}}}$"),
-            abs(gj[:, i].phi),
+            makeAxis(50, -4, 4, f"$\phi_{{{i+1}}}$"),
+            gj[:, i].phi,
             name=rf"$\phi$ of jet {i+1}",
             description=rf"$\phi$ of jet {i+1}",
         )
 
-    padded_jets = ak.pad_none(gj, 5, axis=1)
     masks = {}
-    for i, j in list(x for x in it.combinations(range(0, 5), 2) if x[0] != x[1]):
+    for i, j in list(x for x in it.combinations(range(0, 4), 2) if x[0] != x[1]):
         mask = ak.num(gj, axis=1) > max(i, j)
         masked_jets = gj[mask]
         d_eta = masked_jets[:, i].eta - masked_jets[:, j].eta
-        d_r = masked_jets[:, i].delta_r(masked_jets[:, j])
+        d_r = abs(masked_jets[:, i].delta_r(masked_jets[:, j]))
         d_phi = masked_jets[:, i].phi - masked_jets[:, j].phi
         masks[(i, j)] = mask
-        analyzer.H(rf"d_eta_{i+1}_{j}", 
-            eta_axis,
+        analyzer.H(rf"d_eta_{i+1}_{j+1}", 
+            makeAxis(50, -6, 6, f"$\Delta \eta_{{{i+1}{j+1}}}$"),
             d_eta,
             mask=mask,
-            name=rf"$\Delta \eta$ between jets {i+1} and {j}",
-            description=rf"$\Delta \eta$ between jets {i+1} and {j}",
+            name=rf"$\Delta \eta$ between jets {i+1} and {j+1}",
+            description=rf"$\Delta \eta$ between jets {i+1} and {j+1}",
         )
-        analyzer.H(f"d_phi_{i+1}_{j}", 
-            phi_axis,
+        analyzer.H(f"d_phi_{i+1}_{j+1}", 
+            makeAxis(50, -6, 6, f"$\Delta \phi_{{{i+1}{j+1}}}$"),
             d_phi,
             mask=mask,
-            name=rf"$\Delta \phi$ between jets {i+1} and {j}",
-            description=rf"$\Delta \phi$ between jets {i+1} and {j}",
+            name=rf"$\Delta \phi$ between jets {i+1} and {j+1}",
+            description=rf"$\Delta \phi$ between jets {i+1} and {j+1}",
         )
-        analyzer.H(f"d_r_{i+1}_{j}", 
-            dr_axis,
+        analyzer.H(f"d_r_{i+1}_{j+1}", 
+            makeAxis(25, 0, 5, f"$|\Delta R_{{{i+1}{j+1}}}|$"),
             d_r,
             mask=mask,
-            name=rf"$\Delta R$ between jets {i+1} and {j}",
-            description=rf"$\Delta R$ between jets {i+1} and {j}",
+            name=rf"$\Delta R$ between jets {i+1} and {j+1}",
+            description=rf"$\Delta R$ between jets {i+1} and {j+1}",
         )
 
-    for i in range(0, 5):
+    for i in range(0, 4):
         mask = ak.num(gj, axis=1) > i
         masked_jets = gj[mask]
         htratio = masked_jets[:, i].pt / events.HT[mask]
-        analyzer.H(f"pt_ht_ratio_{i+1}", 
-            hist.axis.Regular(50, 0, 5, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
+        analyzer.H(f"pt_ht_ratio_{i}", 
+            hist.axis.Regular(50, 0, 1, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
             htratio,
             mask=mask,
             name=rf"Ratio of jet {i} $p_T$ to event HT",
             description=rf"Ratio of jet {i} $p_T$ to event HT",
         )
-    for p1, p2 in co(co(range(0, 4))):
-        mask = masks[p1] & masks[p2]
-        p1_vals = gj[mask][:, p1[0]].phi - gj[mask][:, p1[1]].phi
-        p2_vals = gj[mask][:, p2[0]].phi - gj[mask][:, p2[1]].phi
-        analyzer.H("d_phi_{}{}_vs_{}{}".format(*p1, *p2), 
-            [
-                hist.axis.Regular(
-                    50, 0, 5, name="dp1", label=r"$\Delta \phi_{" + f"{p1}" + r"}$"
-                ),
-                hist.axis.Regular(
-                    50, 0, 5, name="dp2", label=r"$\Delta \phi_{" + f"{p2}" + r"}$"
-                ),
-            ],
-            [p1_vals, p2_vals],
-            mask=mask,
-            name=rf"$\Delta \phi_{p1}$ vs $\Delta \phi_{p2}$",
-        )
+    
     return events, analyzer
 
 

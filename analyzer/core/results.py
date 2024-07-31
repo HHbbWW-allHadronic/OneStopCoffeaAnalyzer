@@ -51,6 +51,8 @@ class ResultModification:
 class DatasetDaskRunResult:
     dataset_preprocessed: DatasetPreprocessed
     histograms: Dict[str, dah.Hist]
+    non_scaled_histograms: Dict[str, dah.Hist]
+    non_scaled_histograms_labels: Dict[str, list]
     run_report: dak.Array
 
     def getName(self):
@@ -62,6 +64,8 @@ class DatasetRunResult:
     dataset_preprocessed: DatasetPreprocessed
     histograms: Dict[str, hist.Hist]
     processed_chunks: Chunk
+    non_scaled_histograms: Dict[str, hist.Hist]
+    non_scaled_histograms_labels: Dict[str, list]
 
     @property
     def raw_events_processed(self):
@@ -102,7 +106,14 @@ class DatasetRunResult:
         weight = sample.getWeight(target_lumi)
         reweighted = sample.n_events / self.raw_events_processed
         final_weight = reweighted * weight
+        sample_manager.weights.append(final_weight)
         return {name: h * final_weight for name, h in self.histograms.items()}
+    
+    def getNonScaledHistograms(self):
+        return {name: h for name, h in self.non_scaled_histograms.items()}
+    
+    def getNonScaledHistogramsLabels(self):
+        return {name: h for name, h in self.non_scaled_histograms_labels.items()}
 
     def merge(self, other: DatasetRunResult) -> DatasetRunResult:
         if (
@@ -113,10 +124,14 @@ class DatasetRunResult:
         if self.processed_chunks.intersection(other.processed_chunks):
             raise ValueError()
         new_hists = utils.accumulate([self.histograms, other.histograms])
+        new_non_scaled_hists = utils.accumulate([self.non_scaled_histograms, other.non_scaled_histograms])
+        new_non_scaled_hists_labels = utils.accumulate([self.non_scaled_histograms_labels, other.non_scaled_histograms_labels])
         result = DatasetRunResult(
             self.dataset_preprocessed,
             new_hists,
             self.processed_chunks | other.processed_chunks,
+            new_non_scaled_hists,
+            new_non_scaled_hists_labels,
         )
         return result
 
@@ -133,6 +148,14 @@ def mergeAndWeightResults(
         [x.getScaledHistograms(sample_manager, target_lumi) for x in results]
     )
 
+def mergeResults(results):
+    return utils.accumulate(
+        [x.getNonScaledHistograms() for x in results])
+
+def mergeLabels(results):
+    return utils.accumulate(
+        [x.getNonScaledHistogramsLabels() for x in results]
+    )
 
 @dataclass
 class AnalysisResult:
@@ -180,6 +203,30 @@ class AnalysisResult:
             else:
                 updated_results[dataset_name] = results
         return AnalysisResult(updated_results, self.module_list)
+    
+    def getNonScaledHistograms(self):
+        r = utils.accumulate(
+            [
+                {
+                    v.dataset_preprocessed.dataset_input.fill_name: v.getNonScaledHistograms()
+                }
+                for k, v in self.results.items()
+            ]
+        )
+        keys = list(it.chain.from_iterable(x.keys() for x in r.values()))
+        return {key: {k: r[k][key] for k in r if key in r[k]} for key in keys}
+    
+    def getNonScaledHistogramsLabels(self):
+        r = utils.accumulate(
+            [
+                {
+                    v.dataset_preprocessed.dataset_input.fill_name: v.getNonScaledHistogramsLabels()
+                }
+                for k, v in self.results.items()
+            ]
+        )
+        keys = list(it.chain.from_iterable(x.keys() for x in r.values()))
+        return {key: {k: r[k][key] for k in r if key in r[k]} for key in keys}
 
 
 @dataclass

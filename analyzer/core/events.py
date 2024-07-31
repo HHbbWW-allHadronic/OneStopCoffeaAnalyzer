@@ -2,6 +2,7 @@ from functools import singledispatch
 from typing import Any, Dict, Optional, Set, Tuple, Union
 from .inputs import DatasetPreprocessed, AnalyzerInput
 
+import uproot
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 
 

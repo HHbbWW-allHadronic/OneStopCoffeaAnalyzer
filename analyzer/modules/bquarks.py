@@ -18,10 +18,10 @@ def createBHistograms(events, analyzer):
         mask = ak.num(l_bjets, axis=1) > i
         analyzer.H(
             f"loose_b_{i}_pt",
-            makeAxis(20, 0, 5, f"$p_{{T}}$ of rank  {i} loose b jet"),
+            makeAxis(50, 0, 800, f"$p_{{T}}$ of rank  {i} loose b jet"),
             l_bjets[mask][:, i].pt,
             mask=mask,
-            name=f"Loose BJet {i} $p_T$",
+            name=f"Loose BJet {i} $p_{{T}}$",
             description=f"$p_T$ of the rank {i} $p_T$ b jet",
         )
     mask = ak.num(l_bjets, axis=1) > 1
@@ -62,8 +62,8 @@ def createBHistograms(events, analyzer):
         mask = ak.num(m_bjets, axis=1) > i
         analyzer.H(
             f"medium_b_{i}_pt",
-            makeAxis(20, 0, 5, f"$p_{{T}}$ of rank  {i} medium b jet"),
-            m_bjets[mask][:, i].pt,
+            makeAxis(100, 0, 800, f"$p_T$ of rank {i} medium b jet"),
+            m_bjets[mask][:,i].pt,
             mask=mask,
             name=f"Medium BJet {i} $p_T$",
             description=f"$p_T$ of the rank {i} $p_T$ b jet",
@@ -76,41 +76,41 @@ def createBHistograms(events, analyzer):
 
     analyzer.H(
         f"medium_bb_eta",
-        makeAxis(20, 0, 5, "$\\Delta \\eta$ between leading medium b jets"),
+        makeAxis(20, 0, 5, "$\Delta \eta$ between leading 2 medium b jets"),
         mb_eta,
         mask=mask,
         name=rf"$\Delta \eta$ BB$",
-        description=rf"$\Delta \eta$ between the two highest rank medium b jets",
+        description=rf"$\Delta \eta$ between leading 2 medium b jets",
     )
     analyzer.H(
         f"medium_bb_phi",
-        makeAxis(25, 0, 4, "$\\Delta \\phi$ between leading medium b jets"),
+        makeAxis(25, 0, 4, "$\Delta \phi$ between leading medium b jets"),
         mb_phi,
         mask=mask,
         name=rf"$\Delta \phi$ BB$",
-        description=rf"$\Delta \phi$ between the two highest rank medium b jets",
+        description=rf"$\Delta \phi$ between leading 2 medium b jets",
     )
     analyzer.H(
         f"medium_bdr",
-        makeAxis(20, 0, 5, "$\\Delta R$ between leading 2 medium b jets"),
+        makeAxis(20, 0, 5, "$\Delta R$ between leading 2 medium b jets"),
         mb_dr,
         mask=mask,
         name=rf"Medium BJet $\Delta R$",
-        description=rf"$\Delta R$ between the top 2 $p_T$ b jets",
+        description=rf"$\Delta R$ between leading 2 medium $p_T$ b jets",
     )
     inv = top2[:, 0] + top2[:, 1]
     analyzer.H(
         f"medium_b_m",
-        makeAxis(60, 0, 3000, f"$m_{{bb}}", unit="GeV"),
+        makeAxis(60, 0, 3000, f"$m$ of leading 2 medium b jets", unit="GeV"),
         inv.mass,
         mask=mask,
         name=rf"medbmass",
     )
     analyzer.H(
         f"medium_b_pt",
-        makeAxis(20, 0, 1000, f"$p_{{T, bb}}$", unit="GeV"),
+        makeAxis(20, 0, 1000, f"$p_T$ of leading 2 medium b jets", unit="GeV"),
         inv.pt,
-        name=rf"medbmass",
+        name=rf"medbpt",
         mask=mask,
     )
 

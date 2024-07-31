@@ -43,3 +43,14 @@ results/
 compressed/
 .application_data
 .ipynb_checkpoints
+figures*/
+coffeaenv/
+compressed/
+analyzer_resources/
+.local/
+.private/
+*.log
+.bash_eternal_history
+.condor_config
+.inspect_cli_history
+oldpkl/

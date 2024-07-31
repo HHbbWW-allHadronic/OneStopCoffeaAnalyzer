@@ -23,6 +23,8 @@ except ImportError:
 
 @dataclass
 class SampleManager:
+    weights = []
+    weights_normalized = []
     sets: Dict[str, SampleSet] = field(default_factory=dict)
     collections: Dict[str, SampleCollection] = field(default_factory=dict)
 

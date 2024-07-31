@@ -1,8 +1,11 @@
 import logging
 from typing import Any
+import hist.dask as dah
+
 
 from analyzer.histogram_builder import HistogramBuilder
 from coffea.analysis_tools import PackedSelection, Weights
+import numpy as np
 
 from .results import DatasetDaskRunResult
 
@@ -41,7 +44,15 @@ class DatasetProcessor:
     @property
     def histograms(self):
         return self.dask_result.histograms
+    
+    @property
+    def nshistograms(self):
+        return self.dask_result.non_scaled_histograms
 
+    @property
+    def nshistogramslabels(self):
+        return self.dask_result.non_scaled_histograms_labels
+    
     @property
     def weights(self):
         return self.__weights
@@ -76,3 +87,8 @@ class DatasetProcessor:
 
     def H(self, *args, **kwargs):
         return self.maybeCreateAndFill(*args, **kwargs)
+    
+    def add_non_scaled_hist(self, key: str, hist: dah.Hist, labels: list):
+        if key not in self.nshistograms:
+            self.nshistogramslabels[key] = labels
+            self.nshistograms[key] = hist

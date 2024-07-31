@@ -1,5 +1,6 @@
 import copy
 import logging
+import uproot
 from dataclasses import dataclass
 import itertools as it
 from typing import (
@@ -23,6 +24,8 @@ from coffea.dataset_tools.preprocess import DatasetSpec
 
 logger = logging.getLogger(__name__)
 
+class ForbiddenDataset(Exception):
+    pass
 
 def getMissingDataset(analyzer_input, coffea_dataset):
     cds = analyzer_input.coffea_dataset[analyzer_input.dataset_name]
@@ -46,6 +49,7 @@ class AnalyzerInput:
     fill_name: str
     files: Dict[str, Any]
     profile: Any
+    required_modules: Optional[List[str]]
     lumi_json: Optional[str] = None
 
     def getCoffeaDataset(self, **kwargs):
@@ -79,6 +83,13 @@ class DatasetPreprocessed:
         ):
             raise RuntimeError(f"Preprocessed dataset is not complete.")
 
+        if self.dataset_input.required_modules is not None:
+            for module in self.dataset_input.required_modules:
+                if module not in kwargs["modules"]:
+                    raise ForbiddenDataset(
+                        f"{module} module is required when analyzing {self.dataset_input.dataset_name}."
+                    )
+        
         coffea_dataset = {
             "files": {f: copy.deepcopy(data) for f, data in self.chunk_info.items()},
             "form": self.form,

@@ -32,7 +32,7 @@ def addCmsInfo(ax, pos="in", additional_text=None, color="black") -> mpl.axis.Ax
 
 
 def addEra(ax, lumi, era, energy="13 TeV") -> mpl.axis.Axis:
-    text = f"${lumi}\\, \\mathrm{{fb}}^{{-1}}$,  {era} ({energy}) "
+    text = f"${lumi}\\ \\mathrm{{fb}}^{{-1}}$ {era} ({energy})"
 
     ax.text(
         1,
