@@ -37,9 +37,9 @@ class DatasetProcessor:
         self.skim_save_cols = [
             "HLT",
             "Jet",
-            #"Electron",
+            "Electron",
             "Muon",
-            #"FatJet",
+            "FatJet",
             "run",
             "luminosityBlock",
             "event",
