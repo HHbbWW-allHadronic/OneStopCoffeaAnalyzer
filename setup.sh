@@ -99,7 +99,7 @@ function create_venv(){
     fi
 
     # pip3 install ipython --upgrade
-    python3 -m ipykernel install --user --name "$env_name"
+    python3 -m ipykernel install --name "$env_name" --prefix "$application_data/envlocal/$env/"
     # pip3 install -I boost-histogram
     #rm -rf "$env_path"/lib/*/site-packages/analyzer
     rm -rf $TMPDIR && unset TMPDIR
@@ -151,10 +151,10 @@ function rcmode(){
     shopt -s cmdhist &>/dev/null
     export HISTFILE=~/.bash_history
     export CONDOR_CONFIG="$application_data/.condor_config"
-    export JUPYTER_PATH=$application_data/$env/.jupyter
+    export JUPYTER_PATH=$application_data/envlocal/$env/share/jupyter
     export JUPYTER_RUNTIME_DIR=$application_data/envlocal/$env/share/jupyter/runtime
     export JUPYTER_DATA_DIR=$application_data/envlocal/$env/share/jupyter
-    export IPYTHONDIR=$application_data/envlocal/$env/.ipython
+    export IPYTHONDIR=$application_data/envlocal/$env/ipython
     export MPLCONFIGDIR=$application_data/envlocal/$env/mpl
     export MPLBACKEND="Agg"
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
