@@ -12,7 +12,7 @@ from coffea.dataset_tools.preprocess import DatasetSpec
 from rich.table import Table
 from analyzer.core.inputs import AnalyzerInput
 from .samples import SampleSet, SampleCollection
-from .profiles import ProfileRepo
+from .profiles import ProfileRepo, Profile
 
 try:
     from yaml import CDumper as Dumper
@@ -43,7 +43,11 @@ class SampleManager:
     def linkProfiles(self, profile_repo):
         for sample in self.sets:
             if self.sets[sample].profile:
-                self.sets[sample].profile = profile_repo[self.sets[sample].profile]
+                p = self.sets[sample].profile
+                if isinstance(p, Profile):
+                    p = p.name
+
+                self.sets[sample].profile = profile_repo[p]
 
     def loadSamplesFromDirectory(
         self, directory, profile_repo, force_separate=False, use_replicas=True
@@ -65,7 +69,7 @@ class SampleManager:
         for name, val in self.sets.items():
             derived = val.derived_from
             if derived:
-                self.sets[name] = replace(val, derived_from=self.sets[derived])
+                self.sets[name].derived_from = self.sets[derived]
 
         for data in file_contents.values():
             for d in [

@@ -15,6 +15,7 @@ except ImportError:
 class Profile:
     name: str
     btag_working_points: field(default_factory=dict)
+    lumi_json: str
     btag_scale_factors: str
     hlt: List[str]
 
@@ -23,6 +24,7 @@ class Profile:
         return Profile(
             name=data["profile_name"],
             btag_working_points=data["btag_working_points"],
+            lumi_json=data.get("lumi_json"),
             btag_scale_factors=data.get("btag_scale_factors"),
             hlt=data["HLT"],
         )
