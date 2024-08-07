@@ -69,6 +69,8 @@ def skimmer(x, fname_prefix, dest, tempdir="localfiles/"):
         )
         return touched
     else:
+        if not len(x):
+            return  None
         f = str(uuid.uuid4())
         fname = tempdir / f"{fname_prefix}{f}.root"
         with uproot.recreate(fname) as fout:
@@ -84,7 +86,8 @@ def saveSkim(events, analyzer):
     if not analyzer.skim_save_path:
         raise ValueError(f"Must set skim save path to skim.")
 
-    skimmed = filterColumns(events, list(reversed(analyzer.skim_save_cols)))
+    #skimmed = filterColumns(events, list(reversed(analyzer.skim_save_cols)))
+    skimmed = events
     n_to_one_desired = 100
     np = skimmed.npartitions
     n_to_one = min(n_to_one_desired, np)
