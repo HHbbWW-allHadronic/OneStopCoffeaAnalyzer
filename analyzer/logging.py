@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import yaml
+import rich.logging
 
 import analyzer.resources
 
@@ -30,7 +31,9 @@ def setup_logging(
         logging.config.dictConfig(config)
 
     if default_level is not None:
+        print(default_level)
         logger = logging.getLogger("analyzer")
+        logger.handlers = [rich.logging.RichHandler()]
         logger.setLevel(default_level)
         logger = logging.getLogger("distributed")
         logger.setLevel(default_level)
