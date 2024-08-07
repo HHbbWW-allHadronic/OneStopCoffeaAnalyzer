@@ -162,6 +162,7 @@ class AnalysisResult:
     # modifications: List[ResultModification]
     results: Dict[str, DatasetRunResult]
     module_list: List[str]
+    use_default_modules: bool
 
     def save(self, output_file):
         path = Path(output_file)

@@ -12,7 +12,7 @@ from .utils import numMatching
 @analyzerModule("tiny", categories="main")
 def tiny(events, analyzer):
     gj = events.good_jets
-    analyzer.H(f"h_njet", nj_axis, ak.num(gj), name="njets")
+    analyzer.H(f"njet", nj_axis, ak.num(gj), name="njets")
     return events,analyzer
 
 

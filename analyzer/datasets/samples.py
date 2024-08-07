@@ -13,7 +13,7 @@ from yaml import dump, load
 
 import rich
 import json
-from analyzer.core.inputs import AnalyzerInput
+from analyzer.core.inputs import AnalyzerInput, SampleInfo
 from analyzer.datasets.styles import Style
 from analyzer.file_utils import stripPrefix
 from analyzer.configuration import getConfiguration
@@ -99,7 +99,11 @@ class SampleFile:
         return self.object_path
 
     def getFile(
-        self, require_location=None, location_priority_regex=None, require_protocol=None, **kwargs
+        self,
+        require_location=None,
+        location_priority_regex=None,
+        require_protocol=None,
+        **kwargs,
     ):
         if location_priority_regex and require_location:
             location_priority_regex = None
@@ -172,7 +176,6 @@ class SampleFile:
     def __hash__(self):
         return hash(self.cmsLocation())
 
-
 @dataclass
 class SampleSet:
     name: str
@@ -211,7 +214,7 @@ class SampleSet:
         lumi_json = data.get("lumi_json", None)
         required_modules = data.get("required_modules", None)
 
-        sample_type = data.get("sample_type", None)
+        sample_type = data.get("sample_type", None) or ( "MC" if mc_campaign else None)
         cms_dataset = data.get("cms_dataset", None)
         if not (x_sec and n_events and lumi) and not (derived_from or isdata):
             raise Exception(
@@ -305,13 +308,15 @@ class SampleSet:
         with open(look_for, "w") as f:
             json.dump(replicas, f, indent=2)
 
-    def isForbidden(self,modules=None):
+    def isForbidden(self, modules=None):
         if self.forbid is None:
             if self.derived_from is None:
                 return False
             else:
                 return self.derived_from.isForbidden()
-        elif self.forbid and (modules is not None and self.required_modules is not None):
+        elif self.forbid and (
+            modules is not None and self.required_modules is not None
+        ):
             if self.required_modules in modules:
                 return False
         else:
@@ -347,21 +352,6 @@ class SampleSet:
         else:
             return self.profile
 
-    def toCoffeaDataset(self, location_priority_regex=None, require_location=None, modules=None):
-        if self.isForbidden(modules):
-            raise ForbiddenDataset(
-                f"Attempting to access the files for forbidden dataset {self.name}"
-            )
-
-        return {
-            self.name: {
-                "files": {
-                    f.getFile(location_priority_regex, require_location): f.getRootDir()
-                    for f in self.files
-                }
-            }
-        }
-
     def fileList(self, prefer_location=None, require_location=None):
         if self.isForbidden():
             raise ForbiddenDataset(
@@ -385,12 +375,21 @@ class SampleSet:
     def getAnalyzerInput(self, setname=None, **kwargs):
         return AnalyzerInput(
             dataset_name=self.name,
+            last_ancestor=self.getLastAncestor().name,
             fill_name=setname or self.name,
             files={f.cmsLocation(): f for f in self.files},
             profile=self.getProfile(),
-            lumi_json=self.getLumiJson(),
             required_modules=self.required_modules,
+            lumi_json=self.getLumiJson(),
+            sample_info=SampleInfo(self.name, self.sample_type, self.mc_campaign),
         )
+
+    def getLastAncestor(self):
+        if self.derived_from:
+            return self.derived_from.getLastAncestor()
+        else:
+            return self
+        
 
     def totalEvents(self):
         return self.n_events
@@ -439,7 +438,7 @@ class SampleCollection:
     def getSets(self):
         return self.sets
 
-    def getAnalyzerInput(self,**kwargs):
+    def getAnalyzerInput(self, **kwargs):
         return [
             x.getAnalyzerInput(
                 None if self.treat_separate else self.name,

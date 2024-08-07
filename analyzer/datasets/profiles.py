@@ -15,6 +15,7 @@ except ImportError:
 class Profile:
     name: str
     btag_working_points: field(default_factory=dict)
+    btag_scale_factors: str
     hlt: List[str]
 
     @staticmethod
@@ -22,6 +23,7 @@ class Profile:
         return Profile(
             name=data["profile_name"],
             btag_working_points=data["btag_working_points"],
+            btag_scale_factors=data.get("btag_scale_factors"),
             hlt=data["HLT"],
         )
 
@@ -39,6 +41,5 @@ class ProfileRepo:
                 data = load(fo, Loader=Loader)
                 self.profiles[data["profile_name"]] = Profile.fromDict(data)
 
-
-    def __getitem__(self,key):
+    def __getitem__(self, key):
         return self.profiles[key]

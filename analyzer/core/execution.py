@@ -75,67 +75,14 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
     return ret
 
 
-# def _execute(futures: Iterable[DatasetDaskRunResult], client: Client):
-#     futures = list(futures)
-#     logger.debug(f"Executing {len(futures)} analysis futures.")
-#     dsk = {
-#         x.getName(): [
-#             x.dataset_preprocessed,
-#             x.histograms,
-#             x.raw_events_processed,
-#             x.run_report,
-#         ]
-#         for x in futures
-#     }
-#     computed, *rest = compute(dsk, optimize_graph=False)
-#
-#     return {
-#         name: DatasetRunResult(prep, h, r, nsh, nshl, rep)
-#         for name, (prep, h, nsh, nshl, r, rep) in computed.items()
-#     }
-
-@dask.delayed
-def createFutureResult(modules, prepped_dataset):
-    dataset_name = prepped_dataset.dataset_input.dataset_name
-    logger.debug(f"Generating futures for dataset {dataset_name}")
-    files = prepped_dataset.getCoffeaDataset()["files"]
-    maybe_base_form = prepped_dataset.coffea_dataset_split.get("form", None)
-    if maybe_base_form is not None:
-        maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
-    events, report = NanoEventsFactory.from_root(
-        files,
-        schemaclass=NanoAODSchema,
-        uproot_options=dict(
-            allow_read_errors_with_report=True,
-            use_threads=False,
-        ),
-        known_base_form=maybe_base_form,
-    ).events()
-    daskres = DatasetDaskRunResult(prepped_dataset, {}, {}, {}, report)
-    dataset_analyzer = DatasetProcessor(
-        daskres, prepped_dataset.dataset_input.fill_name
-    )
-    for m in modules:
-        logger.info(f"Adding module {m.name} to dataset {dataset_name}")
-        test = m(events, dataset_analyzer)
-        events, dataset_analyzer = test
-
-    return daskres
-
-
 class Analyzer:
     def __init__(self, modules: Iterable[AnalyzerModule], cache: Any):
-        self.modules: List[AnalyzerModule] = self.__createAndSortModules(*modules)
-        logger.info(
-            "Will run modules in the following order:\n"
-            + "\n".join(f"\t{i+1}. {x.name}" for i, x in enumerate(self.modules))
-        )
+        self.module_names = modules
         self.cache = cache
 
-    def __createAndSortModules(self, *module_names):
+    def __createAndSortModules(self, sample_info, module_names, include_defaults=True):
         m = namesToModules(module_names)
-        t = generateTopology(m)
-        modules = sortModules(m)
+        modules = sortModules(m, sample_info, include_defaults)
         return modules
 
     def getDatasetFutures(
@@ -145,13 +92,25 @@ class Analyzer:
         skim_save_path: str = None,
         prog_bar_updater=None,
         file_retrieval_kwargs=None,
+        include_default_modules=True,
     ) -> DatasetDaskRunResult:
+        this_dataset_modules = self.__createAndSortModules(
+            dsprep.dataset_input.sample_info,
+            self.module_names,
+            include_defaults=include_default_modules,
+        )
+        logger.info(
+            "Will run modules in the following order:\n"
+            + "\n".join(
+                f"\t{i+1}. {x.name}" for i, x in enumerate(this_dataset_modules)
+            )
+        )
         if file_retrieval_kwargs is None:
             file_retrieval_kwargs = {}
 
         dataset_name = dsprep.dataset_input.dataset_name
         lumi_json = dsprep.dataset_input.lumi_json
-        logger.debug(f"Generating futures for dataset {dataset_name}")
+        logger.debug(f"Generating futures for dataset {dataset_name}.")
         files = dsprep.getCoffeaDataset(**file_retrieval_kwargs)["files"]
         files = {k: v for k, v in files.items() if v["num_entries"] is not None}
         maybe_base_form = dsprep.form
@@ -170,13 +129,23 @@ class Analyzer:
             daskres,
             dsprep.dataset_input.dataset_name,
             dsprep.dataset_input.fill_name,
+            dsprep.dataset_input.last_ancestor,
             dsprep.dataset_input.profile,
             delayed=delayed,
             skim_save_path=skim_save_path,
         )
         prog_bar_updater(visible=True)
 
-        for m in self.modules:
+        logger.info("Adding processing info for all modules")
+        for m in this_dataset_modules:
+            i = m.processing_info or {}
+            logger.info(f"Adding processing info for module {m.name}:\n{i}")
+            dataset_analyzer.processing_info.update(i)
+
+        logger.info(
+            f"Final module processing info is:\n{dataset_analyzer.processing_info}"
+        )
+        for m in this_dataset_modules:
             logger.info(f"Adding module {m.name} to dataset {dataset_name}")
             test = m(events, dataset_analyzer)
             events, dataset_analyzer = test

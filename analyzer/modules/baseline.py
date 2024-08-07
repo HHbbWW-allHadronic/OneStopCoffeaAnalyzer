@@ -5,7 +5,12 @@ import operator as op
 from .axes import *
 
 
-@analyzerModule("baseline_selection", categories="selection", depends_on=["objects"])
+@analyzerModule(
+    "baseline_selection",
+    categories="selection",
+    depends_on=["objects"],
+    processing_info={"used_btag_wps": ["medium", "tight"]},
+)
 def createSelection(events, analyzer):
     """Baseline selection for the analysis.
     Applies the following selection:
@@ -59,7 +64,10 @@ def selectionHists(events, analyzer):
 
     mnj = nj >= 1
     analyzer.H(
-        "pt0", makeAxis(100, 0, 1500, "$p_{T,0}$", unit="GeV"), gj[mnj][:, 0].pt, mask=mnj
+        "pt0",
+        makeAxis(100, 0, 1500, "$p_{T,0}$", unit="GeV"),
+        gj[mnj][:, 0].pt,
+        mask=mnj,
     )
 
     good_muons = events.good_muons
@@ -93,7 +101,12 @@ def selectionHists(events, analyzer):
     return events, analyzer
 
 
-@analyzerModule("baseline_nodr", categories="selection", depends_on=["objects"])
+@analyzerModule(
+    "baseline_nodr",
+    categories="selection",
+    depends_on=["objects"],
+    processing_info={"used_btag_wps": ["medium", "tight"]},
+)
 def baselineNoDR(events, analyzer):
     """Baseline selection for the analysis.
     Applies the following selection:
@@ -105,16 +118,16 @@ def baselineNoDR(events, analyzer):
 
     selection = analyzer.selection
     good_jets = events.good_jets
-    #fat_jets = events.FatJet
+    # fat_jets = events.FatJet
     good_muons = events.good_muons
     good_electrons = events.good_electrons
-    #loose_b = events.loose_bs
+    # loose_b = events.loose_bs
     med_b = events.med_bs
     tight_b = events.tight_bs
-    #tight_top = events.tight_tops
+    # tight_top = events.tight_tops
     # selection = PackedSelection()
     filled_jets = ak.pad_none(good_jets, 4, axis=1)
-    #top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
+    # top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
 
     filled_med = ak.pad_none(med_b, 2, axis=1)
     med_dr = ak.fill_none(filled_med[:, 0].delta_r(filled_med[:, 1]), False)
@@ -142,7 +155,12 @@ def createBBptSelection(events, analyzer):
     return events, analyzer
 
 
-@analyzerModule("cr_selection", categories="selection", depends_on=["objects"])
+@analyzerModule(
+    "cr_selection",
+    categories="selection",
+    depends_on=["objects"],
+    processing_info={"used_btag_wps": ["loose"]},
+)
 def createCRSelection(events, analyzer):
     selection = analyzer.selection
     good_jets = events.good_jets
@@ -158,11 +176,11 @@ def createCRSelection(events, analyzer):
     hlt_names = analyzer.profile.hlt
     if "HLT" in events.fields:
         hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
-        selection.add('hlt',hlt)
-    selection.add('ht1200', (events.HT >= 1200))
+        selection.add("hlt", hlt)
+    selection.add("ht1200", (events.HT >= 1200))
     selection.add("highptjet", (ak.fill_none(filled_jets[:, 0].pt > 300, False)))
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))
     selection.add("0looseb", (ak.num(loose_b) == 0))
-    
+
     return events, analyzer

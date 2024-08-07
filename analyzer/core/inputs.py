@@ -1,7 +1,7 @@
 import copy
 import logging
 import uproot
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import itertools as it
 from typing import (
     Any,
@@ -44,13 +44,23 @@ def getMissingDataset(analyzer_input, coffea_dataset):
 
 
 @dataclass
+class SampleInfo:
+    dataset_name: str
+    sample_type: Optional[str]
+    mc_campaign: Optional[str]
+
+
+@dataclass
 class AnalyzerInput:
     dataset_name: str
+    last_ancestor: str
     fill_name: str
     files: Dict[str, Any]
     profile: Any
     required_modules: Optional[List[str]]
+    sample_info: SampleInfo 
     lumi_json: Optional[str] = None
+    dataset_info: dict = field(default_factory=dict)
 
     def getCoffeaDataset(self, **kwargs):
         return {

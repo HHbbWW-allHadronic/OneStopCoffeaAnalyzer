@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class HistogramBuilder:
-    def __init__(self, event_weights, category_axes=None, category_values=None):
+    def __init__(self, category_axes=None, category_values=None):
         self.cat_axes = list(category_axes or [])
         self.cat_values = list(category_values or [])
 
@@ -25,8 +25,7 @@ class HistogramBuilder:
         logger.debug(
             f"Filling histogram {histogram.name} with data {data} and mask {mask}"
         )
-        if event_weights:
-            weights = event_weights.weight()
+        weights = event_weights
         if not isinstance(data, list):
             data = [data]
 

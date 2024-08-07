@@ -141,6 +141,7 @@ def handleRunPreprocessed(args):
             location_priority_regex=[r".*(US|CH|FR).*", "eos"],
             require_location=args.require_location,
         ),
+        include_default_modules=not args.no_default_modules,
     )
 
     pickleWithParents(args.output, result)
@@ -187,6 +188,7 @@ def handleRunSamples(args):
             location_priority_regex=[r".*(US|CH|FR).*", "eos"],
             require_location=args.require_location,
         ),
+        include_default_modules=not args.no_default_modules,
     )
     pickleWithParents(args.output, result)
 
@@ -710,6 +712,13 @@ def addCommonRunArgs(parser):
     parser.add_argument(
         "-o", "--output", required=True, type=Path, help="Output data path."
     )
+
+    parser.add_argument(
+        "--no-default-modules",
+        action="store_true",
+        default=False,
+        help="If set, do not include default modules when running the anzlyer. VERY DANGEROUS!",
+    )
     return parser
 
 
@@ -756,8 +765,6 @@ def addSubparserRunSamples(subparsers):
     subparser = addCommonDaskArgs(subparser)
     subparser = addCommonPrepArgs(subparser)
     subparser = addCommonRunArgs(subparser)
-
-
 
     subparser.add_argument(
         "--save-preprocessed",
