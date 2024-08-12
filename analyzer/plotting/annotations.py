@@ -1,9 +1,11 @@
 import matplotlib as mpl
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def addCmsInfo(ax, pos="in", additional_text=None, color="black") -> mpl.axis.Axis:
     text = r"$\bf{CMS}\ \it{Preliminary}$"
+    
     if additional_text:
         text += additional_text
     if pos == "in":
@@ -55,4 +57,24 @@ def addText(ax, x, y, text, **kwargs):
         fontsize=20,
         **kwargs,
     )
+    return ax
+
+def addCutTable(ax,cut_list,**kwargs):
+    if 'loc' not in kwargs:
+       kwargs["loc"] = 'upper center'
+    num_of_sets = len(cut_list.keys())
+    length = 0
+    for key in cut_list:
+        temp_length = len(cut_list[key])
+        if temp_length > length:
+            length = temp_length
+    
+    for key in cut_list:
+        cut_list[key] = np.pad(cut_list[key],length-len(cut_list[key]),constant_values="")
+    cuts_table = np.empty((length+1,num_of_sets),dtype=object)
+    cuts_table[0] = np.array(list(cut_list.keys()))
+    for index,key in enumerate(cut_list):
+        cuts_table[1:,index] = cut_list[key]
+    ax.table(cuts_table,cellLoc='center',**kwargs).scale(1,2)
+     
     return ax

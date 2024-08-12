@@ -5,9 +5,9 @@ from analyzer.plotting.simple_plot import Plotter
 import warnings
 from matplotlib import pyplot as plt
 import analyzer
-
+from analyzer.plotting.annotations import addCutTable as act
 warnings.filterwarnings("ignore", message=r".*Removed bins.*")
-
+from pathlib import Path
 # backgrounds = ["Skim_QCDInclusive2018"]
 # compressed = [
 #     f"signal_312_{p}" for p in ("1500_1900", "1200_1100", "1500_1400", "2000_1700")
@@ -37,10 +37,10 @@ warnings.filterwarnings("ignore", message=r".*Removed bins.*")
 # )
 
 
-directory='figures_2018-4_2022D-4'
-sample_names = ["Data2018-4","Data2022DTemp-4"]
+directory='figures_2018_2022D_test_new_cuts'
+sample_names = ["Data2018","Data2022DTemp"]
 plotter = Plotter(
-    ['2018-4.pkl','2022D-4.pkl'],
+    ['2018and2022Danalyzed.pkl'],
     directory,
     default_backgrounds=None,
     target_lumi=59.83,
@@ -48,6 +48,15 @@ plotter = Plotter(
     non_scaled_histos=True,
     year="2018/2022",
 )
+
+def cutsPlot(cut_dict):
+    fig, ax = plt.subplots()
+    ax.grid(False)
+    ax.set_axis_off()
+    act(ax,cut_dict,loc="center")
+    fig.savefig(Path(directory) / "cuts_table.pdf")
+    plt.close(fig)
+cutsPlot(plotter.cut_table_dict)  
 
 def cutflowPlot(histogram_name,percent=False):
     fig = plt.figure()
@@ -67,7 +76,11 @@ def cutflowPlot(histogram_name,percent=False):
         h_labels = list()
         for label in plotter.non_scaled_histos_labels[histogram_name][sample_names[0]][1:]:
             h_labels.append(label.replace("N","All"))
-    plt.xticks(plt.gca().get_xticks(), h_labels, rotation=45)
+    
+    if len(plt.gca().get_xticks()) != len(h_labels):
+        h_labels = list(dict.fromkeys(h_labels))[:-1]
+        plt.xticks(plt.gca().get_xticks(), h_labels, rotation=45)
+
     plt.legend()
     fig.tight_layout()
 
@@ -123,8 +136,8 @@ list_of_2022d_hists = ['HT', 'h_njet', 'm14_pt', 'm14_eta', 'm14_m', 'm13_pt', '
 
 print(plotter.histos.keys())
 for j in plotter.histos.keys():
-    plotter(hist_name=j, sig_set=sample_names, normalize=False, add_label=j, ratio=True, energy='13/13.6 TeV',control_region=True)
-    plotter(hist_name=j, sig_set=sample_names, normalize=True, add_label=f'{j}_normalized', add_name="normalized", ratio=True, energy='13/13.6 TeV',control_region=True)
+    plotter(hist_name=j, sig_set=sample_names, normalize=False, add_label=j, ratio=True, energy='13/13.6 TeV',control_region=True,cut_list_in_plot=True,cut_table_in_plot=False)
+    plotter(hist_name=j, sig_set=sample_names, normalize=True, add_label=f'{j}_normalized', add_name="normalized", ratio=True, energy='13/13.6 TeV',control_region=True,cut_list_in_plot=True,cut_table_in_plot=False)
 
 sys.exit()
 

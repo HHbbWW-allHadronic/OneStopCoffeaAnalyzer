@@ -60,6 +60,7 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
                 x.non_scaled_histograms,
                 x.non_scaled_histograms_labels,
                 x.run_report,
+                x.cut_list,
             ]
             for x, _ in futures
         },
@@ -68,8 +69,8 @@ def execute(futures: Iterable[Tuple[DatasetDaskRunResult, Any]], client: Client)
     computed, *rest = dask.compute(dsk, retries=3)
 
     ret = {
-        name: DatasetRunResult(prep, h, getProcessedChunks(rep), nsh, nshl)
-        for name, (prep, h, nsh, nshl, rep) in computed["main"].items()
+        name: DatasetRunResult(prep, h, getProcessedChunks(rep), nsh, nshl, cuts)
+        for name, (prep, h, nsh, nshl, rep, cuts) in computed["main"].items()
     }
 
     return ret
@@ -165,7 +166,7 @@ class Analyzer:
             lmask = getLumiMask(lumi_json)
             events = events[lmask(events.run, events.luminosityBlock)]
 
-        daskres = DatasetDaskRunResult(dsprep, {}, {}, {}, report)
+        daskres = DatasetDaskRunResult(dsprep, {}, {}, {}, report, None)
         dataset_analyzer = DatasetProcessor(
             daskres,
             dsprep.dataset_input.dataset_name,
