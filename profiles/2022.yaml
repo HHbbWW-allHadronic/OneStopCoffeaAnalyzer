@@ -1,5 +1,6 @@
 profile_name: 2022
 
+btag_scale_factors: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2022_Summer22/btagging.json.gz
 btag_working_points:
   loose: 0.0583
   medium: 0.3086
