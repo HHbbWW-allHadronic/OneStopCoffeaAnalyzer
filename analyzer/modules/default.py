@@ -7,6 +7,14 @@ from analyzer.core.lumi import getLumiMask
 @analyzerModule("apply_selection", categories="apply_selection", always=True)
 def applySelection(events, analyzer):
     events = analyzer.applySelection(events)
+
+    hlt_names = analyzer.profile.hlt
+    hlt_names = ' | '.join(hlt_names)
+
+    used_cuts = [i for i in analyzer.selection.names]
+
+    analyzer.dask_result.set_cut_list(used_cuts)
+
     return events, analyzer
 
 @analyzerModule("golden_json_filter", categories="init", always=True, dataset_pred=isData)

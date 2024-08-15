@@ -3,7 +3,7 @@ import itertools as it
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 
-from .annotations import addEra, addCmsInfo
+from .annotations import addEra, addCmsInfo, addCutTable
 from .plots_1d import addTitles1D, drawAs1DHist, drawPull, drawRatio, drawAsScatter
 from .plots_2d import addTitles2D, drawAs2DHist
 from .utils import addAxesToHist
@@ -70,9 +70,18 @@ def plot1D(
     energy='13 TeV',
     control_region=False,
     weights=None,
+    cut_table=None,
+    cut_list=None,
 ):
-    fig, ax = plt.subplots()
-    
+    if cut_table:
+        plt.rcParams["figure.figsize"] = (10,13)
+        fig, axes = plt.subplots(2,1,gridspec_kw={'height_ratios': [1, 0.25]})
+        ax = axes[0]
+        ax_table = axes[1]
+        ax_table.grid(False)
+        ax_table.set_axis_off()
+    else:
+        fig, ax = plt.subplots()
     for o in background_plobjs:
         drawAs1DHist(ax, o, yerr=False)
     for o in signal_plobjs:
@@ -88,18 +97,18 @@ def plot1D(
         plotRatio(plobjslist[0],plobjslist[1],coupling,lumi,no_hists=True,ax=ax,weights=weights)
     ax.set_yscale(scale)
     addEra(ax, lumi, era, energy=energy)
+
     if control_region:
-        addCmsInfo(
-            ax,
-            additional_text=f"\nCR Selection\n"
-            + (add_label or ""),
-        )
+        add_text = f"\nCR Selection\n"
     else:
-        addCmsInfo(
-            ax,
-            additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
-            + (add_label or ""),
-        )
+        add_text = f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
+    
+    addCmsInfo(
+        ax,
+        additional_text=add_text
+        + (add_label or "")+('\n'+cut_list if cut_list else ""),
+    )
+
     hc = next(it.chain(signal_plobjs, background_plobjs))
     handles, labels = ax.get_legend_handles_labels()
     labels, handles = zip(*reversed(sorted(zip(labels, handles), key=lambda t: t[0])))
@@ -115,6 +124,9 @@ def plot1D(
         ax.set_xlabel(xlabel_override)
 
     addTitles1D(ax, hc, top_pad=top_pad)
+
+    if cut_table:
+        addCutTable(ax_table,cut_table)
 
     if "$p_T ( \sum_{n=1}^" in hc.axes[0].title:
         ax.set_xlim(right=600)
@@ -135,8 +147,18 @@ def plot2D(
     energy='13 Tev',
     control_region=False,
     zscorename='',
+    cut_table=None,
+    cut_list=None,
 ):
-    fig, ax = plt.subplots()
+    if cut_table:
+        plt.rcParams["figure.figsize"] = (10,13)
+        fig, axes = plt.subplots(2,1,gridspec_kw={'height_ratios': [1, 0.25]})
+        ax = axes[0]
+        ax_table = axes[1]
+        ax_table.grid(False)
+        ax_table.set_axis_off()
+    else:
+        fig, ax = plt.subplots()
     
     energy_map = {"2016": "13 TeV", "2017": "13 TeV", "2018": "13 TeV", 
                   "2022": "13.6 TeV", "2023": "13.6 TeV", "2024": "13.6 TeV"}
@@ -180,27 +202,23 @@ def plot2D(
     addEra(ax, lumi, actual_era, energy=actual_energy)
     pos = "in"
     
-    
-
     if control_region:
-        addCmsInfo(
+        add_text = f"\nCR Selection\n"
+    else:
+        add_text = f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
+    addCmsInfo(
         ax,
-        additional_text=f"\nCR Selection\n"
+        additional_text=add_text
         + (f"{add_label}" if add_label else "")
-        + (f", {objtitle}"),
+        + (f", {objtitle}")+('\n'+cut_list if cut_list else ""),
         pos=pos,
         color="white",
     )
-    else:
-        addCmsInfo(
-            ax,
-            additional_text=f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
-            + (f"{add_label}," if add_label else "")
-            + f"{objtitle}",
-            pos=pos,
-            color="white",
-        )
+    
     addTitles2D(ax, plot_obj)
+
+    if cut_table:
+        addCutTable(ax_table, cut_table)
 
     if zscorename and hasattr(ax, "cax"):
         cax = ax.cax
