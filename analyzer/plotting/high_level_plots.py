@@ -202,7 +202,8 @@ def plot2D(
         )
     addTitles2D(ax, plot_obj)
 
-    if zscore and hasattr(ax, "cax"):
+    if zscorename and hasattr(ax, "cax"):
         cax = ax.cax
         cax.set_ylabel(zscorename)
+
     return fig
