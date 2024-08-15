@@ -27,7 +27,6 @@ import dask.optimization as dop
 
 from .events import getEvents
 from .inputs import DatasetPreprocessed
-from .lumi import getLumiMask
 from .org import AnalyzerModule, generateTopology, namesToModules, sortModules
 from .processor import DatasetProcessor
 from .results import DatasetDaskRunResult, DatasetRunResult
@@ -109,7 +108,6 @@ class Analyzer:
             file_retrieval_kwargs = {}
 
         dataset_name = dsprep.dataset_input.dataset_name
-        lumi_json = dsprep.dataset_input.lumi_json
         logger.debug(f"Generating futures for dataset {dataset_name}.")
         files = dsprep.getCoffeaDataset(**file_retrieval_kwargs)["files"]
         files = {k: v for k, v in files.items() if v["num_entries"] is not None}
@@ -119,10 +117,7 @@ class Analyzer:
             maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
         events, report = getEvents(files, known_form=maybe_base_form, cache=self.cache)
 
-        if lumi_json:
-            logger.info(f'Dataset {dataset_name}: Using lumi json file "{lumi_json}".')
-            lmask = getLumiMask(lumi_json)
-            events = events[lmask(events.run, events.luminosityBlock)]
+
 
         daskres = DatasetDaskRunResult(dsprep, {}, {}, {}, report)
         dataset_analyzer = DatasetProcessor(
@@ -145,6 +140,9 @@ class Analyzer:
         logger.info(
             f"Final module processing info is:\n{dataset_analyzer.processing_info}"
         )
+        #events=events.compute()
+        #dataset_analyzer.delayed=False
+
         for m in this_dataset_modules:
             logger.info(f"Adding module {m.name} to dataset {dataset_name}")
             test = m(events, dataset_analyzer)
