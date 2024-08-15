@@ -90,10 +90,10 @@ class DatasetProcessor:
 
     def addWeight(self, name, central, systs=None):
         if self.is_pre_selection:
-            logger.debug(f"Adding pre-selection weight \"{name}\:")
+            logger.debug(f'Adding pre-selection weight "{name}\:')
             self.presel_weights[name] = {"central": central, "systs": systs or {}}
         else:
-            logger.debug(f"Adding post-selection weight \"{name}\"")
+            logger.debug(f'Adding post-selection weight "{name}"')
             self.postsel_weights[name] = {"central": central, "systs": systs or {}}
 
     def __addMultiWeight(self, data, mask=None):
@@ -153,15 +153,24 @@ class DatasetProcessor:
     ):
         name = name or key
         logger.info(f'Creating new histogram "{name}"')
-        if key not in self.histograms:
-            logger.info(f'Histogram "{name}" is not yet present, creating now.')
-            self.histograms[key] = self.histogram_builder.createHistogram(
-                axis, name, description, delayed=self.delayed
+
+        def makeAndFillWithWeight(key, name, weight):
+            if key not in self.histograms:
+                logger.info(f'Histogram "{name}" is not yet present, creating now.')
+                self.histograms[key] = self.histogram_builder.createHistogram(
+                    axis, name, description, delayed=self.delayed
+                )
+            logger.info(f'Filling histogram "{name}".')
+            self.histogram_builder.fillHistogram(
+                self.histograms[key], data, mask, event_weights=weight
             )
-        logger.info(f'Filling histogram "{name}".')
-        self.histogram_builder.fillHistogram(
-            self.histograms[key], data, mask, event_weights=self.weights.weight()
-        )
+
+        variations = self.__weights.variations
+
+        makeAndFillWithWeight(key, name, self.weights.weight())
+
+        for v in variations:
+            makeAndFillWithWeight(key + "_" + v, name + "_" + v, self.weights.weight(v))
 
     def H(self, *args, **kwargs):
         return self.maybeCreateAndFill(*args, **kwargs)
