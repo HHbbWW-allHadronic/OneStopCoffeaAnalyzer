@@ -35,10 +35,6 @@ def toSet(x):
         return (x,)
 
 
-def isMC(sample_info):
-    return sample_info.sample_type == "MC"
-
-
 class AnalyzerModule:
     def __init__(
         self,
@@ -73,6 +69,7 @@ class AnalyzerModule:
 
 modules = {}
 category_after = {
+    "preselection": ["init"],
     "selection": ["preselection"],
     "post_selection": ["selection"],
     "apply_selection": ["selection"],
