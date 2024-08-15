@@ -9,7 +9,7 @@ from .axes import *
     "baseline_selection",
     categories="selection",
     depends_on=["objects"],
-    processing_info={"used_btag_wps": ["medium", "tight"]},
+    processing_info={"used_btag_wps": ["M", "T"]},
 )
 def createSelection(events, analyzer):
     """Baseline selection for the analysis.
@@ -105,7 +105,7 @@ def selectionHists(events, analyzer):
     "baseline_nodr",
     categories="selection",
     depends_on=["objects"],
-    processing_info={"used_btag_wps": ["medium", "tight"]},
+    processing_info={"used_btag_wps": ["M", "T"]},
 )
 def baselineNoDR(events, analyzer):
     """Baseline selection for the analysis.
@@ -159,7 +159,7 @@ def createBBptSelection(events, analyzer):
     "cr_selection",
     categories="selection",
     depends_on=["objects"],
-    processing_info={"used_btag_wps": ["loose"]},
+    processing_info={"used_btag_wps": ["L"]},
 )
 def createCRSelection(events, analyzer):
     selection = analyzer.selection
