@@ -1,5 +1,6 @@
 import awkward as ak
 from analyzer.core import analyzerModule
+from .btag_points import getBTagWP
 
 
 def makeCutSet(x, s, args):
@@ -16,11 +17,12 @@ def extraObjects(events, analyzer):
 def createObjects(events, analyzer):
     good_jets = events.Jet[(events.Jet.pt > 30) & (abs(events.Jet.eta) < 2.4)]
     fat_jets = events.FatJet[(events.FatJet.pt > 30) & (abs(events.FatJet.eta) < 2.4)]
-    bwps = analyzer.profile.btag_working_points
+    bwps = getBTagWP(analyzer.profile)
+
     loose_b, med_b, tight_b = makeCutSet(
         good_jets,
         good_jets.btagDeepFlavB,
-       [bwps["loose"], bwps["medium"], bwps["tight"]],
+       [bwps["L"], bwps["M"], bwps["T"]],
     )
 
     el = events.Electron
