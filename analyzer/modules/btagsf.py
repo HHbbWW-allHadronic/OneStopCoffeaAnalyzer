@@ -18,7 +18,7 @@ from .btag_points import getBTagWP
 @analyzerModule(
     "btag_scalefactors",
     categories="preselection",
-    always=True,
+    always=False,
     dataset_pred=isMC,
     depends_on=["objects"],
 )
