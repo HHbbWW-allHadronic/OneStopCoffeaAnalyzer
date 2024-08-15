@@ -58,6 +58,7 @@ class FillType(enum.Enum):
     NormalizedEvents = enum.auto()
     WeightedEvents = enum.auto()
     UnweightedEvents = enum.auto()
+    Ratio = enum.auto()
     Other = enum.auto()
 
     @staticmethod
@@ -66,6 +67,7 @@ class FillType(enum.Enum):
             FillType.NormalizedEvents: "Normalized Events",
             FillType.WeightedEvents: "Weighted Events",
             FillType.UnweightedEvents: "Events",
+            FillType.Ratio: "Ratio",
             FillType.Other: None,
         }
         return mapping[v]
