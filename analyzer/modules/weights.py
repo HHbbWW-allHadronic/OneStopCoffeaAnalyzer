@@ -1,5 +1,6 @@
 import awkward as ak
-from analyzer.core import analyzerModule, isMC
+from analyzer.core import analyzerModule
+from .utils import isMC
 from coffea.analysis_tools import Weights
 
 
