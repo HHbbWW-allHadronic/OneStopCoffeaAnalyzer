@@ -60,10 +60,10 @@ function activate_venv(){
 }
 
 function version_info(){
-    local packages_to_show=("coffea" "awkward" "dask" "distributed" "dask-awkward" "dask-histogram" "fsspec_xrootd")
+    local packages_to_show=("coffea" "awkward" "uproot" "dask" "distributed" "dask-awkward" "dask-histogram" "fsspec_xrootd")
     local package_info="$(pip3 show "${packages_to_show[@]}")"
     for package in "${packages_to_show[@]}"; do
-        awk -v package="$package" 'BEGIN{pat=package "$" } a==1{printf("%s: %s\n", package, $2); exit} $0~pat{a++}' \
+        awk -v package="$package" 'BEGIN{pat="Name: " package } a==1{printf("%s: %s\n", package, $2); exit} $0~pat{a++}' \
             <<< "$package_info"
     done  >&2 
 
