@@ -1,4 +1,4 @@
-profile_name: 2022
+profile_name: 2022Muon
 
 btag_working_points:
   loose: 0.0583
@@ -6,6 +6,6 @@ btag_working_points:
   tight: 0.7183
 
 HLT:
-  - PFHT1050
-  - AK8PFJet420_TrimMass30
+  - Mu50
+  - IsoMu24
   

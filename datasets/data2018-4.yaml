@@ -3,7 +3,7 @@
   isdata: true
   lumi: 59.83
   forbid: true
-  profile: 2018
+  profile: 2018JetHT
   lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
   cms_dataset: /JetHT/Run2018A-UL2018_MiniAODv2_NanoAODv9-v2/NANOAOD
   n_events: 4201979
