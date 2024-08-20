@@ -1,0 +1,13 @@
+profile_name: 2018SingleMuon
+
+btag_working_points:
+  loose: 0.049
+  medium: 0.2783
+  tight: 0.7100
+
+btag_scale_factors: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2018_UL/btagging.json.gz
+
+HLT:
+  - Mu50
+  - IsoMu24
+  

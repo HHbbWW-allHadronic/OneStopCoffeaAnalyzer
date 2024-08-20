@@ -3,7 +3,7 @@
   isdata: true
   lumi: 2.97
   forbid: true
-  profile: 2022
+  profile: 2022JetMET
   lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json
   required_modules: [cr_selection]
   cms_dataset: /JetMET/Run2022D-ReRecoNanoAODv11-v1/NANOAOD
