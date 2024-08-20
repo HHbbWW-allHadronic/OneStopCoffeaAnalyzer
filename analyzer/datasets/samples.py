@@ -224,6 +224,8 @@ class SampleSet:
         derived_from = data.get("derived_from", None)
         produced_on = data.get("produced_on", None)
         profile = data.get("profile", None)
+        if profile:
+            profile = str(profile)
         lumi = data.get("lumi", None)
         x_sec = data.get("x_sec", None)
         n_events = data.get("n_events", None)

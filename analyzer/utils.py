@@ -15,9 +15,20 @@ except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
 
+def deepMerge(a: dict, b: dict, path=[]):
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                merge(a[key], b[key], path + [str(key)])
+            elif a[key] != b[key]:
+                raise Exception('Conflict at ' + '.'.join(path + [str(key)]))
+        else:
+            a[key] = b[key]
+    return a
 
 # From https://github.com/CoffeaTeam/coffea/blob/v2023.7.0.rc0/src/coffea/processor/accumulator.py
 T = TypeVar("T")
+
 
 
 @runtime_checkable

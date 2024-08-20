@@ -1,15 +1,10 @@
-profile_name: 2016_preVFP
-
-
-lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
-
-btag_scale_factors: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016preVFP_UL/btagging.json.gz
-btag_working_points:
-  loose: 0.0508
-  medium: 0.2598
-  tight: 0.6502
-
-HLT:
-  - PFHT900
-  - AK8PFJet360_TrimMass30
-  
+2016_preVFP:
+  lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+  btag_scale_factors: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016preVFP_UL/btagging.json.gz
+  pileup:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2016preVFP_UL/puWeights.json.gz
+    name: Collisions16_UltraLegacy_goldenJSON
+  HLT:
+    - PFHT900
+    - AK8PFJet360_TrimMass30
+      
