@@ -85,7 +85,6 @@ def btagScaleFactors(events, analyzer):
             wp = wp_names[idx - 1]
             sf_passed = sf_eval(var, wp, 5, abs(jets.eta), jets.pt)
             return sf_passed
-        
 
     def computeWeight(var, wp_names):
         p_mc, p_d = 1, 1
@@ -111,4 +110,18 @@ def btagScaleFactors(events, analyzer):
     }
     analyzer.addWeight(f"btag_sf", computeWeight("central", wp_names), s)
 
+    return events, analyzer
+
+
+@analyzerModule(
+    "L1_prefire_sf",
+    categories="weights",
+    always=False,
+    dataset_pred=isMC,
+)
+def l1prefire(events, analyzer):
+    nom = events.L1PrefiringWeight["Nom"]
+    up = events.L1PrefiringWeight["Up"]
+    down = events.L1PrefiringWeight["Down"]
+    analyzer.addWeight(f"l1_prefire", nom, {"variation": (up, down)})
     return events, analyzer
