@@ -6,7 +6,7 @@ application_data="$application_root/.application_data"
 declare -A env_configs
 
 env_configs[coffea,venv]="coffeaenv"
-env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.5.0-py3.10"
+env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.8.1-py3.10"
 
 if [[ $(hostname) =~ "fnal" ]]; then
     env_configs[coffea,extras]="lpcqueue"
