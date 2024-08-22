@@ -154,8 +154,22 @@ def runModulesOnDatasets(
     skim_save_path=None,
     file_retrieval_kwargs=None,
     include_default_modules=True,
+    limit_samples=None,
+    sample_manager=None,
 ):
     import analyzer.modules
+
+    if limit_samples and sample_manager is None:
+        raise RuntimeError("If limiting samples must also provide sample manager")
+
+    if limit_samples:
+        samples = [sample_manager[x] for x in limit_samples]
+        limited = list(
+            it.chain.from_iterable(makeIterable(x.getAnalyzerInput()) for x in samples)
+        )
+        names = [x.dataset_name for x in limited]
+
+        prepped_datasets = [x for x in prepped_datasets if x.dataset_name in names]
 
     config_path = Path(getConfiguration()["APPLICATION_DATA"])
     path = config_path / "argparse_cache" / f"modules.pkl"

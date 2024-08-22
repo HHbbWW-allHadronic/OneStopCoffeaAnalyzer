@@ -132,6 +132,7 @@ def handleRunPreprocessed(args):
 
     with open(args.preprocessed_inputs, "rb") as f:
         prepped = pkl.load(f)
+
     result = ra.runModulesOnDatasets(
         args.modules,
         prepped,
@@ -142,6 +143,8 @@ def handleRunPreprocessed(args):
             require_location=args.require_location,
         ),
         include_default_modules=not args.no_default_modules,
+        sample_manager=sample_manager,
+        limit_samples=args.samples,
     )
 
     pickleWithParents(args.output, result)
@@ -730,6 +733,19 @@ def addSubparserRunPreprocessed(subparsers):
     subparser = addCommonPathArgs(subparser)
     subparser = addCommonDaskArgs(subparser)
     subparser = addCommonRunArgs(subparser)
+
+    sample_choices = loadCachedArgparseList("samples")
+    subparser.add_argument(
+        "-s",
+        "--samples",
+        type=str,
+        nargs="+",
+        help="If provided, filter the samples found in the preprprocessed input file",
+        metavar="",
+        required=False,
+        choices=sample_choices,
+        default=None,
+    )
 
     subparser.add_argument(
         "--preprocessed-inputs",
