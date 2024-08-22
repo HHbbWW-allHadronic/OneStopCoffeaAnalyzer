@@ -41,6 +41,7 @@ def createEventLevelHistograms(events, analyzer):
         name="Event HT",
         description="Sum of $p_T$ of good AK4 jets.",
     )
+    return events, analyzer
     if "LHE" not in events.fields:
         return events, analyzer
     analyzer.H(

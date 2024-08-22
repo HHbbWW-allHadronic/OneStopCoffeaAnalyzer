@@ -116,7 +116,7 @@ def plot1D(
     extra_legend_args["prop"] = {"size": max(14, min(round(50 / len(labels)), 30))}
     l = ax.legend(handles, labels, loc="upper right", **extra_legend_args)
     w = mpl.rcParams["lines.linewidth"]
-    for l in ax.get_legend().legendHandles:
+    for l in ax.get_legend().legend_handles:
         if isinstance(l, mpl.lines.Line2D):
             l.set_linewidth(w)
 

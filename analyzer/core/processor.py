@@ -2,6 +2,7 @@ import logging
 from typing import Any
 import hist.dask as dah
 import itertools as it
+import awkward as ak
 
 
 from analyzer.histogram_builder import HistogramBuilder
@@ -152,21 +153,22 @@ class DatasetProcessor:
         auto_expand=True,
     ):
         name = name or key
-        logger.info(f'Creating new histogram "{name}"')
+        logger.debug(f'Creating new histogram "{name}"')
 
         def makeAndFillWithWeight(key, name, weight):
             if key not in self.histograms:
-                logger.info(f'Histogram "{name}" is not yet present, creating now.')
+                logger.debug(f'Histogram "{name}" is not yet present, creating now.')
                 self.histograms[key] = self.histogram_builder.createHistogram(
                     axis, name, description, delayed=self.delayed
                 )
-            logger.info(f'Filling histogram "{name}".')
+            logger.debug(f'Filling histogram "{name}".')
             self.histogram_builder.fillHistogram(
                 self.histograms[key], data, mask, event_weights=weight
             )
 
         variations = self.__weights.variations
 
+        makeAndFillWithWeight(f"unweighted_{key}", name, ak.ones_like(self.weights.weight()))
         makeAndFillWithWeight(key, name, self.weights.weight())
 
         for v in variations:
@@ -176,7 +178,7 @@ class DatasetProcessor:
         return self.maybeCreateAndFill(*args, **kwargs)
 
     def add_non_scaled_hist(self, key: str, hist: dah.Hist, labels: list):
-        logger.info(f"Adding non scaled histogram {key}")
+        logger.debug(f"Adding non scaled histogram {key}")
         if key not in self.nshistograms:
             self.nshistogramslabels[key] = labels
             self.nshistograms[key] = hist

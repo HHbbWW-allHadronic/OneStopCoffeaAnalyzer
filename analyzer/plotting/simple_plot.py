@@ -101,7 +101,7 @@ class Plotter:
 
         self.target_lumi= ( 
             target_lumi
-            or self.sample_manager[list(results[0].results.keys())[0]].getLumi()
+            or self.sample_manager[list(results[0].results.keys())[0]].lumi
         )
         
         self.histos = accumulate(
@@ -127,11 +127,11 @@ class Plotter:
         self.coupling = coupling
 
         used_samples = set(it.chain.from_iterable(x.results.keys() for x in results))
-        lumis = [round(self.sample_manager[x].getLumi(), 4) for x in used_samples]
+        lumis = [round(self.sample_manager[x].lumi, 4) for x in used_samples]
         if (
             not target_lumi
             and len(
-                set(round(self.sample_manager[x].getLumi(), 4) for x in used_samples)
+                set(round(self.sample_manager[x].lumi, 4) for x in used_samples)
             )
             > 1
         ):
@@ -242,7 +242,7 @@ class Plotter:
             signal_plobjs = {n: h.normalize() for n, h in signal_plobjs.items()}
             background_plobjs = {n: h.normalize() for n, h in background_plobjs.items()}
 
-        r = next(iter(signal_plobjs.values()))
+        r = next(iter(it.chain(signal_plobjs.values(), background_plobjs.values())))
         if not cut_table_in_plot:
             cut_table = None
         if not cut_list_in_plot:
