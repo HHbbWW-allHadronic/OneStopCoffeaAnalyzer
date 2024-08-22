@@ -210,7 +210,7 @@ class AnalysisResult:
                 )
             else:
                 updated_results[dataset_name] = results
-        return AnalysisResult(updated_results, self.module_list)
+        return AnalysisResult(updated_results, self.module_list, self.use_default_modules)
     
     def getNonScaledHistograms(self):
         r = utils.accumulate(
