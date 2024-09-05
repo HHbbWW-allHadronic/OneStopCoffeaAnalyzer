@@ -17,11 +17,13 @@ from typing import (
 
 import awkward as ak
 import dask
+import dask_awkward as dak
 import dask.base as daskb
 import dask.optimization as dop
 from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from distributed import Client, get_client, rejoin, secede, progress
+import operator as op
 
 import dask.optimization as dop
 
@@ -93,6 +95,7 @@ class Analyzer:
         prog_bar_updater=None,
         file_retrieval_kwargs=None,
         include_default_modules=True,
+        limit_files=None,
     ) -> DatasetDaskRunResult:
         this_dataset_modules = self.__createAndSortModules(
             dsprep.dataset_input.sample_info,
@@ -114,11 +117,16 @@ class Analyzer:
         files = {k: v for k, v in files.items() if v["num_entries"] is not None}
         maybe_base_form = dsprep.form
 
+        if limit_files:
+            files = dict(
+                list(sorted(files.items(), key=op.itemgetter(0)))[
+                    limit_files[0]: limit_files[1]
+                ]
+            )
+
         if maybe_base_form is not None:
             maybe_base_form = ak.forms.from_json(decompress_form(maybe_base_form))
         events, report = getEvents(files, known_form=maybe_base_form, cache=self.cache)
-
-
 
         daskres = DatasetDaskRunResult(dsprep, {}, {}, {}, report, None)
         dataset_analyzer = DatasetProcessor(
@@ -141,6 +149,7 @@ class Analyzer:
         logger.info(
             f"Final module processing info is:\n{dataset_analyzer.processing_info}"
         )
+
         #events=events.compute()
         #dataset_analyzer.delayed=False
 
@@ -150,6 +159,13 @@ class Analyzer:
             events, dataset_analyzer = test
 
             prog_bar_updater(advance=1)
+
         prog_bar_updater(visible=False)
+        if logger.level <= logging.DEBUG and False:
+            nc = dak.necessary_columns(daskres.histograms)
+            nc = set(next(iter(nc.values())))
+            logger.info(
+                f"Required columns for dataset {dsprep.dataset_name} are :\n{nc}"
+            )
 
         return daskres, dataset_analyzer.side_effect_computes

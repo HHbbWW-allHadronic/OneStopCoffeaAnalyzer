@@ -39,7 +39,7 @@ def createObjects(events, analyzer):
     events["med_bs"] = med_b
     events["tight_bs"] = tight_b
 
-    ht = ak.sum(events.good_jets.pt, axis=1)
+    ht = ak.sum(good_jets.pt, axis=1)
     events["HT"] = ht
 
     return events, analyzer

@@ -3,6 +3,7 @@ from typing import Any
 import hist.dask as dah
 import itertools as it
 import awkward as ak
+import dask_awkward as dak
 
 
 from analyzer.histogram_builder import HistogramBuilder
@@ -55,8 +56,10 @@ class DatasetProcessor:
         # {"WeightName" : {"central" : "Arary", "systs": {"SystName" : (Up, Down)}}}
         self.presel_weights = {}
         self.postsel_weights = {}
-
         self.is_pre_selection = True
+        self.selection_mask = None
+        self.required_columns = set()
+        self.critical_selections = []
 
     @property
     def selection(self):
@@ -83,9 +86,35 @@ class DatasetProcessor:
         self.__weights = val
 
     def applySelection(self, events):
-        if self.selection.names:
-            self.selection_mask = self.selection.all(*self.selection.names)
+        if self.processing_info.get("apply_noncritical_selections", True):
+            names = self.selection.names
+        else:
+            logger.info(
+                f'Since "apply_noncritical_selections" is False, selections will be limited. Critcal selections are: {self.critical_selections}.'
+            )
+            if self.selection.names is not None:
+                names = [
+                    x for x in self.selection.names if x in self.critical_selections
+                ]
+            else:
+                names = None
+        logger.info(f"Applying the following selections:\n{names}")
+        if names:
+            sm = None
+            hlts = [x for x in names if x.startswith("hlt")]
+            rest = [x for x in names if not x.startswith("hlt")]
+            hlt_mask = self.selection.any(*hlts) if hlts else None
+            rest_mask = self.selection.all(*rest) if rest else None
+            if hlt_mask and rest_mask:
+                self.selection_mask = hlt_mask & rest_mask
+            elif hlt_mask:
+                self.selection_mask = hlt_mask
+            else:
+                self.selection_mask = rest_mask
             events = events[self.selection_mask]
+            logger.info("Applied selections")
+        else:
+            self.selection_mask = ~ak.is_none(events.event)
         self.is_pre_selection = False
         return events
 
@@ -167,12 +196,18 @@ class DatasetProcessor:
             )
 
         variations = self.__weights.variations
-
-        makeAndFillWithWeight(f"unweighted_{key}", name, ak.ones_like(self.weights.weight()))
-        makeAndFillWithWeight(key, name, self.weights.weight())
-
-        for v in variations:
-            makeAndFillWithWeight(key + "_" + v, name + "_" + v, self.weights.weight(v))
+        base_w = self.weights.weight()
+        if base_w is None:
+            makeAndFillWithWeight(key, name, None)
+        else:
+            makeAndFillWithWeight(
+                f"unweighted_{key}", name, ak.ones_like(self.weights.weight())
+            )
+            makeAndFillWithWeight(key, name, self.weights.weight())
+            for v in variations:
+                makeAndFillWithWeight(
+                    key + "_" + v, name + "_" + v, self.weights.weight(v)
+                )
 
     def H(self, *args, **kwargs):
         return self.maybeCreateAndFill(*args, **kwargs)

@@ -83,26 +83,32 @@ def createJetHistograms(events, analyzer):
             [masses[p2],masses[p1] / masses[p2]],
             name=f"ratio_m{mtitle1}_vs_m{mtitle2}",
         )
-
     for i in range(0, 4):
-        analyzer.H(rf"pt_{i}", 
+        analyzer.H(rf"pt_{i+1}", 
             makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
             gj[:, i].pt,
             name=f"$p_T$ of jet {i+1}",
             description=f"$p_T$ of jet {i+1} ",
         )
-        analyzer.H(f"eta_{i}", 
+        analyzer.H(f"eta_{i+1}", 
             makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
             gj[:, i].eta,
             name=f"$\eta$ of jet {i+1}",
             description=f"$\eta$ of jet {i+1}",
         )
-        analyzer.H(f"phi_{i}", 
-            makeAxis(50, -4, 4, f"$\phi_{{{i+1}}}$"),
+        analyzer.H(f"phi_{i+1}", 
+            makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
             gj[:, i].phi,
-            name=rf"$\phi$ of jet {i+1}",
-            description=rf"$\phi$ of jet {i+1}",
+            name=f"$\phi$ of jet {i+1}",
+            description=f"$\phi$ of jet {i+1}",
         )
+    analyzer.H(f"phi_vs_eta",
+                [makeAxis(50,-5,5,f"$\eta$"),
+                    makeAxis(50,-5,5,f"$\phi$")],
+                [gj.eta, gj.phi],
+                name=f"$\eta$ vs $\phi$ of jet ",
+                description=rf"$\eta$ vs $\phi$ of jet "
+                )
 
     masks = {}
     for i, j in list(x for x in it.combinations(range(0, 4), 2) if x[0] != x[1]):

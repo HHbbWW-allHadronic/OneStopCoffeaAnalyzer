@@ -29,11 +29,13 @@ def plotPulls(plotobj_pred, plotobj_obs, coupling, lumi):
     return fig
 
 
-def plotRatio(plotobj_pred, plotobj_obs, coupling, lumi, weights=None, no_hists=False, ax=None):
+def plotRatio(
+    plotobj_pred, plotobj_obs, coupling, lumi, weights=None, no_hists=False, ax=None
+):
 
     hppo = plotobj_pred
     hopo = plotobj_obs
-    
+
     if not no_hists:
         fig, ax = plt.subplots()
 
@@ -45,15 +47,16 @@ def plotRatio(plotobj_pred, plotobj_obs, coupling, lumi, weights=None, no_hists=
     drawRatio(ab, numerator=hppo, denominator=hopo, weights=weights)
 
     ab.set_ylabel("Ratio")
-    ab.set_ylim(0.6,1.3)
-    #addCmsInfo(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
-    #addTitles1D(ax, hopo, top_pad=0.2)
-    
+    ab.set_ylim(0.6, 1.3)
+    # addCmsInfo(ax, additional_text=f"\n$\\lambda_{{{coupling}}}''$ ")
+    # addTitles1D(ax, hopo, top_pad=0.2)
+
     if no_hists:
         return ax
     else:
         fig.tight_layout()
         return fig
+
 
 def plot1D(
     signal_plobjs,
@@ -67,15 +70,15 @@ def plot1D(
     add_label=None,
     top_pad=0.4,
     ratio=False,
-    energy='13 TeV',
+    energy="13 TeV",
     control_region=False,
     weights=None,
     cut_table=None,
     cut_list=None,
 ):
     if cut_table:
-        plt.rcParams["figure.figsize"] = (10,13)
-        fig, axes = plt.subplots(2,1,gridspec_kw={'height_ratios': [1, 0.25]})
+        plt.rcParams["figure.figsize"] = (10, 13)
+        fig, axes = plt.subplots(2, 1, gridspec_kw={"height_ratios": [1, 0.25]})
         ax = axes[0]
         ax_table = axes[1]
         ax_table.grid(False)
@@ -93,8 +96,16 @@ def plot1D(
     plobjslist = list(signal_plobjs)
     if ratio:
         if weights is None:
-            weights = [1,1]
-        plotRatio(plobjslist[0],plobjslist[1],coupling,lumi,no_hists=True,ax=ax,weights=weights)
+            weights = [1, 1]
+        plotRatio(
+            plobjslist[0],
+            plobjslist[1],
+            coupling,
+            lumi,
+            no_hists=True,
+            ax=ax,
+            weights=weights,
+        )
     ax.set_yscale(scale)
     addEra(ax, lumi, era, energy=energy)
 
@@ -102,11 +113,12 @@ def plot1D(
         add_text = f"\nCR Selection\n"
     else:
         add_text = f"\n$\\lambda_{{{coupling}}}''$ Selection\n"
-    
+
     addCmsInfo(
         ax,
         additional_text=add_text
-        + (add_label or "")+('\n'+cut_list if cut_list else ""),
+        + (add_label or "")
+        + ("\n" + cut_list if cut_list else ""),
     )
 
     hc = next(it.chain(signal_plobjs, background_plobjs))
@@ -126,7 +138,7 @@ def plot1D(
     addTitles1D(ax, hc, top_pad=top_pad)
 
     if cut_table:
-        addCutTable(ax_table,cut_table)
+        addCutTable(ax_table, cut_table)
 
     if "$p_T ( \sum_{n=1}^" in hc.axes[0].title:
         ax.set_xlim(right=600)
@@ -144,24 +156,30 @@ def plot2D(
     scale="log",
     add_label=None,
     zscore=False,
-    energy='13 Tev',
+    energy="13 Tev",
     control_region=False,
-    zscorename='',
+    zscorename="",
     cut_table=None,
     cut_list=None,
 ):
     if cut_table:
-        plt.rcParams["figure.figsize"] = (10,13)
-        fig, axes = plt.subplots(2,1,gridspec_kw={'height_ratios': [1, 0.25]})
+        plt.rcParams["figure.figsize"] = (10, 13)
+        fig, axes = plt.subplots(2, 1, gridspec_kw={"height_ratios": [1, 0.25]})
         ax = axes[0]
         ax_table = axes[1]
         ax_table.grid(False)
         ax_table.set_axis_off()
     else:
         fig, ax = plt.subplots()
-    
-    energy_map = {"2016": "13 TeV", "2017": "13 TeV", "2018": "13 TeV", 
-                  "2022": "13.6 TeV", "2023": "13.6 TeV", "2024": "13.6 TeV"}
+
+    energy_map = {
+        "2016": "13 TeV",
+        "2017": "13 TeV",
+        "2018": "13 TeV",
+        "2022": "13.6 TeV",
+        "2023": "13.6 TeV",
+        "2024": "13.6 TeV",
+    }
     actual_era = era
     actual_energy = energy
 
@@ -170,14 +188,13 @@ def plot2D(
         from matplotlib.colors import LinearSegmentedColormap
 
         objtitle = "Z-Score"
-        color_min    = "#ff0342" # red
-        color_center = "#440154" # purple
-        color_max    = "#fde725" # yellow
+        color_min = "#ff0342"  # red
+        color_center = "#440154"  # purple
+        color_max = "#fde725"  # yellow
         cmap = LinearSegmentedColormap.from_list(
-            "cmap_name",
-            [color_min, color_center, color_max]
+            "cmap_name", [color_min, color_center, color_max]
         )
-        drawAs2DHist(ax, plot_obj,cmap=cmap,norm=TwoSlopeNorm(0))
+        drawAs2DHist(ax, plot_obj, cmap=cmap, norm=TwoSlopeNorm(0))
     else:
         objtitle = plot_obj.title
         drawAs2DHist(ax, plot_obj)
@@ -186,22 +203,22 @@ def plot2D(
             split_eras = era.split("/")
         else:
             split_eras = []
-        
+
         for single_era in split_eras:
             if single_era in plot_obj.title:
                 actual_era = single_era
                 break
             else:
                 actual_era = era
-        
+
         if "/" in actual_era:
-                actual_energy=energy
+            actual_energy = energy
         else:
             actual_energy = energy_map[actual_era]
-    
+
     addEra(ax, lumi, actual_era, energy=actual_energy)
     pos = "in"
-    
+
     if control_region:
         add_text = f"\nCR Selection\n"
     else:
@@ -210,11 +227,12 @@ def plot2D(
         ax,
         additional_text=add_text
         + (f"{add_label}" if add_label else "")
-        + (f", {objtitle}")+('\n'+cut_list if cut_list else ""),
+        + (f", {objtitle}")
+        + ("\n" + cut_list if cut_list else ""),
         pos=pos,
         color="white",
     )
-    
+
     addTitles2D(ax, plot_obj)
 
     if cut_table:

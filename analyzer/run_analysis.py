@@ -93,7 +93,7 @@ def createClient(dask_schedd_address, transfer_analyzer=True):
     else:
         client = None
         logger.info("No scheduler address provided, running locally")
-        client = Client(n_workers=1, memory_limit="2GB")
+        client = Client(n_workers=1, memory_limit="8GB", threads_per_worker=1)
         logger.info("Created local client")
     return client
 
@@ -155,6 +155,7 @@ def runModulesOnDatasets(
     file_retrieval_kwargs=None,
     include_default_modules=True,
     limit_samples=None,
+    limit_files=None,
     sample_manager=None,
 ):
     import analyzer.modules
@@ -196,16 +197,15 @@ def runModulesOnDatasets(
         ]
         for task, prepped in tasks:
             p.advance(t, 1)
-            futures.append(
-                analyzer.getDatasetFutures(
-                    prepped,
-                    skim_save_path=skim_save_path,
-                    prog_bar_updater=partial(p.update, task),
-                    file_retrieval_kwargs=file_retrieval_kwargs,
-                    include_default_modules=include_default_modules,
-                )
+            f = analyzer.getDatasetFutures(
+                prepped,
+                skim_save_path=skim_save_path,
+                prog_bar_updater=partial(p.update, task),
+                file_retrieval_kwargs=file_retrieval_kwargs,
+                include_default_modules=include_default_modules,
+                limit_files=limit_files,
             )
-
+            futures.append(f)
     logger.info(f"Generated {len(futures)} analysis futures")
     with Progress(TextColumn("{task.description}"), BarColumn()) as p:
         t = p.add_task("Running Analysis", total=None)

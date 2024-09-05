@@ -42,9 +42,12 @@ def createSelection(events, analyzer):
     passes_b_dr = med_dr > 1
 
     if "HLT" in events.fields:
-        hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
-        passes_hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
-        selection.add("hlt", hlt)
+        #hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+        #passes_hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+        #selection.add("hlt", hlt)
+        for n in hlt_names:
+        #hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+            selection.add(f"hlt_{n}", events.HLT[n])
 
     selection.add("highptjet", passes_highptjet)
     selection.add("jets", passes_jets)
@@ -79,11 +82,13 @@ def selectionHists(events, analyzer):
 
     med_b = events.med_bs
     tight_b = events.tight_bs
+    loose_b = events.loose_bs
 
     nb = ak.num(med_b, axis=1)
 
     analyzer.H("n_medb", makeAxis(6, 0, 6, f"N Medium b"), nb)
     analyzer.H("n_tightb", makeAxis(6, 0, 6, f"N Tight b"), ak.num(tight_b))
+    analyzer.H("n_looseb", makeAxis(6, 0, 6, f"N Loose b"), ak.num(loose_b))
 
     mnb = nb >= 2
     twob = med_b[mnb]
@@ -97,6 +102,13 @@ def selectionHists(events, analyzer):
         name="Event HT",
         description="Sum of $p_T$ of good AK4 jets.",
     )
+
+    analyzer.H(f"phi_vs_eta",
+                [makeAxis(50,-5.0,5.0,f"$\eta$"), makeAxis(50,-5.0,5.0,f"$\phi$")],
+                [gj.eta, gj.phi],
+                name=f"$\eta$ vs $\phi$ of jet ",
+                description=rf"$\eta$ vs $\phi$ of jet "
+                )
 
     return events, analyzer
 
@@ -159,7 +171,9 @@ def createBBptSelection(events, analyzer):
     "cr_selection",
     categories="selection",
     depends_on=["objects"],
-    processing_info={"used_btag_wps": ["L"]},
+    processing_info={
+        "used_btag_wps": ["L"],
+    },
 )
 def createCRSelection(events, analyzer):
     selection = analyzer.selection
@@ -175,12 +189,15 @@ def createCRSelection(events, analyzer):
     # top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
     hlt_names = analyzer.profile.hlt
     if "HLT" in events.fields:
-        hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
-        selection.add("hlt", hlt)
+        for n in hlt_names:
+        #hlt = functools.reduce(op.or_, [events.HLT[x] for x in hlt_names])
+            selection.add(f"hlt_{n}", events.HLT[n])
     selection.add("ht1200", (events.HT >= 1200))
     selection.add("highptjet", (ak.fill_none(filled_jets[:, 0].pt > 300, False)))
     selection.add("jets", ((ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)))
     selection.add("0Lep", ((ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)))
     selection.add("0looseb", (ak.num(loose_b) == 0))
+
+    #analyzer.critical_selections.append("0looseb")
 
     return events, analyzer
