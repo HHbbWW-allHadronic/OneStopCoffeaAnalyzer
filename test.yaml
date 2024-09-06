@@ -1,0 +1,185 @@
+AnalysisName: SingleStop
+output_dir: output
+
+LIMIT:
+  Regions: [Signal312]
+
+
+Samples:
+  QCDInclusive2018:
+    regions: All
+  TT:
+    regions: All
+  signal312:
+    treat_sepatate: true
+    regions: [Signal312, Control]
+  signal313:
+    treat_sepatate: true
+    regions: [Signal313, Control]
+
+  JetData2018:
+    regions: [Control]
+  JetData2017:
+    regions: [Control]
+  JetData2016:
+    regions: [Control]
+  JetData2022:
+    regions: [Control]
+  JetData2023:
+    regions: [Control]
+
+  MuonData2018:
+    regions: [SingleMuon]
+  MuonData2017:
+    regions: [SingleMuon]
+  MuonData2016:
+    regions: [SingleMuon]
+  MuonData2022:
+    regions: [SingleMuon]
+  MuonData2023:
+    regions: [SingleMuon]
+
+  AllMC: 
+    RegionAugment:
+      histograms:
+        - GenParticles
+
+
+Regions:
+  Signal312:
+    forbid_data: True
+
+    preselection:
+      - selection_hlt
+
+    selection:
+      - general_selection
+      - 312_selection
+
+    histograms:
+      - goodjet_ht
+      - jets
+      - chargino_rego
+
+  Signal313:
+    forbid_data: True
+
+    preselection:
+      - module_1
+
+    selection:
+      - selection_hlt
+      - general_selection
+      - 313_selection
+
+    histograms:
+      - goodjet_ht
+      - jets
+      - chargino_rego
+
+  Control:
+    preselection:
+      - selection_hlt
+
+    selection:
+      - general_selection
+      - control_region_selection
+
+    histograms:
+      - jets
+      - chargino_rego
+
+  SingleMuon:
+    preselection:
+      - single_muon_trigger
+
+    preselection_histograms:
+      - preselection_ht
+
+    selection:
+      - selection_hlt
+
+    histograms:
+      - goodjet_ht
+
+
+Weights:
+  - eras: [2022, 2023]
+    sample_type: MC
+    modules:
+      - jet_veto_map
+
+  - eras: [2016, 2017, 2018]
+    sample_type: MC
+    modules:
+      - prefiring_scale_factor
+
+  - sample_type: MC
+    modules: 
+        - btag_scale_factors
+
+
+Production:
+  configuration:
+    output_dir: plots
+    image_type: pdf
+    cms_tag: Preliminary
+
+
+  outputs:
+    cutflow_table:
+      - samples: All
+        regions: All
+    
+  histograms:
+    - name: HT
+      samples: All
+      regions: All
+
+    - name: n_medb
+      type: basic
+      save_name: medium_bjets
+      desk: Number of medium b jets
+      samples: All
+      regions: [Signal312,Signal313]
+
+    - name: n_looseb
+      type: basic
+      normalize: False
+      scale: log
+      desc: Number of loose b jets
+      samples: All
+      regions: [Signal312,Signal313]
+
+    - name: chargino
+      type: basic
+      desk: Number of loose b jets
+      samples: All
+      regions: [Signal312,Signal313]
+
+    - type: trigger_efficiency
+      num: preselection_HT
+      den: HT
+      desk: Number of loose b jets
+      samples: AllData
+      regions: SingleMuon
+
+    - type: weight_comparison
+      name: HT
+      weight: btag_scale_factors
+      show_variations: [up, down]
+      samples: All
+
+    - type: weight_comparison
+      name: njets
+      weight: btag_scale_factors
+      show_variations: [up, down]
+      samples: All
+
+    - type: 
+      name: njets
+      weight: btag_scale_factors
+      show_variations: [up, down]
+      samples: All
+    
+    
