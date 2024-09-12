@@ -1,90 +1,55 @@
-AnalysisName: SingleStop
+name: SingleStop
+
 output_dir: output
+LimitTo:
+  regions: [Signal312]
 
-LIMIT:
-  Regions: [Signal312]
+samples:
+  QCDInclusive2023: [All]
+  signal312: [Signal312, Control]
+  signal313: [Signal313, Control]
+  JetData2018: [Control]
+  MuonData2018: [SingleMuon]
 
+regions:
+  Signal313:
+    forbid_data: True
+    preselection:
+      - module_1: 
+    selection:
+      - selection_hlt:
+      - general_selection:
+      - 313_selection:
+    histograms: &common_signal
+      - goodjet_ht:
+      - jets:
+      - chargino_reco:
+      - bhists: 
+          - working_point: M
+          - working_point: L
+          - working_point: T
+      - nn_reco:
+          - network_path: network1
+          - network_path: network2
+          - network_path: network3
 
-Samples:
-  QCDInclusive2018:
-    regions: All
-  TT:
-    regions: All
-  signal312:
-    treat_sepatate: true
-    regions: [Signal312, Control]
-  signal313:
-    treat_sepatate: true
-    regions: [Signal313, Control]
-
-  JetData2018:
-    regions: [Control]
-  JetData2017:
-    regions: [Control]
-  JetData2016:
-    regions: [Control]
-  JetData2022:
-    regions: [Control]
-  JetData2023:
-    regions: [Control]
-
-  MuonData2018:
-    regions: [SingleMuon]
-  MuonData2017:
-    regions: [SingleMuon]
-  MuonData2016:
-    regions: [SingleMuon]
-  MuonData2022:
-    regions: [SingleMuon]
-  MuonData2023:
-    regions: [SingleMuon]
-
-  AllMC: 
-    RegionAugment:
-      histograms:
-        - GenParticles
-
-
-Regions:
   Signal312:
     forbid_data: True
-
     preselection:
       - selection_hlt
-
     selection:
       - general_selection
       - 312_selection
 
     histograms:
-      - goodjet_ht
-      - jets
-      - chargino_rego
-
-  Signal313:
-    forbid_data: True
-
-    preselection:
-      - module_1
-
-    selection:
-      - selection_hlt
-      - general_selection
-      - 313_selection
-
-    histograms:
-      - goodjet_ht
-      - jets
-      - chargino_rego
+      - <<: *common_signal
 
   Control:
     preselection:
       - selection_hlt
-
     selection:
       - general_selection
       - control_region_selection
-
     histograms:
       - jets
       - chargino_rego
@@ -92,39 +57,43 @@ Regions:
   SingleMuon:
     preselection:
       - single_muon_trigger
-
     preselection_histograms:
       - preselection_ht
-
     selection:
       - selection_hlt
-
     histograms:
       - goodjet_ht
 
 
-Weights:
-  - eras: [2022, 2023]
+weights:
+  prefiring_scale_factor:
+    eras: [2016, 2017, 2018]
+    region_names: [Signal312]
     sample_type: MC
-    modules:
-      - jet_veto_map
+    variations: All
 
-  - eras: [2016, 2017, 2018]
+  pileup_scale_factor:
     sample_type: MC
-    modules:
-      - prefiring_scale_factor
+    variations: All
 
-  - sample_type: MC
-    modules: 
-        - btag_scale_factors
+  btag_scale_factors:
+    region_config:
+      Signal312:
+        working_points: [M,T]
+      Signal313:
+        working_points: [T]
+      Control:
+        working_points: [L]
+        
+    sample_type: MC
+    variations: All
 
 
-Production:
+Plots:
   configuration:
     output_dir: plots
     image_type: pdf
     cms_tag: Preliminary
-
 
   outputs:
     cutflow_table:
@@ -139,9 +108,11 @@ Production:
     - name: n_medb
       type: basic
       save_name: medium_bjets
+      normalize: True
       desk: Number of medium b jets
       samples: All
       regions: [Signal312,Signal313]
+
 
     - name: n_looseb
       type: basic
@@ -151,8 +122,16 @@ Production:
       samples: All
       regions: [Signal312,Signal313]
 
-    - name: chargino
+    - name: m24_m
       type: basic
+      mode: stacked
+      desk: Number of loose b jets
+      samples: All
+      regions: [Signal312,Signal313]
+
+    - name: m24_m
+      type: basic
+      mode: split
       desk: Number of loose b jets
       samples: All
       regions: [Signal312,Signal313]
@@ -176,10 +155,31 @@ Production:
       show_variations: [up, down]
       samples: All
 
-    - type: 
-      name: njets
-      weight: btag_scale_factors
-      show_variations: [up, down]
-      samples: All
+statistical:
+  output_dir: stats
+  gp_regressorNN:
+    output_dir: "{signal}_{background}"
+    match:
+      backgrounds: QCDInclusive2018
+      signal: signal312
+
+    gp_regressor:
+      kernel: NNRBF128_64_32
+      optimizer_steps: 500
+
+    blinder:
+      name: EllipseWindow
+      signal_containment_percent: 80
+
+    generate_diagnostics: true
+    generate_combine_input: true
+
+      
+
+
+
+  
+
+  
     
     

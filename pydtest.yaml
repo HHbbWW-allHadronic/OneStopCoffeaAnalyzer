@@ -1,0 +1,199 @@
+name: SingleStop
+
+output_dir: output
+LimitTo:
+  regions: [Signal312]
+
+samples:
+  QCDInclusive2023: [All]
+  signal312: [Signal312, Control]
+  signal313: [Signal313, Control]
+  JetData2018: [Control]
+  MuonData2018: [SingleMuon]
+
+object_definitions:
+  - name: core_objects
+
+regions:
+  - name: Signal312
+    forbid_data: true
+    use_selection_as_category: false
+    save_cutflow: true
+    preselection:
+      - name: module_1
+    selection:
+      - name: selection_hlt
+      - name: general_selection
+      - name: 313_selection
+    categories:
+      - njets_category:
+    histograms: &common_signal
+      - name: goodjet_ht
+      - name: jets
+      - name: chargino_reco
+      - name: bhists
+        config:
+          - working_point: [L,M,T]
+      - name: nn_reco
+        config:
+          - network_path: [network1, network2, network3]
+      - name: mc_hists
+        sample_spec: {sample_type: MC}
+        config:
+          - network_path: [network1, network2, network3]
+          
+  - name: Signal312
+    forbid_data: True
+    preselection:
+      - name: selection_hlt
+    selection:
+      - name: general_selection
+      - name: 312_selection
+
+    histograms:
+      - <<: *common_signal
+
+  - name: Control
+    preselection:
+      - name: selection_hlt
+    selection:
+      - name: general_selection
+      - name: control_region_selection
+    histograms:
+      - name: jets
+      - name: chargino_rego
+
+  - name: SingleMuon
+    preselection:
+      - name: single_muon_trigger
+    preselection_histograms:
+      - name: preselection_ht
+    selection:
+      - name: selection_hlt
+    histograms:
+      - name: goodjet_ht
+
+weights:
+  - name: prefiring_scale_factor
+
+    sector_spec:
+      sample_spec:
+        eras: ["2016", "2017", "2018"]
+        sample_type: MC
+      region_names: [Signal312]
+
+    variations: All
+
+  - name: pileup_scale_factor
+    sample_type: MC
+    variations: All
+
+  - name: btag_scale_factors
+    region_config:
+      Signal312:
+        working_points: [M,T]
+      Signal313:
+        working_points: [T]
+      Control:
+        working_points: [L]
+        
+    sector_spec:
+      sample_spec:
+        sample_type: MC
+
+    variations: All
+
+PostProcessing:
+  - Plots:
+    configuration:
+      output: "plots/{region_name}/{sample_name}/{plot_name}_{variation}"
+      image_type: pdf
+      cms_tag: Preliminary
+  
+    outputs:
+      cutflow_table:
+        - samples: All
+          regions: All
+      
+    histograms:
+      - name: HT
+        samples: All
+        regions: All
+  
+      - name: n_medb
+        type: basic
+        save_name: medium_bjets
+        normalize: True
+        desk: Number of medium b jets
+        samples: All
+        regions: [Signal312,Signal313]
+  
+      - name: n_looseb
+        type: basic
+        normalize: False
+        scale: log
+        desc: Number of loose b jets
+        samples: All
+        regions: [Signal312,Signal313]
+  
+      - name: m24_m
+        type: basic
+        mode: stacked
+        desk: Number of loose b jets
+        samples: All
+        regions: [Signal312,Signal313]
+  
+      - name: m24_m
+        type: basic
+        mode: split
+        desk: Number of loose b jets
+        samples: All
+        regions: [Signal312,Signal313]
+  
+      - type: trigger_efficiency
+        num: preselection_HT
+        den: HT
+        desk: Number of loose b jets
+        samples: AllData
+        regions: SingleMuon
+  
+      - type: weight_comparison
+        name: HT
+        weight: btag_scale_factors
+        show_variations: [up, down]
+        samples: All
+  
+      - type: weight_comparison
+        name: njets
+        weight: btag_scale_factors
+        show_variations: [up, down]
+        samples: All
+  
+  background_estimation:
+    output_dir: stats
+    gp_regressorNN:
+      output_dir: "{signal}_{background}_{kernel}"
+      match:
+        backgrounds: QCDInclusive2018
+        signal: signal312
+  
+      gp_regressor:
+        kernel: NNRBF128_64_32
+        optimizer_steps: 500
+  
+      blinder:
+        name: EllipseWindow
+        signal_containment_percent: 80
+  
+      generate_diagnostics: true
+      generate_combine_input: true
+
+      
+
+
+
+  
+
+  
+    
+    
