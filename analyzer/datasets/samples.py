@@ -23,6 +23,9 @@ from urllib.parse import urlparse, urlunparse
 from analyzer.file_utils import extractCmsLocation
 import re
 
+from pydantic import BaseModel, Field, validator
+import enum
+
 
 from .profiles import Profile
 
@@ -71,8 +74,7 @@ def getReplicas(dataset, client):
     return ret
 
 
-@dataclass
-class SampleFile:
+class SampleFile(BaseModel):
     paths: OrderedDict[str, str] = field(default_factory=OrderedDict)
     object_path: str = "Events"
     # steps: Optional[List[List[int]]] = None
@@ -87,13 +89,6 @@ class SampleFile:
                 f"Url '{url}' does not have the same correct cms-location {self.cmsLocation()}"
             )
         self.paths[location] = url
-
-    @staticmethod
-    def fromDict(data):
-        if isinstance(data, Dict):
-            return SampleFile(data)
-        else:
-            return SampleFile({"eos": data})
 
     def getRootDir(self):
         return self.object_path
@@ -177,33 +172,35 @@ class SampleFile:
         return hash(self.cmsLocation())
 
 
-class SampleSet:
 
-    def __init__(
-        self,
-        name: str,
-        title: str,
-        n_events: int,
-        profile: Optional[Union[str, Profile]],
-        derived_from: Optional[Union[str, "SampleSet"]],
-        sample_type: Optional[str],
-        produced_on: Optional[str],
-        lumi: Optional[float],
-        x_sec: Optional[float],
-        files: List[SampleFile] = field(default_factory=list),
-        style: Optional[Union[Style, str]] = None,
-        isdata: bool = False,
-        forbid: Optional[bool] = False,
-        mc_campaign: Optional[str] = None,
-        required_modules: Optional[str] = None,
-        cms_dataset_regex: Optional[str] = None,
-    ):
+class SampleType(str, enum.Enum):
+    MC = "MC"
+    Data = "Data"
+
+
+
+class Sample(BaseObject):
+    name: str,
+    title: str,
+    n_events: int,
+    profile: Optional[Union[str, Profile]],
+    derived_from: Optional[Union[str, "SampleSet"]],
+    sample_type: Optional[str],
+    produced_on: Optional[str],
+    lumi: Optional[float],
+    x_sec: Optional[float],
+    files: List[SampleFile] = field(default_factory=list),
+    style: Optional[Union[Style, str]] = None,
+    cms_dataset_regex: Optional[str] = None,
+
+
+
+
         self.name = name
         self.title = title
         self.sample_type = sample_type
         self.n_events = n_events
         self.cms_dataset_regex = cms_dataset_regex
-
         self.derived_from = derived_from
 
         self.__profile = profile
@@ -212,11 +209,7 @@ class SampleSet:
 
         self.files = files
         self.style = style
-        self.forbid = forbid
-        self.mc_campaign = mc_campaign
         self.required_modules = required_modules
-
-        self.produced_on = produced_on
 
     @staticmethod
     def fromDict(data):
@@ -269,7 +262,7 @@ class SampleSet:
             sample_type=sample_type,
             produced_on=produced_on,
             lumi=lumi,
-            x_sec=x_sec,
+           x_sec=x_sec,
             files=files,
             style=style,
             isdata=isdata,
@@ -316,31 +309,10 @@ class SampleSet:
         client = rucio_utils.get_rucio_client()
         datasets = getDatasets(self.cms_dataset_regex, client)
         replicas = {dataset: getReplicas(dataset, client) for dataset in datasets}
-        # ddc = DataDiscoveryCLI()
-        # ddc.do_regex_sites(r"T[123]_(CH|IT|UK|FR|DE|US)_\w+")
-        # ddc.load_dataset_definition(
-        #    dd,
-        #    query_results_strategy="all",
-        #    replicas_strategy="round-robin",
-        # )
-
         look_for.parent.mkdir(exist_ok=True, parents=True)
         with open(look_for, "w") as f:
             json.dump(replicas, f, indent=2)
 
-    def isForbidden(self, modules=None):
-        if self.forbid is None:
-            if self.derived_from is None:
-                return False
-            else:
-                return self.derived_from.isForbidden()
-        elif self.forbid and (
-            modules is not None and self.required_modules is not None
-        ):
-            if self.required_modules in modules:
-                return False
-        else:
-            return self.forbid
 
     @property
     def lumi(self):

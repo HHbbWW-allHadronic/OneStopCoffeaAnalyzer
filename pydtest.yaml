@@ -5,7 +5,7 @@ LimitTo:
   regions: [Signal312]
 
 samples:
-  QCDInclusive2023: [All]
+  QCDInclusive2023: All
   signal312: [Signal312, Control]
   signal313: [Signal313, Control]
   JetData2018: [Control]
@@ -14,11 +14,13 @@ samples:
 object_definitions:
   - name: core_objects
 
-regions:
-  - name: Signal312
-    forbid_data: true
+general_config:
     use_selection_as_category: false
     save_cutflow: true
+
+regions:
+  - name: Signal313
+    forbid_data: true
     preselection:
       - name: module_1
     selection:
@@ -33,14 +35,17 @@ regions:
       - name: chargino_reco
       - name: bhists
         config:
-          - working_point: [L,M,T]
+          - working_point: L
+          - working_point: M
+          - working_point: T
       - name: nn_reco
         config:
-          - network_path: [network1, network2, network3]
+          - network_path: network1
+          - network_path: network2
+          - network_path: network3
+
       - name: mc_hists
         sample_spec: {sample_type: MC}
-        config:
-          - network_path: [network1, network2, network3]
           
   - name: Signal312
     forbid_data: True
@@ -50,8 +55,7 @@ regions:
       - name: general_selection
       - name: 312_selection
 
-    histograms:
-      - <<: *common_signal
+    histograms: *common_signal
 
   - name: Control
     preselection:
@@ -104,17 +108,15 @@ weights:
     variations: All
 
 PostProcessing:
-  - Plots:
+  - name: Plots
     configuration:
       output: "plots/{region_name}/{sample_name}/{plot_name}_{variation}"
       image_type: pdf
       cms_tag: Preliminary
-  
     outputs:
       cutflow_table:
         - samples: All
           regions: All
-      
     histograms:
       - name: HT
         samples: All
@@ -169,24 +171,17 @@ PostProcessing:
         show_variations: [up, down]
         samples: All
   
-  background_estimation:
-    output_dir: stats
+  - name: regression_inputs
+    output_dir: regression_inputs
     gp_regressorNN:
-      output_dir: "{signal}_{background}_{kernel}"
-      match:
-        backgrounds: QCDInclusive2018
-        signal: signal312
-  
-      gp_regressor:
-        kernel: NNRBF128_64_32
-        optimizer_steps: 500
-  
-      blinder:
-        name: EllipseWindow
-        signal_containment_percent: 80
-  
-      generate_diagnostics: true
-      generate_combine_input: true
+      output_dir: "{region}/{sample_name}/"
+      histograms:
+        - m14_m
+        - m13_m
+        - m24_m
+        - NN1_m
+        - NN2_m
+        - NN3_m
 
       
 
