@@ -1,0 +1,22 @@
+- name: 2016_preVFP
+  energy: 13.0
+  lumi: 19.65
+  sections:
+      B: 5.829
+      C: 2.601
+      D: 4.286
+      E: 4.065
+      F: 2.865
+  golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
+
+  btag_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016preVFP_UL/btagging.json.gz
+
+  pileup_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2016preVFP_UL/puWeights.json.gz
+    name: Collisions16_UltraLegacy_goldenJSON
+
+  triggers:
+    HT: PFHT900
+    AK8SingleJetPt: AK8PFJet360_TrimMass30
+

@@ -1,0 +1,24 @@
+- name: 2023_preBPix
+  energy: 13.6
+  lumi: 17.65
+
+  sections: 
+    C: 17.65
+
+  btag_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz
+
+  jet_veto_map:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23/jetvetomaps.json.gz
+    name: "Summer23Prompt23_RunC_V1"
+
+  pileup_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2023_Summer23/puWeights.json.gz
+    name: Collisions2023_366403_369802_eraBC_GoldenJson
+
+  trigger_names:
+    HT: PFHT1050
+    AK8SingleJetPt: AK8PFJet400_TrimMass30
+    SingleMuon: Mu50
+    IsoMuon: IsoMu24
+

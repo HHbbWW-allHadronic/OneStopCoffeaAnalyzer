@@ -1,0 +1,25 @@
+- name: 2022_postEE
+  energy: 13.6
+  lumi: 26.67
+  sections:
+    E: 5.807
+    F: 17.781
+    G: 3.082
+
+  btag_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2022_Summer22EE/btagging.json.gz
+  jet_veto_map:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022_Summer22EE/jetvetomaps.json.gz
+    name: "Summer22EE_23Sep2023_RunEFG_V1"
+
+  pileup_scale_factors:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2022_Summer22EE/puWeights.json.gz
+    name: Collisions2022_359022_362760_eraEFG_GoldenJson
+
+  trigger_names:
+    HT: PFHT1050
+    AK8SingleJetPt: AK8PFJet500
+    SingleMuon: Mu50
+    IsoMuon: IsoMu24
+
+
