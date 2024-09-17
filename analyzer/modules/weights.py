@@ -1,25 +1,15 @@
 import awkward as ak
-from analyzer.core import analyzerModule
-from .utils import isMC
-from coffea.analysis_tools import Weights
+from analyzer.core import MODULE_REPO, ModuleType
 
+@MODULE_REPO.register(ModuleType.Weight)
+def sign_gen_weight(events, params, weight_manager):
+    weight_manager.add("pos_neg",  ak.where(events.genWeight > 0, 1.0, -1.0))
 
-@analyzerModule(
-    "pos_neg_weight", categories="post_selection", always=True, dataset_pred=isMC
-)
-def negEventWeight(events, analyzer):
-    if "genWeight" in events.fields:
-        analyzer.postsel_weights["PosNegEvent"] = {
-            "central": ak.where(events.genWeight > 0, 1.0, -1.0)
-        }
-    return events, analyzer
+@MODULE_REPO.register(ModuleType.Weight)
+def gen_weight(events, params, weight_manager):
+    weight_manager.add("gen_weight",  events.genWeight)
 
-
-@analyzerModule(
-    "finalize_weights", categories="finalize_weights", always=True, after="weights"
-)
-def finalizeWeights(events, analyzer):
-    analyzer.finalizeWeights()
-    return events, analyzer
-
+@MODULE_REPO.register(ModuleType.Weight)
+def xsec_weight(events, params, weight_manager):
+    weight_manager.add("x_sec",  ak.ones_like(events) * params.x_sec)
 

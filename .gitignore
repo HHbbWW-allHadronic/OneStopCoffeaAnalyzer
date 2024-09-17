@@ -46,7 +46,6 @@ compressed/
 figures*/
 coffeaenv/
 compressed/
-analyzer_resources/
 .local/
 .private/
 *.log

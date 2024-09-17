@@ -1,13 +1,7 @@
 import itertools as it
-
 import awkward as ak
-import dask
-
-from analyzer.core import analyzerModule
+from analyzer.core import MODULE_REPO, ModuleType
 from analyzer.math_funcs import angleToNPiToPi
-
-from .axes import *
-from .utils import numMatching
 
 @analyzerModule("tiny", categories="main")
 def tiny(events, analyzer):
@@ -16,15 +10,60 @@ def tiny(events, analyzer):
     return events,analyzer
 
 
-@analyzerModule("jets", categories="main", depends_on=["objects"])
-def createJetHistograms(events, analyzer):
+@MODULE_REPO.register(ModuleType.Histogram)
+def njets(events, params, analyzer):
+    """Basic information about individual jets
+    """
     gj = events.good_jets
     analyzer.H(f"h_njet", nj_axis, ak.num(gj), name="njets")
     jet_combos = [(0, 4), (0, 3), (1, 4)]
+
+@MODULE_REPO.register(ModuleType.Histogram)
+def jet_kinematics(events, params, analyzer):
+    """Basic information about individual jets
+    """
+
+    gj = events.good_jets
+    for i in range(0, 4):
+        mask = ak.num(gj, axis=1) > i
+        masked_jets = gj[mask]
+
+        analyzer.H(rf"pt_{i+1}", 
+            makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+            gj[:, i].pt,
+            name=f"$p_T$ of jet {i+1}",
+            description=f"$p_T$ of jet {i+1} ",
+        )
+        analyzer.H(f"eta_{i+1}", 
+            makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
+            gj[:, i].eta,
+            name=f"$\eta$ of jet {i+1}",
+            description=f"$\eta$ of jet {i+1}",
+        )
+        analyzer.H(f"phi_{i+1}", 
+            makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
+            gj[:, i].phi,
+            name=f"$\phi$ of jet {i+1}",
+            description=f"$\phi$ of jet {i+1}",
+        )
+        htratio = masked_jets[:, i].pt / events.HT[mask]
+        analyzer.H(f"pt_ht_ratio_{i}", 
+            hist.axis.Regular(50, 0, 1, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
+            htratio,
+            mask=mask,
+            name=rf"Ratio of jet {i} $p_T$ to event HT",
+            description=rf"Ratio of jet {i} $p_T$ to event HT",
+        )
+
+
+
+@MODULE_REPO.register(ModuleType.Histogram)
+def jet_combo_kinematics(events, params, analyzer):
+    """Kinematic information about combinations of jets, such as the naive chargino reconstruction algorithms.
+    """
+
     co = lambda x: it.combinations(x, 2)
-
     masses = {}
-
     for i, j in jet_combos:
         jets = gj[:, i:j].sum()
         masses[(i, j)] = jets.mass
@@ -83,25 +122,7 @@ def createJetHistograms(events, analyzer):
             [masses[p2],masses[p1] / masses[p2]],
             name=f"ratio_m{mtitle1}_vs_m{mtitle2}",
         )
-    for i in range(0, 4):
-        analyzer.H(rf"pt_{i+1}", 
-            makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-            gj[:, i].pt,
-            name=f"$p_T$ of jet {i+1}",
-            description=f"$p_T$ of jet {i+1} ",
-        )
-        analyzer.H(f"eta_{i+1}", 
-            makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
-            gj[:, i].eta,
-            name=f"$\eta$ of jet {i+1}",
-            description=f"$\eta$ of jet {i+1}",
-        )
-        analyzer.H(f"phi_{i+1}", 
-            makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
-            gj[:, i].phi,
-            name=f"$\phi$ of jet {i+1}",
-            description=f"$\phi$ of jet {i+1}",
-        )
+
     analyzer.H(f"phi_vs_eta",
                 [makeAxis(50,-5,5,f"$\eta$"),
                     makeAxis(50,-5,5,f"$\phi$")],
@@ -110,6 +131,9 @@ def createJetHistograms(events, analyzer):
                 description=rf"$\eta$ vs $\phi$ of jet "
                 )
 
+@MODULE_REPO.register(ModuleType.Histogram)
+def jet_relative_angles(events, params, analyzer):
+    gj = events.good_jets
     masks = {}
     for i, j in list(x for x in it.combinations(range(0, 4), 2) if x[0] != x[1]):
         mask = ak.num(gj, axis=1) > max(i, j)
@@ -140,42 +164,3 @@ def createJetHistograms(events, analyzer):
             description=rf"$\Delta R$ between jets {i+1} and {j+1}",
         )
 
-    for i in range(0, 4):
-        mask = ak.num(gj, axis=1) > i
-        masked_jets = gj[mask]
-        htratio = masked_jets[:, i].pt / events.HT[mask]
-        analyzer.H(f"pt_ht_ratio_{i}", 
-            hist.axis.Regular(50, 0, 1, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
-            htratio,
-            mask=mask,
-            name=rf"Ratio of jet {i} $p_T$ to event HT",
-            description=rf"Ratio of jet {i} $p_T$ to event HT",
-        )
-    
-    return events, analyzer
-
-
-@analyzerModule("other_region_mass_plots", categories="main")
-def otherRegionMassHists(events, analyzer):
-    hmaker = analyzer.hmaker
-    gj = events.good_jets
-
-    jets = gj[:, 0:4].sum()
-    mass = jets.mass
-
-    tbs = events.tight_bs
-    sr_313_tight_mask = ak.num(tbs, axis=1) >= 3
-    filled_tight = ak.pad_none(tbs, 2, axis=1)
-    tight_dr = ak.fill_none(filled_tight[:, 0].delta_r(filled_tight[:, 1]), False)
-    tight_dr_mask = tight_dr > 1
-    sr_313_mask = sr_313_tight_mask & tight_dr_mask
-
-    analyzer.H(rf"313_m4_m", 
-        makeAxis(60, 0, 3000, f"$m_{{4}}$", unit="GeV"),
-        jets.mass[sr_313_mask],
-        name=rf"M4 in the 313 Region",
-        description=rf"M4 in the 313 region",
-        mask=sr_313_mask,
-    )
-
-    return events, analyzer

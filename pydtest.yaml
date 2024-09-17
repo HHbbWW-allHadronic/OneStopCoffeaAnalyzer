@@ -1,9 +1,15 @@
+# The name of analysis to be run
 name: SingleStop
 
+# Where to save the output of the analysis
 output_dir: output
+
+# Possible limit regions/signals over which the analysis should be run
 LimitTo:
   regions: [Signal312]
 
+
+# Samples and in which regions they should be processed
 samples:
   QCDInclusive2023: All
   signal312: [Signal312, Control]
@@ -11,25 +17,29 @@ samples:
   JetData2018: [Control]
   MuonData2018: [SingleMuon]
 
-object_definitions:
-  - name: core_objects
-
+# Samples and in which regions they should be processed
 general_config:
+  # If `use_selection_as_category` is false, the selection as described in the region.preselecection and region.selection blocks is a pure filter
+  # If `use_selection_as_category` is true, then instead for each selection, an axis is added to the final histogram, which indicates where it passed for failed
+  # This is useful for generating N-1 plots
     use_selection_as_category: false
-    save_cutflow: true
+    location_priority_order: [".*(US|CH|FR).*", "eos"]
+    #save_cutflow: true
 
-regions:
-  - name: Signal313
-    forbid_data: true
-    preselection:
-      - name: module_1
-    selection:
-      - name: selection_hlt
-      - name: general_selection
-      - name: 313_selection
-    categories:
-      - njets_category:
-    histograms: &common_signal
+    skimming:
+      output: "root://blabla/SingleStop/"
+
+    
+    # If try skim path is provided, then when processing sample S in region R,
+    # the program will first check if they is a directory
+    # If such a directory exists, then all *.root files in this directory are considered to be the complete fileset for this sample and region
+    try_skim_path: "root://blabla/SingleStop/"
+    #try_skim_path: None
+
+
+# You can use yaml anchors to reduce the amount of duplication
+common_items:
+    common_signal_histograms: &common_signal
       - name: goodjet_ht
       - name: jets
       - name: chargino_reco
@@ -43,12 +53,36 @@ regions:
           - network_path: network1
           - network_path: network2
           - network_path: network3
-
       - name: mc_hists
         sample_spec: {sample_type: MC}
+
+    common_objects: &common_objects
+      - name: core_objects
+
+
+
+# A region has a name, followed by description of what modules should be run
+# for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
+# Additionally, a module may also have a `sample_spec` option, which limits which samples it applies to, ie only make gen-level hists for MC.
+# Weighting information is defined in the weights nodes, described below.
+regions:
+  - name: Signal313
+    forbid_data: true
+    objects: *common_objects
+    preselection:
+      - name: module_1
+    selection:
+      - name: selection_hlt
+      - name: general_selection
+      - name: 313_selection
+    categories:
+      - njets_category:
+    histograms: *common_signal
+
           
   - name: Signal312
     forbid_data: True
+    objects: *common_objects
     preselection:
       - name: selection_hlt
     selection:
@@ -58,6 +92,7 @@ regions:
     histograms: *common_signal
 
   - name: Control
+    objects: *common_objects
     preselection:
       - name: selection_hlt
     selection:
@@ -68,6 +103,8 @@ regions:
       - name: chargino_rego
 
   - name: SingleMuon
+    use_region: false
+    objects: *common_objects
     preselection:
       - name: single_muon_trigger
     preselection_histograms:
@@ -77,14 +114,14 @@ regions:
     histograms:
       - name: goodjet_ht
 
+# Weights described which weights and variations should be applied to which samples and regions
+# Weights are applied immediately after selection 
 weights:
   - name: prefiring_scale_factor
-
     sector_spec:
       sample_spec:
         eras: ["2016", "2017", "2018"]
         sample_type: MC
-      region_names: [Signal312]
 
     variations: All
 
@@ -176,12 +213,10 @@ PostProcessing:
     gp_regressorNN:
       output_dir: "{region}/{sample_name}/"
       histograms:
-        - m14_m
-        - m13_m
-        - m24_m
-        - NN1_m
-        - NN2_m
-        - NN3_m
+        - m14_vs_m13
+        - m14_vs_NN1
+        - m14_vs_NN2
+        - m14_vs_NN3
 
       
 

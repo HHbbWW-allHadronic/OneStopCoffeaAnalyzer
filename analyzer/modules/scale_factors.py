@@ -13,20 +13,12 @@ from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
 import pickle as pkl
 from .btag_points import getBTagWP
+from analyzer.core import MODULE_REPO, ModuleType
 
 
-@analyzerModule(
-    "btag_scalefactors",
-    categories="preselection",
-    always=False,
-    dataset_pred=isMC,
-    depends_on=["objects"],
-)
-def btagScaleFactors(events, analyzer):
-    config = getConfiguration()
-    profile = analyzer.profile
+@MODULE_REPO.register(ModuleType.Weight)
+def btag_sf(events, params, weight_manager):
     bwps = getBTagWP(profile)
-
     WP_ORDER = ("L", "M", "T")
     used_working_points = analyzer.processing_info["used_btag_wps"]
     wp_names = [x for x in WP_ORDER if x in used_working_points]
@@ -100,28 +92,18 @@ def btagScaleFactors(events, analyzer):
             p_d = p_d * (ak.prod(s1 * e1, axis=1) - ak.prod(s2 * e2, axis=1))
 
         return p_d / p_mc
-
-    # for x in wp_names:
     s = {
         f"var": (
             computeWeight("up_correlated", wp_names),
             computeWeight("down_correlated", wp_names),
         )
     }
-    analyzer.addWeight(f"btag_sf", computeWeight("central", wp_names), s)
-
-    return events, analyzer
+    weight_manager.add(f"btag_sf", computeWeight("central", wp_names), s)
 
 
-@analyzerModule(
-    "L1_prefire_sf",
-    categories="weights",
-    always=False,
-    dataset_pred=isMC,
-)
-def l1prefire(events, analyzer):
+@MODULE_REPO.register(ModuleType.Weight)
+def L1_prefire_sf(events, params, weight_manager):
     nom = events.L1PrefiringWeight["Nom"]
     up = events.L1PrefiringWeight["Up"]
     down = events.L1PrefiringWeight["Down"]
-    analyzer.addWeight(f"l1_prefire", nom, {"variation": (up, down)})
-    return events, analyzer
+    weight_manager.add(f"l1_prefire", nom, {"variation": (up, down)})

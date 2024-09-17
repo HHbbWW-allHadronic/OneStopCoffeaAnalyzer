@@ -14,6 +14,17 @@ except ImportError:
 
     from typing_extensions import Protocol  # type: ignore
 
+def get_git_revision_hash() -> str:
+    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
+
+
+def get_git_revision_short_hash() -> str:
+    return (
+        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+        .decode("ascii")
+        .strip()
+    )
+
 
 def deepMerge(a: dict, b: dict, path=[]):
     for key in b:
@@ -28,27 +39,12 @@ def deepMerge(a: dict, b: dict, path=[]):
 
 # From https://github.com/CoffeaTeam/coffea/blob/v2023.7.0.rc0/src/coffea/processor/accumulator.py
 T = TypeVar("T")
-
-
-
 @runtime_checkable
 class Addable(Protocol):
     def __add__(self: T, other: T) -> T:
         ...
-
 Accumulatable = Union[Addable, MutableSet, MutableMapping]
 
-
-def get_git_revision_hash() -> str:
-    return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
-
-
-def get_git_revision_short_hash() -> str:
-    return (
-        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
-        .decode("ascii")
-        .strip()
-    )
 
 
 def add(a: Accumulatable, b: Accumulatable) -> Accumulatable:

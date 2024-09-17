@@ -1,16 +1,18 @@
 import os
 from pathlib import Path
 
+venv = Path(os.environ.get("VIRTUAL_ENV"))
+venv_name = str(Path(os.environ.get("VIRTUAL_ENV")).stem)
+__config = {}
 
-def getConfiguration():
-    venv = Path(os.environ.get("VIRTUAL_ENV"))
-    venv_name = str(Path(os.environ.get("VIRTUAL_ENV")).stem)
-    config = {}
-    config["APPLICATION_DATA"]  = "/srv/.application_data"
-    config["PHYSICS_DATA"] = config["APPLICATION_DATA"] + "/physics_data"
-    config["ENV_LOCAL_APPLICATION_DATA"]  = f"/srv/.application_data/envlocal/{venv_name}"
-    config["DATASET_PATH"]  = None
-    config["BASE_STATIC_RESOURCE_PATH"]  = None
-    config["DASK_CONFIGURATION"]  = None
-    config["LOGGING_CONFIGURATION"]  = None
-    return config
+
+
+class Config:
+    APPLICATION_DATA = "/srv/.application_data"
+    PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
+
+    ENV_LOCAL_APPLICATION_DATA = f"/srv/.application_data/envlocal/{venv_name}"
+    APPLICATION_RESOURCES = "/srv/application_data"
+    DATASET_PATH = str(Path(APPLICATION_RESOURCES) / "datasets")
+    ERA_PATH = str(Path(APPLICATION_RESOURCES) / "eras")
+
