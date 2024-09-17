@@ -1,15 +1,10 @@
 - name: Data2018
-  type: set
-  isdata: true
+  sample_type: Data
+  title: "Data2018"
   lumi: 59.83
-  forbid: true
-  profile: 2018JetHT
+  era: '2018'
   n_events: 676743923
-  lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
   cms_dataset: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
-  required_modules: [cr_selection]
-  style:
-    color: "#000000"
   files: 
     - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/E73D3B12-3D3F-1443-8E7B-7874C167B97B.root
     - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/D2AD325F-D07C-4F4B-BC2B-C5492BBED898.root
@@ -492,21 +487,3 @@
     - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/1F6BB24B-3A3F-F24B-9C38-755807128861.root
     - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/0D8712FF-9DF0-0341-A6CE-A2B4BAB4C176.root
 
-
-- name: TinyData2018
-  type: set
-  isdata: true
-  lumi: 59.83
-  forbid: true
-  profile: 2018JetHT
-  n_events: 3912931
-  lumi_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
-  cms_dataset: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
-  required_modules: [cr_selection]
-  style:
-    color: "#000000"
-  files: 
-    - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/E73D3B12-3D3F-1443-8E7B-7874C167B97B.root
-    - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/D2AD325F-D07C-4F4B-BC2B-C5492BBED898.root
-    - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/38A79236-9FD9-A64F-8502-C8BEB3C94660.root
-    - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/AFA62AA6-B1E4-8C4E-BA2F-435C815FFD1A.root

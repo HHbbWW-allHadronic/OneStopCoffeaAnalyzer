@@ -20,9 +20,10 @@ from typing import (
     get_origin,
 )
 
+import yaml
+
 import hist
 import hist.dask as dah
-import yaml
 from coffea.analysis_tools import PackedSelection
 from rich import print
 
@@ -32,13 +33,9 @@ Hist = Union[hist.Hist, dah.Hist]
 logger = logging.getLogger(__name__)
 
 
-class AnalysisStages(str, enum.Enum):
-    Preselection = "Preselection"
-    ObjectDefinition = "ObjectDefinition"
-    Selection = "Selection"
-    Weights = "Weights"
-    Categorization = "Categorization"
-    Histogramming = "Histogramming"
+class AnalysisConfigurationError(Exception):
+    def __init__(self, message):
+        super().__init__(message)
 
 
 @dataclass
@@ -99,6 +96,18 @@ class Selection:
 
 
 @dataclass
+class Cutflow:
+    n_minus_one: dict[str, float]
+    cutflow: dict[str, float]
+
+
+@dataclas
+class SampleCutflow:
+    unweighted_cutflow: Cutflow
+    weighted_cutflow: Optional[Cutflow] = None
+
+
+@dataclass
 class SampleSelection:
     """
     Selection for a single sample.
@@ -118,18 +127,24 @@ class SampleSelection:
     selection_mask: PackedSelection = field(default_factory=PackedSelection)
 
     def getPreselectionMask(self):
-        return self.preselection_mask.any(*self.preselection_mask.names)
+        names = self.preselection_mask.names
+        if not names:
+            return None
+        return self.preselection_mask.any(*names)
 
     def addPreselectionMaskToSelection(self, complete_mask):
         """After finalizing selection  we want to add the preselection cuts to the analysis selection, so that we can generate cutflows etc.
-        This function takes each preselection mask and adds the appropriate portion to the final selection, based on complete_mask, which should be the mask used to the compute the events post-preselection (ie the events that are ultimately selectied on)
+        This function takes each preselection mask and adds the appropriate portion to the final selection, based on complete_mask, which should be the mask used to the compute the events post-preselection (ie the events that are ultimately selected on)
         """
 
         for n in self.preselection_mask.names:
-            self.addMask(n, self.preselection_mask.any(n)[complete_mask])
+            if complete_mask is None:
+                self.addMask(n, self.preselection_mask.any(n))
+            else:
+                self.addMask(n, self.preselection_mask.any(n)[complete_mask])
 
-    def addMask(self, name, mask, type="and", stage="preselection"):
-        if stage == "preselection":
+    def addMask(self, name, mask, type="and", stage=AnalysisStage.Preselection):
+        if stage == AnalysisStage.Preselection:
             target = self.preselection_mask
         else:
             target = self.selection_mask
@@ -138,14 +153,15 @@ class SampleSelection:
         if not name in names:
             target.add(name, mask)
 
-    def getSelection(self, events, or_name, and_names, stage="preselection"):
-        if stage == "preselection":
+    def getMask(self, or_name, and_names, stage=AnalysisStage.Preselection):
+        if not (or_names or and_names):
+            return None
+        if stage == AnalysisStage.Preselection:
             sel = self.preselection_mask
         else:
             sel = self.selection_mask
+
         names = sel.names
-        if not names:
-            return ak.ones_like(events)
         packed = self.preselections[k]
         t = packed.any(*or_names) if or_names else None
         a = packed.all(*ane_names) if and_names else None
@@ -162,15 +178,36 @@ class SelectionManager:
         default_factory=lambda: defaultdict(Selection)
     )
 
-    def register(self, sector_id, name, mask, type="and", stage="preselection"):
+    __computed_preselections: dict[str, Any] = field(default_factor=dict)
+
+    def register(
+        self, sector_id, name, mask, type="and", stage=AnalysisStage.Preselection
+    ):
         self.selections[sector_id] = self.selections[sector_id].addOne(name, type=type)
         self.selections[sample_name].addMask(name, mask, stage=stage)
 
-    def getMask(self, events, sector_id, stage="preselection"):
+    def maskPreselection(self, sample_name, events):
+        mask = self.selections[sample_name].getPreselectionMask(name)
+        self.__computed_preselections[sample_name] = mask
+        if mask is None:
+            return events
+        else:
+            return events[mask]
+
+    def addPreselectionMasks(self):
+        for sample_name, sel in selection_mask.items():
+            m = self.__computed_preselections[sample_name]
+            sel.addPreselectionMaskToSelection(m)
+
+    def maskSector(self, sector_id, events):
         s = self.selections[sector_id]
-        self.selections[sample_name].getMask(
-            events, name, s.or_names, s.and_names, stage=stage
+        mask = self.selections[sample_name].getMask(
+            name, s.or_names, s.and_names, stage=AnalysisStage.Selection
         )
+        if mask is None:
+            return events
+        else:
+            return events[mask]
 
 
 @dataclass
@@ -203,7 +240,7 @@ def getSectionHash(am_descs):
 
 
 @dataclass
-class SectorRegion:
+class Sector:
     region_name: str
     sample_name: str
 
@@ -237,6 +274,12 @@ class SectorRegion:
     def fromRegion(region_desc, sample, module_repo, weight_repo):
         name = region_desc.name
 
+        if region_desc.forbid_data and sample.sample_type == "Data":
+            raise AnalysisConfigurationError(
+                f"Region '{region_desc.name}' is marked with 'forbid_data'"
+                f"but is recieving Data sample '{sample.name}'"
+            )
+
         def resolveModules(l, t):
             ret = [
                 mod
@@ -266,7 +309,7 @@ class SectorRegion:
         )
         weights = weight_repo.getWeightsForSector(sample.name, region.name)
 
-        return SectorRegion(
+        return Sector(
             region_name=region_desc.name,
             sample_name=sample.name,
             description=region_desc.description,
@@ -346,6 +389,8 @@ class Analyzer:
     )
 
     sample_events: dict[str, Any] = None
+    preselected_events: dict[str, Any] = None
+    sector_events: dict[SectorId, Any] = None
 
     weight_manager: WeightManager = None
     selection_manager: SelectionManager = None
@@ -353,8 +398,14 @@ class Analyzer:
     sample_repo: "SampleRepo" = None
     era_repo: "EraRepo" = None
 
-    def getSectors(self):
-        return
+    def getSectorsAnalyzers(self):
+        sector_pairs = self.description.getSectors()
+        for sample_name, region_name in sector_pairs:
+            sample = sample_repo.get(sample_name)
+            region = self.description.getRegion(region_name)
+
+    def getEvents(sample_name, stage=None):
+        return self.sample_events[sample_name]
 
 
 @dataclass
@@ -383,7 +434,7 @@ class SectorResult:
 class SectorAnalyzer:
     analyzer: Analyzer
     sample: "Sample"
-    region: SectorRegion
+    sector: Sector
     result: SectorResult
     sector_selection: Selection
     selection_stage: str
@@ -461,7 +512,7 @@ class SectorAnalyzer:
             AnalysisStage.Weight: Weighter(self),
             AnalysisStage.Histogram: Histogrammer(self),
         }
-        return mapping[stage]
+        return mapping.get(stage)
 
     def applyToEvents(self, events, stage):
         sp = self.__getStageProcessor(stage)
@@ -470,16 +521,60 @@ class SectorAnalyzer:
             AnalysisStage.Selection: self.region.selection,
             AnalysisStage.Categorization: self.region.cateogories,
             AnalysisStage.Histogram: self.region.histograms,
+            AnalysisStage.Objects: self.region.objects,
+            AnalysisStage.Weights: self.region.weights,
         }
+        params = {}
+
+        for module in mapping[stage]:
+            if sp:
+                module(events, params, sp)
+            else:
+                module(events, params)
 
 
 def runAnalysis(analyzer):
+
     sector_analyzers = analyzer.getSectorAnalyzers()
+
     for d in analyzer.datasets_preprocessed:
         analyzer.sample_events[d.sample_name] = getEvents(d)
 
     for sa in sector_analyzers:
-        pre_sel = sa.getStageProcessor(AnalysisStage.Preselection)
+        events = analyzer.getEvents(sa.sector.sample_name)
+        sa.applyToEvents(events, AnalysisStage.Preselection)
+
+    for sample in self.sample_events:
+        events = analyzer.getEvents(sa.sector.sample_name)
+        analyzer.preselected_events[
+            sample
+        ] = analyzer.selection_manager.maskPreselection(events)
+
+    for sa in sector_analyzers:
+        events = analyzer.preselected_events[sa.sector.sample_name]
+        sa.applyToEvents(events, AnalysisStage.Objects)
+
+    for sa in sector_analyzers:
+        events = analyzer.preselected_events[sa.sector.sample_name]
+        sa.applyToEvents(events, AnalysisStage.Selection)
+
+    for sa in sector_analyzer:
+        events = analyzer.preselected_events[sa.sector.sample_name]
+        analyzer.selected_events[sa.sector_id] = analyzer.selection_manager.maskSector(
+            sector_id, events
+        )
+
+    for sa in sector_analyzers:
+        events = analyzer.selected_events[sa.sector_id]
+        sa.applyToEvents(events, AnalysisStage.Weights)
+
+    for sa in sector_analyzers:
+        events = analyzer.selected_events[sa.sector_id]
+        sa.applyToEvents(events, AnalysisStage.Categorization)
+
+    for sa in sector_analyzers:
+        events = analyzer.selected_events[sa.sector_id]
+        sa.applyToEvents(events, AnalysisStage.Histograms)
 
 
 class FakeRepo:

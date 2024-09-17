@@ -1,7 +1,9 @@
 - name: QCDInclusive2018
-  era: 2018
+  era: "2018"
+  sample_type: MC
+  title: "QCD Inclusive 2018"
   lumi: 59.8
-  sets:
+  samples:
     - name: QCDInclusive2018_HT1000to1500
       n_events: 14394786
       x_sec: 1127000

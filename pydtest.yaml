@@ -11,7 +11,7 @@ LimitTo:
 
 # Samples and in which regions they should be processed
 samples:
-  QCDInclusive2023: All
+  QCDInclusive2018: All
   signal312: [Signal312, Control]
   signal313: [Signal313, Control]
   JetData2018: [Control]
@@ -33,7 +33,7 @@ general_config:
     # If try skim path is provided, then when processing sample S in region R,
     # the program will first check if they is a directory
     # If such a directory exists, then all *.root files in this directory are considered to be the complete fileset for this sample and region
-    try_skim_path: "root://blabla/SingleStop/"
+    use_skims_path: "root://blabla/SingleStop/"
     #try_skim_path: None
 
 
@@ -60,6 +60,18 @@ common_items:
       - name: core_objects
 
 
+common_weights: &common_weights
+  - name: prefiring_scale_factor
+    sample_spec:
+      eras: ["2016", "2017", "2018"]
+      sample_type: MC
+    config:
+      variations: All
+  - name: pileup_scale_factor
+    sample_spec:
+      sample_type: MC
+    config:
+      variations: All
 
 # A region has a name, followed by description of what modules should be run
 # for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
@@ -78,6 +90,11 @@ regions:
     categories:
       - njets_category:
     histograms: *common_signal
+    weights:
+      - <<: *common_weights
+      - name: btag_scale_factors
+        config:
+            working_points: [T]
 
           
   - name: Signal312
@@ -88,8 +105,12 @@ regions:
     selection:
       - name: general_selection
       - name: 312_selection
-
     histograms: *common_signal
+    weights:
+      - <<: *common_weights
+      - name: btag_scale_factors
+        config:
+            working_points: [M,T]
 
   - name: Control
     objects: *common_objects
@@ -101,6 +122,11 @@ regions:
     histograms:
       - name: jets
       - name: chargino_rego
+    weights:
+      - <<: *common_weights
+      - name: btag_scale_factors
+        config:
+            working_points: [L]
 
   - name: SingleMuon
     use_region: false
@@ -113,36 +139,11 @@ regions:
       - name: selection_hlt
     histograms:
       - name: goodjet_ht
+    weights:
+      - <<: *common_weights
 
 # Weights described which weights and variations should be applied to which samples and regions
 # Weights are applied immediately after selection 
-weights:
-  - name: prefiring_scale_factor
-    sector_spec:
-      sample_spec:
-        eras: ["2016", "2017", "2018"]
-        sample_type: MC
-
-    variations: All
-
-  - name: pileup_scale_factor
-    sample_type: MC
-    variations: All
-
-  - name: btag_scale_factors
-    region_config:
-      Signal312:
-        working_points: [M,T]
-      Signal313:
-        working_points: [T]
-      Control:
-        working_points: [L]
-        
-    sector_spec:
-      sample_spec:
-        sample_type: MC
-
-    variations: All
 
 PostProcessing:
   - name: Plots

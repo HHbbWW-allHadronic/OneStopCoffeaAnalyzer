@@ -24,6 +24,17 @@ from pydantic import (
 )
 from pydantic_core import CoreSchema, core_schema
 from rich import print
+import yaml
+
+
+class AnalysisStages(str, enum.Enum):
+    Preselection = "Preselection"
+    ObjectDefinition = "ObjectDefinition"
+    Selection = "Selection"
+    Weights = "Weights"
+    Categorization = "Categorization"
+    Histogramming = "Histogramming"
+
 
 class HistogramSpec(BaseModel):
     name: str
@@ -81,11 +92,11 @@ class ExpansionMode(str, enum.Enum):
     zip = "zip"
 
 
-class WeightDescription(BaseModel):
-    name: str
-    sector_spec: Optional[SectorSpec] = None
-    variation: list[str] = Field(default_factory=list)
-    region_config: Optional[dict[str, dict[str, Any]]] = None
+#class WeightDescription(BaseModel):
+#    name: str
+#    sector_spec: Optional[SectorSpec] = None
+#    variation: list[str] = Field(default_factory=list)
+#    region_config: Optional[dict[str, dict[str, Any]]] = None
 
 class RegionDescription(BaseModel):
     name: str
@@ -97,14 +108,13 @@ class RegionDescription(BaseModel):
     preselection: list[ModuleDescription] = Field(default_factory=list)
     preselection_histograms: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
+    weights: list[ModuleDescription] = Field(default_factory=list)
 
 
 class AnalysisDescription(BaseModel):
     name: str
-    object_definitions: list[ModuleDescription]
     samples: dict[str, Union[list[str], str]]
     regions: list[RegionDescription]
-    weights: list[WeightDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
     special_region_names: ClassVar[tuple[str]] = ("All",)
 
@@ -123,11 +133,15 @@ class AnalysisDescription(BaseModel):
         except StopIteration as e:
             raise KeyError(f'No region "{name}"')
 
-    def getWeight(self, name):
-        try:
-            return next(x for x in self.weights if x.name == name)
-        except StopIteration as e:
-            raise KeyError(f'No region "{name}"')
 
+def main():
+    d = yaml.safe_load(open("pydtest.yaml", "r"))
+    print(d)
+    an = AnalysisDescription(**d)
+    print(an)
+
+
+if __name__ == "__main__":
+    main()
 
 

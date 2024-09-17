@@ -7,32 +7,31 @@ import random
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
-from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Union
+from typing import (
+    Annotated,
+    Any,
+    ClassVar,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+    get_args,
+    get_origin,
+)
 from urllib.parse import urlparse, urlunparse
 
-import rich
-from analyzer.configuration import getConfiguration
-from analyzer.core.inputs import AnalyzerInput, SampleInfo
-from analyzer.datasets.styles import Style
-from analyzer.file_utils import extractCmsLocation, stripPrefix
+import yaml
+
 from coffea.dataset_tools.preprocess import DatasetSpec
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, ValidationError, model_validator, validator
+from rich import print
 from rich.table import Table
-from yaml import dump, load
-
-from .profiles import Profile
-
-try:
-    from yaml import CDumper as Dumper
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Dumper, Loader
+import dataclasses
 
 
-class ForbiddenDataset(Exception):
-    pass
 
 
 def getDatasets(query, client):
@@ -49,6 +48,7 @@ def getDatasets(query, client):
 
 def getReplicas(dataset, client):
     from coffea.dataset_tools import rucio_utils
+    from analyzer.file_utils import extractCmsLocation
 
     (outfiles, outsites, sites_counts,) = rucio_utils.get_dataset_files_replicas(
         dataset,
@@ -65,10 +65,20 @@ def getReplicas(dataset, client):
 
 
 class SampleFile(BaseModel):
-    paths: OrderedDict[str, str] = field(default_factory=OrderedDict)
+    paths: OrderedDict[str, str] = Field(default_factory=OrderedDict)
     object_path: str = "Events"
     # steps: Optional[List[List[int]]] = None
     # number_events: Optional[int] = None
+
+    @model_validator(mode="before")
+    def ifFlat(cls, values):
+        if isinstance(values, str):
+            return {"paths": {"eos": values}, "object_path": "Events"}
+        if isinstance(values, Mapping):
+            if "object_path" in values:
+                return values
+            else:
+                return {"paths": values, "object_path": "Events"}
 
     def __post_init__(self):
         self.cmsLocation()
@@ -167,19 +177,20 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
-class SampleDescription(BaseObject):
+class Sample(BaseModel):
     """A single sample.
     Each sample has a single weight based on its cross section and number of events.
     """
 
-    parent_dataset: "Dataset"
     name: str
     n_events: int
-    x_sec: Optional[float] = None # Only needed if SampleType == MC
-    files: List[SampleFile] = field(default_factory=list)
+    x_sec: Optional[float] = None  # Only needed if SampleType == MC
+    files: List[SampleFile] = Field(default_factory=list)
     cms_dataset_regex: Optional[str] = None
 
     def useFilesFromReplicaCache(self):
+        from analyzer.configuration import getConfiguration
+
         """Add files from the replica cache to the available files for this sample.
         """
 
@@ -200,11 +211,11 @@ class SampleDescription(BaseObject):
                 f.setFile(l, p)
 
     def discoverAndCacheReplicas(self, force=False):
-        """Use rucio to identify replicas for this sample, and store them for later use. 
-        """
+        """Use rucio to identify replicas for this sample, and store them for later use."""
 
         from coffea.dataset_tools import rucio_utils
         from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
+        from analyzer.configuration import getConfiguration
 
         if not self.cms_dataset_regex:
             raise RuntimeError(
@@ -226,19 +237,84 @@ class SampleDescription(BaseObject):
             json.dump(replicas, f, indent=2)
 
 
-
-
 class Dataset(BaseModel):
     """A single physics dataset.
     It may be comprised of one or more samples.
     For example the QCDInclusive sample is comprised of several HT binned samples.
     """
+
+    @model_validator(mode="before")
+    def ifSingleton(cls, values):
+        if  "samples" not in values:
+            sample = {
+                "name": values["name"],
+                "n_events": values["n_events"],
+                "x_sec": values.get("x_sec"),
+                "files": values["files"],
+                "cms_dataset": values.get("cms_dataset"),
+            }
+            top_level = {
+                "name": values["name"],
+                "title": values["title"],
+                "era": values["era"],
+                "lumi": values.get("lumi"),
+                "sample_type": values["sample_type"],
+                "other_data": values.get("other_data", {}),
+                "samples": [sample],
+            }
+            return top_level
+        else:
+            return values
+
     name: str
     title: str
     era: str
     sample_type: SampleType
-    sets: List[Sample] = field(default_factory=list)
-    lumi: Optional[float] = None  
-    other_data: dict[str, Any] = field(default_factory=list)
-    treat_separate: bool = False
+    samples: List[Sample] = Field(default_factory=list)
+    lumi: Optional[float] = None
+    other_data: dict[str, Any] = Field(default_factory=dict)
 
+
+@dataclasses.dataclass
+class DatasetRepo:
+    datasets: dict[str, Dataset] = dataclasses.field(default_factory=dict)
+
+    def __getitem__(self, key):
+        return self.datasets[key]
+
+    def load(self, directory, use_replicas=True):
+        directory = Path(directory)
+        files = list(directory.glob("*.yaml"))
+        file_contents = {}
+        for f in files:
+            with open(f, "r") as fo:
+                data = yaml.safe_load(fo)
+                for d in data:
+                    s = Dataset(**d)
+                    if s.name in self.datasets:
+                        raise KeyError(
+                            f"Dataset name '{s.name}' is already use. Please use a different name for this dataset."
+                        )
+                    self.datasets[s.name] = s
+
+        if use_replicas:
+            self.useReplicaCache()
+
+    def buildReplicaCache(self, force=False):
+        for dataset in self.datasets.values():
+            for sample in dataset.samples:
+                if sample.cms_dataset_regex:
+                    sample.discoverAndCacheReplicas(force=force)
+
+    def useReplicaCache(self):
+        for dataset in self.datasets.values():
+            for sample in dataset.samples:
+                if sample.cms_dataset_regex:
+                    sample.useFilesFromReplicaCache()
+
+
+
+if __name__ == "__main__":
+    dm = DatasetRepo()
+    dm.load("analyzer_resources/datasets")
+    print(dm["signal_312_2000_1900"])
