@@ -2,9 +2,12 @@
   energy: 13.0
   lumi:  16.98
   sections:
-    F: 0.584
-    G: 7.653
-    H: 8.740
+    F:
+      lumi: 0.584
+    G:
+      lumi: 7.653
+    H:
+      lumi: 8.740
 
   golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions16/13TeV/Legacy_2016/Cert_271036-284044_13TeV_Legacy2016_Collisions16_JSON.txt
 

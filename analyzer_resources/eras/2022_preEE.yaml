@@ -2,8 +2,12 @@
   energy: 13.6
   lumi: 7.98
   sections:
-    C: 5.010
-    D: 2.970
+    C:
+      lumi: 5.010
+    D:
+      lumi: 2.970
+
+  golden_json: root://eosuser.cern.ch//eos/user/c/cmsdqm/www/CAF/certification/Collisions22/Cert_Collisions2022_355100_362760_Golden.json
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2022_Summer22/btagging.json.gz

@@ -2,12 +2,15 @@
   energy: 13.6
   lumi: 9.451
   sections:
-    D: 9.451
+    D:
+      lumi: 9.451
+
+  golden_json: root://eosuser.cern.ch/ ls /eos/user/c/cmsdqm/www/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23BPix/btagging.json.gz
 
-  jet_veto_map:
+  jet_veto_maps:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23BPix/jetvetomaps.json.gz
     name: "Summer23BPixPrompt23_RunD_V1"
 
