@@ -17,8 +17,14 @@ class Era(BaseModel):
 
     pileup_scale_factors: dict[str, str]
     btag_scale_factors: dict[str, str]
-    jet_pileup_id: dict[str, Any]
-    jet_veto_maps: Optional[dict[str, Any]]
+    jet_pileup_id: Optional[dict[str, Any]] = None
+    jet_veto_maps: Optional[dict[str, Any]] = None
+
+
+    @property
+    def params(self):
+        return self.dict(exclude=["name"])
+    
     
 
 

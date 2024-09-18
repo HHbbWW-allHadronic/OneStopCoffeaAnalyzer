@@ -1,11 +1,12 @@
 import copy
+import dataclasses
 import enum
 import itertools as it
 import json
 import operator as op
 import random
 import re
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
 from pathlib import Path
 from typing import (
@@ -22,16 +23,22 @@ from typing import (
     get_origin,
 )
 from urllib.parse import urlparse, urlunparse
+from analyzer.utils.file_tools import extractCmsLocation, stripPort
 
 import yaml
-
 from coffea.dataset_tools.preprocess import DatasetSpec
-from pydantic import BaseModel, Field, ValidationError, model_validator, validator
+from pydantic import (
+    BaseModel,
+    Field,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+    validator,
+)
 from rich import print
 from rich.table import Table
-import dataclasses
-
-
+from functools import cached_property
 
 
 def getDatasets(query, client):
@@ -47,8 +54,8 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
-    from coffea.dataset_tools import rucio_utils
     from analyzer.file_utils import extractCmsLocation
+    from coffea.dataset_tools import rucio_utils
 
     (outfiles, outsites, sites_counts,) = rucio_utils.get_dataset_files_replicas(
         dataset,
@@ -177,6 +184,15 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
+@dataclasses.dataclass(frozen=True)
+class SampleId:
+    dataset_name: str
+    sample_name: str
+
+    def __str__(self):
+        return self.dataset_name + "__" + self.sample_name
+
+
 class Sample(BaseModel):
     """A single sample.
     Each sample has a single weight based on its cross section and number of events.
@@ -187,6 +203,32 @@ class Sample(BaseModel):
     x_sec: Optional[float] = None  # Only needed if SampleType == MC
     files: List[SampleFile] = Field(default_factory=list)
     cms_dataset_regex: Optional[str] = None
+    _parent_dataset: Optional["Dataset"] = None
+
+
+    @cached_property
+    def fdict(self):
+        return {f.cmsLocation(): f for f in self.files}
+
+    @property
+    def era(self):
+        return self._parent_dataset.era
+
+    @property
+    def sample_type(self):
+        return self._parent_dataset.sample_type
+
+    @property
+    def other_data(self):
+        return self._parent_dataset.other_data
+
+    @property
+    def sample_id(self):
+        return SampleId(self._parent_dataset.name, self.name)
+
+    @property
+    def params(self):
+        return {**self._parent_dataset.params, **self.dict(exclude=["files"])}
 
     def useFilesFromReplicaCache(self):
         from analyzer.configuration import getConfiguration
@@ -213,9 +255,9 @@ class Sample(BaseModel):
     def discoverAndCacheReplicas(self, force=False):
         """Use rucio to identify replicas for this sample, and store them for later use."""
 
+        from analyzer.configuration import getConfiguration
         from coffea.dataset_tools import rucio_utils
         from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
-        from analyzer.configuration import getConfiguration
 
         if not self.cms_dataset_regex:
             raise RuntimeError(
@@ -243,9 +285,25 @@ class Dataset(BaseModel):
     For example the QCDInclusive sample is comprised of several HT binned samples.
     """
 
+    name: str
+    title: str
+    era: str
+    sample_type: SampleType
+    samples: List[Sample] = Field(default_factory=list)
+    lumi: Optional[float] = None
+    other_data: dict[str, Any] = Field(default_factory=dict)
+
+    @property
+    def params(self):
+        return self.dict(exclude=["samples"])
+
+    def getSample(self, name):
+        return next(x for x in self.samples if x.name == name)
+
     @model_validator(mode="before")
+    @classmethod
     def ifSingleton(cls, values):
-        if  "samples" not in values:
+        if "samples" not in values:
             sample = {
                 "name": values["name"],
                 "n_events": values["n_events"],
@@ -266,13 +324,12 @@ class Dataset(BaseModel):
         else:
             return values
 
-    name: str
-    title: str
-    era: str
-    sample_type: SampleType
-    samples: List[Sample] = Field(default_factory=list)
-    lumi: Optional[float] = None
-    other_data: dict[str, Any] = Field(default_factory=dict)
+    # you can select multiple fields, or use '*' to select all fields
+    @model_validator(mode="after")
+    def refParent(self):
+        for sample in self.samples:
+            sample._parent_dataset = self
+        return self
 
 
 @dataclasses.dataclass
@@ -281,6 +338,11 @@ class DatasetRepo:
 
     def __getitem__(self, key):
         return self.datasets[key]
+
+    def getSample(self, sample_id):
+        dataset = self[sample_id.dataset_name]
+        sample = dataset.getSample(sample_id.sample_name)
+        return sample
 
     def load(self, directory, use_replicas=True):
         directory = Path(directory)
@@ -311,7 +373,6 @@ class DatasetRepo:
             for sample in dataset.samples:
                 if sample.cms_dataset_regex:
                     sample.useFilesFromReplicaCache()
-
 
 
 if __name__ == "__main__":
