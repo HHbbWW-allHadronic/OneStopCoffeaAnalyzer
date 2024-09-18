@@ -1,5 +1,6 @@
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
+from .utils.btag_points import getBTagWP
 
 
 def makeCutSet(x, s, args):
@@ -29,4 +30,3 @@ def core_objects(events, params):
     events["tight_bs"] = tight_b
     ht = ak.sum(good_jets.pt, axis=1)
     events["HT"] = ht
-    return events, analyzer

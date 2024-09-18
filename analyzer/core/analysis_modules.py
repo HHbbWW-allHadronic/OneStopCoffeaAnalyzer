@@ -35,7 +35,9 @@ import enum
 import functools as ft
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Callable
+from typing import Callable, Optional, Any
+import inspect
+from rich import print
 
 
 class ModuleType(str, enum.Enum):
@@ -51,7 +53,7 @@ class AnalyzerModule:
     name: str
     type: ModuleType
     function: Optional[Callable] = None
-    documentation: str = ""
+    description: str = ""
 
     def __call__(self, events, analyzer, *args, **kwargs):
         return self.function(events, analyzer, *args, **kwargs)
@@ -62,27 +64,29 @@ class ConfiguredAnalyzerModule:
     module: AnalyzerModule
     config: dict[str, Any] = field(default_factory=dict)
 
-    def __call__(self, events, analyzer):
-        return self.module(events, analyzer, **self.config)
+    def __call__(self, *args,**kwargs):
+        return self.module(*args,**kwargs, **self.config)
 
 
 @dataclass
 class ModuleRepo:
     modules: defaultdict[ModuleType, dict[str, AnalyzerModule]] = field(
-        default_factory=dict
+        default_factory=lambda : defaultdict(dict)
     )
 
     def get(self, type, name, configuration=None):
         config = configuration or {}
         return ConfiguredAnalyzerModule(self.modules[type][name], config)
 
-    def register(self, analyzer_module, *args, **kwargs):
-        if isinstance(analyzer_module, AnalyzerModule):
-            self.__registerModuleInstance(analyzer_module, *args, **kwargs)
-        if inspect.isclass(analysis_modules):
-            self.__registerModuleClass(analyzer_module, *args, **kwargs)
-        if callable(analyzer_module):
-            self.__registerFunction(analyzer_module, *args, **kwargs)
+    def register(self, first, *args, **kwargs):
+        if isinstance(first, ModuleType):
+            return lambda x: self.__registerFunction(x, first)
+        elif isinstance(first, AnalyzerModule):
+            return self.__registerModuleInstance(analyzer_module, *args, **kwargs)
+        elif inspect.isclass(analyzer_module):
+            return self.__registerModuleClass(first, *args, **kwargs)
+
+
 
 
     def __registerModuleInstance(self, analyzer_module: AnalyzerModule):
@@ -94,13 +98,17 @@ class ModuleRepo:
         self.__registerInstance(analyzer_module())
 
     def __registerFunction(self, function: Callable, module_type: ModuleType):
+        name = function.__name__
         analyzer_module = AnalyzerModule(
-            name=function.__name__,
+            name = name,
             type=module_type,
             function=function,
             description=function.__doc__,
         )
-        self.modules[type][name] = analyzer_module
+        self.modules[module_type][name] = analyzer_module
+        #print(self.modules)
 
 
 MODULE_REPO=ModuleRepo()
+
+

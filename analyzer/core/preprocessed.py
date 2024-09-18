@@ -1,8 +1,7 @@
 import copy
-import logging
-import uproot
-from dataclasses import dataclass, field
 import itertools as it
+import logging
+from dataclasses import dataclass, field
 from typing import (
     Any,
     Callable,
@@ -16,23 +15,21 @@ from typing import (
     Union,
 )
 
-import analyzer.utils as utils
-#import coffea.dataset_tools as dst
-import analyzer.core.preprocess as dst
-from analyzer.file_utils import stripPort, extractCmsLocation
+# import analyzer.core.preprocess as dst
+import coffea.dataset_tools as dst
+from analyzer.datasets import SampleId
+
+from analyzer.utils.file_tools import extractCmsLocation, stripPort
+import analyzer.utils.structure_tools as utils
 from coffea.dataset_tools.preprocess import DatasetSpec
 
 logger = logging.getLogger(__name__)
 
-class ForbiddenDataset(Exception):
-    pass
 
 def getMissingDataset(analyzer_input, coffea_dataset):
     cds = analyzer_input.coffea_dataset[analyzer_input.dataset_name]
-
     files = [(stripPort(x), x) for x in cds["files"]]
     cof_files = set(stripPort(x) for x in coffea_dataset["files"].keys())
-
     diff = {x[1] for x in files if not any(x[0] in y for y in cof_files)}
     return {
         analyzer_input.dataset_name: {
@@ -44,62 +41,20 @@ def getMissingDataset(analyzer_input, coffea_dataset):
 
 
 @dataclass
-class SampleInfo:
-    dataset_name: str
-    sample_type: Optional[str]
-    mc_campaign: Optional[str]
-
-
-@dataclass
-class AnalyzerInput:
-    dataset_name: str
-    last_ancestor: str
-    fill_name: str
-    files: Dict[str, Any]
-    profile: Any
-    required_modules: Optional[List[str]]
-    sample_info: SampleInfo 
-    lumi_json: Optional[str] = None
-    dataset_info: dict = field(default_factory=dict)
-
-    def getCoffeaDataset(self, **kwargs):
-        return {
-            self.dataset_name: {
-                "files": {
-                    x.getFile(**kwargs): x.object_path for x in self.files.values()
-                }
-            }
-        }
-
-
-@dataclass
-class DatasetPreprocessed:
-    dataset_input: AnalyzerInput
-    chunk_info: Dict[str, Dict[str, Any]]
+class SamplePreprocessed:
+    sample_id: SampleId
+    chunk_info: dict[str, dict[str, Any]]
     form: str = None
-    limit_chunks: Set[Tuple[str, int, int]] = None
+    limit_chunks: set[tuple[str, int, int]] = None
 
-    @staticmethod
-    def fromDatasetInput(dataset_input, **kwargs):
-        out, x = dst.preprocess(
-            dataset_input.getCoffeaDataset(**kwargs), save_form=True, **kwargs
-        )
-        return DatasetPreprocessed(dataset_input, out[dataset_input.dataset_name])
-
-    def getCoffeaDataset(self, allow_incomplete=True, **kwargs) -> DatasetSpec:
-        if (
-            len(self.chunk_info) != len(self.dataset_input.files)
-            and not allow_incomplete
-        ):
+    def getCoffeaDataset(
+        self, dataset_repo, allow_incomplete=True, **kwargs
+    ) -> DatasetSpec:
+        sample = dataset_repo.getSample(self.sample_id)
+        fdict = sample.fdict
+        if len(self.chunk_info) != len(fdict) and not allow_incomplete:
             raise RuntimeError(f"Preprocessed dataset is not complete.")
 
-        if self.dataset_input.required_modules is not None:
-            for module in self.dataset_input.required_modules:
-                if module not in kwargs["modules"]:
-                    raise ForbiddenDataset(
-                        f"{module} module is required when analyzing {self.dataset_input.dataset_name}."
-                    )
-        
         coffea_dataset = {
             "files": {f: copy.deepcopy(data) for f, data in self.chunk_info.items()},
             "form": self.form,
@@ -117,8 +72,9 @@ class DatasetPreprocessed:
             for f, steps in d.items():
                 files[f]["steps"] = steps
             coffea_dataset["files"] = files
+
         coffea_dataset["files"] = {
-            self.dataset_input.files[f].getFile(**kwargs): data
+            fdict[f].getFile(**kwargs): data
             for f, data in coffea_dataset["files"].items()
         }
         return coffea_dataset
@@ -139,27 +95,20 @@ class DatasetPreprocessed:
             self.dataset_input, new_data, self.form, self.limit_chunks
         )
 
-    def missingFiles(self):
-        a = set(self.dataset_input.files)
+    def missingFiles(self, dataset_repo):
+        a = set(dataset_repo.getSample(self.sample_id))
         b = set(self.chunk_info)
         return list(a - b)
 
-    def missingCoffeaDataset(self, **kwargs):
+    def missingCoffeaDataset(self, dataset_repo, **kwargs):
         mf = self.missingFiles()
+        sample = dataset_repo.getSample(self.sample_id)
+        fdict = sample.fdict
         return {
             self.dataset_name: {
-                "files": {
-                    self.dataset_input.files[x]
-                    .getFile(**kwargs): self.dataset_input.files[x]
-                    .object_path
-                    for x in mf
-                }
+                "files": {fdict[x].getFile(**kwargs): fdict[x].object_path for x in mf}
             }
         }
-
-    @property
-    def dataset_name(self):
-        return self.dataset_input.dataset_name
 
     @property
     def chunks(self):
@@ -174,29 +123,37 @@ class DatasetPreprocessed:
         )
 
 
-def preprocessBulk(
-    dataset_input: Iterable[AnalyzerInput], file_retrieval_kwargs=None, **kwargs
-):
+def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
+    fdict = dataset_repo.getSample(sample_id).fdict
+    return {
+        str(sample_id): {
+            "files": {x.getFile(**kwargs): x.object_path for x in fdict.values()}
+        }
+    }
+
+
+def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
     if file_retrieval_kwargs is None:
         file_retrieval_kwargs = {}
-    mapping = {x.dataset_name: x for x in dataset_input}
+
+    mapping = {str(x): x for x in samples}
     all_inputs = utils.accumulate(
-        [x.getCoffeaDataset(**file_retrieval_kwargs) for x in dataset_input]
+        [getCoffeaDataset(dataset_repo, x, **file_retrieval_kwargs) for x in samples]
     )
     out, bad = dst.preprocess(
         all_inputs,
-        save_form=True,
+        #save_form=True,
         skip_bad_files=True,
         uproot_options={"timeout": 30},
-        **kwargs,
+        **kwargs
     )
 
-    def backToSampleFile(file_set, v):
+    def backToSampleFile(v):
         return {extractCmsLocation(fname): data for fname, data in v["files"].items()}
 
     ret = [
-        DatasetPreprocessed(
-            mapping[k], backToSampleFile(mapping[k].files, v), v["form"]
+        SamplePreprocessed(
+            mapping[k], backToSampleFile(v), v["form"]
         )
         for k, v in out.items()
     ]

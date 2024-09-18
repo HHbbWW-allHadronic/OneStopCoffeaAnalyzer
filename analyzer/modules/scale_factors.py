@@ -1,23 +1,22 @@
-import awkward as ak
-from analyzer.core import analyzerModule
-from .utils import isMC
 import functools
-from analyzer.configuration import getConfiguration
-from pathlib import Path
 import itertools as it
-
 import operator as op
+import pickle as pkl
+from pathlib import Path
+
+import awkward as ak
 import correctionlib
 import correctionlib.convert
+from analyzer.core import MODULE_REPO, ModuleType
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
-import pickle as pkl
-from .btag_points import getBTagWP
-from analyzer.core import MODULE_REPO, ModuleType
+
+from .utils.btag_points import getBTagWP
 
 
 @MODULE_REPO.register(ModuleType.Weight)
-def btag_sf(events, params, weight_manager):
+def btagging_sf(events, params, weight_manager, variations=None, working_points=None):
+
     bwps = getBTagWP(profile)
     WP_ORDER = ("L", "M", "T")
     used_working_points = analyzer.processing_info["used_btag_wps"]
@@ -92,6 +91,7 @@ def btag_sf(events, params, weight_manager):
             p_d = p_d * (ak.prod(s1 * e1, axis=1) - ak.prod(s2 * e2, axis=1))
 
         return p_d / p_mc
+
     s = {
         f"var": (
             computeWeight("up_correlated", wp_names),
@@ -102,8 +102,8 @@ def btag_sf(events, params, weight_manager):
 
 
 @MODULE_REPO.register(ModuleType.Weight)
-def L1_prefire_sf(events, params, weight_manager):
-    nom = events.L1PrefiringWeight["Nom"]
-    up = events.L1PrefiringWeight["Up"]
-    down = events.L1PrefiringWeight["Down"]
+def L1_prefiring_sf(events, params, weight_manager, variations=None):
+    nom = events.L1PreFiringWeight["Nom"]
+    up = events.L1PreFiringWeight["Up"]
+    down = events.L1PreFiringWeight["Dn"]
     weight_manager.add(f"l1_prefire", nom, {"variation": (up, down)})

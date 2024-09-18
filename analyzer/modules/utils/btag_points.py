@@ -11,7 +11,6 @@ def getBTagCset(path):
     
 
 def getBTagWP(params):
-    cset = getBTagCset(params.btagging.path)
+    cset = getBTagCset(params["btag_scale_factors"]["file"])
     ret=  {p: cset["deepJet_wp_values"].evaluate(p) for p in ("L", "M", "T")}
-    logger.info(f"BTag Working Points for profile \"{profile.name}\" are:\n{ret}")
     return ret

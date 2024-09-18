@@ -4,6 +4,7 @@ import enum
 import inspect
 import itertools as it
 import json
+import logging
 from typing import (
     Annotated,
     Any,
@@ -14,6 +15,8 @@ from typing import (
     get_args,
     get_origin,
 )
+
+import yaml
 from pydantic import (
     BaseModel,
     Field,
@@ -24,10 +27,11 @@ from pydantic import (
 )
 from pydantic_core import CoreSchema, core_schema
 from rich import print
-import yaml
+
+logger = logging.getLogger(__name__)
 
 
-class AnalysisStages(str, enum.Enum):
+class AnalysisStage(str, enum.Enum):
     Preselection = "Preselection"
     ObjectDefinition = "ObjectDefinition"
     Selection = "Selection"
@@ -44,8 +48,6 @@ class HistogramSpec(BaseModel):
     weights: list[str] = None
     weight_variations: dict[str, list[str]]
     no_scale: bool = False
-
-
 
 
 class SampleSpec(BaseModel):
@@ -70,9 +72,6 @@ class ModuleDescription(BaseModel):
     config: Optional[Union[list[dict[str, Any]], dict[str, Any]]] = None
 
 
-
-
-
 class SectorSpec(BaseModel):
     sample_spec: Optional[SampleSpec] = None
     region_names: Optional[Union[list[str], str]] = None
@@ -86,17 +85,6 @@ class SectorSpec(BaseModel):
         )
         return passes_sample and passes_region
 
-
-class ExpansionMode(str, enum.Enum):
-    product = "product"
-    zip = "zip"
-
-
-#class WeightDescription(BaseModel):
-#    name: str
-#    sector_spec: Optional[SectorSpec] = None
-#    variation: list[str] = Field(default_factory=list)
-#    region_config: Optional[dict[str, dict[str, Any]]] = None
 
 class RegionDescription(BaseModel):
     name: str
@@ -143,5 +131,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-

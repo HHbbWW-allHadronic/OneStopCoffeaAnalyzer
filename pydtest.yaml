@@ -11,11 +11,11 @@ LimitTo:
 
 # Samples and in which regions they should be processed
 samples:
-  QCDInclusive2018: All
-  signal312: [Signal312, Control]
-  signal313: [Signal313, Control]
-  JetData2018: [Control]
-  MuonData2018: [SingleMuon]
+  #QCDInclusive2018: All
+  signal_312_2000_1900: [Signal312, Control]
+  #signal313: [Signal313, Control]
+  #Data2018: [Control]
+  #MuonData2018: [SingleMuon]
 
 # Samples and in which regions they should be processed
 general_config:
@@ -40,33 +40,34 @@ general_config:
 # You can use yaml anchors to reduce the amount of duplication
 common_items:
     common_signal_histograms: &common_signal
-      - name: goodjet_ht
-      - name: jets
-      - name: chargino_reco
-      - name: bhists
+      #- name: goodjet_ht
+      - name: jet_kinematics
+      #- name: chargino_reco
+      - name: b_quark_kinematics
         config:
           - working_point: L
           - working_point: M
           - working_point: T
-      - name: nn_reco
-        config:
-          - network_path: network1
-          - network_path: network2
-          - network_path: network3
-      - name: mc_hists
-        sample_spec: {sample_type: MC}
+      #- name: nn_reco
+      #  config:
+      #    - network_path: network1
+      #    - network_path: network2
+      #    - network_path: network3
+      #- name: mc_hists
+      #  sample_spec: {sample_type: MC}
 
     common_objects: &common_objects
       - name: core_objects
 
 
 common_weights: &common_weights
-  - name: prefiring_scale_factor
+  - name: L1_prefiring_sf
     sample_spec:
       eras: ["2016", "2017", "2018"]
       sample_type: MC
     config:
       variations: All
+
   - name: pileup_scale_factor
     sample_spec:
       sample_type: MC
@@ -78,69 +79,67 @@ common_weights: &common_weights
 # Additionally, a module may also have a `sample_spec` option, which limits which samples it applies to, ie only make gen-level hists for MC.
 # Weighting information is defined in the weights nodes, described below.
 regions:
-  - name: Signal313
-    forbid_data: true
-    objects: *common_objects
-    preselection:
-      - name: module_1
-    selection:
-      - name: selection_hlt
-      - name: general_selection
-      - name: 313_selection
-    categories:
-      - njets_category:
-    histograms: *common_signal
-    weights:
-      - <<: *common_weights
-      - name: btag_scale_factors
-        config:
-            working_points: [T]
+#  - name: Signal313
+#    forbid_data: true
+#    objects: *common_objects
+#    preselection:
+#      - name: selection_hlt
+#    selection:
+#      - name: general_selection
+#      - name: 313_selection
+#    categories:
+#      - njets_category:
+#    histograms: *common_signal
+#    weights:
+#      - <<: *common_weights
+#      - name: btag_scale_factors
+#        config:
+#            working_points: [T]
 
           
   - name: Signal312
     forbid_data: True
     objects: *common_objects
     preselection:
-      - name: selection_hlt
+      - name: signal_hlt
     selection:
       - name: general_selection
-      - name: 312_selection
+      - name: partial_signal312_selection
     histograms: *common_signal
     weights:
       - <<: *common_weights
-      - name: btag_scale_factors
-        config:
-            working_points: [M,T]
+      #- name: btagging_sf
+      #  config:
+      #      working_points: [M,T]
 
   - name: Control
     objects: *common_objects
     preselection:
-      - name: selection_hlt
+      - name: signal_hlt
     selection:
       - name: general_selection
-      - name: control_region_selection
+      - name: partial_cr_selection
     histograms:
-      - name: jets
-      - name: chargino_rego
+      - name: jet_kinematics
     weights:
       - <<: *common_weights
-      - name: btag_scale_factors
-        config:
-            working_points: [L]
+      #- name: btagging_sf
+      #  config:
+      #      working_points: [L]
 
-  - name: SingleMuon
-    use_region: false
-    objects: *common_objects
-    preselection:
-      - name: single_muon_trigger
-    preselection_histograms:
-      - name: preselection_ht
-    selection:
-      - name: selection_hlt
-    histograms:
-      - name: goodjet_ht
-    weights:
-      - <<: *common_weights
+#  - name: SingleMuon
+#    use_region: false
+#    objects: *common_objects
+#    preselection:
+#      - name: single_muon_trigger
+#    preselection_histograms:
+#      - name: preselection_ht
+#    selection:
+#      - name: selection_hlt
+#    histograms:
+#      - name: goodjet_ht
+#    weights:
+#      - <<: *common_weights
 
 # Weights described which weights and variations should be applied to which samples and regions
 # Weights are applied immediately after selection 

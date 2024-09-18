@@ -1,25 +1,22 @@
 import functools
 import operator as op
-
 import awkward as ak
-from analyzer.core import MODULE_REPO, ModuleType, analyzerModule
-
-from .axes import *
+from analyzer.core import MODULE_REPO, ModuleType
 
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_hlt(events, params, selector):
-    ht_trigger_name = params.triggers.HT
-    ak8_trigger_name = params.triggers.AK8
-    selector.add(f"hlt_ht", events.HLT[ht_trigger_name], mode="or")
-    selector.add(f"hlt_ak8", events.HLT[ak8_trigger_name], mode="or")
+    ht_trigger_name = params["trigger_names"]["HT"]
+    ak8_trigger_name = params["trigger_names"]["AK8SingleJetPt"]
+    selector.add(f"hlt_ht", events.HLT[ht_trigger_name], type="or")
+    selector.add(f"hlt_ak8", events.HLT[ak8_trigger_name], type="or")
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_muon(events, params, selector):
-    single_muon_trigger_name = params.triggers.SingleMuon
-    iso_muon_trigger_name = params.triggers.IsoMuon
-    selector.add(f"hlt_single_muon", events.HLT[single_muon_trigger_name], mode="or")
-    selector.add(f"hlt_iso_muon", events.HLT[iso_muon_trigger_name], mode="or")
+    single_muon_trigger_name = params["trigger_names"]["SingleMuon"]
+    iso_muon_trigger_name = params["trigger_names"]["IsoMuon"]
+    selector.add(f"hlt_single_muon", events.HLT[single_muon_trigger_name], type="or")
+    selector.add(f"hlt_iso_muon", events.HLT[iso_muon_trigger_name], type="or")
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -33,13 +30,13 @@ def general_selection(events, params, selector):
     top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
 
     passes_highptjet = ak.fill_none(filled_jets[:, 0].pt > 300, False)
-    selector.add("highptjet", passes_highptjet, mode="and")
+    selector.add("highptjet", passes_highptjet, type="and")
 
     passes_jets = (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)
-    selector.add("njets", passes_jets, mode="and")
+    selector.add("njets", passes_jets, type="and")
 
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
-    selector.add("0Lep", passes_0Lep, mode="and")
+    selector.add("0Lep", passes_0Lep, type="and")
 
 @MODULE_REPO.register(ModuleType.Selection)
 def partial_signal312_selection(events, params, selector):
@@ -47,24 +44,23 @@ def partial_signal312_selection(events, params, selector):
     """
     med_b = events.med_bs
     tight_b = events.tight_bs
-    top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
     filled_med = ak.pad_none(med_b, 2, axis=1)
     med_dr = ak.fill_none(filled_med[:, 0].delta_r(filled_med[:, 1]), False)
     passes_2bjet = ak.num(med_b) >= 2
     passes_1tightbjet = ak.num(tight_b) >= 1
     passes_b_dr = med_dr > 1
-    selector.add("2bjet", passes_2bjet, mode="and")
-    selector.add("1tightbjet", passes_1tightbjet, mode="and")
-    selector.add("b_dr", passes_b_dr, mode="and")
+    selector.add("2bjet", passes_2bjet, type="and")
+    selector.add("1tightbjet", passes_1tightbjet, type="and")
+    selector.add("b_dr", passes_b_dr, type="and")
 
 
 @MODULE_REPO.register(ModuleType.Selection)
-def partial_cr_selection(events, analyzer):
+def partial_cr_selection(events, params, selector):
     """Control region selection.
     Required 0 loose bs.
     """
     loose_b = events.loose_bs
-    selection.add("0looseb", (ak.num(loose_b) == 0), mode="and")
+    selector.add("0looseb", (ak.num(loose_b) == 0), type="and")
 
 
 

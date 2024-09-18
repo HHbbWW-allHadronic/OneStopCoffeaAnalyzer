@@ -1,4 +1,2 @@
-from .samples import SampleCollection, SampleSet
-from .repo import SampleManager
-from .tables import createSetTable, createCollectionTable, createSampleAndCollectionTable
-from .profiles import ProfileRepo
+from .samples import DatasetRepo, Dataset, Sample, SampleId
+from .era import Era, EraRepo

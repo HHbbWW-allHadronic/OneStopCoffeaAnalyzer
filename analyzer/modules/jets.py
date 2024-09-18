@@ -1,13 +1,7 @@
 import itertools as it
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
-from analyzer.math_funcs import angleToNPiToPi
-
-@analyzerModule("tiny", categories="main")
-def tiny(events, analyzer):
-    gj = events.good_jets
-    analyzer.H(f"njet", nj_axis, ak.num(gj), name="njets")
-    return events,analyzer
+from .utils.math_funcs import angleToNPiToPi
 
 
 @MODULE_REPO.register(ModuleType.Histogram)

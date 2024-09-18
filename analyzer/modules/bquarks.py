@@ -1,18 +1,12 @@
 import itertools as it
-
 import awkward as ak
-
-from analyzer.core import analyzerModule
-from analyzer.math_funcs import angleToNPiToPi
-
-from .axes import *
-from .utils import numMatching
+from .utils.math_funcs import angleToNPiToPi
 from analyzer.core import MODULE_REPO, ModuleType
 
 
 #@analyzerModule("b_hists", categories="main", depends_on=["objects"])
 @MODULE_REPO.register(ModuleType.Histogram)
-def createBHistograms(events, params, histogram_builder, wp_name="M"):
+def b_quark_kinematics(events, params, histogram_builder, wp_name="M"):
     mapping = {"M" : "med", "L": "loose", "T" : "tight"}
     bjets = events[f"{mapping}_bs"]
 
