@@ -11,6 +11,7 @@ import yaml
 import pydantic as pyd
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId
 from analyzer.utils.structure_tools import accumulate
+from analyzer.utils.file_tools import stripPort, extractCmsLocation
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from rich import print
 
@@ -22,6 +23,8 @@ from .preprocessed import Chunk, SamplePreprocessed, preprocessBulk
 from .sector import Sector, SectorId, getParamsForSector
 from .selection import Cutflow, SelectionManager
 from .weights import WeightManager
+import awkward as ak
+import dask
 
 logger = logging.getLogger(__name__)
 
@@ -76,7 +79,7 @@ class SectorResult(pyd.BaseModel):
 class AnalysisResult(pyd.BaseModel):
     description: AnalysisDescription
     preprocessed_samples: dict[SampleId, SamplePreprocessed]
-    processed_chunks: dict[SampleId, set[Chunk]]
+    processed_chunks: dict[SampleId, Any]
     results: dict[SectorId, SectorResult]
 
     def __add__(self, other):
@@ -143,6 +146,20 @@ class SectorAnalyzer:
 
         def H(self, *args, **kwargs):
             return self.parent.makeHistogram(self.sector_id, *args, **kwargs)
+
+@dask.delayed
+def getProcessedChunks(run_report):
+    good_mask = ak.is_none(run_report["exception"])
+    rr = run_report[good_mask]
+    return {
+        (
+            extractCmsLocation(x["args"][0][1:-1]),
+            int(x["args"][2]),
+            int(x["args"][3]),
+        )
+        for x in rr
+    }
+
 
 
 @dataclass
@@ -352,7 +369,6 @@ class Analyzer:
         for sector in self.sectors:
             self._populateCutflow(sector.sector_id)
 
-
 def runAnalysis(analyzer):
     analyzer.preprocessDatasets()
     analyzer.loadEvents()
@@ -365,10 +381,13 @@ def runAnalysis(analyzer):
     analyzer.populateCutflows()
     analyzer.runStage(AnalysisStage.Categorization)
     analyzer.runStage(AnalysisStage.Histogramming)
+
+
+
     return AnalysisResult(
         description=analyzer.description,
         preprocessed_samples=analyzer.preprocessed_samples,
-        processed_chunks={},
+        processed_chunks={s:getProcessedChunks(r) for s,r in analyzer._sample_reports.items()},
         results=analyzer.results,
     )
 
