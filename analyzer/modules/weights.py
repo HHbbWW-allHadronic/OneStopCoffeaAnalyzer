@@ -11,5 +11,5 @@ def gen_weight(events, params, weight_manager):
 
 @MODULE_REPO.register(ModuleType.Weight)
 def xsec_weight(events, params, weight_manager):
-    weight_manager.add("x_sec",  ak.ones_like(events) * params.x_sec)
+    weight_manager.add("x_sec",  ak.ones_like(events) * params["x_sec"])
 

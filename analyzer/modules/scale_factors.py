@@ -106,4 +106,4 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
     nom = events.L1PreFiringWeight["Nom"]
     up = events.L1PreFiringWeight["Up"]
     down = events.L1PreFiringWeight["Dn"]
-    weight_manager.add(f"l1_prefire", nom, {"variation": (up, down)})
+    weight_manager.add(f"l1_prefire", nom, {"inclusive": (up, down)})

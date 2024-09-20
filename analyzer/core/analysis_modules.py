@@ -32,12 +32,10 @@ hist_manager.add(
 )
 """
 import enum
-import functools as ft
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Any
 import inspect
-from rich import print
 
 
 class ModuleType(str, enum.Enum):

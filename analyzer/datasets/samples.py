@@ -8,6 +8,7 @@ import random
 import re
 from collections import OrderedDict, namedtuple
 from collections.abc import Mapping
+from functools import cached_property
 from pathlib import Path
 from typing import (
     Annotated,
@@ -23,9 +24,10 @@ from typing import (
     get_origin,
 )
 from urllib.parse import urlparse, urlunparse
-from analyzer.utils.file_tools import extractCmsLocation, stripPort
 
+import pydantic as pyd
 import yaml
+from analyzer.utils.file_tools import extractCmsLocation, stripPort
 from coffea.dataset_tools.preprocess import DatasetSpec
 from pydantic import (
     BaseModel,
@@ -38,7 +40,6 @@ from pydantic import (
 )
 from rich import print
 from rich.table import Table
-from functools import cached_property
 
 
 def getDatasets(query, client):
@@ -184,13 +185,26 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
-@dataclasses.dataclass(frozen=True)
+@pyd.dataclasses.dataclass(frozen=True)
 class SampleId:
     dataset_name: str
     sample_name: str
 
     def __str__(self):
         return self.dataset_name + "__" + self.sample_name
+
+    @pyd.model_serializer
+    def serialize(self) -> str:
+        return self.dataset_name + "___" + self.sample_name
+
+    @pyd.model_validator(mode="before")
+    @classmethod
+    def isStr(self, value):
+        if isinstance(value, str):
+            a, b, *rest = value.split("___")
+            return {"dataset_name": a, "sample_name": b}
+        else:
+            return value
 
 
 class Sample(BaseModel):
@@ -204,7 +218,6 @@ class Sample(BaseModel):
     files: List[SampleFile] = Field(default_factory=list)
     cms_dataset_regex: Optional[str] = None
     _parent_dataset: Optional["Dataset"] = None
-
 
     @cached_property
     def fdict(self):

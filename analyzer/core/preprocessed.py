@@ -1,29 +1,22 @@
 import copy
 import itertools as it
 import logging
-from dataclasses import dataclass, field
-from typing import (
-    Any,
-    Callable,
-    Dict,
-    Hashable,
-    Iterable,
-    List,
-    Optional,
-    Set,
-    Tuple,
-    Union,
-)
+from collections import namedtuple
+from dataclasses import dataclass
+from typing import Any, Optional
+
+import analyzer.utils.structure_tools as utils
 
 # import analyzer.core.preprocess as dst
 import coffea.dataset_tools as dst
+import pydantic as pyd
 from analyzer.datasets import SampleId
-
 from analyzer.utils.file_tools import extractCmsLocation, stripPort
-import analyzer.utils.structure_tools as utils
 from coffea.dataset_tools.preprocess import DatasetSpec
 
 logger = logging.getLogger(__name__)
+
+Chunk = namedtuple("Chunk", "file start end")
 
 
 def getMissingDataset(analyzer_input, coffea_dataset):
@@ -40,12 +33,11 @@ def getMissingDataset(analyzer_input, coffea_dataset):
     }
 
 
-@dataclass
-class SamplePreprocessed:
+class SamplePreprocessed(pyd.BaseModel):
     sample_id: SampleId
     chunk_info: dict[str, dict[str, Any]]
-    form: str = None
-    limit_chunks: set[tuple[str, int, int]] = None
+    form: Optional[str] = None
+    limit_chunks: Optional[set[Chunk]] = None
 
     def getCoffeaDataset(
         self, dataset_repo, allow_incomplete=True, **kwargs
@@ -125,6 +117,9 @@ class SamplePreprocessed:
 
 def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
+    from rich import print
+
+    print(fdict)
     return {
         str(sample_id): {
             "files": {x.getFile(**kwargs): x.object_path for x in fdict.values()}
@@ -142,10 +137,10 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
     )
     out, bad = dst.preprocess(
         all_inputs,
-        #save_form=True,
+        # save_form=True,
         skip_bad_files=True,
         uproot_options={"timeout": 30},
-        **kwargs
+        **kwargs,
     )
 
     def backToSampleFile(v):
@@ -153,7 +148,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
 
     ret = [
         SamplePreprocessed(
-            mapping[k], backToSampleFile(v), v["form"]
+            sample_id=mapping[k], chunk_info=backToSampleFile(v), form=v["form"]
         )
         for k, v in out.items()
     ]

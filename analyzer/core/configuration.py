@@ -1,31 +1,18 @@
 # from __future__ import annotations
-import copy
 import enum
-import inspect
-import itertools as it
-import json
 import logging
 from typing import (
-    Annotated,
     Any,
     ClassVar,
     Optional,
-    Tuple,
     Union,
-    get_args,
-    get_origin,
 )
 
 import yaml
 from pydantic import (
     BaseModel,
     Field,
-    GetCoreSchemaHandler,
-    TypeAdapter,
-    create_model,
-    field_validator,
 )
-from pydantic_core import CoreSchema, core_schema
 from rich import print
 
 logger = logging.getLogger(__name__)
@@ -45,8 +32,8 @@ class HistogramSpec(BaseModel):
     axes: list[Any]
     storage: str = "weight"
     description: str
-    weights: list[str] = None
-    weight_variations: dict[str, list[str]]
+    weights: list[str]
+    variations: list[str]
     no_scale: bool = False
 
 
@@ -105,15 +92,6 @@ class AnalysisDescription(BaseModel):
     regions: list[RegionDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
     special_region_names: ClassVar[tuple[str]] = ("All",)
-
-    def getSectors(self):
-        ret = []
-        for sample_name, regions in self.samples.items():
-            if isinstance(regions, str) and regions == "All":
-                regions = [r.name for r in self.regions]
-            for r in regions:
-                ret.append((sample_name, r))
-        return ret
 
     def getRegion(self, name):
         try:

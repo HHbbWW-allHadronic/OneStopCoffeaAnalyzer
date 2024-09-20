@@ -1,248 +1,29 @@
 # from __future__ import annotations
 import copy
-import enum
-import functools as ft
-import inspect
-import itertools as it
 import json
 import logging
 from collections import defaultdict, namedtuple
-from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import (
-    Annotated,
-    Any,
-    ClassVar,
-    Optional,
-    Tuple,
-    Union,
-    get_args,
-    get_origin,
-)
+from typing import Any, Optional, Union
 
-import hist
-import hist.dask as dah
 import yaml
-from analyzer.datasets import Dataset, Era, SampleId
-from coffea.analysis_tools import PackedSelection, Weights
+
+import pydantic as pyd
+from analyzer.datasets import DatasetRepo, EraRepo, SampleId
+from analyzer.utils.structure_tools import accumulate
+from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from rich import print
-import operator as op
 
-from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType
+from .analysis_modules import MODULE_REPO
+from .common_types import Scalar
 from .configuration import AnalysisDescription, AnalysisStage, HistogramSpec
-from .preprocessed import SamplePreprocessed, preprocessBulk
+from .histograms import HistogramCollection, generateHistogramCollection
+from .preprocessed import Chunk, SamplePreprocessed, preprocessBulk
+from .sector import Sector, SectorId, getParamsForSector
+from .selection import Cutflow, SelectionManager
+from .weights import WeightManager
 
-Hist = Union[hist.Hist, dah.Hist]
-
-
-@dataclass
-class HistogramCollection:
-    """A histogram needs to keep track of both its nominal value and any variations."""
-
-    spec: "HistogramSpec"
-    histogram: Hist
-    variations: defaultdict[dict[str, Hist]]
-
-    def __add__(self, other):
-        if self.spec != other.spec:
-            raise ValueError(f"Cannot add two incomatible histograms")
-        return Histogram(
-            self.spec,
-            self.histogram + other.histogram,
-            accumulate([self.variations, other.variations]),
-        )
-
-
-def generateHistogram(
-    self,
-    spec,
-    fill_data,
-    categories,
-    weight_repo,
-    weights=None,
-    no_scale=False,
-    mask=None,
-):
-    assert len(fill_data) == len(axes)
-    base_histogram = dah.Hist(*self.axes, storage=self.storage, name=self.name)
-    base_histogram.fill()
-    variations = {}
-
-
-@dataclass
-class Selection:
-    or_names: tuple[str] = field(default_factory=tuple)
-    and_names: tuple[str] = field(default_factory=tuple)
-
-    def addOne(self, name, type="and"):
-        if type == "and":
-            s = Selection(tuple(), (name,))
-        else:
-            s = Selection((name,), tuple())
-        return self.merge(s)
-
-    def merge(self, other):
-        def addTuples(t, o):
-            to_add = [x for x in o if x not in t]
-            return tuple([*t, *to_add])
-
-        return Selection(
-            addTuples(self.or_names, other.or_names),
-            addTuples(self.and_names, other.and_names),
-        )
-
-
-@dataclass(frozen=True)
-class SectorId:
-    sample_id: SampleId
-    region_name: str
-
-
-@dataclass
-class Cutflow:
-    n_minus_one: dict[str, float]
-    cutflow: dict[str, float]
-
-
-@dataclass
-class SampleCutflow:
-    unweighted_cutflow: Cutflow
-    weighted_cutflow: Optional[Cutflow] = None
-
-
-@dataclass
-class SampleSelection:
-    """
-    Selection for a single sample.
-    Stores the preselection and selection masks.
-    The selection mask is relative to the "or" of all the preselection cuts.
-
-    The general flow for a single sample looks like
-
-
-    AllEvents -> Generate Preselection Masks -> AllEvents[PassAnyPreselectionCut]
-    -> Generate Selection Mask -> Add Preselection Masks to Selection Mask
-    -> Apply Appropriate Cuts for Each Region -> Final Trimmed Events
-
-    """
-
-    preselection_mask: PackedSelection = field(default_factory=PackedSelection)
-    selection_mask: PackedSelection = field(default_factory=PackedSelection)
-
-    def getPreselectionMask(self):
-        names = self.preselection_mask.names
-        if not names:
-            return None
-        return self.preselection_mask.any(*names)
-
-    def addPreselectionMaskToSelection(self, complete_mask):
-        """After finalizing selection  we want to add the preselection cuts to the analysis selection, so that we can generate cutflows etc.
-        This function takes each preselection mask and adds the appropriate portion to the final selection, based on complete_mask, which should be the mask used to the compute the events post-preselection (ie the events that are ultimately selected on)
-        """
-        for n in self.preselection_mask.names:
-            print(n)
-            if complete_mask is None:
-                self.addMask(
-                    n, self.preselection_mask.any(n), stage=AnalysisStage.Selection
-                )
-            else:
-                self.addMask(
-                    n,
-                    self.preselection_mask.any(n)[complete_mask],
-                    stage=AnalysisStage.Selection,
-                )
-
-    def addMask(self, name, mask, type="and", stage=AnalysisStage.Preselection):
-        if stage == AnalysisStage.Preselection:
-            target = self.preselection_mask
-        else:
-            target = self.selection_mask
-
-        names = target.names
-        if not name in names:
-            target.add(name, mask)
-
-    def getMask(self, or_names, and_names, stage=AnalysisStage.Preselection):
-        if not (or_names or and_names):
-            return None
-        if stage == AnalysisStage.Preselection:
-            sel = self.preselection_mask
-        else:
-            sel = self.selection_mask
-
-        names = sel.names
-        print(or_names)
-        print(and_names)
-        print(sel)
-        t = sel.any(*or_names) if or_names else None
-        a = sel.all(*and_names) if and_names else None
-        return ft.reduce(op.and_, (x for x in [t, a] if x is not None))
-
-
-@dataclass
-class SelectionManager:
-    selection_masks: defaultdict[SampleId, SampleSelection] = field(
-        default_factory=lambda: defaultdict(SampleSelection)
-    )
-
-    selections: defaultdict[SectorId, Selection] = field(
-        default_factory=lambda: defaultdict(Selection)
-    )
-
-    __computed_preselections: dict[str, Any] = field(default_factory=dict)
-
-    def register(
-        self, sector_id, name, mask, type="and", stage=AnalysisStage.Preselection
-    ):
-        self.selections[sector_id] = self.selections[sector_id].addOne(name, type=type)
-        self.selection_masks[sector_id.sample_id].addMask(name, mask, stage=stage)
-
-    def maskPreselection(self, sample_id, events):
-        mask = self.selection_masks[sample_id].getPreselectionMask()
-        self.__computed_preselections[sample_id] = mask
-        if mask is None:
-            return events
-        else:
-            return events[mask]
-
-    def addPreselectionMasks(self):
-        for sample_id, sel in self.selection_masks.items():
-            m = self.__computed_preselections[sample_id]
-            sel.addPreselectionMaskToSelection(m)
-
-    def maskSector(self, sector_id, events):
-        s = self.selections[sector_id]
-        sample_id = sector_id.sample_id
-        mask = self.selection_masks[sample_id].getMask(
-            s.or_names, s.and_names, stage=AnalysisStage.Selection
-        )
-        if mask is None:
-            return events
-        else:
-            return events[mask]
-
-
-@dataclass
-class WeightManager:
-    weights: defaultdict[SectorId, Weights] = field(
-        default_factory=lambda: defaultdict(lambda: Weights(None))
-    )
-
-    __cache: dict[(SectorId, str), Any] = field(default_factory=dict)
-
-    def add(self, sector_id, weight_name, central, variations):
-        systs = [(x, *y) for x, y in variations.items()]
-        name, up, down = list(map(list, zip(*systs)))
-        self.weights[sector_id].add_multivariation(weight_name, central, name, up, down)
-
-    def weight(self, sector_id, modifier):
-        k = (sector_id, modifier)
-        if k in self.__cache:
-            return self.__cache[k]
-        else:
-            weights = self.weights[sample_id].weight(modifier)
-            self.__cache[k] = weights
-            return weights
+logger = logging.getLogger(__name__)
 
 
 def getSectionHash(am_descs):
@@ -251,400 +32,375 @@ def getSectionHash(am_descs):
 
 
 @dataclass
-class Sector:
-    region_name: str
-    sample_id: SampleId
-
-    description: str = ""
-
-    forbid_data: bool = False
-
-    # Parts of the analysis.
-    preselection: list[AnalyzerModule] = field(default_factory=list)
-    objects: list[AnalyzerModule] = field(default_factory=list)
-    selection: list[AnalyzerModule] = field(default_factory=list)
-    categories: list[AnalyzerModule] = field(default_factory=list)
-    # preselection_histograms: list[AnalyzerModule] = field(default_factory=list)
-    histograms: list[AnalyzerModule] = field(default_factory=list)
-    weights: list[AnalyzerModule] = field(default_factory=list)
-
-    # Dictionary of weight -> [variations] to user for this sector
-    # weights: dict[str, Optional[list]] = field(default_factory=dict)
-
-    @property
-    def sector_id(self):
-        return SectorId(self.sample_id, self.region_name)
-
-    def getSelectionId(self):
-        return getSectionHash(self.selection)
-
-    def getPreselectionId(self):
-        return getSectionHash(self.selection)
-
-    @staticmethod
-    def fromRegion(region_desc, sample, module_repo):
-        name = region_desc.name
-
-        if region_desc.forbid_data and sample.sample_type == "Data":
-            raise AnalysisConfigurationError(
-                f"Region '{region_desc.name}' is marked with 'forbid_data'"
-                f"but is recieving Data sample '{sample.name}'"
-            )
-
-        def resolveModules(l, t):
-            ret = [
-                mod
-                for mod in l
-                if not mod.sample_spec or mod.sample_spec.passes(sample)
-            ]
-            modules = [
-                [
-                    module_repo.get(t, mod.name, configuration=c)
-                    for c in (
-                        mod.config if isinstance(mod.config, list) else [mod.config]
-                    )
-                ]
-                for mod in ret
-            ]
-            ret = list(it.chain(*modules))
-            return ret
-
-        preselection = resolveModules(region_desc.preselection, ModuleType.Selection)
-        selection = resolveModules(region_desc.selection, ModuleType.Selection)
-
-        objects = resolveModules(region_desc.objects, ModuleType.Producer)
-        weights = resolveModules(region_desc.weights, ModuleType.Weight)
-
-        preselection_histograms = resolveModules(
-            region_desc.preselection_histograms, ModuleType.Histogram
-        )
-        postselection_histograms = resolveModules(
-            region_desc.histograms, ModuleType.Histogram
-        )
-
-        return Sector(
-            region_name=region_desc.name,
-            sample_id=sample.sample_id,
-            description=region_desc.description,
-            forbid_data=region_desc.forbid_data,
-            preselection=preselection,
-            selection=selection,
-            objects=objects,
-            # preselection_histograms=preselection_histograms,
-            histograms=postselection_histograms,
-            weights=weights,
-        )
-
-
-Chunk = namedtuple("Chunk", "file start end")
-
-
-def getParamsForSector(sector_id, dataset_repo, era_repo):
-    sample_id = sector_id.sample_id
-    dataset = dataset_repo[sample_id.dataset_name]
-    sample = dataset.getSample(sample_id.sample_name)
-    era = era_repo[sample.era]
-    return {**era.params, **sample.params}
-
-
-@dataclass
 class Category:
     name: str
     axis: Any
     values: Any
+    distinct_values: set[Union[int, str, float]] = field(default_factory=set)
 
 
-@dataclass
-class SectorResult:
-    histograms: dict[str, HistogramCollection]
-    other_data: dict[str, Any]
-    cutflow_data: Optional[Any]
+class SampleCutflow(pyd.BaseModel):
+    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 
+    cutflow: Cutflow
+    weighted_sum: Scalar
 
-@dataclass
-class AnalysisResult:
-    datasets_preprocessed: dict[str, "DatasetPreprocessed"]
-    processed_chunks: dict[str, set[Chunk]]
-    description: AnalysisDescription
-    results: dict[tuple[str, str], SectorResult]
-
-
-@dataclass
-class SectorAnalyzer:
-    _analyzer: "Analyzer" = field(repr=False)
-    sector: Sector
-    params: dict[str, Any]
-    result: "SectorResult"
-    categories: dict[str, Category] = field(default_factory=dict)
-
-    @property
-    def sector_id(self):
-        return self.sector.sector_id
-
-    @property
-    def events(self):
-        return self._analyzer.sample_events[self.sector_id]
-
-    def makeHistogram(self, spec: HistogramSpec, values):
-        """Add a histogram based on a specification and the values to fill it."""
-        pass
-
-    def addHistogram(self, hist):
-        """Add an existing histogram"""
-        pass
-
-    def addCategory(self, category):
-        self.categories[category.name] = category
-
-    def addSelection(self, name, mask, type="and", stage="preselection"):
-        self._analyzer.selection_manager.register(
-            self.sector_id, name, mask, type=type, stage=stage
+    def __add__(self, other):
+        return SampleCutflow(
+            cutflow=self.cutflow + other.cutflow,
+            weighted_sum=self.weighted_sum + other.weighted_sum,
         )
 
-    def addWeight(self, name, central, variations=None):
-        varia = variations or {}
-        self._analyzer.weight_manager.add(self.sector_id, name, central, varia)
 
-    def getParams(self):
-        pass
+class SectorResult(pyd.BaseModel):
+    params: dict[str, Any]
+    histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
+    other_data: dict[str, Any] = pyd.Field(default_factory=dict)
+    cutflow_data: Optional[SampleCutflow] = None
 
+    def __add__(self, other):
+        if self.params != other.params:
+            raise RuntimeError(
+                f"Error: Attempting to merge incomaptible analysis results"
+            )
+        new_hists = accumulate([self.histograms, other.histograms])
+        new_other = accumulate([self.other_data, other.other_data])
+        return SectorResult(
+            params=self.params,
+            histograms=new_hists,
+            other_data=new_other,
+            cutflow_data=self.cutflow_data + other.cutflow_data,
+        )
+
+
+class AnalysisResult(pyd.BaseModel):
+    description: AnalysisDescription
+    preprocessed_samples: dict[SampleId, SamplePreprocessed]
+    processed_chunks: dict[SampleId, set[Chunk]]
+    results: dict[SectorId, SectorResult]
+
+    def __add__(self, other):
+        if self.description != other.description:
+            raise RuntimeError(
+                f"Error: Attempting to merge incomaptible analysis results"
+            )
+
+        if any(
+            self.processed_chunks.get(x, set()).intersect(
+                other.processed_chunk.get(x, set())
+            )
+            for x in set(self.processed_chunks) | set(other.processed_chunks)
+        ):
+            raise RuntimeError(
+                f"Error: Attempting to merge incomaptible analysis results"
+            )
+
+        desc = copy.copy(self.description)
+        new_results = accumulate([self.results, other.results])
+        return AnalysisResult(
+            description=self.description,
+            preprocessed_samples=self.preprocessed_samples,
+            processed_chunks=self.processed_chunks,
+            results=new_results,
+        )
+
+
+class SectorAnalyzer:
     class Selector:
-        def __init__(self, parent, stage):
+        def __init__(self, parent, sector_id, stage):
             self.parent = parent
             self.stage = stage
+            self.sector_id = sector_id
 
         def add(self, name, mask, type="and"):
-            return self.parent.addSelection(name, mask, type=type, stage=self.stage)
+            return self.parent.addSelection(
+                self.sector_id, name, mask, type=type, stage=self.stage
+            )
 
     class Weighter:
-        def __init__(self, parent):
+        def __init__(self, parent, sector_id):
             self.parent = parent
+            self.sector_id = sector_id
 
         def add(self, *args, **kwargs):
-            return self.parent.addWeight(*args, **kwargs)
+            return self.parent.addWeight(self.sector_id, *args, **kwargs)
 
     class Categorizer:
-        def __init__(self, parent):
+        def __init__(self, parent, sector_id):
             self.parent = parent
+            self.sector_id = sector_id
 
         def add(self, *args, **kwargs):
-            return self.parent.addCategory(*args, **kwargs)
+            return self.parent.addCategory(self.sector_id, *args, **kwargs)
 
     class Histogrammer:
-        def __init__(self, parent):
+        def __init__(self, parent, sector_id):
             self.parent = parent
+            self.sector_id = sector_id
 
         def addHistogram(self, *args, **kwargs):
-            return self.parent.addHistogram(*args, **kwargs)
+            return self.parent.addHistogram(self.sector_id, *args, **kwargs)
 
-        def makeHistogram(self, *args, **kwargs):
-            return self.parent.makeHistogram(*args, **kwargs)
-
-    def __getStageProcessor(self, stage):
-        mapping = {
-            AnalysisStage.Preselection: SectorAnalyzer.Selector(
-                self, AnalysisStage.Preselection
-            ),
-            AnalysisStage.Selection: SectorAnalyzer.Selector(
-                self, AnalysisStage.Selection
-            ),
-            AnalysisStage.Categorization: SectorAnalyzer.Categorizer(self),
-            AnalysisStage.Weights: SectorAnalyzer.Weighter(self),
-            AnalysisStage.Histogramming: SectorAnalyzer.Histogrammer(self),
-        }
-        return mapping.get(stage)
-
-    def applyToEvents(self, events, stage):
-        sp = self.__getStageProcessor(stage)
-        mapping = {
-            AnalysisStage.Preselection: self.sector.preselection,
-            AnalysisStage.Selection: self.sector.selection,
-            AnalysisStage.Categorization: self.sector.categories,
-            AnalysisStage.Histogramming: self.sector.histograms,
-            AnalysisStage.ObjectDefinition: self.sector.objects,
-            AnalysisStage.Weights: self.sector.weights,
-        }
-
-        for module in mapping[stage]:
-            if sp:
-                module(events, self.params, sp)
-            else:
-                module(events, self.params)
+        def H(self, *args, **kwargs):
+            return self.parent.makeHistogram(self.sector_id, *args, **kwargs)
 
 
 @dataclass
 class Analyzer:
     description: AnalysisDescription
-
-    datasets_preprocessed: dict[str, "DatasetPreprocessed"] = field(
+    dataset_repo: DatasetRepo
+    era_repo: EraRepo
+    preprocessed_samples: dict[SampleId, SamplePreprocessed] = field(
         default_factory=dict
     )
-    sample_events: dict[SampleId, Any] = field(default_factory=dict)
-    sample_reports: dict[SampleId, Any] = field(default_factory=dict)
-    preselected_events: dict[SampleId, Any] = field(default_factory=dict)
-    sector_events: dict[SectorId, Any] = field(default_factory=dict)
+
+    _sample_events: dict[SampleId, Any] = field(default_factory=dict)
+    _sample_reports: dict[SampleId, Any] = field(default_factory=dict)
+    _preselected_events: dict[SampleId, Any] = field(default_factory=dict)
+    _sector_events: dict[SectorId, Any] = field(default_factory=dict)
 
     weight_manager: WeightManager = field(default_factory=WeightManager)
     selection_manager: SelectionManager = field(default_factory=SelectionManager)
+    categories: defaultdict[str, dict[str, Category]] = field(
+        default_factory=lambda: defaultdict(dict)
+    )
 
-    sample_repo: "SampleRepo" = None
-    era_repo: "EraRepo" = None
+    sectors: list[SectorId] = field(default_factory=list)
 
-    def getSectorAnalyzers(self):
+    results: dict[SectorId, SectorResult] = field(default_factory=dict)
+
+    def __post_init__(self):
+        self.sectors = self._getSectors()
+        self.__prefillResults()
+
+    def __prefillResults(self):
+        for sector in self.sectors:
+            sector_id = sector.sector_id
+            params = getParamsForSector(sector_id, self.dataset_repo, self.era_repo)
+            self.results[sector_id] = SectorResult(params=params)
+
+    def preprocessDatasets(self, **kwargs):
+        chunk_size = self.description.general_config.get("chunk_size", 100000)
+        r = preprocessBulk(
+            self.dataset_repo,
+            set(x.sector_id.sample_id for x in self.sectors),
+            step_size=chunk_size,
+            file_retrieval_kwargs=self.description.general_config["file_retrieval"],
+        )
+        self.preprocessed_samples = {x.sample_id: x for x in r}
+
+    def loadEvents(self, **kwargs):
+        file_args = self.description.general_config["file_retrieval"]
+        for sample_id, spre in self.preprocessed_samples.items():
+            ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
+            events, report = NanoEventsFactory.from_root(
+                ds["files"],
+                schemaclass=NanoAODSchema,
+                uproot_options=dict(
+                    allow_read_errors_with_report=True,
+                    timeout=30,
+                ),
+                known_base_form=spre.form,
+            ).events()
+            self._sample_events[sample_id] = events
+            self._sample_reports[sample_id] = report
+
+    def _getSectors(self):
+        s_pairs = []
         ret = []
-        sector_pairs = self.description.getSectors()
-        for sample_name, region_name in sector_pairs:
-            dataset = self.sample_repo[sample_name]
+        for dataset_name, regions in self.description.samples.items():
+            if isinstance(regions, str) and regions == "All":
+                regions = [r.name for r in self.description.regions]
+            for r in regions:
+                s_pairs.append((dataset_name, r))
+        for dataset_name, region_name in s_pairs:
+            dataset = self.dataset_repo[dataset_name]
             region = self.description.getRegion(region_name)
             for sample in dataset.samples:
                 sector = Sector.fromRegion(region, sample, MODULE_REPO)
-                params = getParamsForSector(
-                    sector.sector_id, self.sample_repo, self.era_repo
-                )
-                sa = SectorAnalyzer(self, sector, params, None)
-                ret.append(sa)
+                ret.append(sector)
+
         return ret
 
-    def getEvents(self, sample_id, stage=None):
-        return self.sample_events[sample_id]
+    def addWeight(self, sector_id, name, central, variations=None):
+        varia = variations or {}
+        self.weight_manager.add(sector_id, name, central, varia)
 
+    def addCategory(self, sector_id, category):
+        self.categories[sector_id][category.name] = category
 
-# @singledispatch
-def getEvents(arg, known_form=None, cache=None):
-    from coffea.nanoevents import BaseSchema, NanoAODSchema, NanoEventsFactory
+    def addSelection(self, sector_id, name, mask, type="and", stage="preselection"):
+        self.selection_manager.register(sector_id, name, mask, type=type, stage=stage)
 
-    events, report = NanoEventsFactory.from_root(
-        arg,
-        schemaclass=NanoAODSchema,
-        uproot_options=dict(
-            allow_read_errors_with_report=True,
-            timeout=30,
-        ),
-        known_base_form=known_form,
-        persistent_cache=cache,
-    ).events()
-    return events, report
+    def _populateCutflow(self, sector_id):
+        cf = self.selection_manager.getCutflow(sector_id)
+        total_weight = self.weight_manager.totalWeight(sector_id)
+        self.results[sector_id].cutflow_data = SampleCutflow(
+            cutflow=cf, weighted_sum=total_weight
+        )
+
+    def makeHistogramFromSpec(self, sector_id, spec: HistogramSpec, values, mask=None):
+        sector_weighter = self.weight_manager.getSectorWeighter(sector_id)
+        hc = generateHistogramCollection(
+            spec,
+            values,
+            list(self.categories[sector_id].values()),
+            sector_weighter,
+            mask=mask,
+        )
+        self.results[sector_id].histograms[spec.name] = hc
+
+    def makeHistogram(
+        self,
+        sector_id,
+        name,
+        axes,
+        values,
+        variations=None,
+        weights=None,
+        description="",
+        no_scale=False,
+        mask=None,
+        storage="weight",
+    ):
+
+        if weights is None:
+            weights = self.weight_manager.weight_names(sector_id)
+
+        if variations is None:
+            variations = self.weight_manager.variations(sector_id)
+
+        logger.debug(f"Creating histogram {weights}")
+
+        if not isinstance(axes, (list, tuple)):
+            axes = [axes]
+        spec = HistogramSpec(
+            name=name,
+            axes=axes,
+            storage=storage,
+            description=description,
+            weights=weights,
+            variations=variations,
+            no_scale=no_scale,
+        )
+        self.makeHistogramFromSpec(sector_id, spec, values, mask=mask)
+
+    def __getStageProcessor(self, sector_id, stage):
+        mapping = {
+            AnalysisStage.Preselection: SectorAnalyzer.Selector(
+                self, sector_id, AnalysisStage.Preselection
+            ),
+            AnalysisStage.Selection: SectorAnalyzer.Selector(
+                self, sector_id, AnalysisStage.Selection
+            ),
+            AnalysisStage.Categorization: SectorAnalyzer.Categorizer(self, sector_id),
+            AnalysisStage.Weights: SectorAnalyzer.Weighter(self, sector_id),
+            AnalysisStage.Histogramming: SectorAnalyzer.Histogrammer(self, sector_id),
+        }
+        return mapping.get(stage)
+
+    def _applySectorToEvents(self, sector, stage):
+        sector_id = sector.sector_id
+        sp = self.__getStageProcessor(sector_id, stage)
+        mapping = {
+            AnalysisStage.Preselection: sector.preselection,
+            AnalysisStage.Selection: sector.selection,
+            AnalysisStage.Categorization: sector.categories,
+            AnalysisStage.Histogramming: sector.histograms,
+            AnalysisStage.ObjectDefinition: sector.objects,
+            AnalysisStage.Weights: sector.weights,
+        }
+        if stage in [AnalysisStage.Preselection]:
+            events = self._sample_events[sector_id.sample_id]
+        elif stage in [AnalysisStage.Selection, AnalysisStage.ObjectDefinition]:
+            events = self._preselected_events[sector_id.sample_id]
+        else:
+            events = self._sector_events[sector_id]
+        params = getParamsForSector(sector_id, self.dataset_repo, self.era_repo)
+        for module in mapping[stage]:
+            if sp:
+                module(events, params, sp)
+            else:
+                module(events, params)
+
+    def runStage(self, stage):
+        for sector in self.sectors:
+            self._applySectorToEvents(sector, stage)
+
+    def applyPreselections(self):
+        for sample_id, events in self._sample_events.items():
+            self._preselected_events[
+                sample_id
+            ] = analyzer.selection_manager.maskPreselection(sample_id, events)
+
+    def applyPreselections(self):
+        for sample_id, events in self._sample_events.items():
+            self._preselected_events[
+                sample_id
+            ] = self.selection_manager.maskPreselection(sample_id, events)
+
+    def applySelection(self):
+        self.selection_manager.addPreselectionMasks()
+        for sector in self.sectors:
+            sector_id = sector.sector_id
+            events = self._preselected_events[sector_id.sample_id]
+            self._sector_events[sector_id] = self.selection_manager.maskSector(
+                sector_id, events
+            )
+
+    def populateCutflows(self):
+        for sector in self.sectors:
+            self._populateCutflow(sector.sector_id)
 
 
 def runAnalysis(analyzer):
-
-    sector_analyzers = analyzer.getSectorAnalyzers()
-    print(sector_analyzers)
-
-    for d in analyzer.datasets_preprocessed:
-        analyzer.sample_events[d.sample_id] = getEvents(d)
-
-    for sa in sector_analyzers:
-        events = analyzer.getEvents(sa.sector.sample_id)
-        sa.applyToEvents(events, AnalysisStage.Preselection)
-
-    for sample_id, events in analyzer.sample_events.items():
-        # events = analyzer.getEvents(sa.sector.sample_id)
-        analyzer.preselected_events[
-            sample_id
-        ] = analyzer.selection_manager.maskPreselection(sample_id, events)
-
-    for sa in sector_analyzers:
-        events = analyzer.preselected_events[sa.sector.sample_id]
-        sa.applyToEvents(events, AnalysisStage.ObjectDefinition)
-
-    for sa in sector_analyzers:
-        events = analyzer.preselected_events[sa.sector.sample_id]
-        sa.applyToEvents(events, AnalysisStage.Selection)
-
-    a.selection_manager.addPreselectionMasks()
-    print(analyzer.selection_manager)
-
-    for sa in sector_analyzers:
-
-        events = analyzer.preselected_events[sa.sector.sample_id]
-        analyzer.sector_events[sa.sector_id] = analyzer.selection_manager.maskSector(
-            sa.sector_id, events
-        )
-
-    for sa in sector_analyzers:
-        events = analyzer.sector_events[sa.sector_id]
-        sa.applyToEvents(events, AnalysisStage.Weights)
-
-    print(analyzer.weight_manager)
-
-    for sa in sector_analyzers:
-        events = analyzer.sector_events[sa.sector_id]
-        sa.applyToEvents(events, AnalysisStage.Categorization)
-
-    for sa in sector_analyzers:
-        events = analyzer.sector_events[sa.sector_id]
-        sa.applyToEvents(events, AnalysisStage.Histogramming)
-
-
-class FakeRepo:
-    def create(self, type, name, **kwargs):
-        return dict(type=type, name=name, **kwargs)
-
-
-def runAnalysisDescription(desc):
-
-    analyzer = Analyzer(desc)
-    sas = []
-
-    # for n,d in analyzer.datasets_preprocessed.items():
-    #    analyzer.sample_events[n] = getEvents(d)
-
-    for sample_id, region_name in desc.getSectors():
-        region = desc.getRegion(region_name)
-        sec = region.getSector(sample_id, FakeRepo())
-        sas.append(SectorAnalyzer(analyzer, sample_id, sec))
-
-    for s in sas:
-        print("=========================")
-        print(s.region)
-        for p in s.region.preselection:
-            print(f"Processing preselection {p}")
-
-        for p in s.region.objects:
-            print(f"Processing preselection {p}")
+    analyzer.preprocessDatasets()
+    analyzer.loadEvents()
+    analyzer.runStage(AnalysisStage.Preselection)
+    analyzer.applyPreselections()
+    analyzer.runStage(AnalysisStage.ObjectDefinition)
+    analyzer.runStage(AnalysisStage.Selection)
+    analyzer.applySelection()
+    analyzer.runStage(AnalysisStage.Weights)
+    analyzer.populateCutflows()
+    analyzer.runStage(AnalysisStage.Categorization)
+    analyzer.runStage(AnalysisStage.Histogramming)
+    return AnalysisResult(
+        description=analyzer.description,
+        preprocessed_samples=analyzer.preprocessed_samples,
+        processed_chunks={},
+        results=analyzer.results,
+    )
 
 
 if __name__ == "__main__":
     import analyzer.modules
     from analyzer.datasets import DatasetRepo, EraRepo
+    from analyzer.logging import setup_logging
+
+    setup_logging(default_level=logging.INFO)
 
     d = yaml.safe_load(open("pydtest.yaml", "r"))
 
     an = AnalysisDescription(**d)
-    print(an)
-
     em = EraRepo()
     em.load("analyzer_resources/eras")
-
     dm = DatasetRepo()
     dm.load("analyzer_resources/datasets")
 
-    r = preprocessBulk(
-        dm,
-        [
-            SampleId("signal_312_2000_1900", "signal_312_2000_1900"),
-            SampleId("signal_312_1500_1400", "signal_312_1500_1400"),
-        ],
-        file_retrieval_kwargs=dict(require_location="eos"),
-    )
-    a = Analyzer(an)
-    a.sample_repo = dm
-    a.era_repo = em
+    a = Analyzer(an, dm, em)
 
-    ss = a.getSectorAnalyzers()
+    import dask
 
-    for x in r:
-        ds = x.getCoffeaDataset(dm, require_location="eos")
-        print(ds)
-        e = getEvents(ds["files"])
-        a.sample_events[x.sample_id] = e[0]
-        a.sample_reports[x.sample_id] = e[1]
+    r = runAnalysis(a)
+    d = r.model_dump()
+    x = dask.compute(d)[0]
+    res = AnalysisResult(**x)
 
-    print(a.sample_events)
-    runAnalysis(a)
-    for s, e in a.sector_events.items():
-        e.visualize(filename="images/{s}.png")
+    # print(res)
+    print(res)
 
+    # for s, e in a._sector_events.items():
+    #    e.visualize(filename=f"images/{s}.svg")
 #
 #    print(ss)
