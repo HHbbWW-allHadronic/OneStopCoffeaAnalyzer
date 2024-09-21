@@ -10,10 +10,44 @@ LimitTo:
 
 
 # Samples and in which regions they should be processed
+
 samples:
   #QCDInclusive2018: All
   signal_312_2000_1900: [Signal312, Control]
   signal_312_1500_1400: [Signal312, Control]
+  signal_312_1000_400: [Signal312, Control]
+  signal_312_1000_600: [Signal312, Control]
+  signal_312_1000_900: [Signal312, Control]
+  signal_312_1200_400: [Signal312, Control]
+  signal_312_1200_600: [Signal312, Control]
+  signal_312_1200_1100: [Signal312, Control]
+  signal_312_1300_400: [Signal312, Control]
+  signal_312_1300_600: [Signal312, Control]
+  signal_312_1300_1200: [Signal312, Control]
+  signal_312_1400_400: [Signal312, Control]
+  signal_312_1400_1300: [Signal312, Control]
+  signal_312_1500_400: [Signal312, Control]
+  signal_312_1500_600: [Signal312, Control]
+  signal_312_1500_900: [Signal312, Control]
+  signal_312_1500_1400: [Signal312, Control]
+  signal_312_2000_400: [Signal312, Control]
+  signal_312_2000_900: [Signal312, Control]
+  signal_312_2000_1900: [Signal312, Control]
+  signal_312_1000_700: [Signal312, Control]
+  signal_312_1000_800: [Signal312, Control]
+  signal_312_1200_1000: [Signal312, Control]
+  signal_312_1200_700: [Signal312, Control]
+  signal_312_1200_800: [Signal312, Control]
+  signal_312_1500_100: [Signal312, Control]
+  signal_312_1500_1000: [Signal312, Control]
+  signal_312_1500_1200: [Signal312, Control]
+  signal_312_1500_1300: [Signal312, Control]
+  signal_312_1500_1350: [Signal312, Control]
+  signal_312_1500_1450: [Signal312, Control]
+  signal_312_2000_1200: [Signal312, Control]
+  signal_312_2000_1600: [Signal312, Control]
+  signal_312_2000_1700: [Signal312, Control]
+
   #signal313: [Signal313, Control]
   #Data2018: [Control]
   #MuonData2018: [SingleMuon]
@@ -54,25 +88,23 @@ common_items:
       #    #- working_point: T
     common_objects: &common_objects
       - name: core_objects
-
-
-common_weights: &common_weights
-  - name: L1_prefiring_sf
-    sample_spec:
-      eras: ["2016", "2017", "2018"]
-      sample_type: MC
-    config:
-      variations: All
-
-#  - name: pileup_scale_factor
-#    sample_spec:
-#      sample_type: MC
-#    config:
-#      variations: All
-
-  - name: sign_gen_weight
-    sample_spec:
-      sample_type: MC
+    common_preselection: &common_preselection
+      - name: golden_lumi_filter
+        sample_spec:
+          sample_type: Data
+    common_weights: &common_weights
+      - name: L1_prefiring_sf
+        sample_spec:
+          eras: ["2016", "2017", "2018"]
+          sample_type: MC
+        config:
+          variations: All
+      - name: sign_gen_weight
+        sample_spec:
+          sample_type: MC
+      - name: pileup_sf
+        sample_spec:
+          sample_type: MC
 
 # A region has a name, followed by description of what modules should be run
 # for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
@@ -101,45 +133,24 @@ regions:
     forbid_data: True
     objects: *common_objects
     preselection:
+      - <<: *common_preselection
       - name: signal_hlt
     selection:
       - name: general_selection
       - name: partial_signal312_selection
     histograms: *common_signal
     weights: *common_weights
-      #- name: btagging_sf
-      #  config:
-      #      working_points: [M,T]
 
   - name: Control
     objects: *common_objects
     preselection:
+      - <<: *common_preselection
       - name: signal_hlt
     selection:
       - name: general_selection
       - name: partial_cr_selection
     histograms: *common_signal
     weights: *common_weights
-      #- name: btagging_sf
-      #  config:
-      #      working_points: [L]
-
-#  - name: SingleMuon
-#    use_region: false
-#    objects: *common_objects
-#    preselection:
-#      - name: single_muon_trigger
-#    preselection_histograms:
-#      - name: preselection_ht
-#    selection:
-#      - name: selection_hlt
-#    histograms:
-#      - name: goodjet_ht
-#    weights:
-#      - <<: *common_weights
-
-# Weights described which weights and variations should be applied to which samples and regions
-# Weights are applied immediately after selection 
 
 PostProcessing:
   - name: Plots

@@ -119,7 +119,6 @@ def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
     from rich import print
 
-    print(fdict)
     return {
         str(sample_id): {
             "files": {x.getFile(**kwargs): x.object_path for x in fdict.values()}
@@ -137,7 +136,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
     )
     out, bad = dst.preprocess(
         all_inputs,
-        # save_form=True,
+        save_form=True,
         skip_bad_files=True,
         uproot_options={"timeout": 30},
         **kwargs,

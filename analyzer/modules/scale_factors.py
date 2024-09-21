@@ -12,6 +12,10 @@ from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
 
 from .utils.btag_points import getBTagWP
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 @MODULE_REPO.register(ModuleType.Weight)
@@ -99,6 +103,25 @@ def btagging_sf(events, params, weight_manager, variations=None, working_points=
         )
     }
     weight_manager.add(f"btag_sf", computeWeight("central", wp_names), s)
+
+
+
+@MODULE_REPO.register(ModuleType.Weight)
+def pileup_sf(events, params, weight_manager, variations=None):
+    path = params['pileup_scale_factors']['file']
+    name =   params['pileup_scale_factors']['name']
+    csset = correctionlib.CorrectionSet.from_file(path)
+    logger.debug(f"Applying pu_sf from file \"{path}\" with name \"{name}\"")
+    logger.info(csset.keys())
+    corr=csset[name]
+    n_pu = events.Pileup.nTrueInt
+    nom = corr.evaluate(n_pu, 'nominal')
+    up = corr.evaluate(n_pu, 'up')
+    down = corr.evaluate(n_pu, 'down')
+    logging.info(nom)
+    logging.info(up)
+    logging.info(down)
+    weight_manager.add(f"pileup_sf", nom, {"inclusive": (up, down)})
 
 
 @MODULE_REPO.register(ModuleType.Weight)

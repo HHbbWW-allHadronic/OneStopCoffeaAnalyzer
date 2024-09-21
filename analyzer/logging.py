@@ -23,7 +23,6 @@ def setup_logging(
     try:
         with open(path, "rt") as f:
             config = yaml.safe_load(f.read())
-        print(config)
         logging.config.dictConfig(config)
     except OSError as e:
         pass

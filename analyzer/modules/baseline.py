@@ -2,6 +2,10 @@ import functools
 import operator as op
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 @MODULE_REPO.register(ModuleType.Selection)

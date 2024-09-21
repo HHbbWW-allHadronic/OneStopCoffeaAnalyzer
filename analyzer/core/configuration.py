@@ -1,18 +1,11 @@
 # from __future__ import annotations
 import enum
 import logging
-from typing import (
-    Any,
-    ClassVar,
-    Optional,
-    Union,
-)
+from typing import Any, ClassVar, Optional, Union
 
 import yaml
-from pydantic import (
-    BaseModel,
-    Field,
-)
+from analyzer.datasets import SampleType
+from pydantic import BaseModel, Field
 from rich import print
 
 logger = logging.getLogger(__name__)
@@ -38,18 +31,16 @@ class HistogramSpec(BaseModel):
 
 
 class SampleSpec(BaseModel):
-    sample_names: Optional[Union[list[str], str]] = None
-    eras: Optional[Union[list[str], str]] = None
-    sample_types: Optional[Union[list[str], str]] = None
+    sample_name: Optional[Union[list[str], str]] = None
+    era: Optional[Union[list[str], str]] = None
+    sample_type: Optional[SampleType] = None
 
     def passes(self, sample):
-        passes_names = not self.sample_names or any(
-            sample.name == x for x in self.sample_names
+        passes_names = not self.sample_name or any(
+            sample.name == x for x in self.sample_name
         )
-        passes_era = not self.eras or any(sample.era == x for x in self.eras)
-        passes_type = not self.sample_types or any(
-            sample.sample_type == x for x in self.sample_types
-        )
+        passes_era = not self.era or any(sample.era == x for x in self.era)
+        passes_type = not self.sample_type or (sample.sample_type == self.sample_type)
         return passes_names and passes_era and passes_type
 
 

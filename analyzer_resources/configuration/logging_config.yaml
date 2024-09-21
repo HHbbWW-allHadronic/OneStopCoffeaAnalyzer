@@ -9,8 +9,6 @@ handlers:
   console:
     class: rich.logging.RichHandler
     level: DEBUG
-
-
   info_file_handler:
     class: logging.handlers.RotatingFileHandler
     level: INFO
@@ -31,7 +29,7 @@ handlers:
 
 loggers:
   analyzer:
-    level: INFO
+    level: DEBUG
     handlers: [console]
     propagate: no
 

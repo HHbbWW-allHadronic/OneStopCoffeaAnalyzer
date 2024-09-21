@@ -6,13 +6,15 @@ from collections import defaultdict, namedtuple
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
-import yaml
-
+import awkward as ak
+import dask
 import pydantic as pyd
+import yaml
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId
+from analyzer.utils.file_tools import extractCmsLocation, stripPort
 from analyzer.utils.structure_tools import accumulate
-from analyzer.utils.file_tools import stripPort, extractCmsLocation
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from coffea.util import decompress_form
 from rich import print
 
 from .analysis_modules import MODULE_REPO
@@ -23,10 +25,8 @@ from .preprocessed import Chunk, SamplePreprocessed, preprocessBulk
 from .sector import Sector, SectorId, getParamsForSector
 from .selection import Cutflow, SelectionManager
 from .weights import WeightManager
-import awkward as ak
-import dask
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer.core")
 
 
 def getSectionHash(am_descs):
@@ -49,6 +49,8 @@ class SampleCutflow(pyd.BaseModel):
     weighted_sum: Scalar
 
     def __add__(self, other):
+        """Two cutflows may be sumed by simply adding them"""
+
         return SampleCutflow(
             cutflow=self.cutflow + other.cutflow,
             weighted_sum=self.weighted_sum + other.weighted_sum,
@@ -56,12 +58,16 @@ class SampleCutflow(pyd.BaseModel):
 
 
 class SectorResult(pyd.BaseModel):
+
     params: dict[str, Any]
     histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     cutflow_data: Optional[SampleCutflow] = None
 
     def __add__(self, other):
+        """Two sector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
         if self.params != other.params:
             raise RuntimeError(
                 f"Error: Attempting to merge incomaptible analysis results"
@@ -82,7 +88,35 @@ class AnalysisResult(pyd.BaseModel):
     processed_chunks: dict[SampleId, Any]
     results: dict[SectorId, SectorResult]
 
+    @property
+    def raw_events_processed(self):
+        return {
+            sample_id: sum(e - s for _, s, e in chunks)
+            for sample_id, chunks in self.results
+        }
+
+    def getBadChunks(self):
+        ret = {
+            self.preprocessed_samples[n].difference(self.processed_chunks[n])
+            for n in self.preprocessed_samples
+        }
+        return ret
+
+    def getMissingPreprocessed(self):
+        logger.debug(f"")
+        prepped = copy.deepcopy(self.preprocessed_samples)
+        bad_chunks = self.getBadChunks()
+        for p in prepped:
+            logger.debug(f"Sample {p.sample_id} has {len(bad_chunks[p])} bad chunks.")
+            prepped[p].limit_chunks = bad_chunks[p]
+        return prepped
+
     def __add__(self, other):
+        """Add two analysis results together.
+        Two results may be added if they come from the same configuration, and do not have any overlapping
+        chunks.
+        """
+
         if self.description != other.description:
             raise RuntimeError(
                 f"Error: Attempting to merge incomaptible analysis results"
@@ -147,6 +181,7 @@ class SectorAnalyzer:
         def H(self, *args, **kwargs):
             return self.parent.makeHistogram(self.sector_id, *args, **kwargs)
 
+
 @dask.delayed
 def getProcessedChunks(run_report):
     good_mask = ak.is_none(run_report["exception"])
@@ -159,7 +194,6 @@ def getProcessedChunks(run_report):
         )
         for x in rr
     }
-
 
 
 @dataclass
@@ -182,7 +216,7 @@ class Analyzer:
         default_factory=lambda: defaultdict(dict)
     )
 
-    sectors: list[SectorId] = field(default_factory=list)
+    sectors: list[Sector] = field(default_factory=list)
 
     results: dict[SectorId, SectorResult] = field(default_factory=dict)
 
@@ -196,20 +230,39 @@ class Analyzer:
             params = getParamsForSector(sector_id, self.dataset_repo, self.era_repo)
             self.results[sector_id] = SectorResult(params=params)
 
+    def dropEmptySectors(self):
+        new = [
+            x
+            for x in self.sectors
+            if x.sector_id.sample_id in self.preprocessed_samples
+        ]
+        logger.debug(f"Dropping {len(self.sectors) - len(new)} empty sectors.")
+        self.sectors = new
+
     def preprocessDatasets(self, **kwargs):
         chunk_size = self.description.general_config.get("chunk_size", 100000)
+        file_args = self.description.general_config["file_retrieval"]
+        logger.debug(f"Preprocessing samples with chunk size {chunk_size}")
+        logger.debug(f"Preprocessing with file retrieval arguments:\n{file_args}")
+
         r = preprocessBulk(
             self.dataset_repo,
             set(x.sector_id.sample_id for x in self.sectors),
             step_size=chunk_size,
-            file_retrieval_kwargs=self.description.general_config["file_retrieval"],
+            file_retrieval_kwargs=file_args,
         )
         self.preprocessed_samples = {x.sample_id: x for x in r}
 
     def loadEvents(self, **kwargs):
         file_args = self.description.general_config["file_retrieval"]
+        logger.debug(f"Loading with file retrieval arguments:\n{file_args}")
         for sample_id, spre in self.preprocessed_samples.items():
             ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
+            if spre.form is not None:
+                maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
+            else:
+                maybe_base_form = None
+            logger.debug(f"Loading events for sample {sample_id}.")
             events, report = NanoEventsFactory.from_root(
                 ds["files"],
                 schemaclass=NanoAODSchema,
@@ -217,7 +270,7 @@ class Analyzer:
                     allow_read_errors_with_report=True,
                     timeout=30,
                 ),
-                known_base_form=spre.form,
+                known_base_form=maybe_base_form,
             ).events()
             self._sample_events[sample_id] = events
             self._sample_reports[sample_id] = report
@@ -235,15 +288,20 @@ class Analyzer:
             region = self.description.getRegion(region_name)
             for sample in dataset.samples:
                 sector = Sector.fromRegion(region, sample, MODULE_REPO)
+                logger.debug(f"Registered sector {sector.sector_id}")
                 ret.append(sector)
 
         return ret
 
     def addWeight(self, sector_id, name, central, variations=None):
+        logger.debug(
+            f'Sector[{sector_id}] adding weight "{name}" with {len(variations or [])} variations.'
+        )
         varia = variations or {}
         self.weight_manager.add(sector_id, name, central, varia)
 
     def addCategory(self, sector_id, category):
+        logger.debug(f'Sector[{sector_id}] adding category "{category.name}"')
         self.categories[sector_id][category.name] = category
 
     def addSelection(self, sector_id, name, mask, type="and", stage="preselection"):
@@ -369,27 +427,49 @@ class Analyzer:
         for sector in self.sectors:
             self._populateCutflow(sector.sector_id)
 
+
 def runAnalysis(analyzer):
-    analyzer.preprocessDatasets()
+    if not analyzer.preprocessed_samples:
+        logger.info(f"Analyzer does not already have preprocessed samples.")
+        analyzer.preprocessDatasets()
+    # When patching results, we may have sectors with no preprocessing object
+    # since all the events have already been processed succesfully.
+    analyzer.dropEmptySectors()
+    logger.info(f"Running analysis with {len(analyzer.sectors)} sectors.")
     analyzer.loadEvents()
+
     analyzer.runStage(AnalysisStage.Preselection)
+
     analyzer.applyPreselections()
+
     analyzer.runStage(AnalysisStage.ObjectDefinition)
     analyzer.runStage(AnalysisStage.Selection)
+
     analyzer.applySelection()
+
     analyzer.runStage(AnalysisStage.Weights)
+
     analyzer.populateCutflows()
+
     analyzer.runStage(AnalysisStage.Categorization)
     analyzer.runStage(AnalysisStage.Histogramming)
 
-
+    logger.info(f"Finished lazy results construction")
 
     return AnalysisResult(
         description=analyzer.description,
         preprocessed_samples=analyzer.preprocessed_samples,
-        processed_chunks={s:getProcessedChunks(r) for s,r in analyzer._sample_reports.items()},
+        processed_chunks={
+            s: getProcessedChunks(r) for s, r in analyzer._sample_reports.items()
+        },
         results=analyzer.results,
     )
+
+
+def makeResultPatch(self, result, dataset_repo, era_repo):
+    missing = result.getMissingPreprocessed()
+    new_analyzer = Analyzer(result.description, dataset_repo, era_repo)
+    new_analyzer.preprocessed_samples = missing
 
 
 if __name__ == "__main__":
@@ -410,9 +490,11 @@ if __name__ == "__main__":
     a = Analyzer(an, dm, em)
 
     import dask
+    from distributed import Client
 
-    r = runAnalysis(a)
-    d = r.model_dump()
+    client = Client()
+    res = runAnalysis(a)
+    d = res.model_dump()
     x = dask.compute(d)[0]
     res = AnalysisResult(**x)
 
@@ -422,4 +504,3 @@ if __name__ == "__main__":
     # for s, e in a._sector_events.items():
     #    e.visualize(filename=f"images/{s}.svg")
 #
-#    print(ss)

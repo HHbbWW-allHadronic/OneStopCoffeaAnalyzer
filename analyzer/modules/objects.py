@@ -1,6 +1,9 @@
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
 from .utils.btag_points import getBTagWP
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def makeCutSet(x, s, args):
@@ -11,6 +14,8 @@ def core_objects(events, params):
     good_jets = events.Jet[(events.Jet.pt > 30) & (abs(events.Jet.eta) < 2.4)]
     fat_jets = events.FatJet[(events.FatJet.pt > 30) & (abs(events.FatJet.eta) < 2.4)]
     bwps = getBTagWP(params)
+
+    logger.info(f"B-tagging workign points for {params['name']} are:\n {bwps}")
 
     loose_b, med_b, tight_b = makeCutSet(
         good_jets,

@@ -121,4 +121,4 @@ def getParamsForSector(sector_id, dataset_repo, era_repo):
     dataset = dataset_repo[sample_id.dataset_name]
     sample = dataset.getSample(sample_id.sample_name)
     era = era_repo[sample.era]
-    return {**era.params, **sample.params}
+    return {**era.params, **sample.params, "sector_id" : sector_id}
