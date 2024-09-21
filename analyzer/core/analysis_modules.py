@@ -91,9 +91,11 @@ class ModuleRepo:
         type = analyzer_module.type
         name = analyzer_module.name
         self.modules[type][name] = analyzer_module
+        return analyzer_module
 
     def __registerModuleClass(self, analyzer_module):
         self.__registerInstance(analyzer_module())
+        return analyzer_module
 
     def __registerFunction(self, function: Callable, module_type: ModuleType):
         name = function.__name__
@@ -104,6 +106,7 @@ class ModuleRepo:
             description=function.__doc__,
         )
         self.modules[module_type][name] = analyzer_module
+        return function
         #print(self.modules)
 
 

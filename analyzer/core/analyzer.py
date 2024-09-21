@@ -1,8 +1,10 @@
 # from __future__ import annotations
+import concurrent.futures
 import copy
+import functools as ft
 import json
 import logging
-from collections import defaultdict, namedtuple
+from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Any, Optional, Union
 
@@ -10,21 +12,33 @@ import awkward as ak
 import dask
 import pydantic as pyd
 import yaml
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId
-from analyzer.utils.file_tools import extractCmsLocation, stripPort
+from analyzer.configuration import CONFIG
+from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
+from analyzer.utils.file_tools import extractCmsLocation
 from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
+from distributed import Client
 from rich import print
 
 from .analysis_modules import MODULE_REPO
 from .common_types import Scalar
-from .configuration import AnalysisDescription, AnalysisStage, HistogramSpec
-from .histograms import HistogramCollection, generateHistogramCollection
-from .preprocessed import Chunk, SamplePreprocessed, preprocessBulk
-from .sector import Sector, SectorId, getParamsForSector
+from .configuration import AnalysisDescription, AnalysisStage
+from .histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
+from .preprocessed import SamplePreprocessed, preprocessBulk
+from .sector import Sector, SectorId, SectorParams, getParamsForSector
 from .selection import Cutflow, SelectionManager
 from .weights import WeightManager
+
+if CONFIG.PRETTY_MODE:
+    from rich.console import Console
+    from rich.progress import (
+        BarColumn,
+        MofNCompleteColumn,
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+    )
 
 logger = logging.getLogger("analyzer.core")
 
@@ -46,20 +60,38 @@ class SampleCutflow(pyd.BaseModel):
     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 
     cutflow: Cutflow
-    weighted_sum: Scalar
+    raw_passed: Scalar
+    weighted_sum: Optional[tuple[Scalar, Scalar]]
 
     def __add__(self, other):
         """Two cutflows may be sumed by simply adding them"""
 
         return SampleCutflow(
             cutflow=self.cutflow + other.cutflow,
-            weighted_sum=self.weighted_sum + other.weighted_sum,
+            raw_passed=self.raw_passed + other.raw_passed,
+            weighted_sum=(
+                (self.weighted_sum[0] + other.weighted_sum[0]),
+                (self.weighted_sum[1] + other.weighted_sum[1]),
+            ),
+        )
+
+    def scaled(self, scale):
+        if self.weighted_sum:
+            nws = (
+                self.weighted_sum[0] * scale,
+                self.weighted_sum[1] * (scale**2),
+            )
+        else:
+            nws = None
+        return SampleCutflow(
+            cutflow=self.cutflow,
+            raw_passed=self.raw_passed,
+            weighted_sum=nws,
         )
 
 
 class SectorResult(pyd.BaseModel):
-
-    params: dict[str, Any]
+    params: SectorParams
     histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     cutflow_data: Optional[SampleCutflow] = None
@@ -81,12 +113,68 @@ class SectorResult(pyd.BaseModel):
             cutflow_data=self.cutflow_data + other.cutflow_data,
         )
 
+    def scaled(self, scale):
+        return SectorResult(
+            params=self.params,
+            histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
+            other_data=self.other_data,
+            cutflow_data=self.cutflow_data.scaled(scale),
+        )
+
+
+class DatasetResult(pyd.BaseModel):
+    dataset_params: dict[str, Any]
+    era_params: dict[str, Any]
+    histograms: dict[str, HistogramCollection]
+    other_data: dict[str, Any]
+    cutflow_data: Optional[SampleCutflow]
+
+    @staticmethod
+    def fromSectorResult(sector_result):
+        return DatasetResult(
+            dataset_params=sector_result.params.dataset_params,
+            era_params=sector_result.params.era_params,
+            histograms=sector_result.histograms,
+            other_data=sector_result.other_data,
+            cutflow_data=sector_result.cutflow_data,
+        )
+
+    def scaled(self, scale):
+        return DatasetResult(
+            dataset_params=self.dataset_params,
+            era_params=self.era_params,
+            histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
+            other_data=self.other_data,
+            cutflow_data=self.cutflow_data.scaled(scale),
+        )
+
+    def __add__(self, other):
+        """Two sector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        if (
+            self.dataset_params != other.dataset_params
+            or self.era_params != other.era_params
+        ):
+            raise RuntimeError(f"Error: Attempting to merge incomaptible results")
+        new_hists = accumulate([self.histograms, other.histograms])
+        new_other = accumulate([self.other_data, other.other_data])
+        return DatasetResult(
+            dataset_params=self.dataset_params,
+            era_params=self.era_params,
+            histograms=new_hists,
+            other_data=new_other,
+            cutflow_data=self.cutflow_data + other.cutflow_data,
+        )
+
 
 class AnalysisResult(pyd.BaseModel):
+    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
     description: AnalysisDescription
     preprocessed_samples: dict[SampleId, SamplePreprocessed]
     processed_chunks: dict[SampleId, Any]
     results: dict[SectorId, SectorResult]
+    total_mc_weights: dict[SampleId, Optional[Scalar]]
 
     @property
     def raw_events_processed(self):
@@ -140,6 +228,17 @@ class AnalysisResult(pyd.BaseModel):
             processed_chunks=self.processed_chunks,
             results=new_results,
         )
+
+    def getResults(self):
+        scaled_sample_results = defaultdict(list)
+        for sector_id, result in self.results.items():
+            k = (sector_id.sample_id.dataset_name, sector_id.region_name)
+            if result.params.sample_type == SampleType.MC:
+                result = result.scaled(1 / self.total_mc_weights[sector_id.sample_id])
+
+            scaled_sample_results[k].append(DatasetResult.fromSectorResult(result))
+
+        return {x: ft.reduce(sum, y) for x, y in scaled_sample_results.items()}
 
 
 class SectorAnalyzer:
@@ -253,27 +352,40 @@ class Analyzer:
         )
         self.preprocessed_samples = {x.sample_id: x for x in r}
 
+    @staticmethod
+    def __loadOne(sample_id, files, maybe_base_form):
+        logger.debug(f"Loading events for sample {sample_id}.")
+        events, report = NanoEventsFactory.from_root(
+            files,
+            schemaclass=NanoAODSchema,
+            uproot_options=dict(
+                allow_read_errors_with_report=True,
+                timeout=30,
+            ),
+            known_base_form=maybe_base_form,
+        ).events()
+        return sample_id, events, report
+
     def loadEvents(self, **kwargs):
         file_args = self.description.general_config["file_retrieval"]
         logger.debug(f"Loading with file retrieval arguments:\n{file_args}")
-        for sample_id, spre in self.preprocessed_samples.items():
-            ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
-            if spre.form is not None:
-                maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
-            else:
-                maybe_base_form = None
-            logger.debug(f"Loading events for sample {sample_id}.")
-            events, report = NanoEventsFactory.from_root(
-                ds["files"],
-                schemaclass=NanoAODSchema,
-                uproot_options=dict(
-                    allow_read_errors_with_report=True,
-                    timeout=30,
-                ),
-                known_base_form=maybe_base_form,
-            ).events()
-            self._sample_events[sample_id] = events
-            self._sample_reports[sample_id] = report
+        futures = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
+            for sample_id, spre in self.preprocessed_samples.items():
+                ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
+                if spre.form is not None:
+                    maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
+                else:
+                    maybe_base_form = None
+                f = executor.submit(
+                    Analyzer.__loadOne, sample_id, ds["files"], maybe_base_form
+                )
+                futures.append(f)
+            for future in concurrent.futures.as_completed(futures):
+                logger.debug(f"Done loading events for sample {sample_id}.")
+                r = future.result()
+                self._sample_events[r[0]] = r[1]
+                self._sample_reports[r[0]] = r[2]
 
     def _getSectors(self):
         s_pairs = []
@@ -309,13 +421,48 @@ class Analyzer:
 
     def _populateCutflow(self, sector_id):
         cf = self.selection_manager.getCutflow(sector_id)
-        total_weight = self.weight_manager.totalWeight(sector_id)
+        is_mc = (
+            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            == SampleType.MC
+        )
+        if is_mc:
+            weighted_sum = self.weight_manager.totalWeight(sector_id)
+        else:
+            weighted_sum = None
+
+        raw = ak.num(self._sector_events[sector_id], axis=0)
+
         self.results[sector_id].cutflow_data = SampleCutflow(
-            cutflow=cf, weighted_sum=total_weight
+            cutflow=cf, raw_passed=raw, weighted_sum=weighted_sum
         )
 
+    def getTotalMcWeights(self):
+        def totalGen(ds_name, sample_name, e):
+            ds = self.dataset_repo[ds_name]
+            if not ds.sample_type == SampleType.MC:
+                return None
+            if ds.skimmed_from:
+                return totalGen(ds.skimmed_from, sample_name, e)
+            return ds.getSample(sample_name).n_events
+            # if self.dataset_repo[sample_id.dataset_name].sample_type == SampleType.MC:
+            #    return ak.sum(e.genWeight, axis=0)
+            # else:
+            #    return None
+
+        ret = {
+            sample_id: totalGen(sample_id.dataset_name, sample_id.sample_name, e)
+            for sample_id, e in self._sample_events.items()
+        }
+        return {x: y for x, y in ret.items() if y is not None}
+
     def makeHistogramFromSpec(self, sector_id, spec: HistogramSpec, values, mask=None):
-        sector_weighter = self.weight_manager.getSectorWeighter(sector_id)
+        if (
+            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            == SampleType.Data
+        ):
+            sector_weighter = None
+        else:
+            sector_weighter = self.weight_manager.getSectorWeighter(sector_id)
         hc = generateHistogramCollection(
             spec,
             values,
@@ -338,17 +485,24 @@ class Analyzer:
         mask=None,
         storage="weight",
     ):
+        if (
+            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            == SampleType.Data
+        ):
+            variations = []
+            weights = []
+        else:
+            if weights is None:
+                weights = self.weight_manager.weight_names(sector_id)
 
-        if weights is None:
-            weights = self.weight_manager.weight_names(sector_id)
-
-        if variations is None:
-            variations = self.weight_manager.variations(sector_id)
+            if variations is None:
+                variations = self.weight_manager.variations(sector_id)
 
         logger.debug(f"Creating histogram {weights}")
 
         if not isinstance(axes, (list, tuple)):
             axes = [axes]
+
         spec = HistogramSpec(
             name=name,
             axes=axes,
@@ -438,6 +592,7 @@ def runAnalysis(analyzer):
     logger.info(f"Running analysis with {len(analyzer.sectors)} sectors.")
     analyzer.loadEvents()
 
+    mc_weights = analyzer.getTotalMcWeights()
     analyzer.runStage(AnalysisStage.Preselection)
 
     analyzer.applyPreselections()
@@ -463,6 +618,7 @@ def runAnalysis(analyzer):
             s: getProcessedChunks(r) for s, r in analyzer._sample_reports.items()
         },
         results=analyzer.results,
+        total_mc_weights=mc_weights,
     )
 
 
@@ -479,7 +635,7 @@ if __name__ == "__main__":
 
     setup_logging(default_level=logging.INFO)
 
-    d = yaml.safe_load(open("pydtest.yaml", "r"))
+    d = yaml.safe_load(open("configurations/test_config.yaml", "r"))
 
     an = AnalysisDescription(**d)
     em = EraRepo()
@@ -489,9 +645,6 @@ if __name__ == "__main__":
 
     a = Analyzer(an, dm, em)
 
-    import dask
-    from distributed import Client
-
     client = Client()
     res = runAnalysis(a)
     d = res.model_dump()
@@ -499,8 +652,11 @@ if __name__ == "__main__":
     res = AnalysisResult(**x)
 
     # print(res)
-    print(res)
+    # print(res)
+    import pickle as pkl
+
+    with open("result.pkl", "wb") as f:
+        pkl.dump(res, f)
 
     # for s, e in a._sector_events.items():
     #    e.visualize(filename=f"images/{s}.svg")
-#

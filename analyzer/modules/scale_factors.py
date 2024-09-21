@@ -112,7 +112,6 @@ def pileup_sf(events, params, weight_manager, variations=None):
     name =   params['pileup_scale_factors']['name']
     csset = correctionlib.CorrectionSet.from_file(path)
     logger.debug(f"Applying pu_sf from file \"{path}\" with name \"{name}\"")
-    logger.info(csset.keys())
     corr=csset[name]
     n_pu = events.Pileup.nTrueInt
     nom = corr.evaluate(n_pu, 'nominal')
@@ -129,4 +128,4 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
     nom = events.L1PreFiringWeight["Nom"]
     up = events.L1PreFiringWeight["Up"]
     down = events.L1PreFiringWeight["Dn"]
-    weight_manager.add(f"l1_prefire", nom, {"inclusive": (up, down)})
+    weight_manager.add(f"L1_prefire", nom, {"inclusive": (up, down)})

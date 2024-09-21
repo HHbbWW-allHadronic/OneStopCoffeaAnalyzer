@@ -28,7 +28,6 @@ from urllib.parse import urlparse, urlunparse
 import pydantic as pyd
 import yaml
 from analyzer.utils.file_tools import extractCmsLocation, stripPort
-from coffea.dataset_tools.preprocess import DatasetSpec
 from pydantic import (
     BaseModel,
     Field,
@@ -217,6 +216,7 @@ class Sample(BaseModel):
     x_sec: Optional[float] = None  # Only needed if SampleType == MC
     files: List[SampleFile] = Field(default_factory=list)
     cms_dataset_regex: Optional[str] = None
+    total_gen_weight: Optional[str] = None
     _parent_dataset: Optional["Dataset"] = None
 
     @cached_property
@@ -241,7 +241,10 @@ class Sample(BaseModel):
 
     @property
     def params(self):
-        return {**self._parent_dataset.params, **self.dict(exclude=["files"])}
+        return {
+            "dataset_params": self._parent_dataset.params,
+            "sample_params": self.dict(exclude=["files"]),
+        }
 
     def useFilesFromReplicaCache(self):
         from analyzer.configuration import getConfiguration
@@ -305,6 +308,7 @@ class Dataset(BaseModel):
     samples: List[Sample] = Field(default_factory=list)
     lumi: Optional[float] = None
     other_data: dict[str, Any] = Field(default_factory=dict)
+    skimmed_from: Optional[str] = None
 
     @property
     def params(self):
@@ -331,17 +335,29 @@ class Dataset(BaseModel):
                 "lumi": values.get("lumi"),
                 "sample_type": values["sample_type"],
                 "other_data": values.get("other_data", {}),
+                "skimmed_from": values.get("skimmed_from"),
                 "samples": [sample],
             }
             return top_level
         else:
             return values
 
-    # you can select multiple fields, or use '*' to select all fields
     @model_validator(mode="after")
     def refParent(self):
         for sample in self.samples:
             sample._parent_dataset = self
+            if (
+                self.skimmed_from
+                and self.sample_type == SampleType.MC
+                and not sample.total_gen_weight
+            ):
+                raise ValueError(
+                    f"Dataset {self.name} is marked as a skim, but "
+                    f'it\'s subsample {sample.name} does not have a "total_gen_weight". '
+                    f"Skimmed samples must contain this field. "
+                    f'You can find the gen weight by running over the parent dataset "{self.skimmed_from}", '
+                    f'and consulting the "total_gen_weight" in the result.'
+                )
         return self
 
 

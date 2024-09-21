@@ -10,6 +10,7 @@ import dataclasses
 class Era(BaseModel):
     name: str
     energy: float
+    lumi: float
     golden_json: str
 
     trigger_names: dict[str,str] = Field(default_factory=dict)

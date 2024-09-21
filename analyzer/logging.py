@@ -4,7 +4,6 @@ import os
 from pathlib import Path
 
 import yaml
-import rich.logging
 from analyzer.configuration import CONFIG
 
 

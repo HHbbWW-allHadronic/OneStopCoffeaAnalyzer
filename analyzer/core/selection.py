@@ -1,18 +1,20 @@
 import functools as ft
+import logging
 import operator as op
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from analyzer.datasets import SampleId
 from analyzer.utils.structure_tools import accumulate
 from coffea.analysis_tools import PackedSelection
 from pydantic import BaseModel, ConfigDict
-from rich import print
 
 from .common_types import Scalar
 from .configuration import AnalysisStage
 from .sector import SectorId
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -22,9 +24,9 @@ class Selection:
 
     def addOne(self, name, type="and"):
         if type == "and":
-            s = Selection(tuple(), (name,))
+            s = Selection(or_names=tuple(), and_names=(name,))
         else:
-            s = Selection((name,), tuple())
+            s = Selection(or_names=(name,), and_names=tuple())
         return self.merge(s)
 
     def merge(self, other):
@@ -127,11 +129,9 @@ class SampleSelection:
 
         nmo = sel.nminusone(*names).result()
         cutflow = sel.cutflow(*names).result()
-
-        onecut = list(map(tuple, zip(names, cutflow.nevonecut)))
-        cumcuts = list(map(tuple, zip(names, cutflow.nevcutflow)))
-        nmocuts = list(map(tuple, zip(names, nmo.nev)))
-
+        onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
+        cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
+        nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
         return Cutflow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
 
 
@@ -150,10 +150,14 @@ class SelectionManager:
     def register(
         self, sector_id, name, mask, type="and", stage=AnalysisStage.Preselection
     ):
+        logger.debug(
+            f'Adding selection cut "{name}" of type "{type}" for stage "{stage}" for {sector_id}'
+        )
         self.selections[sector_id] = self.selections[sector_id].addOne(name, type=type)
         self.selection_masks[sector_id.sample_id].addMask(name, mask, stage=stage)
 
     def maskPreselection(self, sample_id, events):
+        logger.debug(f'Applying preselection mask  for "{sample_id}"')
         mask = self.selection_masks[sample_id].getPreselectionMask()
         self.__computed_preselections[sample_id] = mask
         if mask is None:
@@ -163,10 +167,14 @@ class SelectionManager:
 
     def addPreselectionMasks(self):
         for sample_id, sel in self.selection_masks.items():
+            logger.debug(
+                f'Adding preselection mask to selection mask for "{sample_id}"'
+            )
             m = self.__computed_preselections[sample_id]
             sel.addPreselectionMaskToSelection(m)
 
     def maskSector(self, sector_id, events):
+        logger.debug(f'Applying selection mask  for "{sector_id}"')
         s = self.selections[sector_id]
         sample_id = sector_id.sample_id
         mask = self.selection_masks[sample_id].getMask(
@@ -181,4 +189,5 @@ class SelectionManager:
         sid = sector_id.sample_id
         sel = self.selections[sector_id]
         all_names = sel.or_names + sel.and_names
+        print(all_names)
         return self.selection_masks[sid].getCutflow(all_names)

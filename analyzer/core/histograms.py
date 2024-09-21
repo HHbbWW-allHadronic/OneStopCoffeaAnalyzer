@@ -1,22 +1,28 @@
+import copy
 import logging
-from collections import defaultdict
-from dataclasses import dataclass
-from typing import (
-    Union,
-)
-
+from typing import Any, Union, Optional
 
 import awkward as ak
 import hist
 import hist.dask as dah
-
-from .configuration import HistogramSpec
 from analyzer.utils.structure_tools import accumulate
 from pydantic import BaseModel, ConfigDict
 
 Hist = Union[hist.Hist, dah.Hist]
 
 logger = logging.getLogger(__name__)
+
+
+class HistogramSpec(BaseModel):
+    name: str
+    axes: list[Any]
+    storage: str = "weight"
+    description: str
+    weights: list[str]
+    variations: list[str]
+    no_scale: bool = False
+    include_unweighted: bool = True
+
 
 class HistogramCollection(BaseModel):
     """A histogram needs to keep track of both its nominal value and any variations."""
@@ -26,14 +32,29 @@ class HistogramCollection(BaseModel):
     spec: HistogramSpec
     histogram: Hist
     variations: dict[str, Hist]
+    unweighted: Optional[Hist] = None
 
     def __add__(self, other):
         if self.spec != other.spec:
             raise ValueError(f"Cannot add two incomatible histograms")
+        if self.unweighted is not None:
+            new_un = self.unweighted + other.unweighted
+        else:
+            new_un = None
         return HistogramCollection(
             spec=self.spec,
             histogram=self.histogram + other.histogram,
             variations=accumulate([self.variations, other.variations]),
+            unweighted=new_un,
+        )
+
+    def scaled(self, scale):
+        if self.spec.no_scale:
+            return self
+        return HistogramCollection(
+            spec=self.spec,
+            histogram=self.histogram * scale,
+            variations={x: scale * y for x, y in self.variations.items()},
         )
 
 
@@ -72,10 +93,12 @@ def makeHistogram(spec, category_info, fill_data, weight, mask=None):
     all_axes = [x.axis for x in category_info] + spec.axes
     cat_values = [transformToFill(represenative, x.values, mask) for x in category_info]
     all_values = cat_values + [maybeFlatten(x) for x in fill_data]
-
-    real_weight = transformToFill(represenative, weight, mask)
     histogram = dah.Hist(*all_axes, storage=spec.storage)
-    histogram.fill(*all_values, weight=real_weight)
+    if weight is not None:
+        real_weight = transformToFill(represenative, weight, mask)
+        histogram.fill(*all_values, weight=real_weight)
+    else:
+        histogram.fill(*all_values)
     return histogram
 
 
@@ -83,20 +106,32 @@ def generateHistogramCollection(
     spec,
     fill_data,
     categories,
-    weight_repo,
+    weight_repo=None,
     mask=None,
 ):
 
     variations = spec.variations
     include = spec.weights or []
-    central_weight = weight_repo.weight(modifier=None)
+    if weight_repo:
+        central_weight = weight_repo.weight(modifier=None)
+        logger.debug(
+            f'Creating histogram collection "{spec.name}":\nWeights: {include}\nVariations:{variations}'
+        )
+    else:
+        logger.debug(f'Creating UNWEIGHTED histogram collection "{spec.name}"')
+        central_weight = None
+
     base_histogram = makeHistogram(spec, categories, fill_data, central_weight, mask)
+    if not weight_repo:
+        return HistogramCollection(spec=spec, histogram=base_histogram, variations={})
+    if spec.include_unweighted:
+        un_histogram = makeHistogram(spec, categories, fill_data, None, mask)
+
     vh = {}
-    logger.debug(f"Creating histogram collection \"{spec.name}\":\n Weights: {include}\nVariations:{variations}")
     for variation in variations:
         w = weight_repo.weight(modifier=variation)
         h = makeHistogram(spec, categories, fill_data, w, mask)
         vh[variation] = h
-    return HistogramCollection(spec=spec, histogram=base_histogram, variations=vh)
-
-
+    return HistogramCollection(
+        spec=spec, histogram=base_histogram, variations=vh, unweighted=un_histogram
+    )

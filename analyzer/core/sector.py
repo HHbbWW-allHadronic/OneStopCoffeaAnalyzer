@@ -1,14 +1,17 @@
+import functools as ft
 import itertools as it
+from collections import ChainMap
 from dataclasses import dataclass, field
+from typing import Any
 
+import pydantic as pyd
 from analyzer.datasets import SampleId
 
 from .analysis_modules import AnalyzerModule, ModuleType
-from collections import namedtuple
-import pydantic as pyd
+from .exceptions import AnalysisConfigurationError
 
 
-#SectorId= namedtuple("SectorId", "sample_id region_name")
+# SectorId= namedtuple("SectorId", "sample_id region_name")
 @pyd.dataclasses.dataclass(frozen=True)
 class SectorId:
     sample_id: SampleId
@@ -116,9 +119,51 @@ class Sector:
         )
 
 
+@dataclass
+class SectorParams:
+    era_params: dict[str, Any]
+    dataset_params: dict[str, Any]
+    sample_params: dict[str, Any]
+    sector_id: SectorId
+
+    @ft.cached_property
+    def _all_params(self):
+        def notNone(m):
+            return {x: y for x, y in m.items() if y is not None}
+
+        ret = ChainMap(
+            notNone(self.sample_params),
+            notNone(self.dataset_params),
+            notNone(self.era_params),
+        )
+        return ret
+
+    def __getitem__(self, key):
+        if key == "sector_id":
+            return self.sector_id
+        return self._all_params[key]
+
+    def __getattr__(self, attr):
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError
+        return self[attr]
+
+
+__sector_param_cache ={}
 def getParamsForSector(sector_id, dataset_repo, era_repo):
+    if sector_id in __sector_param_cache:
+        return __sector_param_cache[sector_id]
+
     sample_id = sector_id.sample_id
     dataset = dataset_repo[sample_id.dataset_name]
     sample = dataset.getSample(sample_id.sample_name)
+    sp = sample.params
     era = era_repo[sample.era]
-    return {**era.params, **sample.params, "sector_id" : sector_id}
+    p =  SectorParams(
+        era_params=era.params,
+        sample_params=sp["sample_params"],
+        dataset_params=sp["dataset_params"],
+        sector_id=sector_id,
+    )
+    __sector_param_cache[sector_id] = p
+    return p

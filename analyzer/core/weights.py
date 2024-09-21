@@ -1,14 +1,12 @@
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import (
-    Any,
-)
+from typing import Any
+
 import awkward as ak
-
-
 from coffea.analysis_tools import Weights
 
 from .sector import SectorId
+
 
 @dataclass
 class WeightManager:
@@ -22,9 +20,13 @@ class WeightManager:
         if variations:
             systs = [(x, *y) for x, y in variations.items()]
             name, up, down = list(map(list, zip(*systs)))
-            self.weights[sector_id].add_multivariation(weight_name, central, name, up, down)
+            self.weights[sector_id].add_multivariation(
+                weight_name, central, name, up, down
+            )
         else:
             self.weights[sector_id].add(weight_name, central)
+
+
 
     def variations(self, sector_id):
         return list(self.weights[sector_id].variations)
@@ -33,7 +35,10 @@ class WeightManager:
         return list(self.weights[sector_id]._weights)
 
     def totalWeight(self, sector_id):
-        return ak.sum(self.weight(sector_id),axis=0)
+        return (
+            ak.sum(self.weight(sector_id), axis=0),
+            ak.sum(self.weight(sector_id) ** 2, axis=0),
+        )
 
     def weight(self, sector_id, modifier=None, include=None, exclude=None):
         inc = include or []

@@ -2,7 +2,6 @@ import copy
 import itertools as it
 import logging
 from collections import namedtuple
-from dataclasses import dataclass
 from typing import Any, Optional
 
 import analyzer.utils.structure_tools as utils
@@ -117,7 +116,6 @@ class SamplePreprocessed(pyd.BaseModel):
 
 def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
-    from rich import print
 
     return {
         str(sample_id): {
@@ -127,16 +125,19 @@ def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
 
 
 def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
+    logger.info(f"Preprocessing {len(samples)} samples.")
     if file_retrieval_kwargs is None:
         file_retrieval_kwargs = {}
 
+    logger.debug(f"Preprocessing with file args: {file_retrieval_kwargs}.")
     mapping = {str(x): x for x in samples}
     all_inputs = utils.accumulate(
         [getCoffeaDataset(dataset_repo, x, **file_retrieval_kwargs) for x in samples]
     )
+    logger.debug(f"Launching preprocessor.")
     out, bad = dst.preprocess(
         all_inputs,
-        save_form=True,
+        #save_form=True,
         skip_bad_files=True,
         uproot_options={"timeout": 30},
         **kwargs,
@@ -151,6 +152,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
         )
         for k, v in out.items()
     ]
+    logger.debug(f"Preprocessed {len(ret)} samples")
     return ret
 
 

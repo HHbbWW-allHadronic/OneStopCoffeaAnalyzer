@@ -3,13 +3,11 @@ import enum
 import logging
 from typing import Any, ClassVar, Optional, Union
 
-import yaml
-from analyzer.datasets import SampleType
 from pydantic import BaseModel, Field
-from rich import print
+from .specifiers import SampleSpec
+from .exceptions import AnalysisConfigurationError
 
 logger = logging.getLogger(__name__)
-
 
 class AnalysisStage(str, enum.Enum):
     Preselection = "Preselection"
@@ -19,50 +17,10 @@ class AnalysisStage(str, enum.Enum):
     Categorization = "Categorization"
     Histogramming = "Histogramming"
 
-
-class HistogramSpec(BaseModel):
-    name: str
-    axes: list[Any]
-    storage: str = "weight"
-    description: str
-    weights: list[str]
-    variations: list[str]
-    no_scale: bool = False
-
-
-class SampleSpec(BaseModel):
-    sample_name: Optional[Union[list[str], str]] = None
-    era: Optional[Union[list[str], str]] = None
-    sample_type: Optional[SampleType] = None
-
-    def passes(self, sample):
-        passes_names = not self.sample_name or any(
-            sample.name == x for x in self.sample_name
-        )
-        passes_era = not self.era or any(sample.era == x for x in self.era)
-        passes_type = not self.sample_type or (sample.sample_type == self.sample_type)
-        return passes_names and passes_era and passes_type
-
-
 class ModuleDescription(BaseModel):
     name: str
     sample_spec: Optional[SampleSpec] = None
     config: Optional[Union[list[dict[str, Any]], dict[str, Any]]] = None
-
-
-class SectorSpec(BaseModel):
-    sample_spec: Optional[SampleSpec] = None
-    region_names: Optional[Union[list[str], str]] = None
-
-    def passes(self, sector):
-        passes_sample = not self.sample_spec or sample_spec.passes(
-            sector.sample_name, sample_manager
-        )
-        passes_region = not self.region_names or any(
-            sector.region_name == x for x in self.region_names
-        )
-        return passes_sample and passes_region
-
 
 class RegionDescription(BaseModel):
     name: str
@@ -91,12 +49,3 @@ class AnalysisDescription(BaseModel):
             raise KeyError(f'No region "{name}"')
 
 
-def main():
-    d = yaml.safe_load(open("pydtest.yaml", "r"))
-    print(d)
-    an = AnalysisDescription(**d)
-    print(an)
-
-
-if __name__ == "__main__":
-    main()

@@ -1,19 +1,22 @@
 import functools
+import logging
 import operator as op
+
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
-import logging
 
-
-logger = logging.getLogger(__name__)
+from .utils.logging import getSectorLogger
 
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_hlt(events, params, selector):
     ht_trigger_name = params["trigger_names"]["HT"]
     ak8_trigger_name = params["trigger_names"]["AK8SingleJetPt"]
-    selector.add(f"hlt_ht", events.HLT[ht_trigger_name], type="or")
-    selector.add(f"hlt_ak8", events.HLT[ak8_trigger_name], type="or")
+    #selector.add(f"hlt_ht", events.HLT[ht_trigger_name], type="or")
+    #selector.add(f"hlt_ak8", events.HLT[ak8_trigger_name], type="or")
+    #selector.add(f"HLT_HT | HLT_AK8", events.HLT[ht_trigger_name] | events.HLT[ht_trigger_name])
+    selector.add(f"HLT_HT | HLT_AK8", events.HLT[ht_trigger_name] | events.HLT[ak8_trigger_name])
+
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_muon(events, params, selector):
@@ -25,8 +28,7 @@ def signal_muon(events, params, selector):
 
 @MODULE_REPO.register(ModuleType.Selection)
 def general_selection(events, params, selector):
-    """Signal selection without b cuts
-    """
+    """Signal selection without b cuts"""
     good_jets = events.good_jets
     good_muons = events.good_muons
     good_electrons = events.good_electrons
@@ -42,10 +44,10 @@ def general_selection(events, params, selector):
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     selector.add("0Lep", passes_0Lep, type="and")
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def partial_signal312_selection(events, params, selector):
-    """Signal selection without b cuts
-    """
+    """Signal selection without b cuts"""
     med_b = events.med_bs
     tight_b = events.tight_bs
     filled_med = ak.pad_none(med_b, 2, axis=1)
@@ -67,9 +69,8 @@ def partial_cr_selection(events, params, selector):
     selector.add("0looseb", (ak.num(loose_b) == 0), type="and")
 
 
-
-#@analyzerModule("baseline_hists", categories="main")
-#def selectionHists(events, analyzer):
+# @analyzerModule("baseline_hists", categories="main")
+# def selectionHists(events, analyzer):
 #    gj = events.good_jets
 #    nj = ak.num(gj, axis=1)
 #    analyzer.H("njets", makeAxis(10, 0, 10, f"NJets"), nj)
@@ -123,13 +124,13 @@ def partial_cr_selection(events, params, selector):
 #    return events, analyzer
 
 
-#@analyzerModule(
+# @analyzerModule(
 #    "baseline_nodr",
 #    categories="selection",
 #    depends_on=["objects"],
 #    processing_info={"used_btag_wps": ["M", "T"]},
-#)
-#def baselineNoDR(events, analyzer):
+# )
+# def baselineNoDR(events, analyzer):
 #    """Baseline selection for the analysis.
 #    Applies the following selection:
 #    - Jets[0].pt > 300
@@ -167,13 +168,11 @@ def partial_cr_selection(events, params, selector):
 #    return events, analyzer
 
 
-#@analyzerModule("bbpt_selection", categories="selection", depends_on=["objects"])
-#def createBBptSelection(events, analyzer):
+# @analyzerModule("bbpt_selection", categories="selection", depends_on=["objects"])
+# def createBBptSelection(events, analyzer):
 #    selection = analyzer.selection
 #    med_b = events.med_bs
 #    filled_med = ak.pad_none(med_b, 2, axis=1)
 #    bbpt = ak.fill_none((filled_med[:, 0] + filled_med[:, 1]).pt, False)
 #    selection.add("bbpt", (bbpt > 200).to_numpy())
 #    return events, analyzer
-
-
