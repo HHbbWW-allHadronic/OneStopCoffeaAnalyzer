@@ -5,7 +5,7 @@
     D:
       lumi: 9.451
 
-  golden_json: root://eosuser.cern.ch/ ls /eos/user/c/cmsdqm/www/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json
+  golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23BPix/btagging.json.gz
