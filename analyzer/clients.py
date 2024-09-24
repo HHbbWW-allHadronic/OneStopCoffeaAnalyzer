@@ -1,4 +1,5 @@
 import atexit
+import datetime
 import importlib.resources
 import logging
 import multiprocessing
@@ -11,11 +12,11 @@ from pathlib import Path
 import analyzer.resources
 import dask
 import yaml
-from analyzer.file_utils import compressDirectory
+from analyzer.utils.file_tools import compressDirectory
 from distributed import Client, LocalCluster, TimeoutError
 from rich.progress import Progress
-import datetime
-from .configuration import getConfiguration
+
+from .configuration import CONFIG
 
 try:
     from lpcjobqueue import LPCCondorCluster
@@ -33,6 +34,7 @@ def createLPCCondorCluster(configuration):
     if not LPCQUEUE_AVAILABLE:
         raise NotImplemented("LPC Condor can only be used at the LPC.")
 
+
     # Need container to tell condor what singularity image to use
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
 
@@ -46,18 +48,15 @@ def createLPCCondorCluster(configuration):
     base = Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
     venv = Path(os.environ.get("VIRTUAL_ENV"))
     x509 = Path(os.environ.get("X509_USER_PROXY")).absolute()
-
     logger.info("Deleting old dask logs")
-    base_log_path = Path("/uscmst1b_scratch/lpc1/3DayLifetime/") / os.getlogin() 
+    base_log_path = Path("/uscmst1b_scratch/lpc1/3DayLifetime/") / os.getlogin()
     shutil.rmtree(base_log_path / "dask_logs")
     for p in base_log_path.glob("tmp*"):
         shutil.rmtree(p)
 
     # Compress environment to transport to the condor workers
     compressed_env = (
-        Path(getConfiguration()["ENV_LOCAL_APPLICATION_DATA"])
-        / "compressed"
-        / "environment.tar.gz"
+        Path(CONFIG.ENV_LOCAL_APPLICATION_DATA) / "compressed" / "environment.tar.gz"
     )
     if not compressed_env.exists():
         compressDirectory(venv, compressed_env.parent)
@@ -88,14 +87,14 @@ def createLPCCondorCluster(configuration):
         transfer_input_files=transfer_input_files,
         log_directory=logpath,
         scheduler_options=dict(
-            host=schedd_host,
-            dashboard_address=dash_host,
+            #host=schedd_host,
+            dashboard_address=":12358"
         ),
         **kwargs,
     )
     cluster.scale(jobs=workers)
     # print(cluster)
-    #cluster.adapt(minimum=1, maximum=workers)
+    # cluster.adapt(minimum=1, maximum=workers)
 
     return cluster
 
@@ -125,11 +124,7 @@ cluster_factory = dict(
 def createNewCluster(cluster_type, config):
     """Creates a general new cluster of a certain given a configuration."""
 
-    with importlib.resources.as_file(
-        importlib.resources.files(analyzer.resources)
-    ) as f:
-        dask_cfg_path = Path(f) / "dask_config.yaml"
-    with open(dask_cfg_path) as f:
+    with open(CONFIG.DASK_CONFIG_PATH) as f:
         defaults = yaml.safe_load(f)
         dask.config.update(dask.config.config, defaults, priority="new")
         cluster = cluster_factory[cluster_type](config)

@@ -206,7 +206,7 @@ function startup_with_container(){
     if [ "$in_apptainer"  = false ]; then
         if command -v condor_config_val &> /dev/null; then
             printf "Cloning HTCondor configuration\n"
-            condor_config_val  -summary > $rel_data/.condor_config
+            condor_config_val  -summary > .condor_config
         fi
         if [[ -e $HISTFILE ]]; then
             apptainer_flags="$apptainer_flags --bind $HISTFILE:/srv/.bash_eternal_history"

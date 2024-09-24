@@ -5,6 +5,10 @@ from functools import reduce
 import yaml
 from pydantic import BaseModel, Field, ValidationError, model_validator, validator
 import dataclasses
+from analyzer.configuration import CONFIG
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class Era(BaseModel):
@@ -37,11 +41,13 @@ class EraRepo:
         return self.eras[key]
 
     def load(self, directory):
+        logger.info(f"Loading eras from {directory}")
         directory = Path(directory)
         files = list(directory.glob("*.yaml"))
         file_contents = {}
         for f in files:
             with open(f, "r") as fo:
+                logger.debug(f"Loading era from  file {f}")
                 data = yaml.safe_load(fo)
                 for d in data:
                     s = Era(**d)
@@ -50,6 +56,14 @@ class EraRepo:
                             f"Dataset name '{s.name}' is already use. Please use a different name for this era."
                         )
                     self.eras[s.name] = s
+
+    @staticmethod
+    def getConfig():
+        paths = CONFIG.ERA_PATHS
+        repo = EraRepo()
+        for path in paths:
+            repo.load(path)
+        return repo
 
 
 if __name__ == "__main__":

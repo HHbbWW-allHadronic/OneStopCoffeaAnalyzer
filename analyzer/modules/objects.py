@@ -31,7 +31,7 @@ def core_objects(events, params):
 
     bwps = getBTagWP(params)
     logger = getSectorLogger(params)
-    logger.info(f"B-tagging workign points are:\n {bwps}")
+    logger.debug(f"B-tagging workign points are:\n {bwps}")
     loose_b, med_b, tight_b = makeCutSet(
         good_jets,
         good_jets.btagDeepFlavB,

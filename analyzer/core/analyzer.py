@@ -2,14 +2,19 @@
 import concurrent.futures
 import copy
 import functools as ft
+import itertools as it
 import json
 import logging
+import operator as op
+import pickle as pkl
 from collections import defaultdict
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Optional, Union
 
 import awkward as ak
 import dask
+import distributed
 import pydantic as pyd
 import yaml
 from analyzer.configuration import CONFIG
@@ -38,7 +43,9 @@ if CONFIG.PRETTY_MODE:
         Progress,
         SpinnerColumn,
         TextColumn,
+        track,
     )
+
 
 logger = logging.getLogger("analyzer.core")
 
@@ -185,19 +192,23 @@ class AnalysisResult(pyd.BaseModel):
 
     def getBadChunks(self):
         ret = {
-            self.preprocessed_samples[n].difference(self.processed_chunks[n])
+            n: self.preprocessed_samples[n].chunks.difference(self.processed_chunks[n])
             for n in self.preprocessed_samples
         }
         return ret
 
     def getMissingPreprocessed(self):
-        logger.debug(f"")
+        logger.debug(f"Scanning for bad chunks")
         prepped = copy.deepcopy(self.preprocessed_samples)
         bad_chunks = self.getBadChunks()
-        for p in prepped:
-            logger.debug(f"Sample {p.sample_id} has {len(bad_chunks[p])} bad chunks.")
-            prepped[p].limit_chunks = bad_chunks[p]
-        return prepped
+        ret = {}
+        for sid in prepped:
+            logger.debug(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
+            bad = bad_chunks[sid]
+            if bad:
+                ret[sid] = prepped[sid]
+                ret[sid].limit_chunks = bad
+        return ret
 
     def __add__(self, other):
         """Add two analysis results together.
@@ -235,10 +246,9 @@ class AnalysisResult(pyd.BaseModel):
             k = (sector_id.sample_id.dataset_name, sector_id.region_name)
             if result.params.sample_type == SampleType.MC:
                 result = result.scaled(1 / self.total_mc_weights[sector_id.sample_id])
-
             scaled_sample_results[k].append(DatasetResult.fromSectorResult(result))
 
-        return {x: ft.reduce(sum, y) for x, y in scaled_sample_results.items()}
+        return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
 
 
 class SectorAnalyzer:
@@ -281,7 +291,6 @@ class SectorAnalyzer:
             return self.parent.makeHistogram(self.sector_id, *args, **kwargs)
 
 
-@dask.delayed
 def getProcessedChunks(run_report):
     good_mask = ak.is_none(run_report["exception"])
     rr = run_report[good_mask]
@@ -322,6 +331,7 @@ class Analyzer:
     def __post_init__(self):
         self.sectors = self._getSectors()
         self.__prefillResults()
+        self.client = distributed.client._get_global_client()
 
     def __prefillResults(self):
         for sector in self.sectors:
@@ -338,11 +348,16 @@ class Analyzer:
         logger.debug(f"Dropping {len(self.sectors) - len(new)} empty sectors.")
         self.sectors = new
 
-    def preprocessDatasets(self, **kwargs):
+    def preprocessDatasets(
+        self, file_kwargs_override=None, chunk_override=None, **kwargs
+    ):
         chunk_size = self.description.general_config.get("chunk_size", 100000)
+        if chunk_override:
+            chunk_size = chunk_override
         file_args = self.description.general_config["file_retrieval"]
-        logger.debug(f"Preprocessing samples with chunk size {chunk_size}")
-        logger.debug(f"Preprocessing with file retrieval arguments:\n{file_args}")
+        file_args.update(file_kwargs_override or {})
+        logger.info(f"Preprocessing samples with chunk size {chunk_size}")
+        logger.info(f"Preprocessing with file retrieval arguments:\n{file_args}")
 
         r = preprocessBulk(
             self.dataset_repo,
@@ -371,19 +386,30 @@ class Analyzer:
         logger.debug(f"Loading with file retrieval arguments:\n{file_args}")
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            for sample_id, spre in self.preprocessed_samples.items():
+            samples = set(x.sector_id.sample_id for x in self.sectors)
+            for sample_id in samples:
+                spre = self.preprocessed_samples[sample_id]
                 ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
                 if spre.form is not None:
                     maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
                 else:
                     maybe_base_form = None
-                f = executor.submit(
-                    Analyzer.__loadOne, sample_id, ds["files"], maybe_base_form
-                )
+                # f = executor.submit(
+                #    Analyzer.__loadOne, sample_id, ds["files"], maybe_base_form
+                # )
+                f = Analyzer.__loadOne(sample_id, ds["files"], maybe_base_form)
                 futures.append(f)
-            for future in concurrent.futures.as_completed(futures):
+
+            # to_iter = concurrent.futures.as_completed(futures)
+            to_iter = futures
+            if CONFIG.PRETTY_MODE:
+                to_iter = track(
+                    to_iter, description="Loading Events", total=len(futures)
+                )
+            for future in to_iter:
                 logger.debug(f"Done loading events for sample {sample_id}.")
-                r = future.result()
+                r = future
+                # r = future.result()
                 self._sample_events[r[0]] = r[1]
                 self._sample_reports[r[0]] = r[2]
 
@@ -560,12 +586,6 @@ class Analyzer:
         for sample_id, events in self._sample_events.items():
             self._preselected_events[
                 sample_id
-            ] = analyzer.selection_manager.maskPreselection(sample_id, events)
-
-    def applyPreselections(self):
-        for sample_id, events in self._sample_events.items():
-            self._preselected_events[
-                sample_id
             ] = self.selection_manager.maskPreselection(sample_id, events)
 
     def applySelection(self):
@@ -610,22 +630,171 @@ def runAnalysis(analyzer):
     analyzer.runStage(AnalysisStage.Histogramming)
 
     logger.info(f"Finished lazy results construction")
+    # processed_chunks={
+    #     s: getProcessedChunks(1, analyzer._sample_reports[s])
+    #     for s in analyzer._sample_reports
+    # },
 
+    print(analyzer._sample_reports)
     return AnalysisResult(
         description=analyzer.description,
         preprocessed_samples=analyzer.preprocessed_samples,
-        processed_chunks={
-            s: getProcessedChunks(r) for s, r in analyzer._sample_reports.items()
-        },
+        processed_chunks=analyzer._sample_reports,
         results=analyzer.results,
         total_mc_weights=mc_weights,
     )
 
 
-def makeResultPatch(self, result, dataset_repo, era_repo):
+def patchPreprocessed(
+    dataset_repo,
+    preprocessed_samples,
+    step_size=75000,
+    file_retrieval_kwargs=None,
+):
+    frk = file_retrieval_kwargs or {}
+    samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_inputs)}
+    missing_dict = {}
+    for n, prepped in datasets.items():
+        x = prepped.missingCoffeaDataset(**frk)
+        logger.info(f"Found {len(x[n]['files'])} files missing from dataset {n}")
+        if x[n]["files"]:
+            missing_dict.update(x)
+    new = preprocessRaw(missing_dict, step_size=step_size)
+    for n, v in new.items():
+        samples[n] = samples[n].addCoffeaChunks({n: v})
+    return samples
+
+
+def makeResultPatch(result, dataset_repo, era_repo):
     missing = result.getMissingPreprocessed()
+    logger.info(f"Found {len(missing)} samples with missing chunks")
+    if not missing:
+        logger.info(f"No missing chunks, nothing to do")
+        return
     new_analyzer = Analyzer(result.description, dataset_repo, era_repo)
     new_analyzer.preprocessed_samples = missing
+    return new_analyzer
+
+
+def preprocessAnalysis(input_path, output_path, chunk_size=None, file_kwargs=None):
+    logger.info(f"Preprocessing analysis from file {input_path}")
+    with open(input_path, "rb") as f:
+        data = yaml.safe_load(f)
+    an = AnalysisDescription(**data)
+    logger.info(f"Loaded analysis description {an.name}")
+    analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
+    analyzer.preprocessDatasets(
+        chunk_override=chunk_size, file_kwargs_override=file_kwargs
+    )
+    out = Path(output_path)
+    out.parent.mkdir(exist_ok=True, parents=True)
+    with open(out, "wb") as f:
+        pkl.dump(analyzer.preprocessed_samples, f)
+    logger.info(f'Saved preprocessed samples to "{out}"')
+
+
+def patchPreprocessedFile(input_path, output_path, chunk_size=100000, file_kwargs=None):
+    with open(input_path, "rb") as f:
+        data = yaml.safe_load(f)
+    dm = DatasetRepo.getConfig()
+    result = patchPreprocessed(
+        dm, data, chunk_size=chunk_size, file_retrieval_kwargs=file_kwargs
+    )
+    out = Path(output_path)
+    out.parent.mkdir(exist_ok=True, parents=True)
+    with open(out, "wb") as f:
+        pkl.dump(result, f)
+
+
+def patchAnalysisResult(input_path, output_path):
+    logger.info(f'Patching analysis result from "{input_path}"')
+    with open(input_path, "rb") as f:
+        result = pkl.load(f)
+    analyzer = makeResultPatch(result, DatasetRepo.getConfig(), EraRepo.getConfig())
+    if not analyzer:
+        return
+    res = runAnalysis(analyzer)
+    dumped = res.model_dump()
+    computed = dask.compute(dumped)[0]
+    final_result = AnalysisResult(**computed)
+    out = Path(output_path)
+    out.parent.mkdir(exist_ok=True, parents=True)
+    with open(out, "wb") as f:
+        pkl.dump(final_result, f)
+
+
+def runFromFile(input_path, output_path, preprocessed_input_path=None):
+    with open(input_path, "rb") as config_file:
+        data = yaml.safe_load(config_file)
+    if preprocessed_input_path:
+        with open(preprocessed_input_path, "rb") as prep_file:
+            preprocessed_input = pkl.load(prep_file)
+    else:
+        preprocessed_input = {}
+    an = AnalysisDescription(**data)
+    analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
+    analyzer.preprocessed_samples = preprocessed_input
+    res = runAnalysis(analyzer)
+    dumped = res.model_dump()
+
+    def groupBySample(data):
+        def getS(x):
+            if isinstance(x, SampleId):
+                return x.sample_name
+            if isinstance(x, SectorId):
+                return x.sample_id.sample_name
+            return x
+
+        ret = {}
+        for x, y in data.items():
+            l = ret.setdefault(x, {})
+            for k, v in y.items():
+                d = l.setdefault(getS(k), {})
+                d[k] = v
+
+        keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
+        return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
+
+    p = {
+        "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
+        "results": {x: y.model_dump() for x, y in res.results.items()},
+        "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
+    }
+    grouped = groupBySample(p)
+
+    ret = {}
+    for sample, vals in grouped.items():
+        logger.info(f'Submitting sample "{sample}" to cluster.')
+        ret[sample] = dask.persist(vals)[0]
+    logger.info(
+        f"Done submitting all sampels to cluster, waiting for computation to finish..."
+    )
+    computed = dask.compute(ret)[0]
+    final = {}
+    final["total_mc_weights"] = dict(
+        it.chain.from_iterable(
+            (x.get("total_mc_weights", {}).items() for x in computed.values())
+        )
+    )
+    final["results"] = dict(
+        it.chain.from_iterable((x["results"].items() for x in computed.values()))
+    )
+    print(computed)
+    final["processed_chunks"] = dict(
+        it.chain.from_iterable(
+            (x["processed_chunks"].items() for x in computed.values())
+        )
+    )
+    final["processed_chunks"] = {  #
+        x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
+    }
+    #    final["processed_chunks"] = {}
+    final = {**dumped, **final}
+    final_result = AnalysisResult(**final)
+    out = Path(output_path)
+    out.parent.mkdir(exist_ok=True, parents=True)
+    with open(out, "wb") as f:
+        pkl.dump(final_result, f)
 
 
 if __name__ == "__main__":
@@ -637,26 +806,30 @@ if __name__ == "__main__":
 
     d = yaml.safe_load(open("configurations/test_config.yaml", "r"))
 
-    an = AnalysisDescription(**d)
-    em = EraRepo()
-    em.load("analyzer_resources/eras")
-    dm = DatasetRepo()
-    dm.load("analyzer_resources/datasets")
+    from analyzer.clients import createNewCluster
 
-    a = Analyzer(an, dm, em)
+    if True:
+        cluster = createNewCluster(
+            "lpccondor",
+            dict(
+                n_workers=80,
+                memory="4.0G",
+                schedd_host=None,
+                dashboard_host="localhost:12358",
+                timeout=7200,
+            ),
+        )
+        client = Client(cluster)
+    else:
+        client = Client(
+            dashboard_address="localhost:12358",
+            memory_limit="4GB",
+            n_workers=2,
+        )
 
-    client = Client()
-    res = runAnalysis(a)
-    d = res.model_dump()
-    x = dask.compute(d)[0]
-    res = AnalysisResult(**x)
-
-    # print(res)
-    # print(res)
-    import pickle as pkl
-
-    with open("result.pkl", "wb") as f:
-        pkl.dump(res, f)
-
-    # for s, e in a._sector_events.items():
-    #    e.visualize(filename=f"images/{s}.svg")
+    #preprocessAnalysis("configurations/test_config.yaml", "tiny_prepped.pkl")
+    runFromFile(
+        "configurations/test_config.yaml",
+        "results4.pkl",
+        preprocessed_input_path="prepped.pkl",
+    )

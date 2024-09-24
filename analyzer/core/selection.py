@@ -189,5 +189,4 @@ class SelectionManager:
         sid = sector_id.sample_id
         sel = self.selections[sector_id]
         all_names = sel.or_names + sel.and_names
-        print(all_names)
         return self.selection_masks[sid].getCutflow(all_names)

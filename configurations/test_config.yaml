@@ -10,82 +10,70 @@ LimitTo:
 
 
 # Samples and in which regions they should be processed
-
 samples:
-  #QCDInclusive2018: All
-  signal_312_2000_1900: [Signal312]
-  #signal_312_1200_1000: [Signal312, Control]
-  #signal_312_1500_1400: [Control]
-  #signal_312_1000_400: [Signal312, Control]
-  #signal_312_1000_600: [Signal312, Control]
-  #signal_312_1000_900: [Signal312, Control]
-  #signal_312_1200_400: [Signal312, Control]
-  #signal_312_1200_600: [Signal312, Control]
-  #signal_312_1200_1100: [Signal312, Control]
-  #signal_312_1300_400: [Signal312, Control]
-  #signal_312_1300_600: [Signal312, Control]
-  #signal_312_1300_1200: [Signal312, Control]
-  #signal_312_1400_400: [Signal312, Control]
-  #signal_312_1400_1300: [Signal312, Control]
-  #signal_312_1500_400: [Signal312, Control]
-  #signal_312_1500_600: [Signal312, Control]
-  #signal_312_1500_900: [Signal312, Control]
-  #signal_312_1500_1400: [Signal312, Control]
-  #signal_312_2000_400: [Signal312, Control]
-  #signal_312_2000_900: [Signal312, Control]
-  #signal_312_2000_1900: [Signal312, Control]
-  #signal_312_1000_700: [Signal312, Control]
-  #signal_312_1000_800: [Signal312, Control]
-  #signal_312_1200_700: [Signal312, Control]
-  #signal_312_1200_800: [Signal312, Control]
-  #signal_312_1500_100: [Signal312, Control]
-  #signal_312_1500_1000: [Signal312, Control]
-  #signal_312_1500_1200: [Signal312, Control]
-  #signal_312_1500_1300: [Signal312, Control]
-  #signal_312_1500_1350: [Signal312, Control]
-  #signal_312_1500_1450: [Signal312, Control]
-  #signal_312_2000_1200: [Signal312, Control]
-  #signal_312_2000_1600: [Signal312, Control]
-  #signal_312_2000_1700: [Signal312, Control]
-
-  #signal313: [Signal313, Control]
-  #Data2018: [Control]
-  #MuonData2018: [SingleMuon]
+  Data2018: [Control]
+  signal_312_2000_1900: [Signal312,Control]
+  QCDInclusive2018: [Signal312,Control]
+  signal_312_1500_1400: [Signal312, Control]
+  signal_312_1200_400: [Signal312, Control]
+  signal_312_1200_600: [Signal312, Control]
+  signal_312_1200_1100: [Signal312, Control]
+  signal_312_1300_1200: [Signal312, Control]
+  signal_312_1400_400: [Signal312, Control]
+  signal_312_1400_1300: [Signal312, Control]
+  signal_312_1500_400: [Signal312, Control]
+  signal_312_1500_600: [Signal312, Control]
+  signal_312_1500_900: [Signal312, Control]
+  signal_312_1500_1400: [Signal312, Control]
+  signal_312_2000_400: [Signal312, Control]
+  signal_312_1300_400: [Signal312, Control]
+  signal_312_1300_600: [Signal312, Control]
+  signal_312_2000_900: [Signal312, Control]
+  signal_312_2000_1900: [Signal312, Control]
+  signal_312_1000_700: [Signal312, Control]
+  signal_312_1000_800: [Signal312, Control]
+  signal_312_1200_700: [Signal312, Control]
+  signal_312_1200_800: [Signal312, Control]
+  signal_312_1500_100: [Signal312, Control]
+  signal_312_1500_1000: [Signal312, Control]
+  signal_312_1500_1200: [Signal312, Control]
+  signal_312_1500_1300: [Signal312, Control]
+  signal_312_1500_1350: [Signal312, Control]
+  signal_312_1500_1450: [Signal312, Control]
+  signal_312_2000_1200: [Signal312, Control]
+  signal_312_2000_1600: [Signal312, Control]
+  signal_312_2000_1700: [Signal312, Control]
+  signal_312_1000_400: [Signal312, Control]
+  signal_312_1000_600: [Signal312, Control]
+  signal_312_1000_900: [Signal312, Control]
 
 # Samples and in which regions they should be processed
 general_config:
-  chunk_size: 100000
-  # If `use_selection_as_category` is false, the selection as described in the region.preselecection and region.selection blocks is a pure filter
-  # If `use_selection_as_category` is true, then instead for each selection, an axis is added to the final histogram, which indicates where it passed for failed
-  # This is useful for generating N-1 plots
-  use_selection_as_category: false
+  execution:
+    n_workers: 40
+    worker_memory: 2
+    worker_timeout: 7200
+  preprocessing:
+    chunk_size: 100000
+    use_replicas: True
   file_retrieval:
-    location_priority_regex: [".*(US|CH|FR).*", "eos"]
-  #save_cutflow: true
-
+    location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", "eos"]
   skimming:
-     output: "root://blabla/SingleStop/"
+    output: "root://blabla/SingleStop/"
+    use_skims_path: "root://blabla/SingleStop/"
 
-  
-  # If try skim path is provided, then when processing sample S in region R,
-  # the program will first check if they is a directory
-  # If such a directory exists, then all *.root files in this directory are considered to be the complete fileset for this sample and region
-  use_skims_path: "root://blabla/SingleStop/"
-  #try_skim_path: None
-
-
-# You can use yaml anchors to reduce the amount of duplication
+# You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
     common_signal_histograms: &common_signal
-      #- name: jet_kinematics
-      #- name: jet_combo_kinematics
-      #- name: jet_relative_angles
       - name: njets
-      #- name: b_quark_kinematics
-      #  config:
-      #    - working_point: L
-      #    #- working_point: M
-      #    #- working_point: T
+      # - name: jet_kinematics
+      # - name: jet_combo_kinematics
+      #- name: jet_relative_angles
+      # - name: b_quark_kinematics
+      #   config:
+      #     - working_point: L
+      #     - working_point: M
+      #     - working_point: T
     common_objects: &common_objects
       - name: core_objects
     common_preselection: &common_preselection
@@ -139,8 +127,6 @@ regions:
 #      - name: btag_scale_factors
 #        config:
 #            working_points: [T]
-
-          
   - name: Signal312
     forbid_data: True
     objects: *common_objects
@@ -156,7 +142,7 @@ regions:
   - name: Control
     objects: *common_objects
     preselection:
-#      - <<: *common_preselection
+      - <<: *common_preselection
       - name: signal_hlt
     selection:
       - name: general_selection
@@ -167,7 +153,7 @@ regions:
 PostProcessing:
   - name: Plots
     configuration:
-      output: "plots/{region_name}/{sample_name}/{plot_name}_{variation}"
+      output_dir: "plots/{region_name}/{sample_name}/"
       image_type: pdf
       cms_tag: Preliminary
     outputs:
@@ -178,12 +164,12 @@ PostProcessing:
       - name: HT
         samples: All
         regions: All
-  
+
       - name: n_medb
         type: basic
         save_name: medium_bjets
         normalize: True
-        desk: Number of medium b jets
+        desc: Number of medium b jets
         samples: All
         regions: [Signal312,Signal313]
   

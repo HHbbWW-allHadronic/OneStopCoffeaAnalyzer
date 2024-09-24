@@ -4,7 +4,7 @@
   lumi: 59.83
   era: '2018'
   n_events: 676743923
-  cms_dataset: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
+  cms_dataset_regex: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
   files: 
     - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/E73D3B12-3D3F-1443-8E7B-7874C167B97B.root
     - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/D2AD325F-D07C-4F4B-BC2B-C5492BBED898.root
@@ -487,3 +487,13 @@
     - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/1F6BB24B-3A3F-F24B-9C38-755807128861.root
     - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/0D8712FF-9DF0-0341-A6CE-A2B4BAB4C176.root
 
+
+- name: TestData2018
+  sample_type: Data
+  title: "TestData2018"
+  lumi: 59.83
+  era: '2018'
+  n_events: 676743923
+  cms_dataset_regex: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
+  files: 
+    - root://cmsxrootd.fnal.gov//store/data/Run2018A/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/250000/E73D3B12-3D3F-1443-8E7B-7874C167B97B.root

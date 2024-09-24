@@ -137,7 +137,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
     logger.debug(f"Launching preprocessor.")
     out, bad = dst.preprocess(
         all_inputs,
-        #save_form=True,
+        save_form=True,
         skip_bad_files=True,
         uproot_options={"timeout": 30},
         **kwargs,

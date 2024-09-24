@@ -32,17 +32,17 @@ handlers:
 
 loggers:
   analyzer:
-    level: DEBUG
+    level: INFO
     handlers: [console]
     propagate: no
 
   distributed:
-    level: INFO
+    level: WARN
     handlers: [console]
     propagate: no
 
   dask:
-    level: INFO
+    level: WARN
     handlers: [console]
     propagate: no
 

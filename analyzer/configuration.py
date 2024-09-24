@@ -14,6 +14,7 @@ class Config:
     DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
     ERA_PATHS = [str(Path(APPLICATION_RESOURCES) / "eras")]
     CONFIG_PATH = str(Path(APPLICATION_RESOURCES) / "configuration")
+    DASK_CONFIG_PATH = str(Path(CONFIG_PATH) / "dask_config.yaml")
     PRETTY_MODE = True
 
 

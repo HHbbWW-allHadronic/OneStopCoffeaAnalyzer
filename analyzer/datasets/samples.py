@@ -24,6 +24,7 @@ from typing import (
     get_origin,
 )
 from urllib.parse import urlparse, urlunparse
+from analyzer.configuration import CONFIG
 
 import pydantic as pyd
 import yaml
@@ -39,6 +40,10 @@ from pydantic import (
 )
 from rich import print
 from rich.table import Table
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def getDatasets(query, client):
@@ -54,7 +59,7 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
-    from analyzer.file_utils import extractCmsLocation
+    from analyzer.utils.file_tools import extractCmsLocation
     from coffea.dataset_tools import rucio_utils
 
     (outfiles, outsites, sites_counts,) = rucio_utils.get_dataset_files_replicas(
@@ -247,13 +252,12 @@ class Sample(BaseModel):
         }
 
     def useFilesFromReplicaCache(self):
-        from analyzer.configuration import getConfiguration
+        from analyzer.configuration import CONFIG
 
         """Add files from the replica cache to the available files for this sample.
         """
 
-        config = getConfiguration()
-        replica_cache = Path(config["APPLICATION_DATA"]) / "replica_cache"
+        replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
         look_for = replica_cache / f"{self.name}.json"
         if not look_for.exists():
             return
@@ -271,7 +275,7 @@ class Sample(BaseModel):
     def discoverAndCacheReplicas(self, force=False):
         """Use rucio to identify replicas for this sample, and store them for later use."""
 
-        from analyzer.configuration import getConfiguration
+        from analyzer.configuration import CONFIG
         from coffea.dataset_tools import rucio_utils
         from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
 
@@ -280,8 +284,7 @@ class Sample(BaseModel):
                 "Cannot call discoverReplicas on a sample with no CMS dataset"
             )
 
-        config = getConfiguration()
-        replica_cache = Path(config["APPLICATION_DATA"]) / "replica_cache"
+        replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
         look_for = replica_cache / f"{self.name}.json"
 
         if look_for.exists() and not force:
@@ -326,7 +329,7 @@ class Dataset(BaseModel):
                 "n_events": values["n_events"],
                 "x_sec": values.get("x_sec"),
                 "files": values["files"],
-                "cms_dataset": values.get("cms_dataset"),
+                "cms_dataset_regex": values.get("cms_dataset_regex"),
             }
             top_level = {
                 "name": values["name"],
@@ -393,7 +396,9 @@ class DatasetRepo:
 
     def buildReplicaCache(self, force=False):
         for dataset in self.datasets.values():
+            logger.info(f"Building replicas for {dataset}")
             for sample in dataset.samples:
+                logger.info(f"Attempting to build replices for {sample} with regex \"{sample.cms_dataset_regex}\"")
                 if sample.cms_dataset_regex:
                     sample.discoverAndCacheReplicas(force=force)
 
@@ -402,6 +407,14 @@ class DatasetRepo:
             for sample in dataset.samples:
                 if sample.cms_dataset_regex:
                     sample.useFilesFromReplicaCache()
+
+    @staticmethod
+    def getConfig():
+        paths = CONFIG.DATASET_PATHS
+        repo = DatasetRepo()
+        for path in paths:
+            repo.load(path)
+        return repo
 
 
 if __name__ == "__main__":
