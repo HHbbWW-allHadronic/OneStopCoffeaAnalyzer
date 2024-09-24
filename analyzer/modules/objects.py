@@ -2,6 +2,7 @@ import logging
 
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
+import dask_awkward as dak
 
 from .utils.btag_points import getBTagWP
 from .utils.logging import getSectorLogger

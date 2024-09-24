@@ -128,8 +128,6 @@ def createNewCluster(cluster_type, config):
         defaults = yaml.safe_load(f)
         dask.config.update(dask.config.config, defaults, priority="new")
         cluster = cluster_factory[cluster_type](config)
-        print(cluster)
-        print(cluster.dashboard_link)
     return cluster
 
 

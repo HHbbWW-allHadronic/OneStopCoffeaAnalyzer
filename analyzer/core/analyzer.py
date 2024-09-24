@@ -12,11 +12,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import yaml
+
 import awkward as ak
+import dask_awkward as dak
 import dask
 import distributed
 import pydantic as pyd
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -29,7 +31,7 @@ from rich import print
 from .analysis_modules import MODULE_REPO
 from .common_types import Scalar
 from .configuration import AnalysisDescription, AnalysisStage
-from .histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
+from .old_histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
 from .sector import Sector, SectorId, SectorParams, getParamsForSector
 from .selection import Cutflow, SelectionManager
@@ -351,9 +353,12 @@ class Analyzer:
     def preprocessDatasets(
         self, file_kwargs_override=None, chunk_override=None, **kwargs
     ):
-        chunk_size = self.description.general_config.get("chunk_size", 100000)
+        chunk_size = self.description.general_config.get("preprocessing", {}).get(
+            "chunk_size", 100000
+        )
         if chunk_override:
             chunk_size = chunk_override
+        print(f"CHUNK SIZE IS {chunk_size}")
         file_args = self.description.general_config["file_retrieval"]
         file_args.update(file_kwargs_override or {})
         logger.info(f"Preprocessing samples with chunk size {chunk_size}")
@@ -412,6 +417,7 @@ class Analyzer:
                 # r = future.result()
                 self._sample_events[r[0]] = r[1]
                 self._sample_reports[r[0]] = r[2]
+
 
     def _getSectors(self):
         s_pairs = []
@@ -593,9 +599,8 @@ class Analyzer:
         for sector in self.sectors:
             sector_id = sector.sector_id
             events = self._preselected_events[sector_id.sample_id]
-            self._sector_events[sector_id] = self.selection_manager.maskSector(
-                sector_id, events
-            )
+            e = self.selection_manager.maskSector(sector_id, events)
+            self._sector_events[sector_id] = e
 
     def populateCutflows(self):
         for sector in self.sectors:
@@ -635,7 +640,6 @@ def runAnalysis(analyzer):
     #     for s in analyzer._sample_reports
     # },
 
-    print(analyzer._sample_reports)
     return AnalysisResult(
         description=analyzer.description,
         preprocessed_samples=analyzer.preprocessed_samples,
@@ -736,50 +740,69 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     analyzer.preprocessed_samples = preprocessed_input
     res = runAnalysis(analyzer)
     dumped = res.model_dump()
+    #dumped["processed_chunks"] = {}
+    grouped=True
+    onebyone=True
 
-    def groupBySample(data):
-        def getS(x):
-            if isinstance(x, SampleId):
-                return x.sample_name
-            if isinstance(x, SectorId):
-                return x.sample_id.sample_name
-            return x
+    #c,r = dask.base.unpack_collections(dumped, traverse=True)
+    #dsk = dask.base.collections_to_dsk(c, True)
+
+    if grouped:
+        def groupBySample(data):
+            def getS(x):
+                if isinstance(x, SampleId):
+                    return x.sample_name
+                if isinstance(x, SectorId):
+                    return x.sample_id.sample_name
+                return x
+
+            ret = {}
+            for x, y in data.items():
+                l = ret.setdefault(x, {})
+                for k, v in y.items():
+                    d = l.setdefault(getS(k), {})
+                    d[k] = v
+
+            keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
+            return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
+
+        p = {
+            "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
+            "results": {x: y.model_dump() for x, y in res.results.items()},
+            "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
+        }
+        grouped = groupBySample(p)
 
         ret = {}
-        for x, y in data.items():
-            l = ret.setdefault(x, {})
-            for k, v in y.items():
-                d = l.setdefault(getS(k), {})
-                d[k] = v
+        p = 10000
+        for sample, vals in grouped.items():
+            p= p - 100
+            logger.info(f'Submitting sample "{sample}" to cluster.')
+            if onebyone:
+                ret[sample] = dask.compute(vals)[0]
+            else:
+                ret[sample] = dask.persist(vals, priority=p)[0]
 
-        keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
-        return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
-
-    p = {
-        "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
-        "results": {x: y.model_dump() for x, y in res.results.items()},
-        "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
-    }
-    grouped = groupBySample(p)
-
-    ret = {}
-    for sample, vals in grouped.items():
-        logger.info(f'Submitting sample "{sample}" to cluster.')
-        ret[sample] = dask.persist(vals)[0]
-    logger.info(
-        f"Done submitting all sampels to cluster, waiting for computation to finish..."
-    )
-    computed = dask.compute(ret)[0]
-    final = {}
-    final["total_mc_weights"] = dict(
-        it.chain.from_iterable(
-            (x.get("total_mc_weights", {}).items() for x in computed.values())
+        logger.info(
+            f"Done submitting all sampels to cluster, waiting for computation to finish..."
         )
-    )
-    final["results"] = dict(
-        it.chain.from_iterable((x["results"].items() for x in computed.values()))
-    )
-    print(computed)
+        if onebyone:
+            computed = ret
+        else:
+            computed = dask.compute(ret)[0]
+        final = {}
+        final["total_mc_weights"] = dict(
+            it.chain.from_iterable(
+                (x.get("total_mc_weights", {}).items() for x in computed.values())
+            )
+        )
+        final["results"] = dict(
+            it.chain.from_iterable((x["results"].items() for x in computed.values()))
+        )
+        final = {**dumped, **final}
+    else:
+        final = dask.compute(dumped)[0]
+
     final["processed_chunks"] = dict(
         it.chain.from_iterable(
             (x["processed_chunks"].items() for x in computed.values())
@@ -788,8 +811,7 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
     }
-    #    final["processed_chunks"] = {}
-    final = {**dumped, **final}
+
     final_result = AnalysisResult(**final)
     out = Path(output_path)
     out.parent.mkdir(exist_ok=True, parents=True)
@@ -800,9 +822,13 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
 if __name__ == "__main__":
     import analyzer.modules
     from analyzer.datasets import DatasetRepo, EraRepo
-    from analyzer.logging import setup_logging
 
-    setup_logging(default_level=logging.INFO)
+    #logger.debug("TEST1")
+    #logger.info("TEST2")
+    #logger.error("TEST3")
+
+    #import sys
+    #sys.exit()
 
     d = yaml.safe_load(open("configurations/test_config.yaml", "r"))
 
@@ -827,9 +853,9 @@ if __name__ == "__main__":
             n_workers=2,
         )
 
-    #preprocessAnalysis("configurations/test_config.yaml", "tiny_prepped.pkl")
+  #  preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
     runFromFile(
         "configurations/test_config.yaml",
-        "results4.pkl",
+        "test2.pkl",
         preprocessed_input_path="prepped.pkl",
     )

@@ -2,6 +2,7 @@ import copy
 import logging
 from typing import Any, Optional, Union
 
+import dask_awkward as dak
 import awkward as ak
 import hist
 import hist.dask as dah
