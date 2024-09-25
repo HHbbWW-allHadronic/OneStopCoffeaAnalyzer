@@ -12,9 +12,9 @@ LimitTo:
 # Samples and in which regions they should be processed
 samples:
   #TestData2018: [Control]
-  Data2018: [Control]
-  signal_312_2000_1900: [Signal312,Control]
   QCDInclusive2018: [Signal312,Control]
+  signal_312_2000_1900: [Signal312,Control]
+  Data2018: [Control, Signal312]
   signal_312_1500_1400: [Signal312, Control]
   signal_312_1200_400: [Signal312, Control]
   signal_312_1200_600: [Signal312, Control]
@@ -67,6 +67,7 @@ general_config:
 common_items:
     common_signal_histograms: &common_signal
       - name: njets
+      - name: goodjet_ht
       - name: jet_kinematics
       - name: jet_combo_kinematics
       #- name: jet_relative_angles
@@ -82,30 +83,30 @@ common_items:
         sample_spec:
           sample_type: Data
     common_weights: &common_weights
-      - name: L1_prefiring_sf
-        sample_spec:
-          eras: ["2016", "2017", "2018"]
-          sample_type: MC
-        config:
-          variations: All
+      # - name: L1_prefiring_sf
+      #   sample_spec:
+      #     eras: ["2016", "2017", "2018"]
+      #     sample_type: MC
+      #   config:
+      #     variations: All
       - name: sign_gen_weight
         sample_spec:
           sample_type: MC
-      - name: pileup_sf
-        sample_spec:
-          sample_type: MC
-      - name: sign_gen_weight
-        sample_spec:
-          sample_type: MC
+      # - name: pileup_sf
+      #   sample_spec:
+      #     sample_type: MC
+      # - name: sign_gen_weight
+      #   sample_spec:
+      #     sample_type: MC
       #- name: gen_weight
       #  sample_spec:
       #    sample_type: MC
-      - name: lumi_weight
-        sample_spec:
-          sample_type: MC
-      - name: xsec_weight
-        sample_spec:
-          sample_type: MC
+      # - name: lumi_weight
+      #   sample_spec:
+      #     sample_type: MC
+      # - name: xsec_weight
+      #   sample_spec:
+      #     sample_type: MC
 
 # A region has a name, followed by description of what modules should be run
 # for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
@@ -129,7 +130,7 @@ regions:
 #        config:
 #            working_points: [T]
   - name: Signal312
-    forbid_data: True
+    forbid_data: false
     objects: *common_objects
     preselection:
       - <<: *common_preselection

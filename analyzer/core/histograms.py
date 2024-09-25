@@ -48,6 +48,7 @@ class HistogramCollection(BaseModel):
             unweighted=new_un,
         )
 
+
     def scaled(self, scale):
         if self.spec.no_scale:
             return self

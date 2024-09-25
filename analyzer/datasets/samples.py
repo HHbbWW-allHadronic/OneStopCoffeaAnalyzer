@@ -371,6 +371,15 @@ class DatasetRepo:
     def __getitem__(self, key):
         return self.datasets[key]
 
+    def __contains__(self,key):
+        return key in self.datasets
+
+    def __iter__(self):
+        return iter(self.datasets)
+
+    def __getitem__(self, key):
+        return self.datasets[key]
+
     def getSample(self, sample_id):
         dataset = self[sample_id.dataset_name]
         sample = dataset.getSample(sample_id.sample_name)

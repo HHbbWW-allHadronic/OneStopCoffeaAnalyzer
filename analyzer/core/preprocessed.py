@@ -87,19 +87,16 @@ class SamplePreprocessed(pyd.BaseModel):
         )
 
     def missingFiles(self, dataset_repo):
-        a = set(dataset_repo.getSample(self.sample_id))
+        a = set(x.cmsLocation() for x in dataset_repo.getSample(self.sample_id).files)
+
         b = set(self.chunk_info)
         return list(a - b)
 
     def missingCoffeaDataset(self, dataset_repo, **kwargs):
-        mf = self.missingFiles()
+        mf = self.missingFiles(dataset_repo)
         sample = dataset_repo.getSample(self.sample_id)
         fdict = sample.fdict
-        return {
-            self.dataset_name: {
-                "files": {fdict[x].getFile(**kwargs): fdict[x].object_path for x in mf}
-            }
-        }
+        return {"files": {fdict[x].getFile(**kwargs): fdict[x].object_path for x in mf}}
 
     @property
     def chunks(self):
@@ -116,7 +113,6 @@ class SamplePreprocessed(pyd.BaseModel):
 
 def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
-
     return {
         str(sample_id): {
             "files": {x.getFile(**kwargs): x.object_path for x in fdict.values()}

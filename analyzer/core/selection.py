@@ -56,6 +56,10 @@ class Cutflow(BaseModel):
             n_minus_one=add_tuples(self.n_minus_one, other.n_minus_one),
         )
 
+    @property
+    def selection_efficiency(self):
+        return self.cutflow[-1][1] / self.cutflow[0][1]
+
 
 @dataclass
 class SampleSelection:

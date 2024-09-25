@@ -10,16 +10,14 @@ import pickle as pkl
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from distributed.diagnostics import memray
 from typing import Any, Optional, Union
 
-import yaml
-
 import awkward as ak
-import dask_awkward as dak
 import dask
+import dask_awkward as dak
 import distributed
 import pydantic as pyd
+import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -27,12 +25,17 @@ from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from distributed import Client
+from distributed.diagnostics import memray
 from rich import print
 
 from .analysis_modules import MODULE_REPO
 from .common_types import Scalar
 from .configuration import AnalysisDescription, AnalysisStage
-from .old_histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
+from .old_histograms import (
+    HistogramCollection,
+    HistogramSpec,
+    generateHistogramCollection,
+)
 from .preprocessed import SamplePreprocessed, preprocessBulk
 from .sector import Sector, SectorId, SectorParams, getParamsForSector
 from .selection import Cutflow, SelectionManager
@@ -75,14 +78,18 @@ class SampleCutflow(pyd.BaseModel):
 
     def __add__(self, other):
         """Two cutflows may be sumed by simply adding them"""
+        if self.weighted_sum is not None:
+            new_ws = (
+                (self.weighted_sum[0] + other.weighted_sum[0]),
+                (self.weighted_sum[1] + other.weighted_sum[1]),
+            )
+        else:
+            new_ws = None
 
         return SampleCutflow(
             cutflow=self.cutflow + other.cutflow,
             raw_passed=self.raw_passed + other.raw_passed,
-            weighted_sum=(
-                (self.weighted_sum[0] + other.weighted_sum[0]),
-                (self.weighted_sum[1] + other.weighted_sum[1]),
-            ),
+            weighted_sum=new_ws,
         )
 
     def scaled(self, scale):
@@ -185,12 +192,13 @@ class AnalysisResult(pyd.BaseModel):
     processed_chunks: dict[SampleId, Any]
     results: dict[SectorId, SectorResult]
     total_mc_weights: dict[SampleId, Optional[Scalar]]
+            
 
     @property
     def raw_events_processed(self):
         return {
             sample_id: sum(e - s for _, s, e in chunks)
-            for sample_id, chunks in self.results
+            for sample_id, chunks in self.processed_chunks.items()
         }
 
     def getBadChunks(self):
@@ -243,9 +251,12 @@ class AnalysisResult(pyd.BaseModel):
             results=new_results,
         )
 
-    def getResults(self):
+    def getResults(self, drop_samples=None):
+        drop_samples = drop_samples or []
         scaled_sample_results = defaultdict(list)
         for sector_id, result in self.results.items():
+            if sector_id.sample_id in drop_samples:
+                continue
             k = (sector_id.sample_id.dataset_name, sector_id.region_name)
             if result.params.sample_type == SampleType.MC:
                 result = result.scaled(1 / self.total_mc_weights[sector_id.sample_id])
@@ -383,7 +394,7 @@ class Analyzer:
                 allow_read_errors_with_report=True,
                 timeout=30,
             ),
-            #known_base_form=maybe_base_form,
+            # known_base_form=maybe_base_form,
         ).events()
         return sample_id, events, report
 
@@ -418,7 +429,6 @@ class Analyzer:
                 # r = future.result()
                 self._sample_events[r[0]] = r[1]
                 self._sample_reports[r[0]] = r[2]
-
 
     def _getSectors(self):
         s_pairs = []
@@ -477,7 +487,7 @@ class Analyzer:
             if ds.skimmed_from:
                 return totalGen(ds.skimmed_from, sample_name, e)
             return ds.getSample(sample_name).n_events
-            # if self.dataset_repo[sample_id.dataset_name].sample_type == SampleType.MC:
+            # if ds.sample_type == SampleType.MC:
             #    return ak.sum(e.genWeight, axis=0)
             # else:
             #    return None
@@ -741,15 +751,16 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     analyzer.preprocessed_samples = preprocessed_input
     res = runAnalysis(analyzer)
     dumped = res.model_dump()
-    #dumped["processed_chunks"] = {}
-    grouped=True
-    onebyone=True
+    # dumped["processed_chunks"] = {}
+    grouped = True
+    onebyone = True
 
-    #c,r = dask.base.unpack_collections(dumped, traverse=True)
-    #dsk = dask.base.collections_to_dsk(c, True)
-    #print(dsk)
+    # c,r = dask.base.unpack_collections(dumped, traverse=True)
+    # dsk = dask.base.collections_to_dsk(c, True)
+    # print(dsk)
 
     if grouped:
+
         def groupBySample(data):
             def getS(x):
                 if isinstance(x, SampleId):
@@ -777,7 +788,7 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         ret = {}
         p = 10000
         for sample, vals in grouped.items():
-            p= p - 100
+            p = p - 100
             logger.info(f'Submitting sample "{sample}" to cluster.')
             if onebyone:
                 ret[sample] = dask.compute(vals)[0]
@@ -811,7 +822,6 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     else:
         final = dask.compute(dumped)[0]
 
-
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
     }
@@ -827,12 +837,11 @@ if __name__ == "__main__":
     import analyzer.modules
     from analyzer.datasets import DatasetRepo, EraRepo
 
-    #logger.debug("TEST1")
-    #logger.info("TEST2")
-    #logger.error("TEST3")
-
-    #import sys
-    #sys.exit()
+    # logger.debug("TEST1")
+    # logger.info("TEST2")
+    # logger.error("TEST3")
+    # import sys
+    # sys.exit()
 
     d = yaml.safe_load(open("configurations/test_config.yaml", "r"))
 
@@ -857,11 +866,11 @@ if __name__ == "__main__":
             n_workers=2,
         )
 
-    #preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
-    #with memray.memray_workers("memrayout/"):
+    # preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
+    # with memray.memray_workers("memrayout/"):
     runFromFile(
         "configurations/test_config.yaml",
-        "test_no_known.pkl",
+        "results/DANGER.pkl",
         preprocessed_input_path="prepped.pkl",
     )
 
