@@ -266,7 +266,7 @@ class Sample(BaseModel):
         t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
         flat = dict(t)
         if len(flat) != len(self.files):
-            raise RuntimeError()
+            raise RuntimeError(f"Possible missing files for {self.name}")
         for f in self.files:
             cms_loc = f.cmsLocation()
             for l, p in flat[cms_loc].items():

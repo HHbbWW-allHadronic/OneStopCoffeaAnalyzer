@@ -10,9 +10,13 @@ formatters:
     format: "%(name)s\n%(message)s"
 
 handlers:
-  console:
+  info_console:
     class: rich.logging.RichHandler
     level: INFO
+    formatter: just_name
+  warn_console:
+    class: rich.logging.RichHandler
+    level: WARN
     formatter: just_name
 
   debug_file_handler:
@@ -36,28 +40,25 @@ handlers:
 loggers:
   analyzer:
     level: DEBUG
-    handlers: [debug_file_handler, console]
+    handlers: [debug_file_handler, info_console]
     propagate: false
-
   distributed.core:
     level: DEBUG
-    handlers: [debug_file_handler, console]
+    handlers: [debug_file_handler, warn_console]
     propagate: false
   distributed.client:
     level: DEBUG
-    handlers: [debug_file_handler, console]
+    handlers: [debug_file_handler, warn_console]
     propagate: false
   distributed.scheduler:
     level: DEBUG
-    handlers: [debug_file_handler, console]
+    handlers: [debug_file_handler, warn_console]
     propagate: false
-
-
   dask:
     level: DEBUG 
-    handlers: [console, debug_file_handler]
+    handlers: [warn_console, debug_file_handler]
     propagate: false
 
 root:
   level: WARN
-  handlers: [console]
+  handlers: [warn_console]

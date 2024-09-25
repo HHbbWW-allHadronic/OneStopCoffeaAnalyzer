@@ -139,6 +139,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
         all_inputs,
         save_form=True,
         skip_bad_files=True,
+        align_clusters=True,
         uproot_options={"timeout": 30},
         **kwargs,
     )

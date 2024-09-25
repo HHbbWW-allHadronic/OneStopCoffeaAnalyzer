@@ -122,6 +122,7 @@ def generateHistogramCollection(
         central_weight = None
 
     base_histogram = makeHistogram(spec, categories, fill_data, central_weight, mask)
+    print(dak.necessary_columns(base_histogram))
     if not weight_repo:
         return HistogramCollection(spec=spec, histogram=base_histogram, variations={})
     if spec.include_unweighted:

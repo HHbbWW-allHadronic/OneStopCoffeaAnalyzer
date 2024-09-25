@@ -10,6 +10,7 @@ import pickle as pkl
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
+from distributed.diagnostics import memray
 from typing import Any, Optional, Union
 
 import yaml
@@ -382,7 +383,7 @@ class Analyzer:
                 allow_read_errors_with_report=True,
                 timeout=30,
             ),
-            known_base_form=maybe_base_form,
+            #known_base_form=maybe_base_form,
         ).events()
         return sample_id, events, report
 
@@ -746,6 +747,7 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
     #c,r = dask.base.unpack_collections(dumped, traverse=True)
     #dsk = dask.base.collections_to_dsk(c, True)
+    #print(dsk)
 
     if grouped:
         def groupBySample(data):
@@ -772,7 +774,6 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
             "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
         }
         grouped = groupBySample(p)
-
         ret = {}
         p = 10000
         for sample, vals in grouped.items():
@@ -799,15 +800,18 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         final["results"] = dict(
             it.chain.from_iterable((x["results"].items() for x in computed.values()))
         )
+
+        final["processed_chunks"] = dict(
+            it.chain.from_iterable(
+                (x["processed_chunks"].items() for x in computed.values())
+            )
+        )
         final = {**dumped, **final}
+
     else:
         final = dask.compute(dumped)[0]
 
-    final["processed_chunks"] = dict(
-        it.chain.from_iterable(
-            (x["processed_chunks"].items() for x in computed.values())
-        )
-    )
+
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
     }
@@ -853,9 +857,15 @@ if __name__ == "__main__":
             n_workers=2,
         )
 
-  #  preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
+    #preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
+    #with memray.memray_workers("memrayout/"):
     runFromFile(
         "configurations/test_config.yaml",
-        "test2.pkl",
+        "test_no_known.pkl",
         preprocessed_input_path="prepped.pkl",
     )
+
+    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
+    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
+    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
+    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")

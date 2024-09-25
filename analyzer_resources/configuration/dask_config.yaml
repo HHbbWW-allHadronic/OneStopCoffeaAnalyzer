@@ -4,6 +4,9 @@ distributed:
   worker:
     profile:
       enabled: true
+  nanny:
+    environ:
+      MALLOC_TRIM_THRESHOLD_: 0
 jobqueue:
   lpccondor:
     name: dask-worker
