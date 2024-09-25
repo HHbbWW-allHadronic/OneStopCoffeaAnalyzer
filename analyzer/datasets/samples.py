@@ -371,7 +371,7 @@ class SampleSet:
         if self.derived_from:
             w = self.derived_from.weight()
         else:
-            if self.sample_type:
+            if self.sample_type == "Data":
                 w = 1
             else:
                 w = self.lumi * self.x_sec / self.n_events
