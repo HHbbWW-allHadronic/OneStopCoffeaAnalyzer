@@ -15,9 +15,14 @@ class Style(BaseModel):
 
 
 class StyleRule(BaseModel):
-    sector_spec: SectorSpec
+    sector_spec: DatasetSpec
     style: Style
 
 
+class StyleRepo:
+    def __init__(self):
+        pass
 
+    def 
 
+    

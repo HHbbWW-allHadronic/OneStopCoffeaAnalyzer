@@ -1,10 +1,7 @@
 import numpy as np
 
-import hist
 import hist.intervals as hinter
-import hist.basehist as hbhist
 import matplotlib as mpl
-import matplotlib.pyplot as plt
 from .plottables import FillType
 
 

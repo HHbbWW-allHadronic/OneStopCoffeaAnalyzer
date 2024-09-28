@@ -11,10 +11,14 @@ class Config:
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
     ENV_LOCAL_APPLICATION_DATA = f"/srv/.application_data/envlocal/{venv_name}"
     APPLICATION_RESOURCES = "/srv/analyzer_resources"
+
     DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
     ERA_PATHS = [str(Path(APPLICATION_RESOURCES) / "eras")]
     CONFIG_PATH = str(Path(APPLICATION_RESOURCES) / "configuration")
     DASK_CONFIG_PATH = str(Path(CONFIG_PATH) / "dask_config.yaml")
+    STATIC_PATH = str(Path(APPLICATION_RESOURCES) / "static")
+    STYLE_PATH = str(Path(APPLICATION_RESOURCES) / "styles")
+
     PRETTY_MODE = True
 
 

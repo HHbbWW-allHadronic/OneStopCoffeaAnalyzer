@@ -5,7 +5,6 @@ import hist
 from analyzer.core import MODULE_REPO, ModuleType
 
 from .utils.axes import CommonAxes, makeAxis
-from .utils.math_funcs import angleToNPiToPi
 
 
 @MODULE_REPO.register(ModuleType.Histogram)

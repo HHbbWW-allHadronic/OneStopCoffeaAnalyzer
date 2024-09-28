@@ -1,39 +1,15 @@
-import functools as ft
 import itertools as it
-from collections import ChainMap
 from dataclasses import dataclass, field
-from typing import Any
 
-import pydantic as pyd
-from analyzer.datasets import SampleId
 
 from .analysis_modules import AnalyzerModule, ModuleType
 from .exceptions import AnalysisConfigurationError
-
-
-# SectorId= namedtuple("SectorId", "sample_id region_name")
-@pyd.dataclasses.dataclass(frozen=True)
-class SectorId:
-    sample_id: SampleId
-    region_name: str
-
-    @pyd.model_serializer
-    def serialize(self) -> str:
-        return self.region_name + "___" + self.sample_id.serialize()
-
-    @pyd.model_validator(mode="before")
-    @classmethod
-    def isStr(self, value):
-        if isinstance(value, str):
-            a, *b = value.split("___")
-            return {"region_name": a, "sample_id": "___".join(b)}
-        else:
-            return value
+from .specifiers import SectorParams, SubSectorId, SubSectorParams
 
 
 @dataclass
-class Sector:
-    sector_id: SectorId
+class SubSector:
+    subsector_id: SubSectorId
 
     description: str = ""
 
@@ -53,11 +29,11 @@ class Sector:
 
     @property
     def sample_id(self):
-        return self.sector_id.sample_id
+        return self.subsector_id.sample_id
 
     @property
     def region_name(self):
-        return self.sector_id.region_name
+        return self.subsector_id.region_name
 
     def getSelectionId(self):
         return getSectionHash(self.selection)
@@ -66,10 +42,12 @@ class Sector:
         return getSectionHash(self.selection)
 
     @staticmethod
-    def fromRegion(region_desc, sample, module_repo):
+    def fromRegion(region_desc, sample, module_repo, era_repo):
         name = region_desc.name
-
-        if region_desc.forbid_data and sample.sample_type == "Data":
+        sample_params = sample.params
+        dataset_params = sample_params.dataset_params
+        dataset_params.populateEra(era_repo)
+        if region_desc.forbid_data and dataset_params.sample_type == "Data":
             raise AnalysisConfigurationError(
                 f"Region '{region_desc.name}' is marked with 'forbid_data'"
                 f"but is recieving Data sample '{sample.name}'"
@@ -79,7 +57,7 @@ class Sector:
             ret = [
                 mod
                 for mod in l
-                if not mod.sample_spec or mod.sample_spec.passes(sample)
+                if not mod.sample_spec or mod.sample_spec.passes(dataset_params)
             ]
             modules = [
                 [
@@ -106,8 +84,8 @@ class Sector:
             region_desc.histograms, ModuleType.Histogram
         )
 
-        return Sector(
-            sector_id=SectorId(sample.sample_id, region_desc.name),
+        return SubSector(
+            subsector_id=SubSectorId(sample.sample_id, region_desc.name),
             description=region_desc.description,
             forbid_data=region_desc.forbid_data,
             preselection=preselection,
@@ -118,52 +96,25 @@ class Sector:
             weights=weights,
         )
 
+__subsector_param_cache = {}
 
-@dataclass
-class SectorParams:
-    era_params: dict[str, Any]
-    dataset_params: dict[str, Any]
-    sample_params: dict[str, Any]
-    sector_id: SectorId
+def getParamsForSubSector(subsector_id, dataset_repo, era_repo):
+    if subsector_id in __subsector_param_cache:
+        return __subsector_param_cache[subsector_id]
 
-    @ft.cached_property
-    def _all_params(self):
-        def notNone(m):
-            return {x: y for x, y in m.items() if y is not None}
-
-        ret = ChainMap(
-            notNone(self.sample_params),
-            notNone(self.dataset_params),
-            notNone(self.era_params),
-        )
-        return ret
-
-    def __getitem__(self, key):
-        if key == "sector_id":
-            return self.sector_id
-        return self._all_params[key]
-
-    def __getattr__(self, attr):
-        if attr.startswith("__") and attr.endswith("__"):
-            raise AttributeError
-        return self[attr]
-
-
-__sector_param_cache ={}
-def getParamsForSector(sector_id, dataset_repo, era_repo):
-    if sector_id in __sector_param_cache:
-        return __sector_param_cache[sector_id]
-
-    sample_id = sector_id.sample_id
+    sample_id = subsector_id.sample_id
     dataset = dataset_repo[sample_id.dataset_name]
-    sample = dataset.getSample(sample_id.sample_name)
-    sp = sample.params
-    era = era_repo[sample.era]
-    p =  SectorParams(
-        era_params=era.params,
-        sample_params=sp["sample_params"],
-        dataset_params=sp["dataset_params"],
-        sector_id=sector_id,
+    params = dataset.getSample(sample_id.sample_name).params
+    dataset_params = params.dataset_params
+    dataset_params.populateEra(era_repo)
+    sector_params = SectorParams(
+        dataset_params=dataset_params,
+        region_params={"region_name": subsector_id.region_name},
     )
-    __sector_param_cache[sector_id] = p
+    p = SubSectorParams(
+        sector_params=sector_params,
+        sample_params=params.sample_params,
+        subsector_id=subsector_id,
+    )
+    __subsector_param_cache[subsector_id] = p
     return p

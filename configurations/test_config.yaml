@@ -11,42 +11,41 @@ LimitTo:
 
 # Samples and in which regions they should be processed
 samples:
-  #TestData2018: [Control]
-  QCDInclusive2018: [Signal312,Control]
   signal_312_2000_1900: [Signal312,Control]
-  Data2018: [Control, Signal312]
   signal_312_1500_1400: [Signal312, Control]
-  signal_312_1200_400: [Signal312, Control]
-  signal_312_1200_600: [Signal312, Control]
-  signal_312_1200_1100: [Signal312, Control]
-  signal_312_1300_1200: [Signal312, Control]
-  signal_312_1400_400: [Signal312, Control]
-  signal_312_1400_1300: [Signal312, Control]
-  signal_312_1500_400: [Signal312, Control]
-  signal_312_1500_600: [Signal312, Control]
-  signal_312_1500_900: [Signal312, Control]
-  signal_312_1500_1400: [Signal312, Control]
-  signal_312_2000_400: [Signal312, Control]
-  signal_312_1300_400: [Signal312, Control]
-  signal_312_1300_600: [Signal312, Control]
-  signal_312_2000_900: [Signal312, Control]
-  signal_312_2000_1900: [Signal312, Control]
-  signal_312_1000_700: [Signal312, Control]
-  signal_312_1000_800: [Signal312, Control]
-  signal_312_1200_700: [Signal312, Control]
-  signal_312_1200_800: [Signal312, Control]
-  signal_312_1500_100: [Signal312, Control]
-  signal_312_1500_1000: [Signal312, Control]
-  signal_312_1500_1200: [Signal312, Control]
-  signal_312_1500_1300: [Signal312, Control]
-  signal_312_1500_1350: [Signal312, Control]
-  signal_312_1500_1450: [Signal312, Control]
-  signal_312_2000_1200: [Signal312, Control]
-  signal_312_2000_1600: [Signal312, Control]
-  signal_312_2000_1700: [Signal312, Control]
-  signal_312_1000_400: [Signal312, Control]
-  signal_312_1000_600: [Signal312, Control]
-  signal_312_1000_900: [Signal312, Control]
+  # QCDInclusive2018: [Signal312,Control]
+  # Data2018: [Control, Signal312]
+  # signal_312_1200_400: [Signal312, Control]
+  # signal_312_1200_600: [Signal312, Control]
+  # signal_312_1200_1100: [Signal312, Control]
+  # signal_312_1300_1200: [Signal312, Control]
+  # signal_312_1400_400: [Signal312, Control]
+  # signal_312_1400_1300: [Signal312, Control]
+  # signal_312_1500_400: [Signal312, Control]
+  # signal_312_1500_600: [Signal312, Control]
+  # signal_312_1500_900: [Signal312, Control]
+  # signal_312_1500_1400: [Signal312, Control]
+  # signal_312_2000_400: [Signal312, Control]
+  # signal_312_1300_400: [Signal312, Control]
+  # signal_312_1300_600: [Signal312, Control]
+  # signal_312_2000_900: [Signal312, Control]
+  # signal_312_2000_1900: [Signal312, Control]
+  # signal_312_1000_700: [Signal312, Control]
+  # signal_312_1000_800: [Signal312, Control]
+  # signal_312_1200_700: [Signal312, Control]
+  # signal_312_1200_800: [Signal312, Control]
+  # signal_312_1500_100: [Signal312, Control]
+  # signal_312_1500_1000: [Signal312, Control]
+  # signal_312_1500_1200: [Signal312, Control]
+  # signal_312_1500_1300: [Signal312, Control]
+  # signal_312_1500_1350: [Signal312, Control]
+  # signal_312_1500_1450: [Signal312, Control]
+  # signal_312_2000_1200: [Signal312, Control]
+  # signal_312_2000_1600: [Signal312, Control]
+  # signal_312_2000_1700: [Signal312, Control]
+  # signal_312_1000_400: [Signal312, Control]
+  # signal_312_1000_600: [Signal312, Control]
+  # signal_312_1000_900: [Signal312, Control]
 
 # Samples and in which regions they should be processed
 general_config:
@@ -71,42 +70,36 @@ common_items:
       - name: jet_kinematics
       - name: jet_combo_kinematics
       #- name: jet_relative_angles
-      # - name: b_quark_kinematics
-      #   config:
-      #     - working_point: L
-      #     - working_point: M
-      #     - working_point: T
+      - name: b_quark_kinematics
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
+
     common_objects: &common_objects
       - name: core_objects
+
     common_preselection: &common_preselection 
       - name: golden_lumi_filter
         sample_spec:
           sample_type: Data
+
     common_weights: &common_weights
-      # - name: L1_prefiring_sf
-      #   sample_spec:
-      #     eras: ["2016", "2017", "2018"]
-      #     sample_type: MC
-      #   config:
-      #     variations: All
+      - name: L1_prefiring_sf
+        sample_spec:
+          eras: ["2016", "2017", "2018"]
+          sample_type: MC
+        config:
+          variations: All
       - name: sign_gen_weight
         sample_spec:
           sample_type: MC
-      # - name: pileup_sf
-      #   sample_spec:
-      #     sample_type: MC
-      # - name: sign_gen_weight
-      #   sample_spec:
-      #     sample_type: MC
-      #- name: gen_weight
-      #  sample_spec:
-      #    sample_type: MC
-      # - name: lumi_weight
-      #   sample_spec:
-      #     sample_type: MC
-      # - name: xsec_weight
-      #   sample_spec:
-      #     sample_type: MC
+      - name: pileup_sf
+        sample_spec:
+          sample_type: MC
+      - name: sign_gen_weight
+        sample_spec:
+          sample_type: MC
 
 # A region has a name, followed by description of what modules should be run
 # for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
@@ -135,7 +128,7 @@ regions:
     preselection:
       - <<: *common_preselection
       - name: signal_hlt
-    selection:
+    selection: 
       - name: general_selection
       - name: partial_signal312_selection
     histograms: *common_signal
@@ -146,7 +139,7 @@ regions:
     preselection:
       - <<: *common_preselection
       - name: signal_hlt
-    selection:
+    selection: 
       - name: general_selection
       - name: partial_cr_selection
     histograms: *common_signal

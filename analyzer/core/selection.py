@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict
 
 from .common_types import Scalar
 from .configuration import AnalysisStage
-from .sector import SectorId
+from .sector import SubSectorId
 
 logger = logging.getLogger(__name__)
 
@@ -145,20 +145,20 @@ class SelectionManager:
         default_factory=lambda: defaultdict(SampleSelection)
     )
 
-    selections: defaultdict[SectorId, Selection] = field(
+    selections: defaultdict[SubSectorId, Selection] = field(
         default_factory=lambda: defaultdict(Selection)
     )
 
     __computed_preselections: dict[str, Any] = field(default_factory=dict)
 
     def register(
-        self, sector_id, name, mask, type="and", stage=AnalysisStage.Preselection
+        self, subsector_id, name, mask, type="and", stage=AnalysisStage.Preselection
     ):
         logger.debug(
-            f'Adding selection cut "{name}" of type "{type}" for stage "{stage}" for {sector_id}'
+            f'Adding selection cut "{name}" of type "{type}" for stage "{stage}" for {subsector_id}'
         )
-        self.selections[sector_id] = self.selections[sector_id].addOne(name, type=type)
-        self.selection_masks[sector_id.sample_id].addMask(name, mask, stage=stage)
+        self.selections[subsector_id] = self.selections[subsector_id].addOne(name, type=type)
+        self.selection_masks[subsector_id.sample_id].addMask(name, mask, stage=stage)
 
     def maskPreselection(self, sample_id, events):
         logger.debug(f'Applying preselection mask  for "{sample_id}"')
@@ -177,10 +177,11 @@ class SelectionManager:
             m = self.__computed_preselections[sample_id]
             sel.addPreselectionMaskToSelection(m)
 
-    def maskSector(self, sector_id, events):
-        logger.debug(f'Applying selection mask  for "{sector_id}"')
-        s = self.selections[sector_id]
-        sample_id = sector_id.sample_id
+    def maskSubSector(self, subsector_id, events):
+        logger.debug(f'Applying selection mask  for "{subsector_id}"')
+        s = self.selections[subsector_id]
+        sample_id = subsector_id.sample_id
+
         mask = self.selection_masks[sample_id].getMask(
             s.or_names, s.and_names, stage=AnalysisStage.Selection
         )
@@ -189,8 +190,8 @@ class SelectionManager:
         else:
             return events[mask]
 
-    def getCutflow(self, sector_id):
-        sid = sector_id.sample_id
-        sel = self.selections[sector_id]
+    def getCutflow(self, subsector_id):
+        sid = subsector_id.sample_id
+        sel = self.selections[subsector_id]
         all_names = sel.or_names + sel.and_names
         return self.selection_masks[sid].getCutflow(all_names)

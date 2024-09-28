@@ -2,7 +2,6 @@ import collections.abc
 import logging
 import shutil
 import tempfile
-from contextlib import contextmanager
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 import pickle
@@ -83,7 +82,7 @@ def compressDirectory(
 
 
 def exists(client, loc):
-    from XRootD.client.flags import OpenFlags, StatInfoFlags
+    from XRootD.client.flags import OpenFlags
 
     status, result = client.stat(loc, OpenFlags.REFRESH)
     return status.ok

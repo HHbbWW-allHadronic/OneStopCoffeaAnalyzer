@@ -1,11 +1,6 @@
-import functools
-import logging
-import operator as op
-
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
 
-from .utils.logging import getSectorLogger
 
 
 @MODULE_REPO.register(ModuleType.Selection)

@@ -1,4 +1,3 @@
-import itertools as it
 
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType

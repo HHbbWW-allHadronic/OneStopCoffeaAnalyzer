@@ -1,7 +1,6 @@
 import copy
 import operator
 import subprocess
-from collections import defaultdict
 from collections.abc import MutableMapping, MutableSet
 from typing import Iterable, Optional, TypeVar, Union
 

@@ -35,8 +35,10 @@ def getMissingDataset(analyzer_input, coffea_dataset):
 class SamplePreprocessed(pyd.BaseModel):
     sample_id: SampleId
     chunk_info: dict[str, dict[str, Any]]
+    step_size: int
     form: Optional[str] = None
     limit_chunks: Optional[set[Chunk]] = None
+    file_retrieval_kwargs: Optional[dict[str, Any]] = None
 
     def getCoffeaDataset(
         self, dataset_repo, allow_incomplete=True, **kwargs
@@ -120,7 +122,9 @@ def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     }
 
 
-def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
+def preprocessBulk(
+    dataset_repo, samples, file_retrieval_kwargs=None, step_size=None, **kwargs
+):
     logger.info(f"Preprocessing {len(samples)} samples.")
     if file_retrieval_kwargs is None:
         file_retrieval_kwargs = {}
@@ -137,6 +141,7 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
         skip_bad_files=True,
         align_clusters=True,
         uproot_options={"timeout": 30},
+        step_size=step_size,
         **kwargs,
     )
 
@@ -145,7 +150,10 @@ def preprocessBulk(dataset_repo, samples, file_retrieval_kwargs=None, **kwargs):
 
     ret = [
         SamplePreprocessed(
-            sample_id=mapping[k], chunk_info=backToSampleFile(v), form=v["form"]
+            sample_id=mapping[k],
+            chunk_info=backToSampleFile(v),
+            step_size=step_size,
+            file_retrieval_kwargs=file_retrieval_kwargs,
         )
         for k, v in out.items()
     ]

@@ -5,7 +5,6 @@ from typing import Any, ClassVar, Optional, Union
 
 from pydantic import BaseModel, Field
 from .specifiers import SampleSpec
-from .exceptions import AnalysisConfigurationError
 
 logger = logging.getLogger(__name__)
 

@@ -3,11 +3,10 @@ from dataclasses import dataclass
 import matplotlib.pyplot as plt
 from .plottables import FillType
 import numpy as np
-from matplotlib.collections import PatchCollection, RegularPolyCollection
+from matplotlib.collections import PatchCollection
 from matplotlib.patches import Rectangle
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-from .utils import addAxesToHist
 
 
 def drawAs2DHist(ax, plot_object, divider=None, add_color_bar=True, **kwargs):

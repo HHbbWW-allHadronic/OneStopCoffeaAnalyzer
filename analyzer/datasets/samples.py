@@ -1,47 +1,37 @@
-import copy
 import dataclasses
 import enum
 import itertools as it
 import json
+import logging
 import operator as op
+from collections import ChainMap
 import random
 import re
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from collections.abc import Mapping
 from functools import cached_property
+import functools as ft
 from pathlib import Path
 from typing import (
-    Annotated,
     Any,
-    ClassVar,
-    Dict,
     List,
     Optional,
-    Set,
-    Tuple,
     Union,
-    get_args,
-    get_origin,
 )
-from urllib.parse import urlparse, urlunparse
-from analyzer.configuration import CONFIG
+from urllib.parse import urlparse
 
 import pydantic as pyd
 import yaml
-from analyzer.utils.file_tools import extractCmsLocation, stripPort
+from analyzer.configuration import CONFIG
+from analyzer.utils.file_tools import extractCmsLocation
 from pydantic import (
     BaseModel,
     Field,
-    ValidationError,
-    ValidationInfo,
+    field_serializer,
     field_validator,
     model_validator,
-    validator,
 )
 from rich import print
-from rich.table import Table
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -189,6 +179,52 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
+class DatasetParams(pyd.BaseModel):
+    era_params: Union[str, dict[str, Any]]
+    dataset_params: dict[str, Any]
+
+    @ft.cached_property
+    def _all_params(self):
+        def notNone(m):
+            return {x: y for x, y in m.items() if y is not None}
+
+        ret = ChainMap(
+            notNone(self.dataset_params),
+            notNone(self.era_params),
+        )
+        return ret
+
+    def populateEra(self, era_repo):
+        if isinstance(self.era_params, str):
+            self.era_params = era_repo[self.era_params].params
+
+    def __iter__(self):
+        return iter(self._all_params)
+
+    def __getitem__(self, key):
+        return self._all_params[key]
+
+    def __getattr__(self, attr):
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError
+        return self[attr]
+
+    def items(self):
+        return self._all_params.items()
+
+    def keys(self):
+        return self._all_params.keys()
+
+    def values(self):
+        return self._all_params.values()
+
+
+@pyd.dataclasses.dataclass
+class SampleParams:
+    dataset_params: DatasetParams
+    sample_params: dict[str, Any]
+
+
 @pyd.dataclasses.dataclass(frozen=True)
 class SampleId:
     dataset_name: str
@@ -246,10 +282,10 @@ class Sample(BaseModel):
 
     @property
     def params(self):
-        return {
-            "dataset_params": self._parent_dataset.params,
-            "sample_params": self.dict(exclude=["files"]),
-        }
+        return SampleParams(
+            dataset_params=self._parent_dataset.params,
+            sample_params=self.dict(exclude=["files"]),
+        )
 
     def useFilesFromReplicaCache(self):
         from analyzer.configuration import CONFIG
@@ -277,7 +313,6 @@ class Sample(BaseModel):
 
         from analyzer.configuration import CONFIG
         from coffea.dataset_tools import rucio_utils
-        from coffea.dataset_tools.dataset_query import DataDiscoveryCLI
 
         if not self.cms_dataset_regex:
             raise RuntimeError(
@@ -315,7 +350,9 @@ class Dataset(BaseModel):
 
     @property
     def params(self):
-        return self.dict(exclude=["samples"])
+        return DatasetParams(
+            dataset_params=self.dict(exclude=["samples", "era"]), era_params=self.era
+        )
 
     def getSample(self, name):
         return next(x for x in self.samples if x.name == name)
@@ -363,6 +400,15 @@ class Dataset(BaseModel):
                 )
         return self
 
+    @field_serializer("sample_type")
+    def serialize_type(self, sample_type, _info):
+        return sample_type.name
+
+    @field_validator("sample_type")
+    @classmethod
+    def validate_type(cls, v, _info):
+        return SampleType[v]
+
 
 @dataclasses.dataclass
 class DatasetRepo:
@@ -371,7 +417,7 @@ class DatasetRepo:
     def __getitem__(self, key):
         return self.datasets[key]
 
-    def __contains__(self,key):
+    def __contains__(self, key):
         return key in self.datasets
 
     def __iter__(self):
@@ -407,7 +453,9 @@ class DatasetRepo:
         for dataset in self.datasets.values():
             logger.info(f"Building replicas for {dataset}")
             for sample in dataset.samples:
-                logger.info(f"Attempting to build replices for {sample} with regex \"{sample.cms_dataset_regex}\"")
+                logger.info(
+                    f'Attempting to build replices for {sample} with regex "{sample.cms_dataset_regex}"'
+                )
                 if sample.cms_dataset_regex:
                     sample.discoverAndCacheReplicas(force=force)
 

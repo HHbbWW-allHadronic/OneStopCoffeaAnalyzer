@@ -1,19 +1,14 @@
-import atexit
 import datetime
-import importlib.resources
 import logging
-import multiprocessing
 import os
 import shutil
-import sys
 import time
 from pathlib import Path
 
-import analyzer.resources
 import dask
 import yaml
 from analyzer.utils.file_tools import compressDirectory
-from distributed import Client, LocalCluster, TimeoutError
+from distributed import LocalCluster
 from rich.progress import Progress
 
 from .configuration import CONFIG
