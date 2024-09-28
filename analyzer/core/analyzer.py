@@ -12,12 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import yaml
+
 import awkward as ak
 import dask
-import dask_awkward as dak
 import distributed
 import pydantic as pyd
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -25,30 +25,20 @@ from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from distributed import Client
-from distributed.diagnostics import memray
 from rich import print
 
 from .analysis_modules import MODULE_REPO
 from .common_types import Scalar
 from .configuration import AnalysisDescription, AnalysisStage
-from .old_histograms import (
-    HistogramCollection,
-    HistogramSpec,
-    generateHistogramCollection,
-)
+from .histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
-from .sector import Sector, SectorId, SectorParams, getParamsForSector
+from .sector import SubSector, getParamsForSubSector
 from .selection import Cutflow, SelectionManager
+from .specifiers import SectorParams, SubSectorId, SubSectorParams
 from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
-    from rich.console import Console
     from rich.progress import (
-        BarColumn,
-        MofNCompleteColumn,
-        Progress,
-        SpinnerColumn,
-        TextColumn,
         track,
     )
 
@@ -107,14 +97,14 @@ class SampleCutflow(pyd.BaseModel):
         )
 
 
-class SectorResult(pyd.BaseModel):
-    params: SectorParams
+class SubSectorResult(pyd.BaseModel):
+    params: SubSectorParams
     histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     cutflow_data: Optional[SampleCutflow] = None
 
     def __add__(self, other):
-        """Two sector results may be added if they have the same parameters
+        """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
         if self.params != other.params:
@@ -123,7 +113,7 @@ class SectorResult(pyd.BaseModel):
             )
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
-        return SectorResult(
+        return SubSectorResult(
             params=self.params,
             histograms=new_hists,
             other_data=new_other,
@@ -131,7 +121,7 @@ class SectorResult(pyd.BaseModel):
         )
 
     def scaled(self, scale):
-        return SectorResult(
+        return SubSectorResult(
             params=self.params,
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
@@ -139,34 +129,34 @@ class SectorResult(pyd.BaseModel):
         )
 
 
-class DatasetResult(pyd.BaseModel):
-    dataset_params: dict[str, Any]
-    era_params: dict[str, Any]
+class SectorResult(pyd.BaseModel):
+    sector_params: SectorParams
+    sample_params: list[dict[str, Any]]
     histograms: dict[str, HistogramCollection]
     other_data: dict[str, Any]
     cutflow_data: Optional[SampleCutflow]
 
     @staticmethod
-    def fromSectorResult(sector_result):
-        return DatasetResult(
-            dataset_params=sector_result.params.dataset_params,
-            era_params=sector_result.params.era_params,
-            histograms=sector_result.histograms,
-            other_data=sector_result.other_data,
-            cutflow_data=sector_result.cutflow_data,
+    def fromSubSectorResult(subsector_result):
+        return SectorResult(
+            sector_params = subsector_result.params.sector_params,
+            sample_params=[subsector_result.params.sample_params],
+            histograms=subsector_result.histograms,
+            other_data=subsector_result.other_data,
+            cutflow_data=subsector_result.cutflow_data,
         )
 
     def scaled(self, scale):
-        return DatasetResult(
-            dataset_params=self.dataset_params,
-            era_params=self.era_params,
+        return SectorResult(
+            sector_params = self.sector_params,
+            sample_params=[subsector_result.params.sample_params],
             histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
             cutflow_data=self.cutflow_data.scaled(scale),
         )
 
     def __add__(self, other):
-        """Two sector results may be added if they have the same parameters
+        """Two subsector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
         if (
@@ -176,9 +166,9 @@ class DatasetResult(pyd.BaseModel):
             raise RuntimeError(f"Error: Attempting to merge incomaptible results")
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
-        return DatasetResult(
-            dataset_params=self.dataset_params,
-            era_params=self.era_params,
+        return SectorResult(
+            sector_params = self.sector_params,
+            sample_params=self.sample_params + other.sample_params,
             histograms=new_hists,
             other_data=new_other,
             cutflow_data=self.cutflow_data + other.cutflow_data,
@@ -190,9 +180,8 @@ class AnalysisResult(pyd.BaseModel):
     description: AnalysisDescription
     preprocessed_samples: dict[SampleId, SamplePreprocessed]
     processed_chunks: dict[SampleId, Any]
-    results: dict[SectorId, SectorResult]
+    results: dict[SubSectorId, SubSectorResult]
     total_mc_weights: dict[SampleId, Optional[Scalar]]
-            
 
     @property
     def raw_events_processed(self):
@@ -254,55 +243,66 @@ class AnalysisResult(pyd.BaseModel):
     def getResults(self, drop_samples=None):
         drop_samples = drop_samples or []
         scaled_sample_results = defaultdict(list)
-        for sector_id, result in self.results.items():
-            if sector_id.sample_id in drop_samples:
+        for subsector_id, result in self.results.items():
+            if subsector_id.sample_id in drop_samples:
                 continue
-            k = (sector_id.sample_id.dataset_name, sector_id.region_name)
+            k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
             if result.params.sample_type == SampleType.MC:
-                result = result.scaled(1 / self.total_mc_weights[sector_id.sample_id])
-            scaled_sample_results[k].append(DatasetResult.fromSectorResult(result))
+                scale = (
+                    result.params["lumi"]
+                    * result.params["x_sec"]
+                    / self.total_mc_weights[subsector_id.sample_id]
+                )
+                result = result.scaled(scale)
+            scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
 
         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
 
+    @staticmethod
+    def fromFile(path):
+        with open(path, "rb") as f:
+            data = pkl.load(f)
+        return AnalysisResult(**data)
 
-class SectorAnalyzer:
+
+class SubSectorAnalyzer:
     class Selector:
-        def __init__(self, parent, sector_id, stage):
+        def __init__(self, parent, subsector_id, stage):
             self.parent = parent
             self.stage = stage
-            self.sector_id = sector_id
+            self.subsector_id = subsector_id
 
         def add(self, name, mask, type="and"):
             return self.parent.addSelection(
-                self.sector_id, name, mask, type=type, stage=self.stage
+                self.subsector_id, name, mask, type=type, stage=self.stage
             )
 
     class Weighter:
-        def __init__(self, parent, sector_id):
+        def __init__(self, parent, subsector_id):
             self.parent = parent
-            self.sector_id = sector_id
+            self.subsector_id = subsector_id
 
         def add(self, *args, **kwargs):
-            return self.parent.addWeight(self.sector_id, *args, **kwargs)
+            return self.parent.addWeight(self.subsector_id, *args, **kwargs)
 
     class Categorizer:
-        def __init__(self, parent, sector_id):
+        def __init__(self, parent, subsector_id):
             self.parent = parent
-            self.sector_id = sector_id
+            self.subsector_id = subsector_id
 
         def add(self, *args, **kwargs):
-            return self.parent.addCategory(self.sector_id, *args, **kwargs)
+            return self.parent.addCategory(self.subsector_id, *args, **kwargs)
 
     class Histogrammer:
-        def __init__(self, parent, sector_id):
+        def __init__(self, parent, subsector_id):
             self.parent = parent
-            self.sector_id = sector_id
+            self.subsector_id = subsector_id
 
         def addHistogram(self, *args, **kwargs):
-            return self.parent.addHistogram(self.sector_id, *args, **kwargs)
+            return self.parent.addHistogram(self.subsector_id, *args, **kwargs)
 
         def H(self, *args, **kwargs):
-            return self.parent.makeHistogram(self.sector_id, *args, **kwargs)
+            return self.parent.makeHistogram(self.subsector_id, *args, **kwargs)
 
 
 def getProcessedChunks(run_report):
@@ -330,7 +330,7 @@ class Analyzer:
     _sample_events: dict[SampleId, Any] = field(default_factory=dict)
     _sample_reports: dict[SampleId, Any] = field(default_factory=dict)
     _preselected_events: dict[SampleId, Any] = field(default_factory=dict)
-    _sector_events: dict[SectorId, Any] = field(default_factory=dict)
+    _subsector_events: dict[SubSectorId, Any] = field(default_factory=dict)
 
     weight_manager: WeightManager = field(default_factory=WeightManager)
     selection_manager: SelectionManager = field(default_factory=SelectionManager)
@@ -338,48 +338,50 @@ class Analyzer:
         default_factory=lambda: defaultdict(dict)
     )
 
-    sectors: list[Sector] = field(default_factory=list)
+    subsectors: list[SubSector] = field(default_factory=list)
 
-    results: dict[SectorId, SectorResult] = field(default_factory=dict)
+    results: dict[SubSectorId, SubSectorResult] = field(default_factory=dict)
 
     def __post_init__(self):
-        self.sectors = self._getSectors()
+        self.subsectors = self._getSubSectors()
         self.__prefillResults()
         self.client = distributed.client._get_global_client()
 
     def __prefillResults(self):
-        for sector in self.sectors:
-            sector_id = sector.sector_id
-            params = getParamsForSector(sector_id, self.dataset_repo, self.era_repo)
-            self.results[sector_id] = SectorResult(params=params)
+        for subsector in self.subsectors:
+            subsector_id = subsector.subsector_id
+            params = getParamsForSubSector(
+                subsector_id, self.dataset_repo, self.era_repo
+            )
+            self.results[subsector_id] = SubSectorResult(params=params)
 
-    def dropEmptySectors(self):
+    def dropEmptySubSectors(self):
         new = [
             x
-            for x in self.sectors
-            if x.sector_id.sample_id in self.preprocessed_samples
+            for x in self.subsectors
+            if x.subsector_id.sample_id in self.preprocessed_samples
         ]
-        logger.debug(f"Dropping {len(self.sectors) - len(new)} empty sectors.")
-        self.sectors = new
+        logger.debug(f"Dropping {len(self.subsectors) - len(new)} empty subsectors.")
+        self.subsectors = new
 
     def preprocessDatasets(
         self, file_kwargs_override=None, chunk_override=None, **kwargs
     ):
-        chunk_size = self.description.general_config.get("preprocessing", {}).get(
-            "chunk_size", 100000
+        step_size = self.description.general_config.get("preprocessing", {}).get(
+            "step_size", 100000
         )
         if chunk_override:
-            chunk_size = chunk_override
-        print(f"CHUNK SIZE IS {chunk_size}")
+            step_size = chunk_override
+        print(f"CHUNK SIZE IS {step_size}")
         file_args = self.description.general_config["file_retrieval"]
         file_args.update(file_kwargs_override or {})
-        logger.info(f"Preprocessing samples with chunk size {chunk_size}")
+        logger.info(f"Preprocessing samples with chunk size {step_size}")
         logger.info(f"Preprocessing with file retrieval arguments:\n{file_args}")
 
         r = preprocessBulk(
             self.dataset_repo,
-            set(x.sector_id.sample_id for x in self.sectors),
-            step_size=chunk_size,
+            set(x.subsector_id.sample_id for x in self.subsectors),
+            step_size=step_size,
             file_retrieval_kwargs=file_args,
         )
         self.preprocessed_samples = {x.sample_id: x for x in r}
@@ -403,7 +405,7 @@ class Analyzer:
         logger.debug(f"Loading with file retrieval arguments:\n{file_args}")
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
-            samples = set(x.sector_id.sample_id for x in self.sectors)
+            samples = set(x.subsector_id.sample_id for x in self.subsectors)
             for sample_id in samples:
                 spre = self.preprocessed_samples[sample_id]
                 ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
@@ -430,7 +432,7 @@ class Analyzer:
                 self._sample_events[r[0]] = r[1]
                 self._sample_reports[r[0]] = r[2]
 
-    def _getSectors(self):
+    def _getSubSectors(self):
         s_pairs = []
         ret = []
         for dataset_name, regions in self.description.samples.items():
@@ -442,40 +444,44 @@ class Analyzer:
             dataset = self.dataset_repo[dataset_name]
             region = self.description.getRegion(region_name)
             for sample in dataset.samples:
-                sector = Sector.fromRegion(region, sample, MODULE_REPO)
-                logger.debug(f"Registered sector {sector.sector_id}")
-                ret.append(sector)
+                subsector = SubSector.fromRegion(region, sample, MODULE_REPO, self.era_repo)
+                logger.debug(f"Registered subsector {subsector.subsector_id}")
+                ret.append(subsector)
 
         return ret
 
-    def addWeight(self, sector_id, name, central, variations=None):
+    def addWeight(self, subsector_id, name, central, variations=None):
         logger.debug(
-            f'Sector[{sector_id}] adding weight "{name}" with {len(variations or [])} variations.'
+            f'SubSector[{subsector_id}] adding weight "{name}" with {len(variations or [])} variations.'
         )
         varia = variations or {}
-        self.weight_manager.add(sector_id, name, central, varia)
+        self.weight_manager.add(subsector_id, name, central, varia)
 
-    def addCategory(self, sector_id, category):
-        logger.debug(f'Sector[{sector_id}] adding category "{category.name}"')
-        self.categories[sector_id][category.name] = category
+    def addCategory(self, subsector_id, category):
+        logger.debug(f'SubSector[{subsector_id}] adding category "{category.name}"')
+        self.categories[subsector_id][category.name] = category
 
-    def addSelection(self, sector_id, name, mask, type="and", stage="preselection"):
-        self.selection_manager.register(sector_id, name, mask, type=type, stage=stage)
+    def addSelection(self, subsector_id, name, mask, type="and", stage="preselection"):
+        self.selection_manager.register(
+            subsector_id, name, mask, type=type, stage=stage
+        )
 
-    def _populateCutflow(self, sector_id):
-        cf = self.selection_manager.getCutflow(sector_id)
+    def _populateCutflow(self, subsector_id):
+        cf = self.selection_manager.getCutflow(subsector_id)
         is_mc = (
-            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            getParamsForSubSector(
+                subsector_id, self.dataset_repo, self.era_repo
+            ).sample_type
             == SampleType.MC
         )
         if is_mc:
-            weighted_sum = self.weight_manager.totalWeight(sector_id)
+            weighted_sum = self.weight_manager.totalWeight(subsector_id)
         else:
             weighted_sum = None
 
-        raw = ak.num(self._sector_events[sector_id], axis=0)
+        raw = ak.num(self._subsector_events[subsector_id], axis=0)
 
-        self.results[sector_id].cutflow_data = SampleCutflow(
+        self.results[subsector_id].cutflow_data = SampleCutflow(
             cutflow=cf, raw_passed=raw, weighted_sum=weighted_sum
         )
 
@@ -498,26 +504,30 @@ class Analyzer:
         }
         return {x: y for x, y in ret.items() if y is not None}
 
-    def makeHistogramFromSpec(self, sector_id, spec: HistogramSpec, values, mask=None):
+    def makeHistogramFromSpec(
+        self, subsector_id, spec: HistogramSpec, values, mask=None
+    ):
         if (
-            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            getParamsForSubSector(
+                subsector_id, self.dataset_repo, self.era_repo
+            ).sample_type
             == SampleType.Data
         ):
-            sector_weighter = None
+            subsector_weighter = None
         else:
-            sector_weighter = self.weight_manager.getSectorWeighter(sector_id)
+            subsector_weighter = self.weight_manager.getSubSectorWeighter(subsector_id)
         hc = generateHistogramCollection(
             spec,
             values,
-            list(self.categories[sector_id].values()),
-            sector_weighter,
+            list(self.categories[subsector_id].values()),
+            subsector_weighter,
             mask=mask,
         )
-        self.results[sector_id].histograms[spec.name] = hc
+        self.results[subsector_id].histograms[spec.name] = hc
 
     def makeHistogram(
         self,
-        sector_id,
+        subsector_id,
         name,
         axes,
         values,
@@ -529,17 +539,19 @@ class Analyzer:
         storage="weight",
     ):
         if (
-            getParamsForSector(sector_id, self.dataset_repo, self.era_repo).sample_type
+            getParamsForSubSector(
+                subsector_id, self.dataset_repo, self.era_repo
+            ).sample_type
             == SampleType.Data
         ):
             variations = []
             weights = []
         else:
             if weights is None:
-                weights = self.weight_manager.weight_names(sector_id)
+                weights = self.weight_manager.weight_names(subsector_id)
 
             if variations is None:
-                variations = self.weight_manager.variations(sector_id)
+                variations = self.weight_manager.variations(subsector_id)
 
         logger.debug(f"Creating histogram {weights}")
 
@@ -555,40 +567,44 @@ class Analyzer:
             variations=variations,
             no_scale=no_scale,
         )
-        self.makeHistogramFromSpec(sector_id, spec, values, mask=mask)
+        self.makeHistogramFromSpec(subsector_id, spec, values, mask=mask)
 
-    def __getStageProcessor(self, sector_id, stage):
+    def __getStageProcessor(self, subsector_id, stage):
         mapping = {
-            AnalysisStage.Preselection: SectorAnalyzer.Selector(
-                self, sector_id, AnalysisStage.Preselection
+            AnalysisStage.Preselection: SubSectorAnalyzer.Selector(
+                self, subsector_id, AnalysisStage.Preselection
             ),
-            AnalysisStage.Selection: SectorAnalyzer.Selector(
-                self, sector_id, AnalysisStage.Selection
+            AnalysisStage.Selection: SubSectorAnalyzer.Selector(
+                self, subsector_id, AnalysisStage.Selection
             ),
-            AnalysisStage.Categorization: SectorAnalyzer.Categorizer(self, sector_id),
-            AnalysisStage.Weights: SectorAnalyzer.Weighter(self, sector_id),
-            AnalysisStage.Histogramming: SectorAnalyzer.Histogrammer(self, sector_id),
+            AnalysisStage.Categorization: SubSectorAnalyzer.Categorizer(
+                self, subsector_id
+            ),
+            AnalysisStage.Weights: SubSectorAnalyzer.Weighter(self, subsector_id),
+            AnalysisStage.Histogramming: SubSectorAnalyzer.Histogrammer(
+                self, subsector_id
+            ),
         }
         return mapping.get(stage)
 
-    def _applySectorToEvents(self, sector, stage):
-        sector_id = sector.sector_id
-        sp = self.__getStageProcessor(sector_id, stage)
+    def _applySubSectorToEvents(self, subsector, stage):
+        subsector_id = subsector.subsector_id
+        sp = self.__getStageProcessor(subsector_id, stage)
         mapping = {
-            AnalysisStage.Preselection: sector.preselection,
-            AnalysisStage.Selection: sector.selection,
-            AnalysisStage.Categorization: sector.categories,
-            AnalysisStage.Histogramming: sector.histograms,
-            AnalysisStage.ObjectDefinition: sector.objects,
-            AnalysisStage.Weights: sector.weights,
+            AnalysisStage.Preselection: subsector.preselection,
+            AnalysisStage.Selection: subsector.selection,
+            AnalysisStage.Categorization: subsector.categories,
+            AnalysisStage.Histogramming: subsector.histograms,
+            AnalysisStage.ObjectDefinition: subsector.objects,
+            AnalysisStage.Weights: subsector.weights,
         }
         if stage in [AnalysisStage.Preselection]:
-            events = self._sample_events[sector_id.sample_id]
+            events = self._sample_events[subsector_id.sample_id]
         elif stage in [AnalysisStage.Selection, AnalysisStage.ObjectDefinition]:
-            events = self._preselected_events[sector_id.sample_id]
+            events = self._preselected_events[subsector_id.sample_id]
         else:
-            events = self._sector_events[sector_id]
-        params = getParamsForSector(sector_id, self.dataset_repo, self.era_repo)
+            events = self._subsector_events[subsector_id]
+        params = getParamsForSubSector(subsector_id, self.dataset_repo, self.era_repo)
         for module in mapping[stage]:
             if sp:
                 module(events, params, sp)
@@ -596,8 +612,8 @@ class Analyzer:
                 module(events, params)
 
     def runStage(self, stage):
-        for sector in self.sectors:
-            self._applySectorToEvents(sector, stage)
+        for subsector in self.subsectors:
+            self._applySubSectorToEvents(subsector, stage)
 
     def applyPreselections(self):
         for sample_id, events in self._sample_events.items():
@@ -607,25 +623,25 @@ class Analyzer:
 
     def applySelection(self):
         self.selection_manager.addPreselectionMasks()
-        for sector in self.sectors:
-            sector_id = sector.sector_id
-            events = self._preselected_events[sector_id.sample_id]
-            e = self.selection_manager.maskSector(sector_id, events)
-            self._sector_events[sector_id] = e
+        for subsector in self.subsectors:
+            subsector_id = subsector.subsector_id
+            events = self._preselected_events[subsector_id.sample_id]
+            e = self.selection_manager.maskSubSector(subsector_id, events)
+            self._subsector_events[subsector_id] = e
 
     def populateCutflows(self):
-        for sector in self.sectors:
-            self._populateCutflow(sector.sector_id)
+        for subsector in self.subsectors:
+            self._populateCutflow(subsector.subsector_id)
 
 
 def runAnalysis(analyzer):
     if not analyzer.preprocessed_samples:
         logger.info(f"Analyzer does not already have preprocessed samples.")
         analyzer.preprocessDatasets()
-    # When patching results, we may have sectors with no preprocessing object
+    # When patching results, we may have subsectors with no preprocessing object
     # since all the events have already been processed succesfully.
-    analyzer.dropEmptySectors()
-    logger.info(f"Running analysis with {len(analyzer.sectors)} sectors.")
+    analyzer.dropEmptySubSectors()
+    logger.info(f"Running analysis with {len(analyzer.subsectors)} subsectors.")
     analyzer.loadEvents()
 
     mc_weights = analyzer.getTotalMcWeights()
@@ -663,21 +679,32 @@ def runAnalysis(analyzer):
 def patchPreprocessed(
     dataset_repo,
     preprocessed_samples,
-    step_size=75000,
+    step_size=None,
     file_retrieval_kwargs=None,
 ):
-    frk = file_retrieval_kwargs or {}
-    samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_inputs)}
+    samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_samples)}
     missing_dict = {}
-    for n, prepped in datasets.items():
-        x = prepped.missingCoffeaDataset(**frk)
-        logger.info(f"Found {len(x[n]['files'])} files missing from dataset {n}")
-        if x[n]["files"]:
+    dr = DatasetRepo.getConfig()
+    for n, prepped in samples.items():
+        if file_retrieval_kwargs is None:
+            frk = prepped.file_retrieval_kwargs or {}
+        if step_size is None:
+            step = prepped.step_size
+        x = prepped.missingCoffeaDataset(dr, **frk)
+        print(x)
+        logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
+        if x["files"]:
             missing_dict.update(x)
-    new = preprocessRaw(missing_dict, step_size=step_size)
-    for n, v in new.items():
-        samples[n] = samples[n].addCoffeaChunks({n: v})
-    return samples
+
+    def k(x):
+        return x.step_size
+
+    g = it.groupby(missing_dict.items(), k)
+    for ss, vals in g:
+        new = preprocessRaw(dict(vals), step_size=ss)
+        for n, v in new.items():
+            samples[n] = samples[n].addCoffeaChunks({n: v})
+    return list(samples.values())
 
 
 def makeResultPatch(result, dataset_repo, era_repo):
@@ -691,40 +718,51 @@ def makeResultPatch(result, dataset_repo, era_repo):
     return new_analyzer
 
 
-def preprocessAnalysis(input_path, output_path, chunk_size=None, file_kwargs=None):
+def preprocessAnalysis(input_path, output_path):
     logger.info(f"Preprocessing analysis from file {input_path}")
     with open(input_path, "rb") as f:
         data = yaml.safe_load(f)
     an = AnalysisDescription(**data)
     logger.info(f"Loaded analysis description {an.name}")
-    analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
-    analyzer.preprocessDatasets(
-        chunk_override=chunk_size, file_kwargs_override=file_kwargs
+    dm = DatasetRepo.getConfig()
+    samples = list(
+        it.chain(*[[x.sample_id for x in dm[y].samples] for y in an.samples])
     )
+    logger.info(f"Preprocessing {samples}")
+    frk = an.general_config.get("file_retrieval", {})
+    logger.info(f"Retrieval kwargs are {frk}")
+    step_size = an.general_config.get("preprocessing", {}).get("step_size", 100000)
+
+    result = preprocessBulk(dm, samples, step_size=step_size, file_retrieval_kwargs=frk)
     out = Path(output_path)
     out.parent.mkdir(exist_ok=True, parents=True)
+    to_dump = [x.model_dump() for x in result]
     with open(out, "wb") as f:
-        pkl.dump(analyzer.preprocessed_samples, f)
+        pkl.dump(to_dump, f)
     logger.info(f'Saved preprocessed samples to "{out}"')
 
 
-def patchPreprocessedFile(input_path, output_path, chunk_size=100000, file_kwargs=None):
+def patchPreprocessedFile(input_path, output_path, step_size=None, file_kwargs=None):
     with open(input_path, "rb") as f:
-        data = yaml.safe_load(f)
+        data = pkl.load(f)
+        data = [SamplePreprocessed(**x) for x in data]
+
     dm = DatasetRepo.getConfig()
     result = patchPreprocessed(
-        dm, data, chunk_size=chunk_size, file_retrieval_kwargs=file_kwargs
+        dm, data, step_size=step_size, file_retrieval_kwargs=file_kwargs
     )
     out = Path(output_path)
     out.parent.mkdir(exist_ok=True, parents=True)
+    to_dump = [x.model_dump() for x in result]
     with open(out, "wb") as f:
-        pkl.dump(result, f)
+        pkl.dump(to_dump, f)
 
 
 def patchAnalysisResult(input_path, output_path):
     logger.info(f'Patching analysis result from "{input_path}"')
     with open(input_path, "rb") as f:
         result = pkl.load(f)
+        result = AnalysisResult(**result)
     analyzer = makeResultPatch(result, DatasetRepo.getConfig(), EraRepo.getConfig())
     if not analyzer:
         return
@@ -735,7 +773,7 @@ def patchAnalysisResult(input_path, output_path):
     out = Path(output_path)
     out.parent.mkdir(exist_ok=True, parents=True)
     with open(out, "wb") as f:
-        pkl.dump(final_result, f)
+        pkl.dump(final_result.model_dump(), f)
 
 
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
@@ -751,21 +789,18 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     analyzer.preprocessed_samples = preprocessed_input
     res = runAnalysis(analyzer)
     dumped = res.model_dump()
-    # dumped["processed_chunks"] = {}
     grouped = True
     onebyone = True
-
     # c,r = dask.base.unpack_collections(dumped, traverse=True)
     # dsk = dask.base.collections_to_dsk(c, True)
     # print(dsk)
 
     if grouped:
-
         def groupBySample(data):
             def getS(x):
                 if isinstance(x, SampleId):
                     return x.sample_name
-                if isinstance(x, SectorId):
+                if isinstance(x, SubSectorId):
                     return x.sample_id.sample_name
                 return x
 
@@ -830,11 +865,10 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     out = Path(output_path)
     out.parent.mkdir(exist_ok=True, parents=True)
     with open(out, "wb") as f:
-        pkl.dump(final_result, f)
+        pkl.dump(final_result.model_dump(), f)
 
 
 if __name__ == "__main__":
-    import analyzer.modules
     from analyzer.datasets import DatasetRepo, EraRepo
 
     # logger.debug("TEST1")
@@ -870,7 +904,7 @@ if __name__ == "__main__":
     # with memray.memray_workers("memrayout/"):
     runFromFile(
         "configurations/test_config.yaml",
-        "results/DANGER.pkl",
+        "results/NoSelection.pkl",
         preprocessed_input_path="prepped.pkl",
     )
 
