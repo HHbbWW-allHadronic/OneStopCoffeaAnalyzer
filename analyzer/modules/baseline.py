@@ -5,8 +5,9 @@ from analyzer.core import MODULE_REPO, ModuleType
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_hlt(events, params, selector):
-    ht_trigger_name = params["trigger_names"]["HT"]
-    ak8_trigger_name = params["trigger_names"]["AK8SingleJetPt"]
+    era_info = params.sector.dataset.era
+    ht_trigger_name = era_info.trigger_names["HT"]
+    ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     #selector.add(f"hlt_ht", events.HLT[ht_trigger_name], type="or")
     #selector.add(f"hlt_ak8", events.HLT[ak8_trigger_name], type="or")
     #selector.add(f"HLT_HT | HLT_AK8", events.HLT[ht_trigger_name] | events.HLT[ht_trigger_name])
@@ -15,8 +16,9 @@ def signal_hlt(events, params, selector):
 
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_muon(events, params, selector):
-    single_muon_trigger_name = params["trigger_names"]["SingleMuon"]
-    iso_muon_trigger_name = params["trigger_names"]["IsoMuon"]
+    era_info = params.sector.dataset.era
+    single_muon_trigger_name = era_info.trigger_names["SingleMuon"]
+    iso_muon_trigger_name = era_info.trigger_names["IsoMuon"]
     selector.add(f"hlt_single_muon", events.HLT[single_muon_trigger_name], type="or")
     selector.add(f"hlt_iso_muon", events.HLT[iso_muon_trigger_name], type="or")
 

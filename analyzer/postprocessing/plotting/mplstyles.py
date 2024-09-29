@@ -10,3 +10,4 @@ def loadStyles():
     for font in font_files:
         font_manager.fontManager.addfont(font)
     plt.style.use(style)
+

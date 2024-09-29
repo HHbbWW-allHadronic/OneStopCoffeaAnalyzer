@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Optional, Any
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasChoices
 import dataclasses
 from analyzer.configuration import CONFIG
 import logging
@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class Era(BaseModel):
-    name: str
+    name: str = Field(alias=AliasChoices("era_name","name"))
     energy: float
     lumi: float
     golden_json: str
@@ -26,7 +26,7 @@ class Era(BaseModel):
 
     @property
     def params(self):
-        return self.dict(exclude=["name"])
+        return self.model_dump(by_alias=True)
     
     
 

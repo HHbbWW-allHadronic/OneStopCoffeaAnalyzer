@@ -12,7 +12,7 @@ LimitTo:
 # Samples and in which regions they should be processed
 samples:
   signal_312_2000_1900: [Signal312,Control]
-  signal_312_1500_1400: [Signal312, Control]
+  # signal_312_1500_1400: [Signal312, Control]
   # QCDInclusive2018: [Signal312,Control]
   # Data2018: [Control, Signal312]
   # signal_312_1200_400: [Signal312, Control]

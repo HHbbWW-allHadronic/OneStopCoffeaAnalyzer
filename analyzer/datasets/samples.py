@@ -1,28 +1,23 @@
 import dataclasses
 import enum
+import functools as ft
 import itertools as it
 import json
 import logging
 import operator as op
-from collections import ChainMap
 import random
 import re
-from collections import OrderedDict
+from collections import ChainMap, OrderedDict
 from collections.abc import Mapping
 from functools import cached_property
-import functools as ft
 from pathlib import Path
-from typing import (
-    Any,
-    List,
-    Optional,
-    Union,
-)
+from typing import Any, List, Optional, Union
 from urllib.parse import urlparse
 
 import pydantic as pyd
 import yaml
 from analyzer.configuration import CONFIG
+from analyzer.utils.accessor import accessor
 from analyzer.utils.file_tools import extractCmsLocation
 from pydantic import (
     BaseModel,
@@ -32,6 +27,8 @@ from pydantic import (
     model_validator,
 )
 from rich import print
+
+from .era import Era
 
 logger = logging.getLogger(__name__)
 
@@ -179,50 +176,38 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
-class DatasetParams(pyd.BaseModel):
-    era_params: Union[str, dict[str, Any]]
-    dataset_params: dict[str, Any]
+class DatasetParams(BaseModel):
+    name: str
+    title: str
+    era: Union[str, Era]
+    sample_type: SampleType
+    other_data: dict[str, Any] = Field(default_factory=dict)
+    skimmed_from: Optional[str] = None
 
-    @ft.cached_property
-    def _all_params(self):
-        def notNone(m):
-            return {x: y for x, y in m.items() if y is not None}
+    __lumi: Optional[float] = None
 
-        ret = ChainMap(
-            notNone(self.dataset_params),
-            notNone(self.era_params),
-        )
-        return ret
+    @property
+    def lumi(self) -> float:
+        if isinstance(self.era, str) and not self.__lumi:
+            raise RuntimeError(f"Cannot compute lumi for dataset")
+        if self.__lumi is not None:
+            return self.__lumi
+        else:
+            return self.era.lumi
+
+    @lumi.setter
+    def _(self, val: float):
+        self.__lumi = val
 
     def populateEra(self, era_repo):
-        if isinstance(self.era_params, str):
-            self.era_params = era_repo[self.era_params].params
-
-    def __iter__(self):
-        return iter(self._all_params)
-
-    def __getitem__(self, key):
-        return self._all_params[key]
-
-    def __getattr__(self, attr):
-        if attr.startswith("__") and attr.endswith("__"):
-            raise AttributeError
-        return self[attr]
-
-    def items(self):
-        return self._all_params.items()
-
-    def keys(self):
-        return self._all_params.keys()
-
-    def values(self):
-        return self._all_params.values()
+        if isinstance(self.era, str):
+            self.era = era_repo[self.era]
 
 
 @pyd.dataclasses.dataclass
 class SampleParams:
-    dataset_params: DatasetParams
-    sample_params: dict[str, Any]
+    dataset: DatasetParams
+    sample: dict[str, Any]
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -283,8 +268,8 @@ class Sample(BaseModel):
     @property
     def params(self):
         return SampleParams(
-            dataset_params=self._parent_dataset.params,
-            sample_params=self.dict(exclude=["files"]),
+            dataset=self._parent_dataset.params,
+            sample=self.dict(exclude=["files"]),
         )
 
     def useFilesFromReplicaCache(self):
@@ -350,9 +335,9 @@ class Dataset(BaseModel):
 
     @property
     def params(self):
-        return DatasetParams(
-            dataset_params=self.dict(exclude=["samples", "era"]), era_params=self.era
-        )
+        ds =  DatasetParams(**self.model_dump())
+        ds.lumi = self.lumi
+        return ds
 
     def getSample(self, name):
         return next(x for x in self.samples if x.name == name)

@@ -1,190 +1,193 @@
-import numpy as np
-
 import hist.intervals as hinter
 import matplotlib as mpl
+import numpy as np
+
 from .plottables import FillType
 
 
-def drawAsScatter(ax, p, yerr=True, **kwargs):
-    style = p.style
-    x = p.axes[0].centers
-    ed = p.axes[0].flat_edges
-    y = p.values()
-    if p.mask is not None:
-        x = x[p.mask]
-        y = y[p.mask]
+def requireDim(dim):
+    def wrapper(func):
+        def inner(ax, hist, *args, **kwargs):
+            if len(hist.axes) != dim:
+                raise ValueError(
+                    f"Histogram must have dimension {dim}, found {len(hist.axes)}"
+                )
+            return func(ax, hist, *args, **kwargs)
+        return inner
+    return wrapper
 
+
+def getCenters(vals):
+    return (vals[:, 0] + vals[:, 1]) / 2
+
+
+@requireDim(1)
+def drawAsScatter(ax, hist, title=None, style=None, yerr=True, **kwargs):
+    style = style or {}
+    axis = hist.axes[0]
+    edges = np.array(axis)
+    x = getCenters(edges)
+    y = hist.values()
+    yerr = yerr and (hist.variances() is not None)
+    s = style.asMplKwargs() if style else {}
     if yerr:
-        e_start = ed[1:]
-        e_end = ed[:-1]
-
-        if p.variances() is None:
-            raise ValueError(f"Plot object does not have variance")
-        unc = np.sqrt(p.variances)
-
-        # import csv
-        # with open('uncertainty_check.csv', 'a', newline='') as file:
-        #     writer = csv.writer(file)
-        #     writer.writerow(p.values)
-        #     writer.writerow(p.variances)
-        #     writer.writerow(unc)
-        #     file.close()
-
-        # print("Mask: ", p.mask)
-        # print("Values: ", p.values)
-        # print("Variances: ", p.variances)
-        # print("Uncert: ", unc)
-        # print("--------------------------------------")
-        # input()
-
-        # for i,val in enumerate(y):
-        #     print(f"Value: {val} ± {unc[i]}")
-        # input()
-        if p.mask is not None:
-            var = var[p.mask]
-            e_start = e_start[p.mask]
-            e_end = e_end[p.mask]
-
+        variances = hist.variances()
+        unc = np.sqrt(variances)
         ax.errorbar(
             x,
             y,
             yerr=unc,
-            linestyle="none",
-            marker='.',
-            label=p.title,
-            **style,
+            label=title,
             **kwargs,
+            fill=s.get("fill"),
+            color=s.get("color"),
+            linestyle=s.get("linestyle"),
+            marker=s.get("marker"),
         )
-        # ax.hlines(
-        #     y,
-        #     e_start,
-        #     e_end,
-        #     **style,
-        # )
     else:
-        ax.scatter(x, y, label=p.title, marker="+", **style, **kwargs)
+        ax.scatter(x, y, label=title, marker="+", **s, **kwargs)
     return ax
 
 
-def drawAs1DHist(ax, plot_object, yerr=True, fill=True, orient="h", **kwargs):
-    style = plot_object.style
-    x = plot_object.axes[0].centers
-    edges = plot_object.axes[0].flat_edges
-    raw_vals = plot_object.values()
-    vals = np.append(raw_vals, raw_vals[-1])
-    w = mpl.rcParams["lines.linewidth"]
+@requireDim(1)
+def drawAs1DHist(ax, hist, title=None, style=None, yerr=True, orient="h", **kwargs):
+    style = style or {}
+
+    axis = hist.axes[0]
+    edges = np.array(axis)
+    x = getCenters(edges)
+    y = hist.values()
+    yerr = yerr and (hist.variances() is not None)
+    raw_vals = hist.values()
+    vals = raw_vals
+
+    s = style.asMplKwargs() if style else {}
+    common = dict(
+        label=title,
+        **kwargs,
+    )
+
+    side_edges = edges[:, 0]
+    side_edges = np.append(side_edges, edges[-1, 1])
 
     if yerr:
-        errs = np.sqrt(plot_object.variances())
+        errs = np.sqrt(hist.variances())
         if orient == "h":
             ax.errorbar(
-                x, raw_vals, yerr=errs, fmt="none", label=None, **kwargs, **style
+                x,
+                raw_vals,
+                yerr=errs,
+                fmt="none",
+                fill=s.get("fill"),
+                color=s.get("color"),
+                **kwargs,
             )
         else:
             ax.errorbar(
-                raw_vals, x, xerr=errs, fmt="none", label=None, **style, **kwargs
+                raw_vals,
+                x,
+                xerr=errs,
+                fmt="none",
+                fill=s.get("fill"),
+                color=s.get("color"),
+                **kwargs,
             )
-    if fill:
-        if orient == "h":
-            ax.fill_between(
-                edges, vals, step="post", label=plot_object.title, **style, **kwargs
-            )
-        else:
-            ax.fill_betweenx(
-                edges, vals, step="post", label=plot_object.title, **style, **kwargs
-            )
-    else:
-        ax.stairs(
-            raw_vals,
-            edges,
-            label=plot_object.title,
-            orientation="vertical" if orient == "h" else "horizontal",
-            linewidth=w,
-            **style,
-            **kwargs,
-        )
+
+    ax.stairs(
+        raw_vals,
+        side_edges,
+        orientation="vertical" if orient == "h" else "horizontal",
+        label=title,
+        fill=s.get("fill"),
+        color=s.get("color"),
+        linewidth=s.get("linewidth", mpl.rcParams["lines.linewidth"]),
+        **kwargs,
+    )
 
     return ax
 
 
-def drawRatio(
-    ax, numerator, denominator, uncertainty_type="poisson-ratio", hline_list=None, weights=None, **kwargs
+# @requireDim(1)
+# def drawRatio(ax, hist):
+#     ax.axhline(y=1, linestyle="--", linewidth="1", color="k")
+#     hline_list = hline_list or []
+#     nv, dv = numerator.values(), denominator.values()
+#     n, d = nv / weights[0], dv / weights[1]
+#     with np.errstate(divide="ignore", invalid="ignore"):
+#         ratio = np.divide(nv, dv, out=np.ones_like(nv), where=(dv != 0))
+
+#     unc = hinter.ratio_uncertainty(
+#         n.astype(int),
+#         d.astype(int),
+#         uncertainty_type=uncertainty_type,
+#     ) * (weights[0] / weights[1])
+
+#     x = numerator.axes[0].centers
+
+#     ax.errorbar(
+#         x,
+#         ratio,
+#         yerr=unc,
+#         marker="_",
+#         linestyle="none",
+#         **kwargs,
+#     )
+#     return ax
+
+
+# def drawPull(ax, pred, obs, uncertainty_type="poisson", hline_list=None, **kwargs):
+#     hline_list = hline_list or []
+#     ov, pv = obs.values(), pred.values()
+#     unc = np.sqrt(pred.variances())
+#     ounc = np.sqrt(obs.variances())
+#     # real_unc = np.sqrt(unc**2 + ounc**2)
+#     real_unc = ounc
+
+#     pull = np.divide(
+#         ov - pv,
+#         real_unc,
+#         out=np.zeros_like(real_unc),
+#         where=real_unc != 0,
+#     )
+#     x = obs.axes[0].centers
+
+#     if pred.mask is not None:
+#         x = x[pred.mask]
+#         pull = pull[pred.mask]
+
+#     ax.plot(
+#         x,
+#         pull,
+#         marker="o",
+#         markersize=2.5,
+#         linestyle="none",
+#         **kwargs,
+#     )
+#     for y in hline_list:
+#         ax.axhline(y, linewidth=1, linestyle="--", color="tab:grey")
+#     return ax
+
+
+def setAxisTitles1D(
+    ax, axis, y_label=None, y_label_complete=None, x_label=None, top_pad=0.3
 ):
-    ax.axhline(y=1,linestyle='--',linewidth='1',color='k')
-    hline_list = hline_list or []
-    nv, dv = numerator.values(), denominator.values()
-    n, d = nv/weights[0], dv/weights[1]
-    with np.errstate(divide='ignore',invalid='ignore'):
-        ratio = np.divide(nv, dv, out=np.ones_like(nv), where=(dv != 0))
-    
-    unc = hinter.ratio_uncertainty(
-        n.astype(int),
-        d.astype(int),
-        uncertainty_type=uncertainty_type,
-    )*(weights[0]/weights[1])
-
-    x = numerator.axes[0].centers
-
-    ax.errorbar(
-        x,
-        ratio,
-        yerr=unc,
-        marker="_",
-        linestyle="none",
-        **kwargs,
-    )
-    return ax
-
-
-def drawPull(ax, pred, obs, uncertainty_type="poisson", hline_list=None, **kwargs):
-    hline_list = hline_list or []
-    ov, pv = obs.values(), pred.values()
-    unc = np.sqrt(pred.variances())
-    ounc = np.sqrt(obs.variances())
-    # real_unc = np.sqrt(unc**2 + ounc**2)
-    real_unc = ounc
-
-    pull = np.divide(
-        ov - pv,
-        real_unc,
-        out=np.zeros_like(real_unc),
-        where=real_unc != 0,
-    )
-    x = obs.axes[0].centers
-
-    if pred.mask is not None:
-        x = x[pred.mask]
-        pull = pull[pred.mask]
-
-    ax.plot(
-        x,
-        pull,
-        marker="o",
-        markersize=2.5,
-        linestyle="none",
-        **kwargs,
-    )
-    for y in hline_list:
-        ax.axhline(y, linewidth=1, linestyle="--", color="tab:grey")
-    return ax
-
-
-def addTitles1D(ax, plot_object, exclude=None, top_pad=0.3):
-    axes = plot_object.axes
-    unit = getattr(axes[0], "unit", None)
-    lab = axes[0].title
-    if unit:
-        lab += f" [{unit}]"
+    if y_label and y_label_complete:
+        raise ValueError(f"Can only specify one of y_label or y_label_complete")
+    x_unit = getattr(axis, "unit", None)
+    if not x_label:
+        x_label = axis.name
+        if x_unit:
+            x_label += f" [{x_unit}]"
     bottom_axes = getattr(ax, "bottom_axes", None)
-    if bottom_axes:
-        bottom_axes[-1].set_xlabel(lab)
+    ax.set_xlabel(x_label)
+
+    if y_label_complete:
+        y_label = y_label_complete
     else:
-        ax.set_xlabel(lab)
-    has_var = plot_object.variances()
-    ylab = FillType.getAxisTitle(plot_object.fill_type)
-    if unit:
-        ylab += f" / {unit}"
-    ax.set_ylabel(ylab)
+        y_label = y_label or "Events"
+        if x_unit:
+            y_label += f" / {x_unit}"
+    ax.set_ylabel(y_label)
 
     sc = ax.get_yscale()
     ax.set_ymargin(0)

@@ -12,12 +12,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import yaml
-
 import awkward as ak
 import dask
 import distributed
 import pydantic as pyd
+import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -38,9 +37,7 @@ from .specifiers import SectorParams, SubSectorId, SubSectorParams
 from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
-    from rich.progress import (
-        track,
-    )
+    from rich.progress import track
 
 
 logger = logging.getLogger("analyzer.core")
@@ -139,8 +136,8 @@ class SectorResult(pyd.BaseModel):
     @staticmethod
     def fromSubSectorResult(subsector_result):
         return SectorResult(
-            sector_params = subsector_result.params.sector_params,
-            sample_params=[subsector_result.params.sample_params],
+            sector_params=subsector_result.params.sector,
+            sample_params=[subsector_result.params.sample],
             histograms=subsector_result.histograms,
             other_data=subsector_result.other_data,
             cutflow_data=subsector_result.cutflow_data,
@@ -148,7 +145,7 @@ class SectorResult(pyd.BaseModel):
 
     def scaled(self, scale):
         return SectorResult(
-            sector_params = self.sector_params,
+            sector_params=self.sector_params,
             sample_params=[subsector_result.params.sample_params],
             histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
@@ -167,7 +164,7 @@ class SectorResult(pyd.BaseModel):
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
         return SectorResult(
-            sector_params = self.sector_params,
+            sector_params=self.sector_params,
             sample_params=self.sample_params + other.sample_params,
             histograms=new_hists,
             other_data=new_other,
@@ -247,10 +244,12 @@ class AnalysisResult(pyd.BaseModel):
             if subsector_id.sample_id in drop_samples:
                 continue
             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-            if result.params.sample_type == SampleType.MC:
+
+            if result.params.sector.dataset.sample_type == SampleType.MC:
+                sample_info = result.params.sample
                 scale = (
-                    result.params["lumi"]
-                    * result.params["x_sec"]
+                    result.params.sector.dataset.lumi
+                    * sample_info["x_sec"]
                     / self.total_mc_weights[subsector_id.sample_id]
                 )
                 result = result.scaled(scale)
@@ -306,6 +305,8 @@ class SubSectorAnalyzer:
 
 
 def getProcessedChunks(run_report):
+    if len(run_report) == 0:
+        return set()
     good_mask = ak.is_none(run_report["exception"])
     rr = run_report[good_mask]
     return {
@@ -372,7 +373,6 @@ class Analyzer:
         )
         if chunk_override:
             step_size = chunk_override
-        print(f"CHUNK SIZE IS {step_size}")
         file_args = self.description.general_config["file_retrieval"]
         file_args.update(file_kwargs_override or {})
         logger.info(f"Preprocessing samples with chunk size {step_size}")
@@ -413,22 +413,20 @@ class Analyzer:
                     maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
                 else:
                     maybe_base_form = None
-                # f = executor.submit(
-                #    Analyzer.__loadOne, sample_id, ds["files"], maybe_base_form
-                # )
-                f = Analyzer.__loadOne(sample_id, ds["files"], maybe_base_form)
+                f = executor.submit(
+                    Analyzer.__loadOne, sample_id, ds["files"], maybe_base_form
+                )
+                # f = Analyzer.__loadOne(sample_id, ds["files"], maybe_base_form)
                 futures.append(f)
 
-            # to_iter = concurrent.futures.as_completed(futures)
-            to_iter = futures
+            to_iter = concurrent.futures.as_completed(futures)
             if CONFIG.PRETTY_MODE:
                 to_iter = track(
                     to_iter, description="Loading Events", total=len(futures)
                 )
             for future in to_iter:
                 logger.debug(f"Done loading events for sample {sample_id}.")
-                r = future
-                # r = future.result()
+                r = future.result()
                 self._sample_events[r[0]] = r[1]
                 self._sample_reports[r[0]] = r[2]
 
@@ -444,7 +442,9 @@ class Analyzer:
             dataset = self.dataset_repo[dataset_name]
             region = self.description.getRegion(region_name)
             for sample in dataset.samples:
-                subsector = SubSector.fromRegion(region, sample, MODULE_REPO, self.era_repo)
+                subsector = SubSector.fromRegion(
+                    region, sample, MODULE_REPO, self.era_repo
+                )
                 logger.debug(f"Registered subsector {subsector.subsector_id}")
                 ret.append(subsector)
 
@@ -471,7 +471,7 @@ class Analyzer:
         is_mc = (
             getParamsForSubSector(
                 subsector_id, self.dataset_repo, self.era_repo
-            ).sample_type
+            ).sector.dataset.sample_type
             == SampleType.MC
         )
         if is_mc:
@@ -510,7 +510,7 @@ class Analyzer:
         if (
             getParamsForSubSector(
                 subsector_id, self.dataset_repo, self.era_repo
-            ).sample_type
+            ).sector.dataset.sample_type
             == SampleType.Data
         ):
             subsector_weighter = None
@@ -541,7 +541,7 @@ class Analyzer:
         if (
             getParamsForSubSector(
                 subsector_id, self.dataset_repo, self.era_repo
-            ).sample_type
+            ).sector.dataset.sample_type
             == SampleType.Data
         ):
             variations = []
@@ -789,73 +789,73 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
     analyzer.preprocessed_samples = preprocessed_input
     res = runAnalysis(analyzer)
     dumped = res.model_dump()
-    grouped = True
-    onebyone = True
-    # c,r = dask.base.unpack_collections(dumped, traverse=True)
-    # dsk = dask.base.collections_to_dsk(c, True)
-    # print(dsk)
 
-    if grouped:
-        def groupBySample(data):
-            def getS(x):
-                if isinstance(x, SampleId):
-                    return x.sample_name
-                if isinstance(x, SubSectorId):
-                    return x.sample_id.sample_name
-                return x
+    def groupBySample(data):
+        def getS(x):
+            if isinstance(x, SampleId):
+                return x  # .sample_name
+            if isinstance(x, SubSectorId):
+                return x.sample_id  # .sample_name
+            return x
 
-            ret = {}
-            for x, y in data.items():
-                l = ret.setdefault(x, {})
-                for k, v in y.items():
-                    d = l.setdefault(getS(k), {})
-                    d[k] = v
-
-            keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
-            return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
-
-        p = {
-            "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
-            "results": {x: y.model_dump() for x, y in res.results.items()},
-            "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
-        }
-        grouped = groupBySample(p)
         ret = {}
-        p = 10000
-        for sample, vals in grouped.items():
-            p = p - 100
-            logger.info(f'Submitting sample "{sample}" to cluster.')
-            if onebyone:
-                ret[sample] = dask.compute(vals)[0]
-            else:
-                ret[sample] = dask.persist(vals, priority=p)[0]
+        for x, y in data.items():
+            l = ret.setdefault(x, {})
+            for k, v in y.items():
+                d = l.setdefault(getS(k), {})
+                d[k] = v
 
-        logger.info(
-            f"Done submitting all sampels to cluster, waiting for computation to finish..."
-        )
-        if onebyone:
-            computed = ret
-        else:
-            computed = dask.compute(ret)[0]
-        final = {}
-        final["total_mc_weights"] = dict(
-            it.chain.from_iterable(
-                (x.get("total_mc_weights", {}).items() for x in computed.values())
-            )
-        )
-        final["results"] = dict(
-            it.chain.from_iterable((x["results"].items() for x in computed.values()))
-        )
+        keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
+        return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
 
-        final["processed_chunks"] = dict(
-            it.chain.from_iterable(
-                (x["processed_chunks"].items() for x in computed.values())
-            )
-        )
-        final = {**dumped, **final}
+    p = {
+        "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
+        "results": {x: y.model_dump() for x, y in res.results.items()},
+        "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
+    }
+    grouped = groupBySample(p)
+    ret = {}
+    l = list(grouped.items())
+    l = sorted(l, key=lambda x: len(analyzer.preprocessed_samples[x[0]].chunks))
+    min_chunks_per_submit = 50
+    current_list = []
+    current = 0
+    for sample, val in l:
+        current += len(analyzer.preprocessed_samples[sample].chunks)
+        current_list.append((sample, val))
+        if current >= min_chunks_per_submit:
+            logger.info(f"Submitting samples: {[x for x,_ in current_list]}")
+            portion_computed = dask.compute(current_list)[0]
+            for sample, vals in portion_computed:
+                logger.info(f'Adding sample "{sample}" to result.')
+                ret[sample] = val
+            current = 0
+            current_list = []
+    if current_list:
+        logger.info(f"Submitting samples: {[x for x,_ in current_list]}")
+        portion_computed = dask.compute(current_list)[0]
+        for sample, vals in portion_computed:
+            logger.info(f'Adding sample "{sample}" to result.')
+            ret[sample] = vals
 
-    else:
-        final = dask.compute(dumped)[0]
+    logger.info(f"Done processing all samples.")
+    computed = ret
+    final = {}
+    final["total_mc_weights"] = dict(
+        it.chain.from_iterable(
+            (x.get("total_mc_weights", {}).items() for x in computed.values())
+        )
+    )
+    final["results"] = dict(
+        it.chain.from_iterable((x["results"].items() for x in computed.values()))
+    )
+
+    final["processed_chunks"] = dict(
+        it.chain.from_iterable(
+            (x["processed_chunks"].items() for x in computed.values())
+        )
+    )
+    final = {**dumped, **final}
 
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()

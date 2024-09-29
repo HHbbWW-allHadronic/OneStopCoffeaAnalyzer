@@ -45,7 +45,7 @@ class SubSector:
     def fromRegion(region_desc, sample, module_repo, era_repo):
         name = region_desc.name
         sample_params = sample.params
-        dataset_params = sample_params.dataset_params
+        dataset_params = sample_params.dataset
         dataset_params.populateEra(era_repo)
         if region_desc.forbid_data and dataset_params.sample_type == "Data":
             raise AnalysisConfigurationError(
@@ -105,15 +105,15 @@ def getParamsForSubSector(subsector_id, dataset_repo, era_repo):
     sample_id = subsector_id.sample_id
     dataset = dataset_repo[sample_id.dataset_name]
     params = dataset.getSample(sample_id.sample_name).params
-    dataset_params = params.dataset_params
+    dataset_params = params.dataset
     dataset_params.populateEra(era_repo)
     sector_params = SectorParams(
-        dataset_params=dataset_params,
-        region_params={"region_name": subsector_id.region_name},
+        dataset=dataset_params,
+        region={"region_name": subsector_id.region_name},
     )
     p = SubSectorParams(
-        sector_params=sector_params,
-        sample_params=params.sample_params,
+        sector=sector_params,
+        sample=params.sample,
         subsector_id=subsector_id,
     )
     __subsector_param_cache[subsector_id] = p
