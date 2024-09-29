@@ -12,7 +12,7 @@ formatters:
 handlers:
   info_console:
     class: rich.logging.RichHandler
-    level: DEBUG
+    level: INFO
     formatter: just_name
   warn_console:
     class: rich.logging.RichHandler

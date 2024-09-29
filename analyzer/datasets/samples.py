@@ -184,20 +184,16 @@ class DatasetParams(BaseModel):
     other_data: dict[str, Any] = Field(default_factory=dict)
     skimmed_from: Optional[str] = None
 
-    __lumi: Optional[float] = None
+    _lumi: Optional[float] = None
 
     @property
     def lumi(self) -> float:
-        if isinstance(self.era, str) and not self.__lumi:
+        if isinstance(self.era, str) and not self._lumi:
             raise RuntimeError(f"Cannot compute lumi for dataset")
-        if self.__lumi is not None:
-            return self.__lumi
+        if self._lumi is not None:
+            return self._lumi
         else:
             return self.era.lumi
-
-    @lumi.setter
-    def _(self, val: float):
-        self.__lumi = val
 
     def populateEra(self, era_repo):
         if isinstance(self.era, str):
@@ -336,7 +332,7 @@ class Dataset(BaseModel):
     @property
     def params(self):
         ds =  DatasetParams(**self.model_dump())
-        ds.lumi = self.lumi
+        ds._lumi = self.lumi
         return ds
 
     def getSample(self, name):

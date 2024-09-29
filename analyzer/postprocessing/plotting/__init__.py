@@ -1,4 +1,4 @@
-from .plots_1d import setAxisTitles1D, drawAs1DHist, drawAsScatter
+from .plots_1d import drawAs1DHist, drawAsScatter, drawRatio, getRatioAndUnc, labelAxis, autoScale
 # from .plots_2d import addTitles2D, drawAs2DHist
 # from .plottables import PlotObject, createPlotObject, FillType
 # from .annotations import addText, addEra, addCmsInfo

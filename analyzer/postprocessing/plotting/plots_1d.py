@@ -13,7 +13,9 @@ def requireDim(dim):
                     f"Histogram must have dimension {dim}, found {len(hist.axes)}"
                 )
             return func(ax, hist, *args, **kwargs)
+
         return inner
+
     return wrapper
 
 
@@ -21,45 +23,32 @@ def getCenters(vals):
     return (vals[:, 0] + vals[:, 1]) / 2
 
 
-@requireDim(1)
-def drawAsScatter(ax, hist, title=None, style=None, yerr=True, **kwargs):
-    style = style or {}
-    axis = hist.axes[0]
-    edges = np.array(axis)
+def drawAsScatter(ax, edges, vals, y_unc=None, title=None, style=None,  **kwargs):
+    edges = np.array(edges)
     x = getCenters(edges)
-    y = hist.values()
-    yerr = yerr and (hist.variances() is not None)
+    y = vals
     s = style.asMplKwargs() if style else {}
-    if yerr:
-        variances = hist.variances()
-        unc = np.sqrt(variances)
-        ax.errorbar(
+    if y_unc is not None:
+        return ax.errorbar(
             x,
             y,
-            yerr=unc,
+            yerr=y_unc,
             label=title,
-            **kwargs,
             fill=s.get("fill"),
             color=s.get("color"),
-            linestyle=s.get("linestyle"),
-            marker=s.get("marker"),
+            linestyle="None",
+            marker=s.get("marker",'o'),
+            markersize=1,
+            **kwargs,
         )
     else:
-        ax.scatter(x, y, label=title, marker="+", **s, **kwargs)
-    return ax
+        return ax.scatter(x, y, label=title, marker="+", **s, **kwargs)
 
 
-@requireDim(1)
-def drawAs1DHist(ax, hist, title=None, style=None, yerr=True, orient="h", **kwargs):
+def drawAs1DHist(ax, edges, vals, y_unc=None, title=None, style=None,   **kwargs):
     style = style or {}
-
-    axis = hist.axes[0]
-    edges = np.array(axis)
+    edges = np.array(edges)
     x = getCenters(edges)
-    y = hist.values()
-    yerr = yerr and (hist.variances() is not None)
-    raw_vals = hist.values()
-    vals = raw_vals
 
     s = style.asMplKwargs() if style else {}
     common = dict(
@@ -69,42 +58,32 @@ def drawAs1DHist(ax, hist, title=None, style=None, yerr=True, orient="h", **kwar
 
     side_edges = edges[:, 0]
     side_edges = np.append(side_edges, edges[-1, 1])
+    artists = []
 
-    if yerr:
-        errs = np.sqrt(hist.variances())
-        if orient == "h":
-            ax.errorbar(
-                x,
-                raw_vals,
-                yerr=errs,
-                fmt="none",
-                fill=s.get("fill"),
-                color=s.get("color"),
-                **kwargs,
-            )
-        else:
-            ax.errorbar(
-                raw_vals,
-                x,
-                xerr=errs,
-                fmt="none",
-                fill=s.get("fill"),
-                color=s.get("color"),
-                **kwargs,
-            )
+    if y_unc is not None:
+        art = ax.errorbar(
+            x,
+            vals,
+            yerr=y_unc,
+            fmt="none",
+            fill=s.get("fill"),
+            color=s.get("color"),
+            **kwargs,
+        )
+        artists.append(art)
 
-    ax.stairs(
-        raw_vals,
+    stair = ax.stairs(
+        vals,
         side_edges,
-        orientation="vertical" if orient == "h" else "horizontal",
         label=title,
         fill=s.get("fill"),
         color=s.get("color"),
         linewidth=s.get("linewidth", mpl.rcParams["lines.linewidth"]),
         **kwargs,
     )
+    artists.append(stair)
 
-    return ax
+    return artists
 
 
 # @requireDim(1)
@@ -168,27 +147,89 @@ def drawAs1DHist(ax, hist, title=None, style=None, yerr=True, orient="h", **kwar
 #     return ax
 
 
-def setAxisTitles1D(
-    ax, axis, y_label=None, y_label_complete=None, x_label=None, top_pad=0.3
+def getRatioAndUnc(num,den,uncertainty_type="poisson-ratio"):
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratios = np.where(den > 0.0, num / den, 1.0)
+    ratios[ratios == 0] = np.nan
+    ratios[np.isinf(ratios)] = np.nan
+
+    unc = hinter.ratio_uncertainty(num, den, uncertainty_type=uncertainty_type)
+    return ratios, unc
+
+@requireDim(1)
+def drawRatio(
+    ax,
+    numerator,
+    denominator,
+    title=None,
+    style=None,
+    uncertainty_type="poisson-ratio",
+    uncertainty=True,
+        y_lim=None,
+    **kwargs,
 ):
-    if y_label and y_label_complete:
-        raise ValueError(f"Can only specify one of y_label or y_label_complete")
-    x_unit = getattr(axis, "unit", None)
-    if not x_label:
-        x_label = axis.name
-        if x_unit:
-            x_label += f" [{x_unit}]"
-    bottom_axes = getattr(ax, "bottom_axes", None)
-    ax.set_xlabel(x_label)
+    style = style or {}
+    axis = numerator.axes[0]
+    edges = np.array(axis)
+    x = getCenters(edges)
 
-    if y_label_complete:
-        y_label = y_label_complete
+    num = numerator.values()
+    den = denominator.values()
+    s = style.asMplKwargs() if style else {}
+    ratios,unc=getRatioAndUnc(num,den,uncertainty_type)
+
+    bar_low, bar_high = unc[0], unc[1]
+    min_r, max_r = np.min(ratios), np.max(ratios)
+
+    if uncertainty:
+        ax.errorbar(
+            x,
+            ratios,
+            yerr=[bar_low, bar_high],
+            **kwargs,
+            fill=s.get("fill"),
+            color=s.get("color"),
+            linestyle=s.get("linestyle", None),
+            markersize=1,
+            marker=s.get("marker", "o"),
+        )
     else:
-        y_label = y_label or "Events"
-        if x_unit:
-            y_label += f" / {x_unit}"
-    ax.set_ylabel(y_label)
+        ax.scatter(
+            x,
+            ratios,
+            fill=s.get("fill"),
+            color=s.get("color"),
+            linestyle=s.get("linestyle"),
+            marker=s.get("marker", "o"),
+            **kwargs,
+        )
 
+    return ax
+
+
+def labelAxis(
+        ax, which, axes, label=None, label_complete=None
+):
+    mapping = dict(x=0,y=1,z=2)
+    idx = mapping[which]
+
+    if idx  != len(axes):
+        this_unit = getattr(axes[idx], "unit", None)
+        if not label:
+            label = axes[idx].name
+            if this_unit:
+                label += f" [{this_unit}]"
+        getattr(ax,f"set_{which}label")(label)
+    else:
+        label = label or "Events"
+        units = [getattr(x, "unit", None) for x in axes]
+        units = [x for x in units if x]
+        unit_format = "*".join(units)
+        if unit_format:
+            label += f" / {unit_format}"
+        getattr(ax,f"set_{which}label")(label)
+
+def autoScale(ax, top_pad=0.3):
     sc = ax.get_yscale()
     ax.set_ymargin(0)
     ax.autoscale_view()
@@ -202,4 +243,42 @@ def setAxisTitles1D(
         bottom = lim[0] - delta * 0.05
     top = lim[1] + delta * top_pad
     ax.set_ylim(bottom, top)
-    return ax
+
+def autoLim(ax, hist):
+    ax.set_xlim(hist.axes[0][0], hist.axes[0][-1])
+
+# def setAxisTitles1D(
+#     ax, axis, y_label=None, y_label_complete=None, x_label=None, top_pad=0.3
+# ):
+#     if y_label and y_label_complete:
+#         raise ValueError(f"Can only specify one of y_label or y_label_complete")
+#     x_unit = getattr(axis, "unit", None)
+#     if not x_label:
+#         x_label = axis.name
+#         if x_unit:
+#             x_label += f" [{x_unit}]"
+#     bottom_axes = getattr(ax, "bottom_axes", None)
+#     ax.set_xlabel(x_label)
+
+#     if y_label_complete:
+#         y_label = y_label_complete
+#     else:
+#         y_label = y_label or "Events"
+#         if x_unit:
+#             y_label += f" / {x_unit}"
+#     ax.set_ylabel(y_label)
+
+#     sc = ax.get_yscale()
+#     ax.set_ymargin(0)
+#     ax.autoscale_view()
+#     lim = ax.get_ylim()
+#     delta = np.diff(lim)
+#     if sc == "log":
+#         top_pad = 10 ** (1 + top_pad)
+#         bottom = max(1, lim[0] - delta * 0.05)
+#         bottom = lim[0]
+#     else:
+#         bottom = lim[0] - delta * 0.05
+#     top = lim[1] + delta * top_pad
+#     ax.set_ylim(bottom, top)
+#     return ax

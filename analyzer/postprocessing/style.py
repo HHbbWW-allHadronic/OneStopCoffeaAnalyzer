@@ -85,5 +85,4 @@ class Styler:
 
         c = next(self.cycle_iter)
         color, linestyle = c["color"], c["linestyle"]
-        print(color)
         return Style(color=color, linestyle=linestyle)
