@@ -29,7 +29,6 @@ def createLPCCondorCluster(configuration):
     if not LPCQUEUE_AVAILABLE:
         raise NotImplemented("LPC Condor can only be used at the LPC.")
 
-
     # Need container to tell condor what singularity image to use
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
 
@@ -50,11 +49,14 @@ def createLPCCondorCluster(configuration):
         shutil.rmtree(p)
 
     # Compress environment to transport to the condor workers
-    compressed_env = (
-        Path(CONFIG.ENV_LOCAL_APPLICATION_DATA) / "compressed" / "environment.tar.gz"
-    )
+    compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
     if not compressed_env.exists():
-        compressDirectory(venv, compressed_env.parent)
+        compressDirectory(
+            input_dir=".application_data/venv",
+            root_dir="/srv/",
+            output=compressed_env,
+            archive_type="gztar",
+        )
 
     # transfer_input_files = [
     #    str(base / "setup.sh"),
@@ -82,7 +84,7 @@ def createLPCCondorCluster(configuration):
         transfer_input_files=transfer_input_files,
         log_directory=logpath,
         scheduler_options=dict(
-            #host=schedd_host,
+            # host=schedd_host,
             dashboard_address=":12358"
         ),
         **kwargs,

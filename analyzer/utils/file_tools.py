@@ -48,37 +48,47 @@ def pickleWithParents(outpath, data):
 
 
 def compressDirectory(
-    base_dir, zip_path=None, name="environment", archive_type="gztar"
+         input_dir, root_dir, output, archive_type="gztar", temporary_path=".temporary",
 ):
-    base_dir = Path(base_dir)
-    base_name = base_dir.stem
-    if not zip_path:
-        temp_path = Path(tempfile.gettempdir())
-    else:
-        temp_path = Path(zip_path)
+    logger.info(f"Compressing directory '{input_dir}' relative to '{root_dir}'")
+    logger.info(f"Output is '{output}'")
+    stem = output.name
+    temp = Path(temporary_path)
+    temp.parent.mkdir(exist_ok=True, parents=True)
+    output.parent.mkdir(exist_ok=True, parents=True)
+    #base_name = base_dir.stem
+    # if not zip_path:
+    #     temp_path = Path(tempfile.gettempdir())
+    # else:
+    #     temp_path = Path(zip_path)
 
-    trimmed_path = temp_path / f"temp_{base_name}" / base_name
-    if trimmed_path.is_dir():
-        logger.info(f"Deleting tree at {trimmed_path}")
-        shutil.rmtree(trimmed_path)
+    # trimmed_path = temp_path / f"temp_{base_name}" / base_name
+    # if trimmed_path.is_dir():
+    #     logger.info(f"Deleting tree at {trimmed_path}")
+    #     shutil.rmtree(trimmed_path)
 
-    logger.info(f"Using {trimmed_path} as copy location.")
-    temp_analyzer = shutil.copytree(
-        base_dir,
-        trimmed_path,
-        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "*.md"),
-    )
+    # logger.info(f"Using {trimmed_path} as copy location.")
+    # temp_analyzer = shutil.copytree(
+    #     base_dir,
+    #     trimmed_path,
+    #     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "*.md"),
+    # )
     package_path = shutil.make_archive(
-        temp_path / name,
+        temp / stem,
         archive_type,
-        root_dir=trimmed_path.parent,
-        base_dir=base_name,
+        root_dir=root_dir,
+        base_dir=input_dir,
+        verbose=True,
+        dry_run=False,
+        group=None,
+        owner=None,
+        logger=logger,
     )
-    shutil.rmtree(trimmed_path.parent)
-
-    final_path = temp_path / f"{name}.{archive_type}"
-    logger.info(f"Created analyzer archive at {final_path}")
-    return final_path
+    logger.info(f"Created analyzer archive at {package_path}")
+    shutil.copy(package_path, output)
+    shutil.rmtree(temp)
+    # final_path = temp_path / f"{name}.{archive_type}"
+    return output
 
 
 def exists(client, loc):
