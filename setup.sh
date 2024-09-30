@@ -2,34 +2,9 @@
 
 application_root="/srv"
 application_data="$application_root/.application_data"
-
-declare -A env_configs
-
-env_configs[coffea,venv]="coffeaenv"
-env_configs[coffea,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.8.1-py3.10"
-
-if [[ $(hostname) =~ "fnal" ]]; then
-    env_configs[coffea,extras]="lpcqueue"
-else
-    env_configs[coffea,extras]=""
-fi
-
-env_configs[torch,venv]="cmsmlenv"
-env_configs[torch,extras]="torch"
-if nvidia-modprobe 2> /dev/null; then 
-    env_configs[torch,apptainer_flags]="--nv"
-fi
-env_configs[torch,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
-
-env_configs[jaxenv,venv]="jaxenv"
-env_configs[jaxenv,extras]="torch"
-env_configs[jaxenv,empty]="true"
-if nvidia-modprobe 2> /dev/null; then 
-    env_configs[jaxenv,apptainer_flags]="--nv"
-fi
-#env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmsml/cmsml:3.10"
-#env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:pytorch-2.0.0-cuda11.7-cudnn8-runtime-singularity"
-env_configs[jaxenv,container]="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/fnallpc/fnallpc-docker:tensorflow-2.12.0-gpu-singularity"
+container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.8.1-py3.10"
+env_extras="lpcqueue"
+virtual_env_path="$application_data/venv"
 
 
 function box_out()
@@ -52,16 +27,14 @@ ${box_v} ${b//?/ } ${box_v}"
 
 
 function activate_venv(){
-    local config_name=$1
-    local env=${env_configs[$config_name,venv]}
-    source $application_data/virtual_envs/"$env"/bin/activate
+    source $virtual_env_path/bin/activate
     local localpath="$VIRTUAL_ENV$(python3 -c 'import sys; print(f"/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')"
     export PYTHONPATH=${localpath}:$PYTHONPATH
 }
 
 function version_info(){
     local packages_to_show=("coffea" "awkward" "uproot" "dask" "distributed" "dask-awkward" "dask-histogram" "fsspec_xrootd")
-    local package_info="$(pip3 show "${packages_to_show[@]}")"
+    local package_info="$(python3 -m pip show "${packages_to_show[@]}")"
     for package in "${packages_to_show[@]}"; do
         awk -v package="$package" 'BEGIN{pat="Name: " package } a==1{printf("%s: %s\n", package, $2); exit} $0~pat{a++}' \
             <<< "$package_info"
@@ -71,39 +44,31 @@ function version_info(){
 
 
 function create_venv(){
-    local config_name=$1
-    local env_name=${env_configs[$config_name,venv]}
-    local env_path=$application_data/virtual_envs/${env_name}
-    local extras=${env_configs[$config_name,extras]}
 
     export TMPDIR=$(mktemp -d -p .)
     export PIP_DOWNLOAD_CACHE=".pipcache"
     
     trap 'rm -rf -- "$TMPDIR"' EXIT
 
-    python3 -m venv --system-site-packages "$env_path"
-    activate_venv $1
+    python3 -m venv --system-site-packages "$virtual_env_path"
+    activate_venv 
 
-    if [[ "${env_configs[$config_name,empty]:-X}" == "true" ]]; then
-        return
-    fi
     printf "Created virtual environment %s\n" "$env_path"
     printf "Upgrading installation tools\n"
+
     python3 -m pip install pip  --upgrade
     python3 -m pip install setuptools pip wheel --upgrade
     printf "Installing project\n"
-    if [[ -z $extras ]]; then
+    if [[ -z $env_extras ]]; then
         python3 -m pip install -U -e . 
     else
-        python3 -m pip install -U -e ".[$extras]" 
+        python3 -m pip install -U -e ".[$env_extras]" 
     fi
 
     # pip3 install ipython --upgrade
-    python3 -m ipykernel install --name "$env_name" --prefix "$application_data/envlocal/$env/"
-    # pip3 install -I boost-histogram
-    #rm -rf "$env_path"/lib/*/site-packages/analyzer
+    python3 -m ipykernel install --name "$env_name" --prefix "$application_data/local/"
     rm -rf $TMPDIR && unset TMPDIR
-    sed -i "/PS1=/d" "$env_path"/bin/activate
+    sed -i "/PS1=/d" "$virtual_env_path"/bin/activate
     trap - EXIT
 }
 
@@ -135,12 +100,7 @@ function rcmode(){
     NONE="\[\033[0m\]"    # unsets color to term's fg color
 
 
-    [ -z "$PS1" ] && return
-
-    local config_name=$1
-    local env=${env_configs[$config_name,venv]}
-
-    mkdir -p $application_data/envlocal/$env
+    mkdir -p $application_data/local
 
     HISTSIZE=50000
     HISTFILESIZE=20000
@@ -151,11 +111,11 @@ function rcmode(){
     shopt -s cmdhist &>/dev/null
     export HISTFILE=/srv/.bash_eternal_history
     export CONDOR_CONFIG="$application_data/.condor_config"
-    export JUPYTER_PATH=$application_data/envlocal/$env/share/jupyter
-    export JUPYTER_RUNTIME_DIR=$application_data/envlocal/$env/share/jupyter/runtime
-    export JUPYTER_DATA_DIR=$application_data/envlocal/$env/share/jupyter
-    export IPYTHONDIR=$application_data/envlocal/$env/ipython
-    export MPLCONFIGDIR=$application_data/envlocal/$env/mpl
+    export JUPYTER_PATH=$application_data/local/share/jupyter
+    export JUPYTER_RUNTIME_DIR=$application_data/local/share/jupyter/runtime
+    export JUPYTER_DATA_DIR=$application_data/local/share/jupyter
+    export IPYTHONDIR=$application_data/local/ipython
+    export MPLCONFIGDIR=$application_data/local/mpl
     export MPLBACKEND="Agg"
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
 
@@ -165,11 +125,11 @@ function rcmode(){
     #fi
     
 
-    if [[ ! -d $application_data/virtual_envs/$env ]]; then
-        printf "Virtual environment does not exist, creating virtual environment\n"
-        create_venv "$1"
+    if [[ ! -d $virtual_env_path ]]; then
+        printf "Virtual environment does not exist, creating virtual environment in $virtual_env_path\n"
+        create_venv 
     fi
-    activate_venv "$1"
+    activate_venv 
 
     PS1="${R}[APPTAINER\$( [[ ! -z \${VIRTUAL_ENV} ]] && echo "/\${VIRTUAL_ENV##*/}")]${M}[\t]${W}\u@${C}\h:${G}[\w]> ${NONE}"
     unset PROMPT_COMMAND
@@ -200,12 +160,9 @@ function startup_with_container(){
     local rel_data=${application_data#$application_root/}
     mkdir -p $rel_data
     local in_apptainer=${APPTAINER_COMMAND:-false}
-    local container=${env_configs[$1,container]}
-    local apptainer_flags=${env_configs[$1,apptainer_flags]}
-    printf "Running in container mode %s\n" "$container"
+    local apptainer_flags=""
     if [ "$in_apptainer"  = false ]; then
         if command -v condor_config_val &> /dev/null; then
-            printf "Cloning HTCondor configuration\n"
             condor_config_val  -summary > .condor_config
         fi
         if [[ -e $HISTFILE ]]; then
@@ -231,7 +188,7 @@ function startup_with_container(){
                   --bind /cvmfs \
                   --bind ${PWD}:/srv \
                   --pwd /srv "$container" /bin/bash \
-                  --rcfile <(printf "source setup.sh '$1' bashrc")
+                  --rcfile <(printf "source setup.sh bashrc")
     else
         printf "Already in apptainer, nothing to do.\n"
     fi
@@ -243,18 +200,13 @@ function start_jupyter(){
 }
 
 function main(){
-    local config="$1"
-    local mode="${2:-apptainer}"
-    if [[ -z ${env_configs[$config,venv]} ]]; then
-        printf "Not a valid environment %s\n" "$config"
-        return 1
-    fi
+    local mode="${1:-apptainer}"
     case "$mode" in
         apptainer )
-            startup_with_container $config
+            startup_with_container 
             ;;
         bashrc )
-            rcmode $config
+            rcmode 
             ;;
         * )
             printf "Unknown mode\n"
