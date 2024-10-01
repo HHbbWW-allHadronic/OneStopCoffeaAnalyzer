@@ -1,0 +1,41 @@
+Postprocessing:
+  # general_config:
+  #   configuration:
+  #     output_dir: "plots/{region_name}/{sample_name}/"
+  #     image_type: pdf
+  #     cms_tag: Preliminary
+  #     style_file: null
+
+  - name: Plot Basic stuff
+    action: Histogram1D
+    style_set: "default.yaml"
+    histogram_names: [m13_m, m14_m, pt_1, HT, h_njets]
+    to_plot: {sample_spec: {name: "signal_312*" }}
+    group_by: ["dataset.era.name", "region.region_name"]
+    normalize: false
+
+  - name: Normalized stuff
+    action: Histogram1D
+    style_set: "default.yaml"
+    histogram_names: [m13_m, m14_m, pt_1, HT, h_njets]
+    to_plot: {sample_spec: {name: "signal_312*" }}
+    group_by: ["dataset.era.name", "region.region_name"]
+    normalize: true
+
+  - name: Normalized stuff
+    action: RatioPlot
+    numerator: {sample_spec: {name: "signal_312*" }}
+    denominator: {sample_spec: {name: "signal_312*" }}
+    style_set: "default.yaml"
+    histogram_names: [m13_m, m14_m, pt_1, HT, h_njets]
+    group_by: ["dataset.era.name", "region.region_name"]
+    normalize: true
+
+  - name: Plot Cutflow
+    action: PlotCutflow
+    style_set: "default.yaml"
+    to_plot: {sample_spec: {name: "signal_312*" }}
+    histogram_names: [m13_m, m14_m, pt_1, HT, h_njets]
+    group_by: ["dataset.era.name", "region.region_name"]
+    normalize: true
+
