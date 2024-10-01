@@ -12,11 +12,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
+import yaml
+
 import awkward as ak
 import dask
 import distributed
 import pydantic as pyd
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -41,12 +42,6 @@ if CONFIG.PRETTY_MODE:
 
 
 logger = logging.getLogger("analyzer.core")
-
-
-def getSectionHash(am_descs):
-    to_hash = [{"name": x.name, "configuration": x.configuration} for x in am_descs]
-    return hash(json.dumps(to_hash, sort_keys=True))
-
 
 @dataclass
 class Category:
@@ -305,8 +300,6 @@ class SubSectorAnalyzer:
 
 
 def getProcessedChunks(run_report):
-    if len(run_report) == 0:
-        return set()
     good_mask = ak.is_none(run_report["exception"])
     rr = run_report[good_mask]
     return {
@@ -389,15 +382,36 @@ class Analyzer:
     @staticmethod
     def __loadOne(sample_id, files, maybe_base_form):
         logger.debug(f"Loading events for sample {sample_id}.")
-        events, report = NanoEventsFactory.from_root(
-            files,
-            schemaclass=NanoAODSchema,
-            uproot_options=dict(
-                allow_read_errors_with_report=True,
-                timeout=30,
-            ),
-            # known_base_form=maybe_base_form,
-        ).events()
+        logger.debug(f"Loading files:\n {list(files)}.")
+        num_tries = 0
+        max_tries = 1
+        # events, report = NanoEventsFactory.from_root(
+        #     files,
+        #     schemaclass=NanoAODSchema,
+        #     uproot_options=dict(
+        #         allow_read_errors_with_report=True,
+        #         timeout=30,
+        #     ),
+        #     #known_base_form=maybe_base_form,
+        # ).events()
+        while num_tries < max_tries:
+            num_tries += 1
+            try:
+                logger.info(f"Loading events from {sample_id}")
+                events, report = NanoEventsFactory.from_root(
+                    files,
+                    schemaclass=NanoAODSchema,
+                    uproot_options=dict(
+                        allow_read_errors_with_report=True,
+                        timeout=30,
+                    ),
+                    # known_base_form=maybe_base_form,
+                ).events()
+                break
+            except Exception as e:
+                logger.warn(f"Error while loading file:\n{e}")
+                if num_tries == max_tries:
+                    raise
         return sample_id, events, report
 
     def loadEvents(self, **kwargs):
@@ -635,6 +649,7 @@ class Analyzer:
 
 
 def runAnalysis(analyzer):
+
     if not analyzer.preprocessed_samples:
         logger.info(f"Analyzer does not already have preprocessed samples.")
         analyzer.preprocessDatasets()
@@ -691,7 +706,6 @@ def patchPreprocessed(
         if step_size is None:
             step = prepped.step_size
         x = prepped.missingCoffeaDataset(dr, **frk)
-        print(x)
         logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
         if x["files"]:
             missing_dict.update(x)
@@ -777,11 +791,15 @@ def patchAnalysisResult(input_path, output_path):
 
 
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
+
+    logger.info(distributed.client._get_global_client())
     with open(input_path, "rb") as config_file:
         data = yaml.safe_load(config_file)
     if preprocessed_input_path:
         with open(preprocessed_input_path, "rb") as prep_file:
             preprocessed_input = pkl.load(prep_file)
+            preprocessed_input = [SamplePreprocessed(**x) for x in preprocessed_input]
+            preprocessed_input = {x.sample_id: x for x in preprocessed_input}
     else:
         preprocessed_input = {}
     an = AnalysisDescription(**data)
@@ -814,33 +832,51 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
     }
     grouped = groupBySample(p)
-    ret = {}
     l = list(grouped.items())
     l = sorted(l, key=lambda x: len(analyzer.preprocessed_samples[x[0]].chunks))
     min_chunks_per_submit = 50
     current_list = []
     current = 0
+
+    ret = {}
     for sample, val in l:
         current += len(analyzer.preprocessed_samples[sample].chunks)
         current_list.append((sample, val))
         if current >= min_chunks_per_submit:
-            logger.info(f"Submitting samples: {[x for x,_ in current_list]}")
-            portion_computed = dask.compute(current_list)[0]
-            for sample, vals in portion_computed:
-                logger.info(f'Adding sample "{sample}" to result.')
-                ret[sample] = val
+            logger.info(f"Processing samples: {[x for x,_ in current_list]}")
+            try:
+                portion_computed = dask.compute(current_list)[0]
+                for sample, res in portion_computed:
+                    logger.info(f'Adding sample "{sample}" to result.')
+                    ret[sample] = res
+            except Exception as e:
+                logger.error(
+                    f"An error occurred that caused an exception dask.compute. "
+                    f"This caused {len(current_list)} samples ({current} chunks) to be discarded from computation."
+                    f"The analyzer will continue processing other samples, but will need to patched. "
+                    f"This was caused by the following exception:\n{e}."
+                )
             current = 0
             current_list = []
     if current_list:
-        logger.info(f"Submitting samples: {[x for x,_ in current_list]}")
-        portion_computed = dask.compute(current_list)[0]
-        for sample, vals in portion_computed:
-            logger.info(f'Adding sample "{sample}" to result.')
-            ret[sample] = vals
-
+        logger.info(f"Processing samples: {[x for x,_ in current_list]}")
+        try:
+            portion_computed = dask.compute(current_list)[0]
+            for sample, res in portion_computed:
+                logger.info(f'Adding sample "{sample}" to result.')
+                ret[sample] = res
+        except Exception as e:
+            logger.error(
+                f"An error occurred that caused an exception dask.compute. "
+                f"This caused {len(current_list)} samples ({current} chunks) to be discarded from computation."
+                f"The analyzer will continue processing other samples, but will need to patched. "
+                f"This was caused by the following exception:\n{e}."
+            )
     logger.info(f"Done processing all samples.")
+
     computed = ret
     final = {}
+
     final["total_mc_weights"] = dict(
         it.chain.from_iterable(
             (x.get("total_mc_weights", {}).items() for x in computed.values())
@@ -855,60 +891,27 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
             (x["processed_chunks"].items() for x in computed.values())
         )
     )
-    final = {**dumped, **final}
+
 
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
     }
 
+    final = {**dumped, **final}
+
+
     final_result = AnalysisResult(**final)
+
     out = Path(output_path)
+
     out.parent.mkdir(exist_ok=True, parents=True)
-    with open(out, "wb") as f:
-        pkl.dump(final_result.model_dump(), f)
 
+    logger.info(f"Saving results to {out}")
 
-if __name__ == "__main__":
-    from analyzer.datasets import DatasetRepo, EraRepo
-
-    # logger.debug("TEST1")
-    # logger.info("TEST2")
-    # logger.error("TEST3")
-    # import sys
-    # sys.exit()
-
-    d = yaml.safe_load(open("configurations/test_config.yaml", "r"))
-
-    from analyzer.clients import createNewCluster
-
-    if True:
-        cluster = createNewCluster(
-            "lpccondor",
-            dict(
-                n_workers=80,
-                memory="4.0G",
-                schedd_host=None,
-                dashboard_host="localhost:12358",
-                timeout=7200,
-            ),
-        )
-        client = Client(cluster)
-    else:
-        client = Client(
-            dashboard_address="localhost:12358",
-            memory_limit="4GB",
-            n_workers=2,
-        )
-
-    # preprocessAnalysis("configurations/test_config.yaml", "prepped.pkl")
-    # with memray.memray_workers("memrayout/"):
-    runFromFile(
-        "configurations/test_config.yaml",
-        "results/NoSelection.pkl",
-        preprocessed_input_path="prepped.pkl",
-    )
-
-    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
-    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
-    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
-    print("DOOOOOOOOOOOOOOOOONNNNNNNNNNNNNNNNEEEEEEEEEEEEEEEEEEEEE")
+    try:
+        with open(out, "wb") as f:
+            pkl.dump(final_result.model_dump(), f)
+    except Exception as e:
+        logger.error(f"An error occurred while attempting to save the results:\n {e}")
+        logger.error(final_result.model_dump())
+        raise e
