@@ -1,20 +1,17 @@
 # The name of analysis to be run
 name: SingleStop
 
-# Where to save the output of the analysis
-output_dir: output
-
 # Possible limit regions/signals over which the analysis should be run
-LimitTo:
-  regions: [Signal312]
+# LimitTo:
+#   regions: [Signal312]
 
 
 # Samples and in which regions they should be processed
 samples:
   signal_312_2000_1900: [Signal312,Control]
-  # signal_312_1500_1400: [Signal312, Control]
-  # QCDInclusive2018: [Signal312,Control]
-  # Data2018: [Control, Signal312]
+  Data2018: [Control, Signal312, Signal313]
+  QCDInclusive2018: [Signal312,Control, Signal313]
+  signal_312_1500_1400: [Signal312, Control]
   signal_312_1200_400: [Signal312, Control]
   signal_312_1200_600: [Signal312, Control]
   signal_312_1200_1100: [Signal312, Control]
@@ -28,36 +25,37 @@ samples:
   signal_312_2000_400: [Signal312, Control]
   signal_312_1300_400: [Signal312, Control]
   signal_312_1300_600: [Signal312, Control]
-  # signal_312_2000_900: [Signal312, Control]
-  # signal_312_2000_1900: [Signal312, Control]
-  # signal_312_1000_700: [Signal312, Control]
-  # signal_312_1000_800: [Signal312, Control]
-  # signal_312_1200_700: [Signal312, Control]
-  # signal_312_1200_800: [Signal312, Control]
-  # signal_312_1500_100: [Signal312, Control]
-  # signal_312_1500_1000: [Signal312, Control]
-  # signal_312_1500_1200: [Signal312, Control]
-  # signal_312_1500_1300: [Signal312, Control]
-  # signal_312_1500_1350: [Signal312, Control]
-  # signal_312_1500_1450: [Signal312, Control]
-  # signal_312_2000_1200: [Signal312, Control]
-  # signal_312_2000_1600: [Signal312, Control]
-  # signal_312_2000_1700: [Signal312, Control]
-  # signal_312_1000_400: [Signal312, Control]
-  # signal_312_1000_600: [Signal312, Control]
-  # signal_312_1000_900: [Signal312, Control]
+  signal_312_2000_900: [Signal312, Control]
+  signal_312_2000_1900: [Signal312, Control]
+  signal_312_1000_700: [Signal312, Control]
+  signal_312_1000_800: [Signal312, Control]
+  signal_312_1200_700: [Signal312, Control]
+  signal_312_1200_800: [Signal312, Control]
+  signal_312_1500_100: [Signal312, Control]
+  signal_312_1500_1000: [Signal312, Control]
+  signal_312_1500_1200: [Signal312, Control]
+  signal_312_1500_1300: [Signal312, Control]
+  signal_312_1500_1350: [Signal312, Control]
+  signal_312_1500_1450: [Signal312, Control]
+  signal_312_2000_1200: [Signal312, Control]
+  signal_312_2000_1600: [Signal312, Control]
+  signal_312_2000_1700: [Signal312, Control]
+  signal_312_1000_400: [Signal312, Control]
+  signal_312_1000_600: [Signal312, Control]
+  signal_312_1000_900: [Signal312, Control]
 
 # Samples and in which regions they should be processed
 general_config:
   execution:
     n_workers: 40
-    worker_memory: 2
+    worker_memory: 2GB
     worker_timeout: 7200
   preprocessing:
     chunk_size: 100000
     use_replicas: True
   file_retrieval:
-    location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", "eos"]
+    location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+    #location_priority_regex: [".*(T0|T1|T2).*","eos"]
   skimming:
     output: "root://blabla/SingleStop/"
     use_skims_path: "root://blabla/SingleStop/"
@@ -65,16 +63,16 @@ general_config:
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
     common_signal_histograms: &common_signal
-      - name: njets
+      # - name: njets
       - name: goodjet_ht
-      - name: jet_kinematics
-      - name: jet_combo_kinematics
+      # - name: jet_kinematics
+      # - name: jet_combo_kinematics
       #- name: jet_relative_angles
-      - name: b_quark_kinematics
-        config:
-          - working_point: L
-          - working_point: M
-          - working_point: T
+      # - name: b_quark_kinematics
+      #   config:
+      #     - working_point: L
+      #     - working_point: M
+      #     - working_point: T
 
     common_objects: &common_objects
       - name: core_objects
@@ -91,15 +89,15 @@ common_items:
           sample_type: MC
         config:
           variations: All
+
       - name: sign_gen_weight
         sample_spec:
           sample_type: MC
+
       - name: pileup_sf
         sample_spec:
           sample_type: MC
-      - name: sign_gen_weight
-        sample_spec:
-          sample_type: MC
+
 
 # A region has a name, followed by description of what modules should be run
 # for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
@@ -131,6 +129,18 @@ regions:
     selection: 
       - name: general_selection
       - name: partial_signal312_selection
+    histograms: *common_signal
+    weights: *common_weights
+
+  - name: Signal313
+    forbid_data: false
+    objects: *common_objects
+    preselection:
+      - <<: *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal313_selection
     histograms: *common_signal
     weights: *common_weights
 

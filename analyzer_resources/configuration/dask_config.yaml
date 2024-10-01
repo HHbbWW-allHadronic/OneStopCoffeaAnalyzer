@@ -10,15 +10,14 @@ distributed:
 jobqueue:
   lpccondor:
     name: dask-worker
-
     # Dask worker options
-    cores: 2                 # Total number of cores per job
+    cores: 1                 # Total number of cores per job
     memory: 4GB                # Total amount of memory per job
     processes: 1                # Number of Python processes per job
-    threads: 2
+    threads: 1
 
     interface: null             # Network interface to use like eth0 or ib0
-    death-timeout: 60           # Number of seconds to wait if a worker can not find a scheduler
+    death-timeout: 120           # Number of seconds to wait if a worker can not find a scheduler
     local-directory: /srv       # Location of fast local storage like /scratch or $TMPDIR
     shared-temp-directory: null
     extra: null
@@ -35,7 +34,10 @@ jobqueue:
     env-extra: null
     job-script-prologue:
       - 'tar xzf environment.tar.gz'
-      - 'source setup.sh coffea bashrc'
+      - 'source setup.sh bashrc'
+      - echo "Virtual ENV IS" $VIRTUAL_ENV
+      - ls -alhtr
+      - ls -alhtr .application_data
       - export X509_USER_PROXY=$(realpath $(find . -iname 'x509*'))
       - echo 'X509 Is'
       - echo $X509_USER_PROXY

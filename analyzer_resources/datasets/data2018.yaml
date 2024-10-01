@@ -2,7 +2,6 @@
   sample_type: Data
   title: "Data2018"
   era: '2018'
-  cms_dataset_regex: /JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD
   samples:
     - name: Data2018A
       cms_dataset_regex: /JetHT/Run2018A-UL2018_MiniAODv2_NanoAODv9-v2/NANOAOD
@@ -503,3 +502,22 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/D578ACBF-AD6D-9845-9091-3930D830A55C.root
         - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/1F6BB24B-3A3F-F24B-9C38-755807128861.root
         - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/0D8712FF-9DF0-0341-A6CE-A2B4BAB4C176.root
+
+- name: TestData2018
+  sample_type: Data
+  title: "TestData2018"
+  era: '2018'
+  samples:
+    - name: Nonsense
+      n_events: 70027804
+      files: 
+        - root://cmsxrootd.fnal.gov//store/data/Run2018C/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v1/130000/DBA0C35C-4893-FD4B-A1BD-F0293EF5EA7A.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/8C6FCB67-A087-EE4B-AEB5-C337B5EC4209.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/D578ACBF-AD6D-9845-9091-3930D830A55C.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/1F6BB24B-3A3F-F24B-9C38-755807128861.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/0D8712FF-9DF0-0341-A6CE-A2B4BAB4C176.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/65B3EBE2-E764-F841-AD87-209231C56F72.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/7EE46063-230D-0D4B-B640-E43DE8B0B26D.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/34C4A841-722B-7944-9C46-F76A219FB57F.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/7758423D-8C95-BF4B-87A2-472F9437C194.root
+        - root://cmsxrootd.fnal.gov//store/data/Run2018D/JetHT/NANOAOD/UL2018_MiniAODv2_NanoAODv9-v2/2430000/8605D0D2-39DB-154A-9A0A-83627401F4E9.root
