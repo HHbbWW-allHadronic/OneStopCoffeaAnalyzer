@@ -2,8 +2,7 @@ import logging
 from typing import Optional
 
 import matplotlib.typing as mplt
-from analyzer.configuration import CONFIG
-from analyzer.core.specifiers import SampleSpec, SectorParams, SectorSpec
+from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
 from pydantic import BaseModel, Field
 
@@ -22,8 +21,16 @@ class Style(BaseModel):
     fill_hatching: Optional[str] = None
     line_width: Optional[float] = None
 
-    def asMplKwargs(self):
-        return self.model_dump()
+    def get(self,type):
+        mapping = dict(
+            step=("color", ),
+            fill=("color", ),
+            band=("color", ),
+            errorbar=("color", ),
+        )
+        ret= self.model_dump(include=mapping[type])
+        ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
+        return ret
 
 
 class StyleRule(BaseModel):
