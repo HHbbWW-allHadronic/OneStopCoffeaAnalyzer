@@ -27,7 +27,7 @@ from .configuration import (
 )
 from .histograms import HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
-from .results import SelectionResult, SubSectorResult
+from .results import SelectionResult, SubSectorResult, AnalysisResult, SectorResult
 from .sector import SubSector, getParamsForSubSector
 from .selection import SelectionManager
 from .specifiers import SubSectorId
@@ -142,6 +142,7 @@ class Analyzer:
                 else {}
             ),
         )
+
     def getFileOpts(self):
         return FileConfig(
             **self.description.file_config.model_dump(),
@@ -179,7 +180,7 @@ class Analyzer:
             self.dataset_repo,
             set(x.subsector_id.sample_id for x in self.subsectors),
             step_size=step_size,
-            file_retrieval_kwargs={"location_priority_regex" : loc_prio}
+            file_retrieval_kwargs={"location_priority_regex": loc_prio},
         )
         self.preprocessed_samples = {x.sample_id: x for x in r}
 
@@ -227,7 +228,9 @@ class Analyzer:
             samples = set(x.subsector_id.sample_id for x in self.subsectors)
             for sample_id in samples:
                 spre = self.preprocessed_samples[sample_id]
-                ds = spre.getCoffeaDataset(self.dataset_repo, location_priority_regex=loc_prio)
+                ds = spre.getCoffeaDataset(
+                    self.dataset_repo, location_priority_regex=loc_prio
+                )
                 if spre.form is not None:
                     maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
                 else:
@@ -496,12 +499,7 @@ def runAnalysis(analyzer):
     )
 
 
-def patchPreprocessed(
-    dataset_repo,
-    preprocessed_samples,
-    step_size=None,
-    file_retrieval_kwargs=None,
-):
+def patchPreprocessed(dataset_repo, preprocessed_samples):
     samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_samples)}
     missing_dict = {}
     dr = DatasetRepo.getConfig()
@@ -526,18 +524,28 @@ def patchPreprocessed(
     return list(samples.values())
 
 
-def makeResultPatch(result, dataset_repo, era_repo):
+def makeResultPatch(
+    result, dataset_repo, era_repo, execution_config=None, file_config=None
+):
     missing = result.getMissingPreprocessed()
     logger.info(f"Found {len(missing)} samples with missing chunks")
     if not missing:
         logger.info(f"No missing chunks, nothing to do")
         return
-    new_analyzer = Analyzer(result.description, dataset_repo, era_repo)
+    new_analyzer = Analyzer(
+        result.description,
+        dataset_repo,
+        era_repo,
+        execution_config=execution_config,
+        file_config=file_config,
+    )
     new_analyzer.preprocessed_samples = missing
     return new_analyzer
 
 
-def preprocessAnalysis(input_path, output_path):
+def preprocessAnalysis(
+    input_path, output_path, execution_config=None, file_config=None
+):
     logger.info(f"Preprocessing analysis from file {input_path}")
     with open(input_path, "rb") as f:
         data = yaml.safe_load(f)
@@ -562,7 +570,9 @@ def preprocessAnalysis(input_path, output_path):
     logger.info(f'Saved preprocessed samples to "{out}"')
 
 
-def patchPreprocessedFile(input_path, output_path, step_size=None, file_kwargs=None):
+def patchPreprocessedFile(
+    input_path, output_path, execution_config=None, file_config=None
+):
     with open(input_path, "rb") as f:
         data = pkl.load(f)
         data = [SamplePreprocessed(**x) for x in data]
@@ -594,7 +604,6 @@ def patchAnalysisResult(input_path, output_path):
     out.parent.mkdir(exist_ok=True, parents=True)
     with open(out, "wb") as f:
         pkl.dump(final_result.model_dump(), f)
-
 
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
@@ -719,3 +728,20 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         logger.error(f"An error occurred while attempting to save the results:\n {e}")
         logger.error(final_result.model_dump())
         raise e
+
+
+def checkResult(input_path):
+    with open(input_path, "rb") as f:
+        result = pkl.load(f)
+        result = AnalysisResult(**result)
+    dr = DatasetRepo.getConfig()
+    processed = result.raw_events_processed
+    for sample_id, val in processed.items():
+        exp = dr.getSample(sample_id).n_events
+        diff = exp - val
+        print(f"{sample_id} is missing {diff} events")
+
+    
+
+
+        

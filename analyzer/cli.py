@@ -44,7 +44,12 @@ def handlePatchRun(args):
 
     client = makeCluster(args)
     output = args.output or args.input
-    patchAnalysisResult(args.inputs, output)
+    patchAnalysisResult(args.input, output)
+
+def handleCheckResult(args):
+    from analyzer.core import checkResult
+
+    checkResult(args.input)
 
 
 def handleRun(args):
@@ -171,6 +176,15 @@ def addSubparserPatchRun(subparsers):
     subparser.set_defaults(func=handlePatchRun)
 
 
+def addSubparserCheckResult(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser(
+        "check-result", help="Check result"
+    )
+    subparser.add_argument("input", type=Path, help="Input data path.")
+    subparser.set_defaults(func=handleCheckResult)
+
+
 def addGeneralArguments(parser):
     parser.add_argument("--log-level", type=str, default="WARN", help="Logging level")
 
@@ -183,6 +197,7 @@ def runCli():
     addSubparserPreprocess(subparsers)
     addSubparserPatchRun(subparsers)
     addSubparserRun(subparsers)
+    addSubparserCheckResult(subparsers)
     addSubparserPatchPreprocess(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
 

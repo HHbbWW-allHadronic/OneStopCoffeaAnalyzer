@@ -4,9 +4,11 @@ import logging
 from typing import Any, ClassVar, Optional, Union
 
 from pydantic import BaseModel, Field
+
 from .specifiers import SampleSpec
 
 logger = logging.getLogger(__name__)
+
 
 class AnalysisStage(str, enum.Enum):
     Preselection = "Preselection"
@@ -16,10 +18,12 @@ class AnalysisStage(str, enum.Enum):
     Categorization = "Categorization"
     Histogramming = "Histogramming"
 
+
 class ModuleDescription(BaseModel):
     name: str
     sample_spec: Optional[SampleSpec] = None
     config: Optional[Union[list[dict[str, Any]], dict[str, Any]]] = None
+
 
 class RegionDescription(BaseModel):
     name: str
@@ -34,10 +38,9 @@ class RegionDescription(BaseModel):
     weights: list[ModuleDescription] = Field(default_factory=list)
 
 
-
 class ExecutionConfig(BaseModel):
-    cluster_type: str
-    max_workers: int
+    cluster_type: str = "local"
+    max_workers: int = 20
     chunk_size: int = 100000
     worker_memory: Optional[str] = "4GB"
     dashboard_address: Optional[str] = None
@@ -46,14 +49,20 @@ class ExecutionConfig(BaseModel):
 
 
 class FileConfig(BaseModel):
-    location_priority_regex: list[str] = [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+    location_priority_regex: list[str] = [
+        ".*FNAL.*",
+        ".*US.*",
+        ".*(DE|IT|CH|FR).*",
+        ".*(T0|T1|T2).*",
+        "eos",
+    ]
     use_replicas: bool = True
 
 
 class AnalysisDescription(BaseModel):
     name: str
-    execution_config: ExecutionConfig
-    file_config: FileConfig
+    execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    file_config: FileConfig = Field(default_factory=FileConfig)
     samples: dict[str, Union[list[str], str]]
     regions: list[RegionDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
@@ -68,7 +77,5 @@ class AnalysisDescription(BaseModel):
     def __eq__(self, other):
         def asTuple(ad):
             return (ad.name, ad.samples, ad.regions)
+
         return asTuple(self) == asTuple(other)
-        
-
-
