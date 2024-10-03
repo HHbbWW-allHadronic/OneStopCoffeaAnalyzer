@@ -1,14 +1,10 @@
-import functools as ft
 import logging
-from collections import ChainMap
 from fnmatch import fnmatch
 from typing import Any, Optional, Union
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType
-from analyzer.utils.accessor import accessor
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator
-from rich import print
 
 logger = logging.getLogger(__name__)
 
@@ -89,19 +85,28 @@ class SampleSpec(BaseModel):
 
 class SectorSpec(BaseModel):
     sample_spec: Optional[SampleSpec] = None
-    region_names: Optional[Union[list[str], str]] = None
+    region_name: Optional[Union[list[str], str]] = None
 
-    def passes(self, sector_params, region_name=None, return_specificity=False):
+    @field_validator("region_name")
+    @classmethod
+    def makeList(cls, val, info):
+        if val is None:
+            return val
+        if not isinstance(val, list):
+            return [val]
+        return val
+
+    def passes(self, sector_params, return_specificity=False):
         passes_sample = not self.sample_spec or self.sample_spec.passes(
             sector_params.dataset, return_specificity=return_specificity
         )
-        passes_region = not self.region_names or any(
-            fnmatch(sector_params.region_name, x) for x in self.region_names
+        passes_region = not self.region_name or any(
+            fnmatch(sector_params.region["region_name"], x) for x in self.region_name
         )
         passes = bool(passes_sample) and passes_region
         if return_specificity:
             exact_region = any(
-                sector_params.region_name == x for x in self.region_names
+                sector_params.region["region_name"] == x for x in self.region_name
             )
             return (
                 80 * exact_region

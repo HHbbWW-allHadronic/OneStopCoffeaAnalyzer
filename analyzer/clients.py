@@ -5,8 +5,9 @@ import shutil
 import time
 from pathlib import Path
 
-import dask
 import yaml
+
+import dask
 from analyzer.utils.file_tools import compressDirectory
 from distributed import LocalCluster
 from rich.progress import Progress
@@ -24,18 +25,20 @@ except ImportError as e:
 logger = logging.getLogger(__name__)
 
 
-def createLPCCondorCluster(configuration):
+def createLPCCondorCluster(
+    max_workers=10,
+    memory="2GB",
+    dashboard_address="localhost:8787",
+    schedd_address="localhost:12358",
+    timeout="7200",
+    **kwargs,
+):
     """Create a new dask cluster for use with LPC condor."""
     if not LPCQUEUE_AVAILABLE:
         raise NotImplemented("LPC Condor can only be used at the LPC.")
 
-    # Need container to tell condor what singularity image to use
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
 
-    workers = configuration["n_workers"]
-    memory = configuration["memory"]
-    schedd_host = configuration["schedd_host"]
-    dash_host = configuration["dashboard_host"]
     logpath = Path("/uscmst1b_scratch/lpc1/3DayLifetime/") / os.getlogin() / "dask_logs"
     logpath.mkdir(exist_ok=True, parents=True)
 
@@ -71,7 +74,7 @@ def createLPCCondorCluster(configuration):
         # "--preload",
         # "lpcjobqueue.patch",
     ]
-    kwargs["job_extra_directives"] = {"+MaxRuntime": configuration["timeout"]}
+    kwargs["job_extra_directives"] = {"+MaxRuntime": timeout}
     kwargs["python"] = f"{venv}/bin/python"
 
     logger.info(f"Transfering input files: \n{transfer_input_files}")
@@ -84,30 +87,35 @@ def createLPCCondorCluster(configuration):
         transfer_input_files=transfer_input_files,
         log_directory=logpath,
         scheduler_options=dict(
-            # host=schedd_host,
+            # address=schedd_host,
             dashboard_address=":12358"
         ),
         **kwargs,
     )
-    cluster.scale(jobs=workers)
+    # cluster.scale(jobs=max_workers)
     # print(cluster)
-    # cluster.adapt(minimum=1, maximum=workers)
+    cluster.adapt(minimum=1, maximum=max_workers)
 
     return cluster
 
 
+
+def createLocalCluster(
+    schedd_address,
+    max_workers=10,
+    memory="2GB",
+    dashboard_address="localhost:12358",
+    **kwargs,
+):
+
 def createLocalCluster(configuration):
     """Create a local dask cluster for running on a single node."""
 
-    workers = configuration["n_workers"]
-    memory = configuration["memory"]
-    schedd_host = configuration["schedd_host"]
-    dash_host = configuration["dashboard_host"]
     cluster = LocalCluster(
-        dashboard_address=dash_host,
+        dashboard_address=dash_address,
         memory_limit=memory,
-        n_workers=workers,
-        scheduler_kwargs={"host": schedd_host},
+        n_workers=max_workers,
+        scheduler_kwargs={"host": schedd_address},
     )
     return cluster
 
@@ -124,7 +132,7 @@ def createNewCluster(cluster_type, config):
     with open(CONFIG.DASK_CONFIG_PATH) as f:
         defaults = yaml.safe_load(f)
         dask.config.update(dask.config.config, defaults, priority="new")
-        cluster = cluster_factory[cluster_type](config)
+        cluster = cluster_factory[cluster_type](**config)
     return cluster
 
 

@@ -2,6 +2,7 @@ import copy
 import itertools as it
 import logging
 from collections import namedtuple
+import distributed
 from typing import Any, Optional
 
 import analyzer.utils.structure_tools as utils
@@ -135,11 +136,11 @@ def preprocessBulk(
         [getCoffeaDataset(dataset_repo, x, **file_retrieval_kwargs) for x in samples]
     )
     logger.debug(f"Launching preprocessor.")
+    logger.info(distributed.client._get_global_client())
     out, bad = dst.preprocess(
         all_inputs,
         save_form=True,
         skip_bad_files=True,
-        align_clusters=True,
         uproot_options={"timeout": 30},
         step_size=step_size,
         **kwargs,

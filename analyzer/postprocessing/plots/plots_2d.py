@@ -1,16 +1,14 @@
 from pathlib import Path
 import matplotlib
 import matplotlib.pyplot as plt
-import mplhep
 
-from .plotting import (
-    autoScale,
-    labelAxis,
-)
+from ..utils import doFormatting
 from analyzer.postprocessing.style import Styler
-from .annotations import addCMSBits
+from .annotations import addCMSBits, labelAxis
+from .common import PlotConfiguration
+from .utils import saveFig
 
-def _plot2D(
+def plot2D(
     histogram_name,
     sector,
     output_name,
@@ -21,23 +19,16 @@ def _plot2D(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     matplotlib.use("Agg")
-    fig, ax = plt.subplots()
+    #fig, ax = plt.subplots()
     p = sector.sector_params
     style = styler.getStyle(p)
     h = sector.histograms[histogram_name].get()
-    mplhep.hist2dplot(
-        h,
-        ax=ax,
-        # label=sector.sector_params.dataset.title,
-        density=normalize,
-        **style.get("step"),
-    )
-
+    art,_,_ = h.plot2d_full()
+    ax = art.axis
+    fig = ax.fig
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    addCMSBits(ax, sectors)
-    ax.legend(loc="upper right")
-    mplhep.sort_legend(ax=ax)
-    o = doFormatting(output_name, p, histogram_name=histogram)
+    addCMSBits(ax, [sector])
+    o = doFormatting(output_name, p, histogram_name=histogram_name)
     saveFig(fig, Path("plots") / o)
     plt.close(fig)

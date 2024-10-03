@@ -34,8 +34,26 @@ class RegionDescription(BaseModel):
     weights: list[ModuleDescription] = Field(default_factory=list)
 
 
+
+class ExecutionConfig(BaseModel):
+    cluster_type: str
+    max_workers: int
+    chunk_size: int = 100000
+    worker_memory: Optional[str] = "4GB"
+    dashboard_address: Optional[str] = None
+    schedd_address: Optional[str] = None
+    worker_timeout: int = 3600
+
+
+class FileConfig(BaseModel):
+    location_priority_regex: list[str] = [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+    use_replicas: bool = True
+
+
 class AnalysisDescription(BaseModel):
     name: str
+    execution_config: ExecutionConfig
+    file_config: FileConfig
     samples: dict[str, Union[list[str], str]]
     regions: list[RegionDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
@@ -46,5 +64,11 @@ class AnalysisDescription(BaseModel):
             return next(x for x in self.regions if x.name == name)
         except StopIteration as e:
             raise KeyError(f'No region "{name}"')
+
+    def __eq__(self, other):
+        def asTuple(ad):
+            return (ad.name, ad.samples, ad.regions)
+        return asTuple(self) == asTuple(other)
+        
 
 

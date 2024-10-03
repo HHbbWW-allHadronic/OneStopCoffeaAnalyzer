@@ -1,13 +1,12 @@
 import dataclasses
 import enum
-import functools as ft
 import itertools as it
 import json
 import logging
 import operator as op
 import random
 import re
-from collections import ChainMap, OrderedDict
+from collections import OrderedDict
 from collections.abc import Mapping
 from functools import cached_property
 from pathlib import Path
@@ -17,7 +16,6 @@ from urllib.parse import urlparse
 import pydantic as pyd
 import yaml
 from analyzer.configuration import CONFIG
-from analyzer.utils.accessor import accessor
 from analyzer.utils.file_tools import extractCmsLocation
 from pydantic import (
     BaseModel,

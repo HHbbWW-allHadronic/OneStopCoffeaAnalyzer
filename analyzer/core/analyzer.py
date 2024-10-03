@@ -1,40 +1,36 @@
-# from __future__ import annotations
 import concurrent.futures
 import copy
-import functools as ft
 import itertools as it
-import json
 import logging
-import operator as op
 import pickle as pkl
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
-import yaml
-
 import awkward as ak
 import dask
 import distributed
-import pydantic as pyd
+import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
-from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
-from distributed import Client
-from rich import print
 
 from .analysis_modules import MODULE_REPO
-from .common_types import Scalar
-from .configuration import AnalysisDescription, AnalysisStage
-from .histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
+from .configuration import (
+    AnalysisDescription,
+    AnalysisStage,
+    ExecutionConfig,
+    FileConfig,
+)
+from .histograms import HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
+from .results import SelectionResult, SubSectorResult
 from .sector import SubSector, getParamsForSubSector
-from .selection import Cutflow, SelectionManager
-from .specifiers import SectorParams, SubSectorId, SubSectorParams
+from .selection import SelectionManager
+from .specifiers import SubSectorId
 from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
@@ -43,220 +39,13 @@ if CONFIG.PRETTY_MODE:
 
 logger = logging.getLogger("analyzer.core")
 
+
 @dataclass
 class Category:
     name: str
     axis: Any
     values: Any
     distinct_values: set[Union[int, str, float]] = field(default_factory=set)
-
-
-class SampleCutflow(pyd.BaseModel):
-    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
-
-    cutflow: Cutflow
-    raw_passed: Scalar
-    weighted_sum: Optional[tuple[Scalar, Scalar]]
-
-    def __add__(self, other):
-        """Two cutflows may be sumed by simply adding them"""
-        if self.weighted_sum is not None:
-            new_ws = (
-                (self.weighted_sum[0] + other.weighted_sum[0]),
-                (self.weighted_sum[1] + other.weighted_sum[1]),
-            )
-        else:
-            new_ws = None
-
-        return SampleCutflow(
-            cutflow=self.cutflow + other.cutflow,
-            raw_passed=self.raw_passed + other.raw_passed,
-            weighted_sum=new_ws,
-        )
-
-    def scaled(self, scale):
-        if self.weighted_sum:
-            nws = (
-                self.weighted_sum[0] * scale,
-                self.weighted_sum[1] * (scale**2),
-            )
-        else:
-            nws = None
-        return SampleCutflow(
-            cutflow=self.cutflow,
-            raw_passed=self.raw_passed,
-            weighted_sum=nws,
-        )
-
-
-class SubSectorResult(pyd.BaseModel):
-    params: SubSectorParams
-    histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
-    other_data: dict[str, Any] = pyd.Field(default_factory=dict)
-    cutflow_data: Optional[SampleCutflow] = None
-
-    def __add__(self, other):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-        if self.params != other.params:
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
-        new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
-        return SubSectorResult(
-            params=self.params,
-            histograms=new_hists,
-            other_data=new_other,
-            cutflow_data=self.cutflow_data + other.cutflow_data,
-        )
-
-    def scaled(self, scale):
-        return SubSectorResult(
-            params=self.params,
-            histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
-            other_data=self.other_data,
-            cutflow_data=self.cutflow_data.scaled(scale),
-        )
-
-
-class SectorResult(pyd.BaseModel):
-    sector_params: SectorParams
-    sample_params: list[dict[str, Any]]
-    histograms: dict[str, HistogramCollection]
-    other_data: dict[str, Any]
-    cutflow_data: Optional[SampleCutflow]
-
-    @staticmethod
-    def fromSubSectorResult(subsector_result):
-        return SectorResult(
-            sector_params=subsector_result.params.sector,
-            sample_params=[subsector_result.params.sample],
-            histograms=subsector_result.histograms,
-            other_data=subsector_result.other_data,
-            cutflow_data=subsector_result.cutflow_data,
-        )
-
-    def scaled(self, scale):
-        return SectorResult(
-            sector_params=self.sector_params,
-            sample_params=[subsector_result.params.sample_params],
-            histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
-            other_data=self.other_data,
-            cutflow_data=self.cutflow_data.scaled(scale),
-        )
-
-    def __add__(self, other):
-        """Two subsector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-        if (
-            self.dataset_params != other.dataset_params
-            or self.era_params != other.era_params
-        ):
-            raise RuntimeError(f"Error: Attempting to merge incomaptible results")
-        new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
-        return SectorResult(
-            sector_params=self.sector_params,
-            sample_params=self.sample_params + other.sample_params,
-            histograms=new_hists,
-            other_data=new_other,
-            cutflow_data=self.cutflow_data + other.cutflow_data,
-        )
-
-
-class AnalysisResult(pyd.BaseModel):
-    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
-    description: AnalysisDescription
-    preprocessed_samples: dict[SampleId, SamplePreprocessed]
-    processed_chunks: dict[SampleId, Any]
-    results: dict[SubSectorId, SubSectorResult]
-    total_mc_weights: dict[SampleId, Optional[Scalar]]
-
-    @property
-    def raw_events_processed(self):
-        return {
-            sample_id: sum(e - s for _, s, e in chunks)
-            for sample_id, chunks in self.processed_chunks.items()
-        }
-
-    def getBadChunks(self):
-        ret = {
-            n: self.preprocessed_samples[n].chunks.difference(self.processed_chunks[n])
-            for n in self.preprocessed_samples
-        }
-        return ret
-
-    def getMissingPreprocessed(self):
-        logger.debug(f"Scanning for bad chunks")
-        prepped = copy.deepcopy(self.preprocessed_samples)
-        bad_chunks = self.getBadChunks()
-        ret = {}
-        for sid in prepped:
-            logger.debug(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
-            bad = bad_chunks[sid]
-            if bad:
-                ret[sid] = prepped[sid]
-                ret[sid].limit_chunks = bad
-        return ret
-
-    def __add__(self, other):
-        """Add two analysis results together.
-        Two results may be added if they come from the same configuration, and do not have any overlapping
-        chunks.
-        """
-
-        if self.description != other.description:
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
-
-        if any(
-            self.processed_chunks.get(x, set()).intersect(
-                other.processed_chunk.get(x, set())
-            )
-            for x in set(self.processed_chunks) | set(other.processed_chunks)
-        ):
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
-
-        desc = copy.copy(self.description)
-        new_results = accumulate([self.results, other.results])
-        return AnalysisResult(
-            description=self.description,
-            preprocessed_samples=self.preprocessed_samples,
-            processed_chunks=self.processed_chunks,
-            results=new_results,
-        )
-
-    def getResults(self, drop_samples=None):
-        drop_samples = drop_samples or []
-        scaled_sample_results = defaultdict(list)
-        for subsector_id, result in self.results.items():
-            if subsector_id.sample_id in drop_samples:
-                continue
-            k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-
-            if result.params.sector.dataset.sample_type == SampleType.MC:
-                sample_info = result.params.sample
-                scale = (
-                    result.params.sector.dataset.lumi
-                    * sample_info["x_sec"]
-                    / self.total_mc_weights[subsector_id.sample_id]
-                )
-                result = result.scaled(scale)
-            scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-
-        return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
-
-    @staticmethod
-    def fromFile(path):
-        with open(path, "rb") as f:
-            data = pkl.load(f)
-        return AnalysisResult(**data)
 
 
 class SubSectorAnalyzer:
@@ -336,10 +125,32 @@ class Analyzer:
 
     results: dict[SubSectorId, SubSectorResult] = field(default_factory=dict)
 
+    user_execution_options: Optional[ExecutionConfig] = None
+    user_file_options: Optional[ExecutionConfig] = None
+
     def __post_init__(self):
         self.subsectors = self._getSubSectors()
         self.__prefillResults()
         self.client = distributed.client._get_global_client()
+
+    def getExecOpts(self):
+        return ExecutionConfig(
+            **self.description.execution_config.model_dump(),
+            **(
+                self.user_execution_options.model_dump()
+                if self.user_execution_options is not None
+                else {}
+            ),
+        )
+    def getFileOpts(self):
+        return FileConfig(
+            **self.description.file_config.model_dump(),
+            **(
+                self.user_file_options.model_dump()
+                if self.user_file_options is not None
+                else {}
+            ),
+        )
 
     def __prefillResults(self):
         for subsector in self.subsectors:
@@ -358,24 +169,17 @@ class Analyzer:
         logger.debug(f"Dropping {len(self.subsectors) - len(new)} empty subsectors.")
         self.subsectors = new
 
-    def preprocessDatasets(
-        self, file_kwargs_override=None, chunk_override=None, **kwargs
-    ):
-        step_size = self.description.general_config.get("preprocessing", {}).get(
-            "step_size", 100000
-        )
-        if chunk_override:
-            step_size = chunk_override
-        file_args = self.description.general_config["file_retrieval"]
-        file_args.update(file_kwargs_override or {})
+    def preprocessDatasets(self, **kwargs):
+        step_size = self.getExecOpts().step_size
+        loc_prio = self.getFileOpts().location_priority_regex
         logger.info(f"Preprocessing samples with chunk size {step_size}")
-        logger.info(f"Preprocessing with file retrieval arguments:\n{file_args}")
+        logger.info(f"Preprocessing with location priority:\n{loc_prio}")
 
         r = preprocessBulk(
             self.dataset_repo,
             set(x.subsector_id.sample_id for x in self.subsectors),
             step_size=step_size,
-            file_retrieval_kwargs=file_args,
+            file_retrieval_kwargs={"location_priority_regex" : loc_prio}
         )
         self.preprocessed_samples = {x.sample_id: x for x in r}
 
@@ -394,6 +198,7 @@ class Analyzer:
         #     ),
         #     #known_base_form=maybe_base_form,
         # ).events()
+        logger.info(f"Using files:\n{files}")
         while num_tries < max_tries:
             num_tries += 1
             try:
@@ -415,14 +220,14 @@ class Analyzer:
         return sample_id, events, report
 
     def loadEvents(self, **kwargs):
-        file_args = self.description.general_config["file_retrieval"]
-        logger.debug(f"Loading with file retrieval arguments:\n{file_args}")
+        loc_prio = self.getFileOpts().location_priority_regex
+        logger.info(f"Preprocessing with location priority:\n{loc_prio}")
         futures = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             samples = set(x.subsector_id.sample_id for x in self.subsectors)
             for sample_id in samples:
                 spre = self.preprocessed_samples[sample_id]
-                ds = spre.getCoffeaDataset(self.dataset_repo, **file_args)
+                ds = spre.getCoffeaDataset(self.dataset_repo, location_priority_regex=loc_prio)
                 if spre.form is not None:
                     maybe_base_form = ak.forms.from_json(decompress_form(spre.form))
                 else:
@@ -495,7 +300,7 @@ class Analyzer:
 
         raw = ak.num(self._subsector_events[subsector_id], axis=0)
 
-        self.results[subsector_id].cutflow_data = SampleCutflow(
+        self.results[subsector_id].cutflow_data = SelectionResult(
             cutflow=cf, raw_passed=raw, weighted_sum=weighted_sum
         )
 
@@ -743,9 +548,10 @@ def preprocessAnalysis(input_path, output_path):
         it.chain(*[[x.sample_id for x in dm[y].samples] for y in an.samples])
     )
     logger.info(f"Preprocessing {samples}")
-    frk = an.general_config.get("file_retrieval", {})
-    logger.info(f"Retrieval kwargs are {frk}")
-    step_size = an.general_config.get("preprocessing", {}).get("step_size", 100000)
+    loc_prio = an.getFileOpts().location_priority_regex
+    step_size = an.getExecOpts().step_size
+    logger.info(f"Preprocessing with location priority:\n{loc_prio}")
+    logger.info(f"Preprocessing samples with chunk size {step_size}")
 
     result = preprocessBulk(dm, samples, step_size=step_size, file_retrieval_kwargs=frk)
     out = Path(output_path)
@@ -892,13 +698,11 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         )
     )
 
-
     final["processed_chunks"] = {  #
         x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
     }
 
     final = {**dumped, **final}
-
 
     final_result = AnalysisResult(**final)
 

@@ -9,7 +9,6 @@ __config = {}
 class Config:
     APPLICATION_DATA = "/srv/.application_data"
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
-    ENV_LOCAL_APPLICATION_DATA = f"/srv/.application_data/envlocal/{venv_name}"
     APPLICATION_RESOURCES = "/srv/analyzer_resources"
 
     DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]

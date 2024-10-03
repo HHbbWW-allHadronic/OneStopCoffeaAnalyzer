@@ -2,19 +2,31 @@ from pathlib import Path
 
 import numpy as np
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
-
-from .plotting import (
-    autoScale,
-    getRatioAndUnc,
-    labelAxis,
-)
-from .plotting.utils import addAxesToHist
 from analyzer.postprocessing.style import Styler
 
-def _plotOne(
+from ..utils import doFormatting
+from .annotations import addCMSBits, labelAxis
+from .utils import addAxesToHist,  saveFig
+from .common import PlotConfiguration
+
+
+def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
+    import hist.intervals as hinter
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratios = num / den
+        unc = hinter.ratio_uncertainty(
+            num=num, denom=den, uncertainty_type=uncertainty_type
+        )
+    return ratios, unc
+
+
+
+
+def plotOne(
     histogram,
     sectors,
     output_name,
@@ -24,7 +36,7 @@ def _plotOne(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     fig, ax = plt.subplots()
     for sector in sectors:
         p = sector.sector_params
@@ -46,7 +58,6 @@ def _plotOne(
 
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    autoScale(ax)
     addCMSBits(ax, sectors)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
@@ -55,7 +66,7 @@ def _plotOne(
     plt.close(fig)
 
 
-def _plotRatio(
+def plotRatio(
     histogram,
     numerators,
     denominator,
@@ -63,15 +74,17 @@ def _plotRatio(
     style_set,
     normalize=False,
     middle=1,
-    y_lim=None,
+    ratio_ylim=(0, 2),
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     fig, ax = plt.subplots()
     den = denominator.histograms[histogram].get()
-    addAxesToHist(ax, num_bottom=1)
+    ratio_ax = addAxesToHist(ax, size=1.5, pad=0.3)
+    p = denominator.sector_params
+    style = styler.getStyle(p)
     mplhep.histplot(
         den,
         ax=ax,
@@ -79,15 +92,25 @@ def _plotRatio(
         density=normalize,
         **style.get("step"),
     )
-    all_r, all_u = [], []
+    x_values = den.axes[0].centers
+    left_edge = den.axes.edges[0][0]
+    right_edge = den.axes.edges[-1][-1]
+
+    all_ratios, all_uncertainties = [], []
     for sector in numerators:
         p = sector.sector_params
-        style = styler.getStyle(p)
-        h = sector.histograms[histogram].get()
-        ratio, unc = getRatioAndUnc(h.values(), den.values())
-        all_r.append(ratio)
-        all_u.append(unc)
         s = styler.getStyle(sector.sector_params)
+        h = sector.histograms[histogram].get()
+        n, d = h.values(), den.values()
+        ratio, unc = getRatioAndUnc(n, d)
+
+        if normalize:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                ratio = (n / np.sum(n)) / (d / np.sum(d))
+
+        all_ratios.append(ratio)
+        all_uncertainties.append(unc)
+
         mplhep.histplot(
             h,
             ax=ax,
@@ -96,38 +119,36 @@ def _plotRatio(
             **s.get("step"),
         )
 
-        mpl.histplot(
-            ratio,
-            bins=h.axes[0],
-            yerr=unc,
-            ax=ax.bottom_axes[0],
-            style=s.get("errorbar"),
-        )
-    all_r = np.concatenate(all_r).flatten()
-    all_u = np.concatenate(all_u, axis=1)
-    if y_lim is None:
-        valid_ratios_idx = np.where(~np.isnan(all_r))
-        valid_ratios = all_r[valid_ratios_idx]
-        extrema = np.array(
-            [
-                valid_ratios - all_u[0][valid_ratios_idx],
-                valid_ratios + all_u[1][valid_ratios_idx],
-            ]
-        )
-        max_delta = np.amax(np.abs(extrema - middle))
-        ratio_extrema = np.abs(max_delta + middle)
-        _alpha = 2.0
-        scaled_offset = max_delta + (max_delta / (_alpha * ratio_extrema))
-        y_lim = [middle - scaled_offset, middle + scaled_offset]
+        ratio[ratio == 0] = np.nan
+        ratio[np.isinf(ratio)] = np.nan
 
-    labelAxis(ax, "y", den.axes)
-    labelAxis(ax.bottom_axes[0], "x", den.axes)
-    autoScale(ax)
-    addCMSBits(ax, (denominator,))
-    ax.bottom_axes[0].set_ylim([0, 2])
-    ax.bottom_axes[0].set_ylabel("Ratio")
-    ax.tick_params(axis="x", which="both", labelbottom=False)
+
+        all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
+        ratio_ax.errorbar(
+            x_values,
+            ratio,
+            yerr=unc,
+            **all_opts,
+        )
+        # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
+
+    central_value_artist = ratio_ax.axhline(
+        middle, color="black", linestyle="dashed", linewidth=1.0
+    )
+    ratio_ax.set_xlim(left_edge, right_edge)
+    ratio_ax.set_ylim(bottom=ratio_ylim[0], top=ratio_ylim[1])
+    if normalize:
+        y_label = "Normalized Events"
+    else:
+        y_label = None
+
+    labelAxis(ax, "y", den.axes, label=y_label)
     ax.legend(loc="upper right")
+    ax.set_xlabel(None)
+    labelAxis(ratio_ax, "x", den.axes)
+    addCMSBits(ax, (denominator,))  #
+    ratio_ax.set_ylabel("Ratio", loc="center")
+    ax.tick_params(axis="x", which="both", labelbottom=False)
     mplhep.sort_legend(ax=ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
     fig.tight_layout()
@@ -135,7 +156,7 @@ def _plotRatio(
     plt.close(fig)
 
 
-def _drawCutflow(
+def drawCutflow(
     sectors,
     output_name,
     style_set,
@@ -145,7 +166,7 @@ def _drawCutflow(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     fig, ax = plt.subplots()
     for sector in sectors:
         p = sector.sector_params
@@ -166,7 +187,6 @@ def _drawCutflow(
     ax.set_xlabel("Cut")
     ax.set_ylabel("Events")
     labelAxis(ax, "x", h.axes)
-    autoScale(ax)
     addCMSBits(ax, sectors)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
@@ -175,7 +195,7 @@ def _drawCutflow(
     plt.close(fig)
 
 
-def _drawCutflow(
+def drawCutflow(
     sectors,
     output_name,
     style_set,
@@ -185,7 +205,7 @@ def _drawCutflow(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
+    mpl.use("Agg")
     fig, ax = plt.subplots()
     for sector in sectors:
         p = sector.sector_params
@@ -206,7 +226,6 @@ def _drawCutflow(
     ax.set_xlabel("Cut")
     ax.set_ylabel("Events")
     labelAxis(ax, "x", h.axes)
-    autoScale(ax)
     addCMSBits(ax, sectors)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)

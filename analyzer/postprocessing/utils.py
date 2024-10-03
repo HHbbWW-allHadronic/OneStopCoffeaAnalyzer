@@ -1,8 +1,10 @@
-
 import functools as ft
 import itertools as it
 import string
+from dataclasses import dataclass
+from typing import Any
 
+from analyzer.core import SectorResult
 
 
 def getNested(d, s):
@@ -29,10 +31,29 @@ def doFormatting(s, sector_params, **kwargs):
     return s
 
 
-def groupBy(fields, data):
+def groupBy(data, fields):
     def k(v):
         return tuple([getNested(v.sector_params.model_dump(), x) for x in fields])
 
     grouped = it.groupby(sorted(data, key=k), k)
     ret = [(dict(zip(fields, x)), list(y)) for x, y in grouped]
     return ret
+
+
+@dataclass
+class SectorGroup:
+    parameters: dict[str, Any]
+    sectors: list[SectorResult]
+
+    def compatible(self, other):
+        return self.parameters == other.parameters
+
+    def __len__(self):
+        return len(self.sectors)
+
+
+def createSectorGroups(sectors, *fields):
+    grouped = groupBy(sectors, fields)
+    return [
+        SectorGroup(parameters=params, sectors=sectors) for params, sectors in grouped
+    ]

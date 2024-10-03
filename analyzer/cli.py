@@ -3,7 +3,6 @@ import logging
 import sys
 from pathlib import Path
 
-import argcomplete
 from analyzer.logging import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -11,52 +10,58 @@ logger = logging.getLogger(__name__)
 
 def makeCluster(args):
     from analyzer.clients import createNewCluster
+    from distributed.client import Client
 
     logger.info("Handling cluster-start")
     config = {
-        "n_workers": args.workers,
+        "max_workers": args.workers,
         "memory": args.memory,
         "schedd_host": args.scheduler,
         "dashboard_host": args.dashboard,
         "timeout": args.timeout,
     }
-    client = createNewCluster(args.type, config)
+    client = Client(createNewCluster(args.type, config))
+    return client
 
 
 def handlePreprocess(args):
     from analyzer.core import preprocessAnalysis
-    import analyzer.modules
 
-    makeCluster(args)
+    client = makeCluster(args)
     preprocessAnalysis(args.input, args.output)
 
 
 def handlePatchPreprocess(args):
     from analyzer.core import patchPreprocessedFile
-    import analyzer.modules
 
-    makeCluster(args)
+    client = makeCluster(args)
     output = args.output or args.input
     patchPreprocessedFile(args.input, output)
 
 
 def handlePatchRun(args):
     from analyzer.core import patchAnalysisResult
-    import analyzer.modules
 
-    makeCluster(args)
+    client = makeCluster(args)
     output = args.output or args.input
     patchAnalysisResult(args.inputs, output)
 
 
 def handleRun(args):
     from analyzer.core import runFromFile
-    import analyzer.modules
 
-    makeCluster(args)
+    client = makeCluster(args)
+    # while (client.status == "running") and (
+    #     len(client.scheduler_info()["workers"]) < 20
+    # ):
+    #     print("Waiting")
+    #     sleep(1.0)
+
+    # with dm.memray_workers():
     runFromFile(
-        args.input, args.output, preprocessed_input_path=args.preprocessed_inputs
-    )
+            args.input, args.output, preprocessed_input_path=args.preprocessed_inputs
+            )
+    client.shutdown(),
 
 
 def handleGenReplicas(args):
@@ -181,7 +186,7 @@ def runCli():
     addSubparserPatchPreprocess(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
 
-    argcomplete.autocomplete(parser)
+    #argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 

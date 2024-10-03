@@ -1,11 +1,6 @@
 # The name of analysis to be run
 name: SingleStop
 
-# Possible limit regions/signals over which the analysis should be run
-# LimitTo:
-#   regions: [Signal312]
-
-
 # Samples and in which regions they should be processed
 samples:
   signal_312_2000_1900: [Signal312,Control]
@@ -45,17 +40,16 @@ samples:
   signal_312_1000_900: [Signal312, Control]
 
 # Samples and in which regions they should be processed
-general_config:
-  execution:
-    n_workers: 40
-    worker_memory: 2GB
-    worker_timeout: 7200
-  preprocessing:
-    chunk_size: 100000
-    use_replicas: True
-  file_retrieval:
-    location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-    #location_priority_regex: [".*(T0|T1|T2).*","eos"]
+execution_config:
+  cluster_type: lpccondor
+  max_workers: 20
+  worker_memory: 2GB
+  worker_timeout: 7200
+  chunk_size: 100000
+
+file_config:
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  use_replicas: True
   skimming:
     output: "root://blabla/SingleStop/"
     use_skims_path: "root://blabla/SingleStop/"
@@ -63,16 +57,15 @@ general_config:
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
     common_signal_histograms: &common_signal
-      # - name: njets
+      - name: njets
       - name: goodjet_ht
-      # - name: jet_kinematics
-      # - name: jet_combo_kinematics
-      #- name: jet_relative_angles
-      # - name: b_quark_kinematics
-      #   config:
-      #     - working_point: L
-      #     - working_point: M
-      #     - working_point: T
+      - name: jet_kinematics
+      - name: jet_combo_kinematics
+      - name: b_quark_kinematics
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
 
     common_objects: &common_objects
       - name: core_objects
@@ -104,22 +97,22 @@ common_items:
 # Additionally, a module may also have a `sample_spec` option, which limits which samples it applies to, ie only make gen-level hists for MC.
 # Weighting information is defined in the weights nodes, described below.
 regions:
-#  - name: Signal313
-#    forbid_data: true
-#    objects: *common_objects
-#    preselection:
-#      - name: selection_hlt
-#    selection:
-#      - name: general_selection
-#      - name: 313_selection
-#    categories:
-#      - njets_category:
-#    histograms: *common_signal
-#    weights:
-#      - <<: *common_weights
-#      - name: btag_scale_factors
-#        config:
-#            working_points: [T]
+ # - name: Signal313
+ #   forbid_data: true
+ #   objects: *common_objects
+ #   preselection:
+ #     - name: selection_hlt
+ #   selection:
+ #     - name: general_selection
+ #     - name: 313_selection
+ #   categories:
+ #     - njets_category:
+ #   histograms: *common_signal
+ #   weights:
+ #     - <<: *common_weights
+ #     - name: btag_scale_factors
+ #       config:
+ #           working_points: [T]
   - name: Signal312
     forbid_data: false
     objects: *common_objects
@@ -132,17 +125,6 @@ regions:
     histograms: *common_signal
     weights: *common_weights
 
-  - name: Signal313
-    forbid_data: false
-    objects: *common_objects
-    preselection:
-      - <<: *common_preselection
-      - name: signal_hlt
-    selection: 
-      - name: general_selection
-      - name: partial_signal313_selection
-    histograms: *common_signal
-    weights: *common_weights
 
   - name: Control
     objects: *common_objects

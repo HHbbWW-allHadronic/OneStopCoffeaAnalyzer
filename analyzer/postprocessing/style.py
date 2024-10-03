@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 
 import matplotlib.typing as mplt
+import matplotlib as mpl
 from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
 from pydantic import BaseModel, Field
@@ -20,16 +21,20 @@ class Style(BaseModel):
     fill_opacity: Optional[float] = None
     fill_hatching: Optional[str] = None
     line_width: Optional[float] = None
+    markersize: Optional[float] = 5
+    marker: Optional[str] = "o"
 
-    def get(self,type):
+    def get(self,type, prepend=None):
         mapping = dict(
             step=("color", ),
             fill=("color", ),
             band=("color", ),
-            errorbar=("color", ),
+            errorbar=("color", "markersize", "marker" ),
         )
         ret= self.model_dump(include=mapping[type])
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
+        if prepend:
+            ret = {f"{prepend}_{x}": y for x,y in ret.items()}
         return ret
 
 

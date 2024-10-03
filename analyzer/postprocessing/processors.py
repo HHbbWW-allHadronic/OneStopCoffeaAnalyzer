@@ -1,36 +1,26 @@
+import concurrent.futures as cf
 import functools as ft
 import logging
+from pathlib import Path
 from typing import Optional, Union
 
+import yaml
 
 import pydantic as pyd
+from analyzer.configuration import CONFIG
+from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
-from rich import print
+from rich.progress import track
 
+from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio
+from .plots.plots_2d import plot2D
 from .registry import loadPostprocessors, registerPostprocessor
 from .split_histogram import Mode
 from .style import Style, StyleSet
+from .utils import createSectorGroups
 
 logger = logging.getLogger(__name__)
 StyleLike = Union[Style, str]
-
-
-
-
-
-class PlotConfiguration(pyd.BaseModel):
-    lumi_str: Optional[str] = None
-    era_str: Optional[str] = None
-    energy_str: Optional[str] = None
-    extra_text: Optional[str] = None
-    cms_text: Optional[str] = None
-
-    x_scale: Optional[str] = "linear"
-    y_scale: Optional[str] = "linear"
-
-    x_label: Optional[str] = None
-    y_label: Optional[str] = None
-    y_label_complete: Optional[str] = None
 
 
 @registerPostprocessor
@@ -50,15 +40,15 @@ class Histogram1D(pyd.BaseModel):
 
     def getExe(self, results):
         sectors = [x for x in results.values() if self.to_plot.passes(x.sector_params)]
-        r = groupBy(self.groupby, sectors)
+        r = createSectorGroups(sectors, *self.groupby)
         ret = []
         for histogram in self.histogram_names:
-            for group, sector in r:
+            for sector_group in r:
                 ret.append(
                     ft.partial(
-                        _plotOne,
+                        plotOne,
                         histogram,
-                        sector,
+                        sector_group.sectors,
                         self.output_name,
                         self.style_set,
                         self.normalize,
@@ -66,6 +56,52 @@ class Histogram1D(pyd.BaseModel):
                     )
                 )
         return ret
+
+    def loadStyle(self):
+        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        with open(config_path, "r") as f:
+            d = yaml.safe_load(f)
+        self.style_set = StyleSet(**d)
+
+@registerPostprocessor
+class Histogram2D(pyd.BaseModel):
+
+    histogram_names: list[str]
+    to_plot: SectorSpec
+    style_set: Union[str, StyleSet]
+
+    groupby: list[str] = ["dataset.era.name", "region.region_name"]
+    output_name: str = "{histogram_name}"
+
+    axis_options: Optional[dict[str, Union[Mode, str, int]]] = None
+    normalize: bool = False
+
+    plot_configuration: Optional[PlotConfiguration] = None
+
+    def getExe(self, results):
+        sectors = [x for x in results.values() if self.to_plot.passes(x.sector_params)]
+        r = createSectorGroups(sectors, *self.groupby)
+        ret = []
+        for histogram in self.histogram_names:
+            for sector_group in r:
+                ret.append(
+                    ft.partial(
+                        plot2D,
+                        histogram,
+                        sector_group.sectors[0],
+                        self.output_name,
+                        self.style_set,
+                        self.normalize,
+                        self.plot_configuration,
+                    )
+                )
+        return ret
+
+    def loadStyle(self):
+        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        with open(config_path, "r") as f:
+            d = yaml.safe_load(f)
+        self.style_set = StyleSet(**d)
 
 
 @registerPostprocessor
@@ -80,22 +116,26 @@ class PlotCutflow(pyd.BaseModel):
 
     def getExe(self, results):
         sectors = [x for x in results.values() if self.to_plot.passes(x.sector_params)]
-        r = groupBy(self.groupby, sectors)
+        r = createSectorGroups(sectors, *self.groupby)
         ret = []
-        for histogram in self.histogram_names:
-            for group, sector in r:
-                ret.append(
-                    ft.partial(
-                        _plotOne,
-                        histogram,
-                        sector,
-                        self.output_name,
-                        self.style_set,
-                        self.normalize,
-                        self.plot_configuration,
-                    )
+        for sector_group in r:
+            ret.append(
+                ft.partial(
+                    plotOne,
+                    sector_group.sector,
+                    self.output_name,
+                    self.style_set,
+                    self.normalize,
+                    self.plot_configuration,
                 )
+            )
         return ret
+
+    def loadStyle(self):
+        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        with open(config_path, "r") as f:
+            d = yaml.safe_load(f)
+        self.style_set = StyleSet(**d)
 
 
 @registerPostprocessor
@@ -113,22 +153,22 @@ class DatasetRatioPlot(pyd.BaseModel):
     def getExe(self, results):
         nums = [x for x in results.values() if self.numerator.passes(x.sector_params)]
         dens = [x for x in results.values() if self.denominator.passes(x.sector_params)]
-        gnums = groupBy(self.groupby, nums)
-        gdens = groupBy(self.groupby, dens)
+        gnums = createSectorGroups(nums, *self.groupby)
+        gdens = createSectorGroups(dens, *self.groupby)
         ret = []
         for histogram in self.histogram_names:
-            for group, d in gdens:
+            for den_group in gdens:
                 try:
-                    n = next(x for x in gnums if x[0] == group)
+                    num_group = next(x for x in gnums if den_group.compatible(x))
                 except StopIteration:
                     raise KeyError(f"Could not find group {group}")
 
                 ret.append(
                     ft.partial(
-                        _plotRatio,
+                        plotRatio,
                         histogram,
-                        n[1],
-                        d[0],
+                        num_group.sectors,
+                        den_group.sectors[0],
                         self.output_name,
                         self.style_set,
                         normalize=self.normalize,
@@ -137,16 +177,36 @@ class DatasetRatioPlot(pyd.BaseModel):
                 )
         return ret
 
+    def loadStyle(self):
+        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        with open(config_path, "r") as f:
+            d = yaml.safe_load(f)
+        self.style_set = StyleSet(**d)
+
 
 if __name__ == "__main__":
     from analyzer.logging import setup_logging
+    from .plots.mplstyles import loadStyles
+
+    loadStyles()
 
     setup_logging()
 
-    x = loadPostprocessors("configurations/post.yaml")
-    print(x)
+    loaded = loadPostprocessors("configurations/post.yaml")
+    result = AnalysisResult.fromFile("results/histograms/2024_10_01_v2.pkl")
+    result = result.getResults()
+    tasks = []
+    for processor in loaded:
+        processor.loadStyle()
+        tasks += processor.getExe(result)
 
-    # loadStyles()
+    # results = [f() for f in tasks]
+
+    with cf.ProcessPoolExecutor(max_workers=8) as executor:
+        results = [executor.submit(f) for f in tasks]
+        for i in track(cf.as_completed(results), total=len(results)):
+            i.result()
+
     # # mplhep.style.use("CMS")
 
     # config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
