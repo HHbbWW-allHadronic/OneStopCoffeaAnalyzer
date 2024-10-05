@@ -5,6 +5,7 @@ import shutil
 import time
 from pathlib import Path
 
+import analyzer
 import dask
 import yaml
 from analyzer.utils.file_tools import compressDirectory
@@ -29,12 +30,15 @@ def createLPCCondorCluster(
     memory="2GB",
     dashboard_address="localhost:8787",
     schedd_address="localhost:12358",
+    extra_files=None,
     timeout="7200",
+    temporary_path=".temporary",
     **kwargs,
 ):
     """Create a new dask cluster for use with LPC condor."""
     if not LPCQUEUE_AVAILABLE:
         raise NotImplemented("LPC Condor can only be used at the LPC.")
+    extra_files = extra_files or []
 
     apptainer_container = "/".join(Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:])
 
@@ -52,6 +56,9 @@ def createLPCCondorCluster(
 
     # Compress environment to transport to the condor workers
     compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
+    analyzer_compressed = (
+        Path(CONFIG.APPLICATION_DATA) / "compressed" / "analyzer.tar.gz"
+    )
     if not compressed_env.exists():
         compressDirectory(
             input_dir=".application_data/venv",
@@ -59,12 +66,40 @@ def createLPCCondorCluster(
             output=compressed_env,
             archive_type="gztar",
         )
+    compressDirectory(
+        input_dir=Path(analyzer.__file__).parent.relative_to("/srv/"),
+        root_dir="/srv/",
+        output=analyzer_compressed,
+        archive_type="gztar",
+    )
+
+    transfer_input_files = ["setup.sh", compressed_env, analyzer_compressed]
+
+    if extra_files:
+        extra_compressed = (
+            Path(CONFIG.APPLICATION_DATA) / "compressed" / "extra_files.tar.gz"
+        )
+        transfer_input_files.append(extra_compressed)
+        temp = Path(temporary_path)
+        extra_files_path = temp / "extra_files/" 
+        extra_files_path.mkdir(exist_ok=True, parents=True)
+        for i in extra_files:
+            src = Path(i)
+            print(src)
+            shutil.copytree(src, extra_files_path / i)
+
+        compressDirectory(
+            input_dir="",
+            root_dir=extra_files_path,
+            output=extra_compressed,
+            archive_type="gztar",
+        )
+
 
     # transfer_input_files = [
     #    str(base / "setup.sh"),
     #    str(base / str(compressed_env)),
     # ]
-    transfer_input_files = ["setup.sh", compressed_env]
     if x509:
         transfer_input_files.append(x509)
     kwargs = {}

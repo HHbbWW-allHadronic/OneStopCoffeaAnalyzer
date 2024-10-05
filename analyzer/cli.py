@@ -8,7 +8,7 @@ from analyzer.logging import setup_logging
 logger = logging.getLogger(__name__)
 
 
-def makeCluster(args):
+def makeCluster(args, **kwargs):
     from analyzer.clients import createNewCluster
     from distributed.client import Client
 
@@ -19,19 +19,22 @@ def makeCluster(args):
         "schedd_host": args.scheduler,
         "dashboard_host": args.dashboard,
         "timeout": args.timeout,
+        **kwargs,
     }
     client = Client(createNewCluster(args.type, config))
     return client
 
 
 def handlePreprocess(args):
-    from analyzer.core import preprocessAnalysis
+    import analyzer.modules
+    from analyzer.core import loadDescription, preprocessAnalysis
 
     client = makeCluster(args)
     preprocessAnalysis(args.input, args.output)
 
 
 def handlePatchPreprocess(args):
+    import analyzer.modules
     from analyzer.core import patchPreprocessedFile
 
     client = makeCluster(args)
@@ -40,11 +43,17 @@ def handlePatchPreprocess(args):
 
 
 def handlePatchRun(args):
-    from analyzer.core import patchAnalysisResult
+    import analyzer.modules
+    from analyzer.core import loadDescription, preprocessAnalysis
 
-    client = makeCluster(args)
+    desc = loadDescription(args.input)
+    extra_files = desc.execution_config.extra_files
+
+    client = makeCluster(args, extra_files=extra_files)
+
     output = args.output or args.input
     patchAnalysisResult(args.input, output)
+
 
 def handleCheckResult(args):
     from analyzer.core import checkResult
@@ -53,9 +62,13 @@ def handleCheckResult(args):
 
 
 def handleRun(args):
-    from analyzer.core import runFromFile
+    import analyzer.modules
+    from analyzer.core import loadDescription, preprocessAnalysis, runFromFile
 
-    client = makeCluster(args)
+    desc = loadDescription(args.input)
+    extra_files = desc.execution_config.extra_files
+
+    client = makeCluster(args, extra_files=extra_files)
     # while (client.status == "running") and (
     #     len(client.scheduler_info()["workers"]) < 20
     # ):
@@ -64,8 +77,8 @@ def handleRun(args):
 
     # with dm.memray_workers():
     runFromFile(
-            args.input, args.output, preprocessed_input_path=args.preprocessed_inputs
-            )
+        args.input, args.output, preprocessed_input_path=args.preprocessed_inputs
+    )
     client.shutdown(),
 
 
@@ -178,9 +191,7 @@ def addSubparserPatchRun(subparsers):
 
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "check-result", help="Check result"
-    )
+    subparser = subparsers.add_parser("check-result", help="Check result")
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.set_defaults(func=handleCheckResult)
 
@@ -201,7 +212,7 @@ def runCli():
     addSubparserPatchPreprocess(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
 
-    #argcomplete.autocomplete(parser)
+    # argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 

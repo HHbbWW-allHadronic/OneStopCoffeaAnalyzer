@@ -24,6 +24,7 @@ from .configuration import (
     AnalysisStage,
     ExecutionConfig,
     FileConfig,
+    loadDescription,
 )
 from .histograms import HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
@@ -515,12 +516,6 @@ def patchPreprocessed(
             step = prepped.step_size
         x = prepped.missingCoffeaDataset(dr, **frk)
         logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
-        if "700to1000" in n.sample_name:
-            print(prepped)
-            print(len(prepped.chunk_info))
-            import sys
-
-            sys.exit()
         if x["files"]:
             missing_dict.update(x)
 
@@ -572,9 +567,7 @@ def preprocessAnalysis(
     input_path, output_path, execution_config=None, file_config=None
 ):
     logger.info(f"Preprocessing analysis from file {input_path}")
-    with open(input_path, "rb") as f:
-        data = yaml.safe_load(f)
-    an = AnalysisDescription(**data)
+    an = loadDescription(input_path)
     logger.info(f"Loaded analysis description {an.name}")
     dm = DatasetRepo.getConfig()
     samples = list(
@@ -639,8 +632,6 @@ def patchAnalysisResult(input_path, output_path):
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
     logger.info(distributed.client._get_global_client())
-    with open(input_path, "rb") as config_file:
-        data = yaml.safe_load(config_file)
     if preprocessed_input_path:
         with open(preprocessed_input_path, "rb") as prep_file:
             preprocessed_input = pkl.load(prep_file)
@@ -648,7 +639,7 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
             preprocessed_input = {x.sample_id: x for x in preprocessed_input}
     else:
         preprocessed_input = {}
-    an = AnalysisDescription(**data)
+    an = loadDescription(input_path)
     analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
     analyzer.preprocessed_samples = preprocessed_input
     res = runAnalysis(analyzer)

@@ -4,6 +4,7 @@ import logging
 from typing import Any, ClassVar, Optional, Union
 
 from pydantic import BaseModel, Field
+import yaml
 
 from .specifiers import SampleSpec
 
@@ -41,11 +42,13 @@ class RegionDescription(BaseModel):
 class ExecutionConfig(BaseModel):
     cluster_type: str = "local"
     max_workers: int = 20
-    chunk_size: int = 100000
+    step_size: int = 100000
     worker_memory: Optional[str] = "4GB"
     dashboard_address: Optional[str] = None
     schedd_address: Optional[str] = None
     worker_timeout: int = 3600
+    extra_files: Optional[list[str]] = None
+
 
 
 class FileConfig(BaseModel):
@@ -79,3 +82,11 @@ class AnalysisDescription(BaseModel):
             return (ad.name, ad.samples, ad.regions)
 
         return asTuple(self) == asTuple(other)
+
+
+
+def loadDescription(input_path):
+    with open(input_path, "rb") as config_file:
+        data = yaml.safe_load(config_file)
+    return AnalysisDescription(**data)
+    

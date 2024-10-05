@@ -34,6 +34,8 @@ jobqueue:
     env-extra: null
     job-script-prologue:
       - 'tar xzf environment.tar.gz'
+      - 'tar xzf analyzer.tar.gz'
+      - '[[ -f extra_files.tar.gz ]] &&  tar xzf extra_files.tar.gz'
       - 'source setup.sh bashrc'
       - echo "Virtual ENV IS" $VIRTUAL_ENV
       - ls -alhtr

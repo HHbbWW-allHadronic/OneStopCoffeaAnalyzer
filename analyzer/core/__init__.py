@@ -7,4 +7,5 @@ from .analyzer import (
     preprocessAnalysis,
     runFromFile,
 )
+from .configuration import loadDescription
 from .results import AnalysisResult, SectorResult, checkResult
