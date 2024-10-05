@@ -27,13 +27,14 @@ from .configuration import (
 )
 from .histograms import HistogramSpec, generateHistogramCollection
 from .preprocessed import SamplePreprocessed, preprocessBulk
-from .results import SelectionResult, SubSectorResult, AnalysisResult, SectorResult
+from .results import AnalysisResult, SectorResult, SelectionResult, SubSectorResult
 from .sector import SubSector, getParamsForSubSector
 from .selection import SelectionManager
 from .specifiers import SubSectorId
 from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
+    from rich import print
     from rich.progress import track
 
 
@@ -499,17 +500,27 @@ def runAnalysis(analyzer):
     )
 
 
-def patchPreprocessed(dataset_repo, preprocessed_samples):
+def patchPreprocessed(
+    dataset_repo, preprocessed_samples, file_retrieval_kwargs=None, step_size=None
+):
     samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_samples)}
     missing_dict = {}
     dr = DatasetRepo.getConfig()
+
     for n, prepped in samples.items():
+        logger.info(f"Inspecting sample {n}")
         if file_retrieval_kwargs is None:
             frk = prepped.file_retrieval_kwargs or {}
         if step_size is None:
             step = prepped.step_size
         x = prepped.missingCoffeaDataset(dr, **frk)
         logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
+        if "700to1000" in n.sample_name:
+            print(prepped)
+            print(len(prepped.chunk_info))
+            import sys
+
+            sys.exit()
         if x["files"]:
             missing_dict.update(x)
 
@@ -520,18 +531,32 @@ def patchPreprocessed(dataset_repo, preprocessed_samples):
     for ss, vals in g:
         new = preprocessRaw(dict(vals), step_size=ss)
         for n, v in new.items():
-            samples[n] = samples[n].addCoffeaChunks({n: v})
+            samples[n] = samples[n].addCoffeaChunks(v)
     return list(samples.values())
 
 
 def makeResultPatch(
     result, dataset_repo, era_repo, execution_config=None, file_config=None
 ):
-    missing = result.getMissingPreprocessed()
-    logger.info(f"Found {len(missing)} samples with missing chunks")
-    if not missing:
+    temp_result = AnalysisResult(
+        description=result.description,
+        preprocessed_samples=result.preprocessed_samples,
+        processed_chunks=result.processed_chunks,
+        results={},
+        total_mc_weights={},
+    )
+
+    temp_result.preprocessed_samples = patchPreprocessed(
+        dataset_repo, list(temp_result.preprocessed_samples.values())
+    )
+
+    missing_prepped = result.createMissingRunnable()
+
+    logger.info(f"Found {len(missing_prepped)} samples with missing chunks")
+    if not missing_prepped:
         logger.info(f"No missing chunks, nothing to do")
         return
+
     new_analyzer = Analyzer(
         result.description,
         dataset_repo,
@@ -539,7 +564,7 @@ def makeResultPatch(
         execution_config=execution_config,
         file_config=file_config,
     )
-    new_analyzer.preprocessed_samples = missing
+    new_analyzer.preprocessed_samples = missing_prepped
     return new_analyzer
 
 
@@ -593,7 +618,12 @@ def patchAnalysisResult(input_path, output_path):
     with open(input_path, "rb") as f:
         result = pkl.load(f)
         result = AnalysisResult(**result)
-    analyzer = makeResultPatch(result, DatasetRepo.getConfig(), EraRepo.getConfig())
+    logger.info("Creating analyzer patch")
+
+    dr = DatasetRepo.getConfig()
+    analyzer = makeResultPatch(result, dr, EraRepo.getConfig())
+
+    logger.info("Created analyzer patch")
     if not analyzer:
         return
     res = runAnalysis(analyzer)
@@ -604,6 +634,7 @@ def patchAnalysisResult(input_path, output_path):
     out.parent.mkdir(exist_ok=True, parents=True)
     with open(out, "wb") as f:
         pkl.dump(final_result.model_dump(), f)
+
 
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
@@ -730,18 +761,3 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         raise e
 
 
-def checkResult(input_path):
-    with open(input_path, "rb") as f:
-        result = pkl.load(f)
-        result = AnalysisResult(**result)
-    dr = DatasetRepo.getConfig()
-    processed = result.raw_events_processed
-    for sample_id, val in processed.items():
-        exp = dr.getSample(sample_id).n_events
-        diff = exp - val
-        print(f"{sample_id} is missing {diff} events")
-
-    
-
-
-        

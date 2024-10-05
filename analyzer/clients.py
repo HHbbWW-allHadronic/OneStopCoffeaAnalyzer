@@ -5,9 +5,8 @@ import shutil
 import time
 from pathlib import Path
 
-import yaml
-
 import dask
+import yaml
 from analyzer.utils.file_tools import compressDirectory
 from distributed import LocalCluster
 from rich.progress import Progress
@@ -99,20 +98,15 @@ def createLPCCondorCluster(
     return cluster
 
 
-
 def createLocalCluster(
-    schedd_address,
     max_workers=10,
     memory="2GB",
-    dashboard_address="localhost:12358",
+    dashboard_address="localhost:8787",
+    schedd_address="localhost:12358",
     **kwargs,
 ):
-
-def createLocalCluster(configuration):
-    """Create a local dask cluster for running on a single node."""
-
     cluster = LocalCluster(
-        dashboard_address=dash_address,
+        dashboard_address=dashboard_address,
         memory_limit=memory,
         n_workers=max_workers,
         scheduler_kwargs={"host": schedd_address},

@@ -212,6 +212,12 @@ class SampleId:
     def __str__(self):
         return self.dataset_name + "__" + self.sample_name
 
+    def __lt__(self, other):
+        return (self.dataset_name, self.sample_name) < (
+            other.dataset_name,
+            other.sample_name,
+        )
+
     @pyd.model_serializer
     def serialize(self) -> str:
         return self.dataset_name + "___" + self.sample_name
@@ -329,7 +335,7 @@ class Dataset(BaseModel):
 
     @property
     def params(self):
-        ds =  DatasetParams(**self.model_dump())
+        ds = DatasetParams(**self.model_dump())
         ds._lumi = self.lumi
         return ds
 

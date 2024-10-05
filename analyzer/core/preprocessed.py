@@ -2,13 +2,13 @@ import copy
 import itertools as it
 import logging
 from collections import namedtuple
-import distributed
 from typing import Any, Optional
 
 import analyzer.utils.structure_tools as utils
 
 # import analyzer.core.preprocess as dst
 import coffea.dataset_tools as dst
+import distributed
 import pydantic as pyd
 from analyzer.datasets import SampleId
 from analyzer.utils.file_tools import extractCmsLocation, stripPort
@@ -18,22 +18,10 @@ logger = logging.getLogger(__name__)
 
 Chunk = namedtuple("Chunk", "file start end")
 
-
-def getMissingDataset(analyzer_input, coffea_dataset):
-    cds = analyzer_input.coffea_dataset[analyzer_input.dataset_name]
-    files = [(stripPort(x), x) for x in cds["files"]]
-    cof_files = set(stripPort(x) for x in coffea_dataset["files"].keys())
-    diff = {x[1] for x in files if not any(x[0] in y for y in cof_files)}
-    return {
-        analyzer_input.dataset_name: {
-            "files": {
-                fname: info for fname, info in cds["files"].items() if fname in diff
-            }
-        }
-    }
-
-
 class SamplePreprocessed(pyd.BaseModel):
+    """A preprocessed samples, containing information about the step breakdown of the files in sample_id.
+    """
+
     sample_id: SampleId
     chunk_info: dict[str, dict[str, Any]]
     step_size: int
@@ -74,13 +62,14 @@ class SamplePreprocessed(pyd.BaseModel):
         return coffea_dataset
 
     def addCoffeaChunks(self, other):
+
         # if self.dataset_input != other.dataset_input:
         #    raise ValueError("Cannot add Preprocessed Datasets with differing inputs")
         new_data = copy.deepcopy(self.chunk_info)
 
         updates = {
             extractCmsLocation(fname): data
-            for fname, data in other[self.dataset_name]["files"].items()
+            for fname, data in other["files"].items()
         }
 
         new_data.update(updates)
@@ -90,12 +79,19 @@ class SamplePreprocessed(pyd.BaseModel):
         )
 
     def missingFiles(self, dataset_repo):
-        a = set(x.cmsLocation() for x in dataset_repo.getSample(self.sample_id).files)
+        """Get files that were not successfully preprocessed
+        """
 
+        a = set(x.cmsLocation() for x in dataset_repo.getSample(self.sample_id).files)
         b = set(self.chunk_info)
         return list(a - b)
 
     def missingCoffeaDataset(self, dataset_repo, **kwargs):
+        """Get a CoffeaDataset containing only those files that were not preprocessed.
+        This is used to patch preprocessed files that failed to compute.
+        
+        """
+
         mf = self.missingFiles(dataset_repo)
         sample = dataset_repo.getSample(self.sample_id)
         fdict = sample.fdict
@@ -112,7 +108,6 @@ class SamplePreprocessed(pyd.BaseModel):
                 for s in vals["steps"]
             )
         )
-
 
 def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
@@ -171,3 +166,6 @@ def preprocessRaw(inputs, **kwargs):
         **kwargs,
     )
     return out
+
+
+

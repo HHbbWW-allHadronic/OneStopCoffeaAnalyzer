@@ -11,6 +11,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
+import logging
 
 import yaml
 
@@ -39,6 +40,11 @@ from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
     from rich.progress import track
+
+
+
+
+logger = logging.getLogger(__name__)
 
 class SelectionResult(pyd.BaseModel):
     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
@@ -175,13 +181,13 @@ class AnalysisResult(pyd.BaseModel):
         }
         return ret
 
-    def getMissingPreprocessed(self):
+    def createMissingRunnable(self):
         logger.debug(f"Scanning for bad chunks")
         prepped = copy.deepcopy(self.preprocessed_samples)
         bad_chunks = self.getBadChunks()
         ret = {}
         for sid in prepped:
-            logger.debug(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
+            logger.info(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
             bad = bad_chunks[sid]
             if bad:
                 ret[sid] = prepped[sid]
@@ -243,3 +249,37 @@ class AnalysisResult(pyd.BaseModel):
         with open(path, "rb") as f:
             data = pkl.load(f)
         return AnalysisResult(**data)
+
+def checkResult(input_path):
+    from rich.console import Console
+    from rich.style import Style
+    from rich.table import Table
+
+    console = Console()
+
+    with open(input_path, "rb") as f:
+        result = pkl.load(f)
+        result = AnalysisResult(**result)
+    dr = DatasetRepo.getConfig()
+    processed = result.raw_events_processed
+
+    table = Table(title="Missing Events")
+    for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
+        table.add_column(x)
+
+    for sample_id, val in sorted(processed.items()):
+        exp = dr.getSample(sample_id).n_events
+        diff = exp - val
+        done = diff == 0
+        percent = round(val / exp * 100, 2)
+
+        table.add_row(
+            sample_id.dataset_name,
+            sample_id.sample_name,
+            str(percent),
+            f"{val}",
+            f"{exp}",
+            style=Style(color="green" if done else "red"),
+        )
+        # print(f"{sample_id} is missing {diff} events")
+    console.print(table)
