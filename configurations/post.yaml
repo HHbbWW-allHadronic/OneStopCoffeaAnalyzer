@@ -6,6 +6,24 @@ Postprocessing:
   #     cms_tag: Preliminary
   #     style_file: null
 
+  - name: Cutflow
+    action: PlotCutflow
+    style_set: "default.yaml"
+    to_plot: {sample_spec: {name: ["signal_312_2*", "QCD*"] }}
+    output_name: "{dataset.era.name}/{region.region_name}/{dataset.name}_{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region.region_name", "dataset.name"]
+    normalize: false
+
+  - name: Cutflow Tables
+    action: PlotCutflow
+    style_set: "default.yaml"
+    to_plot: {sample_spec: {name: ["signal_312_2*", "QCD*"] }}
+    table_mode: true
+    output_name: "{dataset.era.name}/{region.region_name}/table_{dataset.name}_{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region.region_name", "dataset.name"]
+    normalize: false
+
+
   # - name: Plot Basic stuff
   #   action: Histogram1D
   #   style_set: "default.yaml"
@@ -33,24 +51,24 @@ Postprocessing:
   #   group_by: ["dataset.era.name", "region.region_name"]
   #   normalize: true
 
-  - name: Normalized stuff
-    action: DatasetRatioPlot
-    style_set: "default.yaml"
-    histogram_names: [HT, m13_m, m24_m, m14_m, pt_1, pt_2, pt_3, h_njet]
-    denominator: {sample_spec: {name: ["QCD*"],  }, region_name: Signal312}
-    numerator: {sample_spec: {name: ["signal_312_2000_1*"] }, region_name: Signal312}
-    output_name: "{dataset.era.name}/{region.region_name}/normalized_{histogram_name}.pdf"
-    group_by: ["dataset.era.name", "region.region_name"]
-    normalize: true
+  # - name: Normalized stuff
+  #   action: DatasetRatioPlot
+  #   style_set: "default.yaml"
+  #   histogram_names: [HT, m13_m, m24_m, m14_m, pt_1, pt_2, pt_3, h_njet]
+  #   denominator: {sample_spec: {name: ["QCD*"],  }, region_name: Signal312}
+  #   numerator: {sample_spec: {name: ["signal_312_2000_1*"] }, region_name: Signal312}
+  #   output_name: "{dataset.era.name}/{region.region_name}/normalized_{histogram_name}.pdf"
+  #   group_by: ["dataset.era.name", "region.region_name"]
+  #   normalize: true
 
-  - name: 2D Stuff
-    action: Histogram2D
-    style_set: "default.yaml"
-    histogram_names: [m13_vs_m14]
-    to_plot: {sample_spec: {name: ["QCD*"],  }, region_name: Signal312}
-    output_name: "{dataset.era.name}/{region.region_name}/normalized_{histogram_name}.pdf"
-    group_by: ["dataset.era.name", "region.region_name"]
-    normalize: true
+  # - name: 2D Stuff
+  #   action: Histogram2D
+  #   style_set: "default.yaml"
+  #   histogram_names: [m13_vs_m14]
+  #   to_plot: {sample_spec: {name: ["QCD*"],  }, region_name: Signal312}
+  #   output_name: "{dataset.era.name}/{region.region_name}/normalized_{histogram_name}.pdf"
+  #   group_by: ["dataset.era.name", "region.region_name"]
+  #   normalize: true
 
   # - name: Normalized stuff
   #   action: DatasetRatioPlot

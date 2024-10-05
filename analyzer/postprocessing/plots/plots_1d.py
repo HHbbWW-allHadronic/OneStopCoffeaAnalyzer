@@ -1,16 +1,15 @@
 from pathlib import Path
 
-import numpy as np
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
+import numpy as np
 from analyzer.postprocessing.style import Styler
 
 from ..utils import doFormatting
 from .annotations import addCMSBits, labelAxis
-from .utils import addAxesToHist,  saveFig
 from .common import PlotConfiguration
+from .utils import addAxesToHist, saveFig
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
@@ -22,8 +21,6 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
             num=num, denom=den, uncertainty_type=uncertainty_type
         )
     return ratios, unc
-
-
 
 
 def plotOne(
@@ -62,8 +59,113 @@ def plotOne(
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig, Path("plots") / o)
+    saveFig(fig,  o)
     plt.close(fig)
+
+
+def makeStrHist(data, ax_name=None):
+    import hist
+
+    ax = hist.axis.StrCategory([x[0] for x in data], name=ax_name)
+    h = hist.Hist(ax, storage="double")
+    h[:] = np.array([x[1] for x in data])
+    return h
+
+
+def __plotStrCatOne(
+    getter,
+    sectors,
+    output_name,
+    style_set,
+    ax_name=None,
+    normalize=False,
+    plot_configuration=None,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+    mpl.use("Agg")
+
+    fig, ax = plt.subplots()
+    for sector in sectors:
+        p = sector.sector_params
+        style = styler.getStyle(p)
+        h = makeStrHist(getter(sector), ax_name=ax_name)
+        h.plot1d(
+            ax=ax,
+            label=sector.sector_params.dataset.title,
+            density=normalize,
+            **style.get("step"),
+        )
+    labelAxis(ax, "y", h.axes)
+    labelAxis(ax, "x", h.axes)
+    ax.tick_params(axis="x", rotation=90)
+    addCMSBits(ax, sectors)
+    ax.legend(loc="upper right")
+    mplhep.sort_legend(ax=ax)
+
+    o = doFormatting(output_name, p, histogram_name=(ax_name or ""))
+    fig.tight_layout()
+    saveFig(fig,  o)
+    plt.close(fig)
+
+
+def __plotStrCatAsTable(
+    getter,
+    sectors,
+    output_name,
+    style_set,
+    ax_name=None,
+    normalize=False,
+    plot_configuration=None,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+    mpl.use("Agg")
+    
+    rep_data = getter(sectors[0])
+    col_labels = [x[0] for x in rep_data]
+    rows = []
+    row_labels = []
+
+    figsize=(len(rep_data)*0.3, len(sectors)*0.3)
+    fig, ax = plt.subplots(figsize=figsize)
+    fig.patch.set_visible(False)
+    ax.axis('off')
+    ax.axis('tight')
+    for sector in sectors:
+        p = sector.sector_params
+        style = styler.getStyle(p)
+        data = getter(sector)
+        row_labels.append(sector.sector_params.dataset.title)
+        rows.append([x[1] for x in data])
+
+    table= ax.table(
+        cellText=rows,
+        rowLabels=row_labels,
+        colLabels=col_labels,
+    )
+
+    o = doFormatting(output_name, p, histogram_name=(ax_name or ""))
+    fig.tight_layout()
+    saveFig(fig,  o)
+    plt.close(fig)
+
+
+def plotStrCat(*args, table_mode=False, **kwargs):
+    def makeGetter(n):
+        def inner(sec):
+            return getattr(sec.cutflow_data.cutflow, n)
+
+        return inner
+
+
+    if table_mode:
+        f = __plotStrCatAsTable
+    else:
+        f = __plotStrCatOne
+
+    for x in ["cutflow", "one_cut", "n_minus_one"]:
+        f(makeGetter(x), *args, ax_name=x, **kwargs)
 
 
 def plotRatio(
@@ -122,7 +224,6 @@ def plotRatio(
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
 
-
         all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
         ratio_ax.errorbar(
             x_values,
@@ -152,7 +253,7 @@ def plotRatio(
     mplhep.sort_legend(ax=ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
     fig.tight_layout()
-    saveFig(fig, Path("plots") / o)
+    saveFig(fig,  o)
     plt.close(fig)
 
 
@@ -191,7 +292,7 @@ def drawCutflow(
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig, Path("plots") / o)
+    saveFig(fig,  o)
     plt.close(fig)
 
 
@@ -230,5 +331,5 @@ def drawCutflow(
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig, Path("plots") / o)
+    saveFig(fig,  o)
     plt.close(fig)

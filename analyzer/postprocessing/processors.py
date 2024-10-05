@@ -4,15 +4,14 @@ import logging
 from pathlib import Path
 from typing import Optional, Union
 
-import yaml
-
 import pydantic as pyd
+import yaml
 from analyzer.configuration import CONFIG
 from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
 from rich.progress import track
 
-from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio
+from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
 from .plots.plots_2d import plot2D
 from .registry import loadPostprocessors, registerPostprocessor
 from .split_histogram import Mode
@@ -63,6 +62,7 @@ class Histogram1D(pyd.BaseModel):
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
 
+
 @registerPostprocessor
 class Histogram2D(pyd.BaseModel):
 
@@ -112,6 +112,7 @@ class PlotCutflow(pyd.BaseModel):
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
     output_name: str = "{histogram_name}"
     normalize: bool = False
+    table_mode: bool = False
     plot_configuration: Optional[PlotConfiguration] = None
 
     def getExe(self, results):
@@ -121,12 +122,13 @@ class PlotCutflow(pyd.BaseModel):
         for sector_group in r:
             ret.append(
                 ft.partial(
-                    plotOne,
-                    sector_group.sector,
+                    plotStrCat,
+                    sector_group.sectors,
                     self.output_name,
                     self.style_set,
-                    self.normalize,
-                    self.plot_configuration,
+                    table_mode=self.table_mode,
+                    normalize=self.normalize,
+                    plot_configuration=self.plot_configuration,
                 )
             )
         return ret
@@ -186,6 +188,7 @@ class DatasetRatioPlot(pyd.BaseModel):
 
 if __name__ == "__main__":
     from analyzer.logging import setup_logging
+
     from .plots.mplstyles import loadStyles
 
     loadStyles()

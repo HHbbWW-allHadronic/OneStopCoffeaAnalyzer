@@ -10,10 +10,10 @@ def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False):
     return new_ax
 
 
-def saveFig(fig, out, extension=".pdf", metadata=None):
+def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
     path = Path(out)
     path.parent.mkdir(exist_ok=True, parents=True)
     path = path.with_suffix(extension)
-    fig.savefig(path, metadata=metadata)
+    fig.savefig(path, metadata=metadata, **kwargs)
 
 
