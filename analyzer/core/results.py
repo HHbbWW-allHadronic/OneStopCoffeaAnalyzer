@@ -11,14 +11,12 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
-import logging
-
-import yaml
 
 import awkward as ak
 import dask
 import distributed
 import pydantic as pyd
+import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -42,9 +40,8 @@ if CONFIG.PRETTY_MODE:
     from rich.progress import track
 
 
-
-
 logger = logging.getLogger(__name__)
+
 
 class SelectionResult(pyd.BaseModel):
     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
@@ -176,10 +173,15 @@ class AnalysisResult(pyd.BaseModel):
 
     def getBadChunks(self):
         ret = {
-            n: self.preprocessed_samples[n].chunks.difference(self.processed_chunks[n])
+            n: self.preprocessed_samples[n].chunks.difference(
+                self.processed_chunks.get(n, set())
+            )
             for n in self.preprocessed_samples
         }
         return ret
+
+    def isEmpty(self):
+        return self.limit_chunks is not None and not self.limit_chunks
 
     def createMissingRunnable(self):
         logger.debug(f"Scanning for bad chunks")
@@ -192,6 +194,7 @@ class AnalysisResult(pyd.BaseModel):
             if bad:
                 ret[sid] = prepped[sid]
                 ret[sid].limit_chunks = bad
+        print(list(ret.keys()))
         return ret
 
     def __add__(self, other):
@@ -206,8 +209,8 @@ class AnalysisResult(pyd.BaseModel):
             )
 
         if any(
-            self.processed_chunks.get(x, set()).intersect(
-                other.processed_chunk.get(x, set())
+            self.processed_chunks.get(x, set()).intersection(
+                other.processed_chunks.get(x, set())
             )
             for x in set(self.processed_chunks) | set(other.processed_chunks)
         ):
@@ -250,6 +253,7 @@ class AnalysisResult(pyd.BaseModel):
             data = pkl.load(f)
         return AnalysisResult(**data)
 
+
 def checkResult(input_path):
     from rich.console import Console
     from rich.style import Style
@@ -261,14 +265,16 @@ def checkResult(input_path):
         result = pkl.load(f)
         result = AnalysisResult(**result)
     dr = DatasetRepo.getConfig()
+    wanted_samples = list(result.preprocessed_samples)
     processed = result.raw_events_processed
 
     table = Table(title="Missing Events")
     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
         table.add_column(x)
 
-    for sample_id, val in sorted(processed.items()):
+    for sample_id in wanted_samples:
         exp = dr.getSample(sample_id).n_events
+        val = processed.get(sample_id, 0)
         diff = exp - val
         done = diff == 0
         percent = round(val / exp * 100, 2)

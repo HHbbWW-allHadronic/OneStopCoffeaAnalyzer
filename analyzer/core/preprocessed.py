@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 Chunk = namedtuple("Chunk", "file start end")
 
+
 class SamplePreprocessed(pyd.BaseModel):
-    """A preprocessed samples, containing information about the step breakdown of the files in sample_id.
-    """
+    """A preprocessed samples, containing information about the step breakdown of the files in sample_id."""
 
     sample_id: SampleId
     chunk_info: dict[str, dict[str, Any]]
@@ -68,19 +68,20 @@ class SamplePreprocessed(pyd.BaseModel):
         new_data = copy.deepcopy(self.chunk_info)
 
         updates = {
-            extractCmsLocation(fname): data
-            for fname, data in other["files"].items()
+            extractCmsLocation(fname): data for fname, data in other["files"].items()
         }
-
         new_data.update(updates)
-
-        return DatasetPreprocessed(
-            self.dataset_input, new_data, self.form, self.limit_chunks
+        return SamplePreprocessed(
+            sample_id=self.sample_id,
+            chunk_info=new_data,
+            step_size=self.step_size,
+            form=self.form,
+            limit_chunks=self.limit_chunks,
+            file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
     def missingFiles(self, dataset_repo):
-        """Get files that were not successfully preprocessed
-        """
+        """Get files that were not successfully preprocessed"""
 
         a = set(x.cmsLocation() for x in dataset_repo.getSample(self.sample_id).files)
         b = set(self.chunk_info)
@@ -89,7 +90,7 @@ class SamplePreprocessed(pyd.BaseModel):
     def missingCoffeaDataset(self, dataset_repo, **kwargs):
         """Get a CoffeaDataset containing only those files that were not preprocessed.
         This is used to patch preprocessed files that failed to compute.
-        
+
         """
 
         mf = self.missingFiles(dataset_repo)
@@ -109,7 +110,8 @@ class SamplePreprocessed(pyd.BaseModel):
             )
         )
 
-def getCoffeaDataset(dataset_repo, sample_id, **kwargs):
+
+def getCoffeaDatasetForSample(dataset_repo, sample_id, **kwargs):
     fdict = dataset_repo.getSample(sample_id).fdict
     return {
         str(sample_id): {
@@ -128,7 +130,7 @@ def preprocessBulk(
     logger.debug(f"Preprocessing with file args: {file_retrieval_kwargs}.")
     mapping = {str(x): x for x in samples}
     all_inputs = utils.accumulate(
-        [getCoffeaDataset(dataset_repo, x, **file_retrieval_kwargs) for x in samples]
+        [getCoffeaDatasetForSample(dataset_repo, x, **file_retrieval_kwargs) for x in samples]
     )
     logger.debug(f"Launching preprocessor.")
     logger.info(distributed.client._get_global_client())
@@ -166,6 +168,3 @@ def preprocessRaw(inputs, **kwargs):
         **kwargs,
     )
     return out
-
-
-

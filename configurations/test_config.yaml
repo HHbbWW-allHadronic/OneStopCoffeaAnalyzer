@@ -62,8 +62,8 @@ common_items:
     common_signal_histograms: &common_signal
       - name: njets
       - name: goodjet_ht
-      # - name: jet_kinematics
-      # - name: jet_combo_kinematics
+      - name: jet_kinematics
+      - name: jet_combo_kinematics
       # - name: b_quark_kinematics
       #   config:
       #     - working_point: L

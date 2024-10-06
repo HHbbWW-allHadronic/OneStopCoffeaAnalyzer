@@ -24,11 +24,11 @@ def plot2D(
     style = styler.getStyle(p)
     h = sector.histograms[histogram_name].get()
     art,_,_ = h.plot2d_full()
-    ax = art.axis
-    fig = ax.fig
+    ax = art.pcolormesh.axes
+    fig = ax.get_figure()
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     addCMSBits(ax, [sector])
     o = doFormatting(output_name, p, histogram_name=histogram_name)
-    saveFig(fig, Path("plots") / o)
+    saveFig(fig, o)
     plt.close(fig)

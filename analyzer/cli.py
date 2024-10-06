@@ -44,9 +44,9 @@ def handlePatchPreprocess(args):
 
 def handlePatchRun(args):
     import analyzer.modules
-    from analyzer.core import loadDescription, preprocessAnalysis
+    from analyzer.core import loadDescription, preprocessAnalysis, AnalysisResult, patchAnalysisResult
 
-    desc = loadDescription(args.input)
+    desc = AnalysisResult.fromFile(args.input).description
     extra_files = desc.execution_config.extra_files
 
     client = makeCluster(args, extra_files=extra_files)

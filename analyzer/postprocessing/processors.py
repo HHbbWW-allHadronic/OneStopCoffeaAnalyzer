@@ -11,6 +11,7 @@ from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
 from rich.progress import track
 
+from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
 from .plots.plots_2d import plot2D
 from .registry import loadPostprocessors, registerPostprocessor
@@ -56,11 +57,38 @@ class Histogram1D(pyd.BaseModel):
                 )
         return ret
 
-    def loadStyle(self):
+    def init(self):
         config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
+
+
+@registerPostprocessor
+class ExportHists(pyd.BaseModel):
+    histogram_names: list[str]
+    to_export: SectorSpec
+    groupby: list[str] = ["dataset.era.name", "region.region_name"]
+    output_name: str = "{histogram_name}"
+
+    def getExe(self, results):
+        sectors = [x for x in results.values() if self.to_export.passes(x.sector_params)]
+        r = createSectorGroups(sectors, *self.groupby)
+        ret = []
+        for histogram in self.histogram_names:
+            for sector_group in r:
+                ret.append(
+                    ft.partial(
+                        exportHist,
+                        histogram,
+                        sector_group.sectors,
+                        self.output_name,
+                    )
+                )
+        return ret
+
+    def init(self):
+        pass
 
 
 @registerPostprocessor
@@ -97,7 +125,7 @@ class Histogram2D(pyd.BaseModel):
                 )
         return ret
 
-    def loadStyle(self):
+    def init(self):
         config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
@@ -133,7 +161,7 @@ class PlotCutflow(pyd.BaseModel):
             )
         return ret
 
-    def loadStyle(self):
+    def init(self):
         config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
@@ -179,7 +207,7 @@ class DatasetRatioPlot(pyd.BaseModel):
                 )
         return ret
 
-    def loadStyle(self):
+    def init(self):
         config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
@@ -196,11 +224,12 @@ if __name__ == "__main__":
     setup_logging()
 
     loaded = loadPostprocessors("configurations/post.yaml")
-    result = AnalysisResult.fromFile("results/histograms/2024_10_01_v2.pkl")
+    #result = AnalysisResult.fromFile("results/histograms/2024_10_01_v2.pkl")
+    result = AnalysisResult.fromFile("results/histograms/2024_10_05_nntest_v2.pkl")
     result = result.getResults()
     tasks = []
     for processor in loaded:
-        processor.loadStyle()
+        processor.init()
         tasks += processor.getExe(result)
 
     # results = [f() for f in tasks]

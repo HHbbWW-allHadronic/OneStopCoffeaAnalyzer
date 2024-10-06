@@ -27,7 +27,7 @@ from .configuration import (
     loadDescription,
 )
 from .histograms import HistogramSpec, generateHistogramCollection
-from .preprocessed import SamplePreprocessed, preprocessBulk
+from .preprocessed import SamplePreprocessed, preprocessBulk, preprocessRaw
 from .results import AnalysisResult, SectorResult, SelectionResult, SubSectorResult
 from .sector import SubSector, getParamsForSubSector
 from .selection import SelectionManager
@@ -132,7 +132,6 @@ class Analyzer:
 
     def __post_init__(self):
         self.subsectors = self._getSubSectors()
-        self.__prefillResults()
         self.client = distributed.client._get_global_client()
 
     def getExecOpts(self):
@@ -155,7 +154,7 @@ class Analyzer:
             ),
         )
 
-    def __prefillResults(self):
+    def prefillResults(self):
         for subsector in self.subsectors:
             subsector_id = subsector.subsector_id
             params = getParamsForSubSector(
@@ -168,8 +167,9 @@ class Analyzer:
             x
             for x in self.subsectors
             if x.subsector_id.sample_id in self.preprocessed_samples
+            and self.preprocessed_samples[x.subsector_id.sample_id].chunks
         ]
-        logger.debug(f"Dropping {len(self.subsectors) - len(new)} empty subsectors.")
+        logger.warn(f"Dropping {len(self.subsectors) - len(new)} empty subsectors.")
         self.subsectors = new
 
     def preprocessDatasets(self, **kwargs):
@@ -458,7 +458,7 @@ class Analyzer:
             self._populateCutflow(subsector.subsector_id)
 
 
-def runAnalysis(analyzer):
+def buildAnalysisResult(analyzer):
 
     if not analyzer.preprocessed_samples:
         logger.info(f"Analyzer does not already have preprocessed samples.")
@@ -466,6 +466,7 @@ def runAnalysis(analyzer):
     # When patching results, we may have subsectors with no preprocessing object
     # since all the events have already been processed succesfully.
     analyzer.dropEmptySubSectors()
+    analyzer.prefillResults()
     logger.info(f"Running analysis with {len(analyzer.subsectors)} subsectors.")
     analyzer.loadEvents()
 
@@ -505,7 +506,7 @@ def patchPreprocessed(
     dataset_repo, preprocessed_samples, file_retrieval_kwargs=None, step_size=None
 ):
     samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_samples)}
-    missing_dict = {}
+    missing_dict = defaultdict(dict)
     dr = DatasetRepo.getConfig()
 
     for n, prepped in samples.items():
@@ -513,21 +514,24 @@ def patchPreprocessed(
         if file_retrieval_kwargs is None:
             frk = prepped.file_retrieval_kwargs or {}
         if step_size is None:
-            step = prepped.step_size
+            step_size = prepped.step_size
         x = prepped.missingCoffeaDataset(dr, **frk)
         logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
         if x["files"]:
-            missing_dict.update(x)
+            missing_dict[step_size].update({n: x})
 
     def k(x):
-        return x.step_size
+        return x[0]
 
-    g = it.groupby(missing_dict.items(), k)
+    g = it.groupby(sorted(missing_dict.items(), key=k), key=k)
     for ss, vals in g:
-        new = preprocessRaw(dict(vals), step_size=ss)
+        vals = dict(it.chain.from_iterable(x[1].items() for x in vals))
+        mapping = {str(x): x for x in vals}
+        v = {str(x): y for x, y in vals.items()}
+        new = preprocessRaw(v, step_size=ss)
         for n, v in new.items():
-            samples[n] = samples[n].addCoffeaChunks(v)
-    return list(samples.values())
+            samples[mapping[n]] = samples[mapping[n]].addCoffeaChunks(v)
+    return samples
 
 
 def makeResultPatch(
@@ -540,12 +544,13 @@ def makeResultPatch(
         results={},
         total_mc_weights={},
     )
-
     temp_result.preprocessed_samples = patchPreprocessed(
         dataset_repo, list(temp_result.preprocessed_samples.values())
     )
 
-    missing_prepped = result.createMissingRunnable()
+    missing_prepped = temp_result.createMissingRunnable()
+
+    # print(missing_prepped)
 
     logger.info(f"Found {len(missing_prepped)} samples with missing chunks")
     if not missing_prepped:
@@ -556,8 +561,8 @@ def makeResultPatch(
         result.description,
         dataset_repo,
         era_repo,
-        execution_config=execution_config,
-        file_config=file_config,
+        user_execution_options=execution_config,
+        user_file_options=file_config,
     )
     new_analyzer.preprocessed_samples = missing_prepped
     return new_analyzer
@@ -619,14 +624,10 @@ def patchAnalysisResult(input_path, output_path):
     logger.info("Created analyzer patch")
     if not analyzer:
         return
-    res = runAnalysis(analyzer)
-    dumped = res.model_dump()
-    computed = dask.compute(dumped)[0]
-    final_result = AnalysisResult(**computed)
-    out = Path(output_path)
-    out.parent.mkdir(exist_ok=True, parents=True)
-    with open(out, "wb") as f:
-        pkl.dump(final_result.model_dump(), f)
+    patched_result = executeAnalysis(analyzer, output_path)
+
+    new_result = result + patched_result
+    saveResult(new_result, output_path)
 
 
 def runFromFile(input_path, output_path, preprocessed_input_path=None):
@@ -641,8 +642,22 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
         preprocessed_input = {}
     an = loadDescription(input_path)
     analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
-    analyzer.preprocessed_samples = preprocessed_input
-    res = runAnalysis(analyzer)
+    result = executeAnalysis(analyzer, output_path)
+    saveResult(result, output_path)
+
+
+def saveResult(result, output_path):
+    try:
+        with open(out, "wb") as f:
+            pkl.dump(final_result.model_dump(), f)
+    except Exception as e:
+        logger.error(f"An error occurred while attempting to save the results:\n {e}")
+        logger.error(final_result.model_dump())
+        raise e
+
+
+def executeAnalysis(analyzer, output_path):
+    res = buildAnalysisResult(analyzer)
     dumped = res.model_dump()
 
     def groupBySample(data):
@@ -743,12 +758,4 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
     logger.info(f"Saving results to {out}")
 
-    try:
-        with open(out, "wb") as f:
-            pkl.dump(final_result.model_dump(), f)
-    except Exception as e:
-        logger.error(f"An error occurred while attempting to save the results:\n {e}")
-        logger.error(final_result.model_dump())
-        raise e
-
-
+    return final_result

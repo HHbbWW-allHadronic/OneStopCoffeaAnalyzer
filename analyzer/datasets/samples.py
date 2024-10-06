@@ -23,6 +23,7 @@ from pydantic import (
     field_serializer,
     field_validator,
     model_validator,
+    ConfigDict
 )
 from rich import print
 
@@ -175,6 +176,8 @@ class SampleType(str, enum.Enum):
 
 
 class DatasetParams(BaseModel):
+    model_config = ConfigDict(use_enum_values=True)
+
     name: str
     title: str
     era: Union[str, Era]

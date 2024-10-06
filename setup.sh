@@ -102,14 +102,16 @@ function rcmode(){
 
     mkdir -p $application_data/local
 
+
     HISTSIZE=50000
     HISTFILESIZE=20000
     export HISTCONTROL="erasedups:ignoreboth"
     export HISTTIMEFORMAT='%F %T '
     export HISTIGNORE=:"&:[ ]*:exit:ls:bg:fg:history:clear"
     shopt -s histappend
+    PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
     shopt -s cmdhist &>/dev/null
-    export HISTFILE=/srv/.bash_eternal_history
+    export HISTFILE=/srv/.bash_history
     export CONDOR_CONFIG="$application_data/.condor_config"
     export JUPYTER_PATH=$application_data/local/share/jupyter
     export JUPYTER_RUNTIME_DIR=$application_data/local/share/jupyter/runtime
@@ -166,7 +168,7 @@ function startup_with_container(){
             condor_config_val  -summary > .condor_config
         fi
         if [[ -e $HISTFILE ]]; then
-            apptainer_flags="$apptainer_flags --bind $HISTFILE:/srv/.bash_eternal_history"
+            apptainer_flags="$apptainer_flags --bind $HISTFILE:/srv/.bash_history"
         fi
         if [[ $(hostname) =~ "fnal" ]]; then
             apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch/"

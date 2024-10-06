@@ -4,7 +4,7 @@ from typing import Any, Optional, Union
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, field_serializer
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ class SampleSpec(BaseModel):
         if not isinstance(val, list):
             return [val]
         return val
+
 
     def passes(self, dataset_params, return_specificity=False, **kwargs):
         passes_names = not self.name or any(
