@@ -545,8 +545,14 @@ def makeResultPatch(
         total_mc_weights={},
     )
     temp_result.preprocessed_samples = patchPreprocessed(
-        dataset_repo, list(temp_result.preprocessed_samples.values())
+        dataset_repo,
+        [
+            x
+            for x in temp_result.preprocessed_samples.values()
+            if "100to200" not in x.sample_id.sample_name
+        ],
     )
+    print(temp_result.preprocessed_samples)
 
     missing_prepped = temp_result.createMissingRunnable()
 
@@ -647,12 +653,14 @@ def runFromFile(input_path, output_path, preprocessed_input_path=None):
 
 
 def saveResult(result, output_path):
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
     try:
-        with open(out, "wb") as f:
-            pkl.dump(final_result.model_dump(), f)
+        with open(output_path, "wb") as f:
+            pkl.dump(result.model_dump(), f)
     except Exception as e:
         logger.error(f"An error occurred while attempting to save the results:\n {e}")
-        logger.error(final_result.model_dump())
+        logger.error(result.model_dump())
         raise e
 
 
