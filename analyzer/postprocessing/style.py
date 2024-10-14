@@ -87,7 +87,7 @@ class Styler:
     def __init__(self, style_set, expected_num=6):
         self.style_set = style_set
         self.expected_num = expected_num
-        self.cycler =  cycler(linestyle=["-", "--", ":", "-."]) * cycler(color=cms_colors_6) 
+        self.cycler =  cycler(linestyle=["-", "--", ":", "-."]) * cycler(color=cms_colors_10) 
         self.cycle_iter = iter(self.cycler)
 
     def getStyle(self, sector_params):

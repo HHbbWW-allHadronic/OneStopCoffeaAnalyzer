@@ -1,12 +1,30 @@
 import mplhep
 
+from .common import PlotConfiguration
 
-def addCMSBits(ax, sectors):
+
+def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration=None):
+    if plot_configuration is None:
+        plot_configuration = PlotConfiguration()
     lumis = set(str(x.sector_params.dataset.lumi) for x in sectors)
     energies = set(str(x.sector_params.dataset.era.energy) for x in sectors)
-    lumi_text = f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
+    lumi_text = (
+        plot_configuration.lumi_text
+        or f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
+    )
+
     mplhep.cms.lumitext(text=lumi_text, ax=ax)
-    mplhep.cms.text(text="Preliminary", ax=ax, loc=0)
+    text = plot_configuration.cms_text
+    if extra_text is not None:
+        text += "\n" + extra_text
+    a,b,c=mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)
+    if text_color is not None:
+        a.set(color=text_color)
+        b.set(color=text_color)
+        c.set(color=text_color)
+        
+
+
 
 def labelAxis(ax, which, axes, label=None, label_complete=None):
     mapping = dict(x=0, y=1, z=2)

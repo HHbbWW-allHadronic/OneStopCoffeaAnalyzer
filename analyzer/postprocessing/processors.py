@@ -9,7 +9,7 @@ import yaml
 from analyzer.configuration import CONFIG
 from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
-from rich.progress import track
+from rich.progress import track, Progress
 
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
@@ -50,9 +50,9 @@ class Histogram1D(pyd.BaseModel):
                         histogram,
                         sector_group.sectors,
                         self.output_name,
-                        self.style_set,
-                        self.normalize,
-                        self.plot_configuration,
+                        style_set=self.style_set,
+                        normalize=self.normalize,
+                        plot_configuration=self.plot_configuration,
                     )
                 )
         return ret
@@ -118,9 +118,9 @@ class Histogram2D(pyd.BaseModel):
                         histogram,
                         sector_group.sectors[0],
                         self.output_name,
-                        self.style_set,
-                        self.normalize,
-                        self.plot_configuration,
+                        style_set=self.style_set,
+                        normalize=self.normalize,
+                        plot_configuration=self.plot_configuration,
                     )
                 )
         return ret
@@ -224,8 +224,7 @@ if __name__ == "__main__":
     setup_logging()
 
     loaded = loadPostprocessors("configurations/post.yaml")
-    #result = AnalysisResult.fromFile("results/histograms/2024_10_01_v2.pkl")
-    result = AnalysisResult.fromFile("results/histograms/2024_10_05_nntest_v2.pkl")
+    result = AnalysisResult.fromFile("results/histograms/2024_10_06.pkl")
     result = result.getResults()
     tasks = []
     for processor in loaded:
@@ -233,44 +232,12 @@ if __name__ == "__main__":
         tasks += processor.getExe(result)
 
     # results = [f() for f in tasks]
+    # import sys
+    # sys.exit()
+    with Progress() as progress:
+        task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
+        with cf.ProcessPoolExecutor(max_workers=8) as executor:
+            results = [executor.submit(f) for f in tasks]
+            for i in cf.as_completed(results):
+                progress.advance(task_id)
 
-    with cf.ProcessPoolExecutor(max_workers=8) as executor:
-        results = [executor.submit(f) for f in tasks]
-        for i in track(cf.as_completed(results), total=len(results)):
-            i.result()
-
-    # # mplhep.style.use("CMS")
-
-    # config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
-    # with open(config_path, "r") as f:
-    #     d = yaml.safe_load(f)
-    # ss = StyleSet(**d)
-
-    # result = AnalysisResult.fromFile("test2.pkl")
-    # result = result.getResults()
-    # h1 = Histogram1D(
-    #     histogram_names=["HT", "m13_m", "h_njet", "m14_m"],
-    #     groupby=["dataset.name", "dataset.era.name", "region.region_name"],
-    #     output_name="{dataset.era.name}/{region.region_name}/{dataset.name}/{histogram_name}.pdf",
-    #     to_plot=SectorSpec(sample_spec=SampleSpec(name="signal_312_*")),
-    #     style_set=ss,
-    #     normalize=False,
-    #     plot_configuration=PlotConfiguration(y_label="Normalized Events"),
-    # )
-    # h2 = RatioPlot(
-    #     histogram_names=["HT"],
-    #     groupby=["dataset.era.name", "region.region_name"],
-    #     output_name="{dataset.era.name}/{region.region_name}/{dataset.name}/ratio_{histogram_name}.pdf",
-    #     numerator=SectorSpec(sample_spec=SampleSpec(name="signal_312_15*")),
-    #     denominator=SectorSpec(sample_spec=SampleSpec(name="signal_312_2000_1900")),
-    #     style_set=ss,
-    #     normalize=True,
-    #     plot_configuration=PlotConfiguration(y_label="Normalized Events"),
-    # )
-    # r1 = h1.getExe(result)
-    # r2 = h2.getExe(result)
-    # # [f() for f in it.chain(r2)]
-    # with cf.ProcessPoolExecutor(max_workers=8) as executor:
-    #     results = [executor.submit(f) for f in it.chain(r2, r1)]
-    #     for i in track(cf.as_completed(results), total=len(results)):
-    #         i.result()

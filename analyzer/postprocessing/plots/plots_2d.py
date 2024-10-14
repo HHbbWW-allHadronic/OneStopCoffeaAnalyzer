@@ -1,12 +1,14 @@
 from pathlib import Path
+
 import matplotlib
 import matplotlib.pyplot as plt
+from analyzer.postprocessing.style import Styler
 
 from ..utils import doFormatting
-from analyzer.postprocessing.style import Styler
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig
+
 
 def plot2D(
     histogram_name,
@@ -19,16 +21,22 @@ def plot2D(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     matplotlib.use("Agg")
-    #fig, ax = plt.subplots()
+    # fig, ax = plt.subplots()
     p = sector.sector_params
     style = styler.getStyle(p)
     h = sector.histograms[histogram_name].get()
-    art,_,_ = h.plot2d_full()
+    art = h.plot2d()
     ax = art.pcolormesh.axes
     fig = ax.get_figure()
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    addCMSBits(ax, [sector])
+    addCMSBits(
+        ax,
+        [sector],
+        extra_text=f"{p.region['region_name']}\n{p.dataset.title}",
+        text_color="white",
+        plot_configuration=plot_configuration,
+    )
     o = doFormatting(output_name, p, histogram_name=histogram_name)
     saveFig(fig, o)
     plt.close(fig)

@@ -43,6 +43,7 @@ def plotOne(
             ax=ax,
             label=sector.sector_params.dataset.title,
             density=normalize,
+            flow="none",
             **style.get("step"),
         )
         # mplhep.histplot(
@@ -53,11 +54,13 @@ def plotOne(
         #     **style.get("step"),
         # )
 
-    labelAxis(ax, "y", h.axes)
-    labelAxis(ax, "x", h.axes)
-    addCMSBits(ax, sectors)
+    labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
+    labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)
+    addCMSBits(ax, sectors, plot_configuration)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
+    mplhep.yscale_legend(ax)
+    mplhep.ylow(ax)
     o = doFormatting(output_name, p, histogram_name=histogram)
     saveFig(fig,  o)
     plt.close(fig)
@@ -96,10 +99,12 @@ def __plotStrCatOne(
             density=normalize,
             **style.get("step"),
         )
+    ax.legend()
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     ax.tick_params(axis="x", rotation=90)
-    addCMSBits(ax, sectors)
+    addCMSBits(ax, sectors, plot_configuration)
+    mplhep.yscale_legend(ax)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
 
@@ -138,6 +143,7 @@ def __plotStrCatAsTable(
         data = getter(sector)
         row_labels.append(sector.sector_params.dataset.title)
         rows.append([x[1] for x in data])
+
 
     table= ax.table(
         cellText=rows,
@@ -247,7 +253,7 @@ def plotRatio(
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
     labelAxis(ratio_ax, "x", den.axes)
-    addCMSBits(ax, (denominator,))  #
+    addCMSBits(ax, (denominator,), plot_configuration) 
     ratio_ax.set_ylabel("Ratio", loc="center")
     ax.tick_params(axis="x", which="both", labelbottom=False)
     mplhep.sort_legend(ax=ax)
@@ -257,79 +263,3 @@ def plotRatio(
     plt.close(fig)
 
 
-def drawCutflow(
-    sectors,
-    output_name,
-    style_set,
-    mode="cutflow",
-    normalize=False,
-    plot_configuration=None,
-):
-    pc = plot_configuration or PlotConfiguration()
-    styler = Styler(style_set)
-    mpl.use("Agg")
-    fig, ax = plt.subplots()
-    for sector in sectors:
-        p = sector.sector_params
-        style = styler.getStyle(p)
-        cutflow = sector.cutflow_data.cutflow.cutflow
-        data = getattr(sector.cutflow_data.cutflow, mode)
-        vals = [x[1] for x in data]
-        bins = [x[0] for x in data]
-        mplhep.histplot(
-            vals,
-            bins=bins,
-            ax=ax,
-            label=sector.sector_params.dataset.title,
-            density=normalize,
-            **style.get("step"),
-        )
-
-    ax.set_xlabel("Cut")
-    ax.set_ylabel("Events")
-    labelAxis(ax, "x", h.axes)
-    addCMSBits(ax, sectors)
-    ax.legend(loc="upper right")
-    mplhep.sort_legend(ax=ax)
-    o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig,  o)
-    plt.close(fig)
-
-
-def drawCutflow(
-    sectors,
-    output_name,
-    style_set,
-    mode="cutflow",
-    normalize=False,
-    plot_configuration=None,
-):
-    pc = plot_configuration or PlotConfiguration()
-    styler = Styler(style_set)
-    mpl.use("Agg")
-    fig, ax = plt.subplots()
-    for sector in sectors:
-        p = sector.sector_params
-        style = styler.getStyle(p)
-        cutflow = sector.cutflow_data.cutflow.cutflow
-        data = getattr(sector.cutflow_data.cutflow, mode)
-        vals = [x[1] for x in data]
-        bins = [x[0] for x in data]
-        mplhep.histplot(
-            vals,
-            bins=bins,
-            ax=ax,
-            label=sector.sector_params.dataset.title,
-            density=normalize,
-            **style.get("step"),
-        )
-
-    ax.set_xlabel("Cut")
-    ax.set_ylabel("Events")
-    labelAxis(ax, "x", h.axes)
-    addCMSBits(ax, sectors)
-    ax.legend(loc="upper right")
-    mplhep.sort_legend(ax=ax)
-    o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig,  o)
-    plt.close(fig)
