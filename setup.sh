@@ -108,11 +108,9 @@ function rcmode(){
     export HISTCONTROL="erasedups:ignoreboth"
     export HISTTIMEFORMAT='%F %T '
     export HISTIGNORE=:"&:[ ]*:exit:ls:bg:fg:history:clear"
-    shopt -s histappend
-    PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
-    shopt -s cmdhist &>/dev/null
     export HISTFILE=/srv/.bash_history
-    export CONDOR_CONFIG="$application_data/.condor_config"
+    shopt -s histappend
+    shopt -s cmdhist &>/dev/null
     export JUPYTER_PATH=$application_data/local/share/jupyter
     export JUPYTER_RUNTIME_DIR=$application_data/local/share/jupyter/runtime
     export JUPYTER_DATA_DIR=$application_data/local/share/jupyter
@@ -135,6 +133,8 @@ function rcmode(){
 
     PS1="${R}[APPTAINER\$( [[ ! -z \${VIRTUAL_ENV} ]] && echo "/\${VIRTUAL_ENV##*/}")]${M}[\t]${W}\u@${C}\h:${G}[\w]> ${NONE}"
     unset PROMPT_COMMAND
+
+    PROMPT_COMMAND="history -a;$PROMPT_COMMAND"
 
     local localpath="$VIRTUAL_ENV$(python3 -c 'import sys; print(f"/lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages")')"
     if [[ -d $localpath/argcomplete ]]; then
