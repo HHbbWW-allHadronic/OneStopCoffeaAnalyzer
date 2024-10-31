@@ -51,7 +51,7 @@ def getReplicas(dataset, client):
     (outfiles, outsites, sites_counts,) = rucio_utils.get_dataset_files_replicas(
         dataset,
         allowlist_sites=[],
-        blocklist_sites=[],
+        blocklist_sites=["T3_CH_CERN_OpenData"],
         regex_sites=[],
         mode="full",  # full or first. "full"==all the available replicas
         client=client,
@@ -282,7 +282,7 @@ class Sample(BaseModel):
         """
 
         replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
-        look_for = replica_cache / f"{self.name}.json"
+        look_for = replica_cache / f"{self.sample_id}.json"
         if not look_for.exists():
             return
         with open(look_for, "r") as f:
@@ -308,7 +308,7 @@ class Sample(BaseModel):
             )
 
         replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
-        look_for = replica_cache / f"{self.name}.json"
+        look_for = replica_cache / f"{self.sample_id}.json"
 
         if look_for.exists() and not force:
             return
