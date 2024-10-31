@@ -10,7 +10,7 @@ def registerPostprocessor(cls):
 
 
 
-def loadPostprocessors(file_path, root="Postprocessing", defaults_root="Default"):
+def loadPostprocessors(file_path, root="Postprocessing", defaults_root="PostDefaults"):
     with open(file_path, "r") as f:
         d = yaml.safe_load(f)
     data = d[root]

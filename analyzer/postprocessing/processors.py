@@ -223,8 +223,8 @@ if __name__ == "__main__":
 
     setup_logging()
 
-    loaded = loadPostprocessors("configurations/post.yaml")
-    result = AnalysisResult.fromFile("results/histograms/2024_10_06.pkl")
+    loaded = loadPostprocessors("configurations/official_mc_comp.yaml")
+    result = AnalysisResult.fromFile("results/histograms/comp.pkl")
     result = result.getResults()
     tasks = []
     for processor in loaded:
