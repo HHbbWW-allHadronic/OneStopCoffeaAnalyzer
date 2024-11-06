@@ -1,4 +1,3 @@
-
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
 
@@ -6,7 +5,6 @@ from .utils.math_funcs import angleToNPiToPi
 from .utils.axes import makeAxis, CommonAxes
 
 
-# @histogram_builderModule("b_hists", categories="main", depends_on=["objects"])
 @MODULE_REPO.register(ModuleType.Histogram)
 def b_quark_kinematics(events, params, histogram_builder, working_point="M"):
     mapping = {"M": "med", "L": "loose", "T": "tight"}

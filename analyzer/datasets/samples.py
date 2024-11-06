@@ -462,7 +462,3 @@ class DatasetRepo:
         return repo
 
 
-if __name__ == "__main__":
-    dm = DatasetRepo()
-    dm.load("analyzer_resources/datasets")
-    print(dm["signal_312_2000_1900"])

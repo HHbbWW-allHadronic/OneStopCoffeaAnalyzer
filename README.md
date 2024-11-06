@@ -33,7 +33,6 @@ source setup.sh
 
 This will run a setup script that will create a complete environment, and use this same environment is used on worker nodes.
 
-
 If this is the first time you have run the analyzer, you will also to populate the replica cache using
 
 ``` shell
