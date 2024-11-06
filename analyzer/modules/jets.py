@@ -19,7 +19,7 @@ def njets(events, params, analyzer):
 def goodjet_ht(events, params, analyzer):
     analyzer.H(
         f"HT",
-        makeAxis(60, 0, 3000, "HT", unit="GeV"),
+        makeAxis(120, 0, 3000, "HT", unit="GeV"),
         events.HT,
         description="Sum of $p_T$ of good AK4 jets.",
     )
@@ -94,7 +94,7 @@ def jet_combo_kinematics(events, params, analyzer):
         mtitle = 4 if j - i == 4 else 3
         analyzer.H(
             rf"m{i+1}{j}_m",
-            makeAxis(60, 0, 3000, f"$m_{{{mtitle}}}$", unit="GeV"),
+            makeAxis(120, 0, 3000, f"$m_{{{mtitle}}}$", unit="GeV"),
             jets.mass,
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
