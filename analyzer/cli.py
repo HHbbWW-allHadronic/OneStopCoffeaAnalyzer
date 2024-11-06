@@ -8,20 +8,25 @@ from analyzer.logging import setup_logging
 logger = logging.getLogger(__name__)
 
 
-def makeCluster(args, **kwargs):
+def makeCluster(args, config=None, **kwargs):
     from analyzer.clients import createNewCluster
     from distributed.client import Client
 
+    workers = args.workers or config.max_workers
+    timeout = args.timeout or config.worker_timeout
+    cluster_type = args.type or config.cluster_type
+    memory = args.memory or config.worker_memory
+
     logger.info("Handling cluster-start")
     config = {
-        "max_workers": args.workers,
-        "memory": args.memory,
+        "max_workers": workers,
+        "memory": memory,
         "schedd_host": args.scheduler,
         "dashboard_host": args.dashboard,
-        "timeout": args.timeout,
+        "timeout": timeout,
         **kwargs,
     }
-    client = Client(createNewCluster(args.type, config))
+    client = Client(createNewCluster(cluster_type, config))
     return client
 
 
@@ -66,9 +71,9 @@ def handleRun(args):
     from analyzer.core import loadDescription, preprocessAnalysis, runFromFile
 
     desc = loadDescription(args.input)
-    extra_files = desc.execution_config.extra_files
-
-    client = makeCluster(args, extra_files=extra_files)
+    exec_config = desc.execution_config
+    extra_files = exec_config.extra_files
+    client = makeCluster(args, config=exec_config, extra_files=extra_files)
     # while (client.status == "running") and (
     #     len(client.scheduler_info()["workers"]) < 20
     # ):
@@ -101,7 +106,6 @@ def commonDask(parser):
         "-t",
         "--type",
         type=str,
-        required=True,
         help="Type of cluster",
     )
     parser.add_argument(
@@ -119,15 +123,15 @@ def commonDask(parser):
         help="Host for scheduler",
     )
     parser.add_argument(
-        "-w", "--workers", required=True, type=int, help="Number of workers"
+        "-w", "--workers", default=None, type=int, help="Number of workers"
     )
     parser.add_argument(
-        "-m", "--memory", default="4.0G", type=str, help="Worker memory"
+        "-m", "--memory", default=None, type=str, help="Worker memory"
     )
     parser.add_argument(
         "--timeout",
         type=int,
-        default=3600,
+        default=None,
         help="Maximum time in seconds to run the cluster",
     )
 
@@ -201,6 +205,7 @@ def addGeneralArguments(parser):
 
 
 def runCli():
+    import argcomplete
     parser = argparse.ArgumentParser(prog="SingleStopAnalyzer")
     addGeneralArguments(parser)
 
@@ -212,7 +217,7 @@ def runCli():
     addSubparserPatchPreprocess(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
 
-    # argcomplete.autocomplete(parser)
+    argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 

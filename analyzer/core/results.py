@@ -265,7 +265,7 @@ def checkResult(input_path):
         result = pkl.load(f)
         result = AnalysisResult(**result)
     dr = DatasetRepo.getConfig()
-    wanted_samples = list(result.preprocessed_samples)
+    wanted_samples = sorted(list(result.preprocessed_samples))
     processed = result.raw_events_processed
 
     table = Table(title="Missing Events")

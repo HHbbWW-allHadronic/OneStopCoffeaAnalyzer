@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 class AnalysisStage(str, enum.Enum):
     Preselection = "Preselection"
+    PreObjectCorrect = "PreObjectCorrection"
     ObjectDefinition = "ObjectDefinition"
     Selection = "Selection"
     Weights = "Weights"

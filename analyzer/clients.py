@@ -158,6 +158,7 @@ cluster_factory = dict(
 def createNewCluster(cluster_type, config):
     """Creates a general new cluster of a certain given a configuration."""
 
+    logger.info(f"Creating new cluster with configuration:\n{config}")
     with open(CONFIG.DASK_CONFIG_PATH) as f:
         defaults = yaml.safe_load(f)
         dask.config.update(dask.config.config, defaults, priority="new")

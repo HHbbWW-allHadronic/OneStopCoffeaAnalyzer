@@ -192,15 +192,6 @@ class Analyzer:
         logger.debug(f"Loading files:\n {list(files)}.")
         num_tries = 0
         max_tries = 1
-        # events, report = NanoEventsFactory.from_root(
-        #     files,
-        #     schemaclass=NanoAODSchema,
-        #     uproot_options=dict(
-        #         allow_read_errors_with_report=True,
-        #         timeout=30,
-        #     ),
-        #     #known_base_form=maybe_base_form,
-        # ).events()
         logger.info(f"Using files:\n{files}")
         while num_tries < max_tries:
             num_tries += 1
