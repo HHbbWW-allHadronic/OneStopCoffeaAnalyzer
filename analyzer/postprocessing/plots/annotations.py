@@ -19,9 +19,9 @@ def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration
         text += "\n" + extra_text
     a,b,c=mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)
     if text_color is not None:
-        a.set(color=text_color)
-        b.set(color=text_color)
-        c.set(color=text_color)
+        a.set(color=plot_configuration.cms_text_color)
+        b.set(color=plot_configuration.cms_text_color)
+        c.set(color=plot_configuration.cms_text_color)
         
 
 

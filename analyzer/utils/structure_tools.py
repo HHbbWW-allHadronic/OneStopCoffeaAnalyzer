@@ -25,13 +25,13 @@ def get_git_revision_short_hash() -> str:
     )
 
 
-def deepMerge(a: dict, b: dict, path=[]):
+def deepMerge(a: dict, b: dict, path=[], overwrite=True):
     for key in b:
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
                 deepMerge(a[key], b[key], path + [str(key)])
-            elif a[key] != b[key]:
-                raise Exception('Conflict at ' + '.'.join(path + [str(key)]))
+            # elif a[key] != b[key]:
+            #     raise Exception('Conflict at ' + '.'.join(path + [str(key)]))
         else:
             a[key] = b[key]
     return a

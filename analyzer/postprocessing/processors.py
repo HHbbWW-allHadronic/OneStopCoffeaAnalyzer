@@ -2,14 +2,16 @@ import concurrent.futures as cf
 import functools as ft
 import logging
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Literal
+from analyzer.datasets import SampleId
+
+import yaml
 
 import pydantic as pyd
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
-from rich.progress import track, Progress
+from rich.progress import Progress, track
 
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
@@ -72,7 +74,9 @@ class ExportHists(pyd.BaseModel):
     output_name: str = "{histogram_name}"
 
     def getExe(self, results):
-        sectors = [x for x in results.values() if self.to_export.passes(x.sector_params)]
+        sectors = [
+            x for x in results.values() if self.to_export.passes(x.sector_params)
+        ]
         r = createSectorGroups(sectors, *self.groupby)
         ret = []
         for histogram in self.histogram_names:
@@ -104,6 +108,8 @@ class Histogram2D(pyd.BaseModel):
     axis_options: Optional[dict[str, Union[Mode, str, int]]] = None
     normalize: bool = False
 
+    color_scale: Literal["log", "linear"] = "linear"
+
     plot_configuration: Optional[PlotConfiguration] = None
 
     def getExe(self, results):
@@ -121,6 +127,7 @@ class Histogram2D(pyd.BaseModel):
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=self.plot_configuration,
+                        color_scale=self.color_scale
                     )
                 )
         return ret
@@ -216,16 +223,22 @@ class DatasetRatioPlot(pyd.BaseModel):
 
 if __name__ == "__main__":
     from analyzer.logging import setup_logging
-
     from .plots.mplstyles import loadStyles
 
     loadStyles()
 
     setup_logging()
 
-    loaded = loadPostprocessors("configurations/official_mc_comp.yaml")
-    result = AnalysisResult.fromFile("results/histograms/comp.pkl")
-    result = result.getResults()
+    loaded = loadPostprocessors("configurations/post.yaml")
+    # result = AnalysisResult.fromFile("results/histograms/2024_10_06.pkl")
+    result = AnalysisResult.fromFile("results/histograms/2024_11_05_patched.pkl")
+    # result = AnalysisResult.fromFile("test.pkl")
+    # print(list(result.results.keys()))
+    result = result.getResults(drop_samples=[
+        SampleId("QCDInclusive2018", "QCDInclusive2018_HT50to100"),
+        SampleId("QCDInclusive2018", "QCDInclusive2018_HT100to200"),
+        # SampleId("QCDInclusive2018", "QCDInclusive2018_HT300to500"),
+                                             ])
     tasks = []
     for processor in loaded:
         processor.init()
@@ -234,10 +247,10 @@ if __name__ == "__main__":
     # results = [f() for f in tasks]
     # import sys
     # sys.exit()
+    print("HERE")
     with Progress() as progress:
         task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
         with cf.ProcessPoolExecutor(max_workers=8) as executor:
             results = [executor.submit(f) for f in tasks]
             for i in cf.as_completed(results):
                 progress.advance(task_id)
-

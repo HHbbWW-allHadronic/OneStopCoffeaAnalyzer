@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from analyzer.postprocessing.style import Styler
@@ -17,6 +18,7 @@ def plot2D(
     style_set,
     normalize=False,
     plot_configuration=None,
+    color_scale="linear",
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -25,7 +27,12 @@ def plot2D(
     p = sector.sector_params
     style = styler.getStyle(p)
     h = sector.histograms[histogram_name].get()
-    art = h.plot2d()
+    if normalize:
+        h = h/np.sum(h.values())
+    if color_scale == "log":
+        art = h.plot2d(norm=matplotlib.colors.LogNorm())
+    else:
+        art = h.plot2d()
     ax = art.pcolormesh.axes
     fig = ax.get_figure()
     labelAxis(ax, "y", h.axes)

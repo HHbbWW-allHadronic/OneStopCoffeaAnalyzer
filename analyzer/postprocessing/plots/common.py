@@ -6,6 +6,8 @@ class PlotConfiguration(pyd.BaseModel):
     extra_text: Optional[str] = None
     cms_text: Optional[str] = None
     cms_text_pos: int = 2
+    cms_text_color: Optional[str] = None
+
 
     x_scale: Optional[str] = "linear"
     y_scale: Optional[str] = "linear"
