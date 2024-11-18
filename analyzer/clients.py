@@ -122,7 +122,7 @@ def createLPCCondorCluster(
         log_directory=logpath,
         scheduler_options=dict(
             # address=schedd_host,
-            dashboard_address=":12358"
+            dashboard_address=dashboard_address
         ),
         **kwargs,
     )

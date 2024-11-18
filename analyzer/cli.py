@@ -53,8 +53,9 @@ def handlePatchRun(args):
 
     desc = AnalysisResult.fromFile(args.input).description
     extra_files = desc.execution_config.extra_files
+    exec_config = desc.execution_config
 
-    client = makeCluster(args, extra_files=extra_files)
+    client = makeCluster(args, config=exec_config, extra_files=extra_files)
 
     output = args.output or args.input
     patchAnalysisResult(args.input, output)
