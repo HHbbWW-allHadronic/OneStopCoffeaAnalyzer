@@ -1,4 +1,5 @@
 import copy
+from analyzer.core import MODULE_REPO, ModuleType
 
 import numpy as np
 
@@ -111,6 +112,29 @@ def smearJets(jets, jer, jet_type, cset, jer_conf, systematic="nom"):
     jets_smeared['pt'] = jets['pt'] * final_factor
     jets_smeared['mass'] = jets['mass'] * final_factor
     return jets_smeared
+
+
+
+
+
+
+@MODULE_REPO.register(ModuleType.Selection)
+def applyJetVetoMap(events):
+    pass
+
+
+@MODULE_REPO.register(ModuleType.Correction)
+def applyJetCorrections(columns):
+    nominal_corrected = makeNominalCorrection(events.Jets)
+    columns["corrected_jets"] = nominal_corrected
+    columns["corrected_jets"] = ("jec_up", jec_up)
+    columns["corrected_jets"] = ("jec_down", jec_down)
+
+
+
+    
+
+
 
 
 

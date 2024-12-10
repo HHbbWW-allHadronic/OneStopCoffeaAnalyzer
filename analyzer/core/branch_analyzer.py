@@ -33,7 +33,7 @@ from .preprocessed import SamplePreprocessed, preprocessBulk, preprocessRaw
 from .results import AnalysisResult, SectorResult, SelectionResult, SubSectorResult
 from .sector import SubSector, getParamsForSubSector
 from .selection import SelectionManager
-from .specifiers import SubSectorId
+from .specifiers import SubSectorId, BranchId
 from .weights import WeightManager
 
 if CONFIG.PRETTY_MODE:
@@ -41,82 +41,25 @@ if CONFIG.PRETTY_MODE:
     from rich.progress import track
 
 
-logger = logging.getLogger("analyzer.core")
 
-@dataclass
-class Category:
-    name: str
-    axis: Any
-    values: Any
-    distinct_values: set[Union[int, str, float]] = field(default_factory=set)
+
+
 
 
 class SubSectorAnalyzer:
-    class Selector:
-        def __init__(self, parent, subsector_id, stage):
-            self.parent = parent
-            self.stage = stage
-            self.subsector_id = subsector_id
+    def run(self, columns):
+        return SubSectorResult
 
-        def add(self, name, mask, type="and"):
-            return self.parent.addSelection(
-                self.subsector_id, name, mask, type=type, stage=self.stage
-            )
-
-    class Weighter:
-        def __init__(self, parent, subsector_id):
-            self.parent = parent
-            self.subsector_id = subsector_id
-
-        def add(self, *args, **kwargs):
-            return self.parent.addWeight(self.subsector_id, *args, **kwargs)
-
-    class Categorizer:
-        def __init__(self, parent, subsector_id):
-            self.parent = parent
-            self.subsector_id = subsector_id
-
-        def add(self, *args, **kwargs):
-            return self.parent.addCategory(self.subsector_id, *args, **kwargs)
-
-    class Histogrammer:
-        def __init__(self, parent, subsector_id):
-            self.parent = parent
-            self.subsector_id = subsector_id
-
-        def addHistogram(self, *args, **kwargs):
-            return self.parent.addHistogram(self.subsector_id, *args, **kwargs)
-
-        def H(self, *args, **kwargs):
-            return self.parent.makeHistogram(self.subsector_id, *args, **kwargs)
+class SampleAnalyzer:
+    pass
 
 
-def getProcessedChunks(run_report):
-    good_mask = ak.is_none(run_report["exception"])
-    rr = run_report[good_mask]
-    return {
-        (
-            extractCmsLocation(x["args"][0][1:-1]),
-            int(x["args"][2]),
-            int(x["args"][3]),
-        )
-        for x in rr
-    }
-
+def analyzeBranch(columns,  SampleAnalyzer:)
 
 @dataclass
-class Analyzer:
-    description: AnalysisDescription
-    dataset_repo: DatasetRepo
-    era_repo: EraRepo
-    preprocessed_samples: dict[SampleId, SamplePreprocessed] = field(
-        default_factory=dict
-    )
-
-    _sample_events: dict[SampleId, Any] = field(default_factory=dict)
-    _sample_reports: dict[SampleId, Any] = field(default_factory=dict)
-    _preselected_events: dict[SampleId, Any] = field(default_factory=dict)
-    _subsector_events: dict[SubSectorId, Any] = field(default_factory=dict)
+class BranchAnalyzer:
+    _preselected_events: Any
+    _selected_events: Any
 
     weight_manager: WeightManager = field(default_factory=WeightManager)
     selection_manager: SelectionManager = field(default_factory=SelectionManager)
@@ -124,8 +67,7 @@ class Analyzer:
         default_factory=lambda: defaultdict(dict)
     )
 
-    subsectors: list[SubSector] = field(default_factory=list)
-
+    branches: list[BranchId] = field(default_factory=list)
     results: dict[SubSectorId, SubSectorResult] = field(default_factory=dict)
 
     user_execution_options: Optional[ExecutionConfig] = None
@@ -500,273 +442,3 @@ def buildAnalysisResult(analyzer):
         results=analyzer.results,
         total_mc_weights=mc_weights,
     )
-
-
-def patchPreprocessed(
-    dataset_repo, preprocessed_samples, file_retrieval_kwargs=None, step_size=None
-):
-    samples = {p.sample_id: p for p in copy.deepcopy(preprocessed_samples)}
-    missing_dict = defaultdict(dict)
-    dr = DatasetRepo.getConfig()
-
-    for n, prepped in samples.items():
-        logger.info(f"Inspecting sample {n}")
-        if file_retrieval_kwargs is None:
-            frk = prepped.file_retrieval_kwargs or {}
-        if step_size is None:
-            step_size = prepped.step_size
-        x = prepped.missingCoffeaDataset(dr, **frk)
-        logger.info(f"Found {len(x['files'])} files missing from dataset {n}")
-        if x["files"]:
-            missing_dict[step_size].update({n: x})
-
-    def k(x):
-        return x[0]
-
-    g = it.groupby(sorted(missing_dict.items(), key=k), key=k)
-    for ss, vals in g:
-        vals = dict(it.chain.from_iterable(x[1].items() for x in vals))
-        mapping = {str(x): x for x in vals}
-        v = {str(x): y for x, y in vals.items()}
-        new = preprocessRaw(v, step_size=ss)
-        for n, v in new.items():
-            samples[mapping[n]] = samples[mapping[n]].addCoffeaChunks(v)
-    return samples
-
-
-def makeResultPatch(
-    result, dataset_repo, era_repo, execution_config=None, file_config=None
-):
-    temp_result = AnalysisResult(
-        description=result.description,
-        preprocessed_samples=result.preprocessed_samples,
-        processed_chunks=result.processed_chunks,
-        results={},
-        total_mc_weights={},
-    )
-    temp_result.preprocessed_samples = patchPreprocessed(
-        dataset_repo,
-        [
-            x
-            for x in temp_result.preprocessed_samples.values()
-            if "100to200" not in x.sample_id.sample_name
-        ],
-    )
-    logger.info(f"Finished patching preprocessed samples")
-
-    logger.info(f"Examining missing chunks")
-    missing_prepped = temp_result.createMissingRunnable()
-
-    # print(missing_prepped)
-
-    logger.info(
-        f"Found {len(missing_prepped)} samples with missing chunks:"
-        + ",".join(str(x) for x in missing_prepped)
-    )
-    if not missing_prepped:
-        logger.info(f"No missing chunks, nothing to do")
-        return
-
-    new_analyzer = Analyzer(
-        result.description,
-        dataset_repo,
-        era_repo,
-        user_execution_options=execution_config,
-        user_file_options=file_config,
-    )
-    new_analyzer.preprocessed_samples = missing_prepped
-    return new_analyzer
-
-
-def preprocessAnalysis(
-    input_path, output_path, execution_config=None, file_config=None
-):
-    logger.info(f"Preprocessing analysis from file {input_path}")
-    an = loadDescription(input_path)
-    logger.info(f"Loaded analysis description {an.name}")
-    dm = DatasetRepo.getConfig()
-    samples = list(
-        it.chain(*[[x.sample_id for x in dm[y].samples] for y in an.samples])
-    )
-    logger.info(f"Preprocessing {samples}")
-    loc_prio = an.getFileOpts().location_priority_regex
-    step_size = an.getExecOpts().step_size
-    logger.info(f"Preprocessing with location priority:\n{loc_prio}")
-    logger.info(f"Preprocessing samples with chunk size {step_size}")
-
-    result = preprocessBulk(dm, samples, step_size=step_size, file_retrieval_kwargs=frk)
-    out = Path(output_path)
-    out.parent.mkdir(exist_ok=True, parents=True)
-    to_dump = [x.model_dump() for x in result]
-    with open(out, "wb") as f:
-        pkl.dump(to_dump, f)
-    logger.info(f'Saved preprocessed samples to "{out}"')
-
-
-def patchPreprocessedFile(
-    input_path, output_path, execution_config=None, file_config=None
-):
-    with open(input_path, "rb") as f:
-        data = pkl.load(f)
-        data = [SamplePreprocessed(**x) for x in data]
-
-    dm = DatasetRepo.getConfig()
-    result = patchPreprocessed(
-        dm, data, step_size=step_size, file_retrieval_kwargs=file_kwargs
-    )
-    out = Path(output_path)
-    out.parent.mkdir(exist_ok=True, parents=True)
-    to_dump = [x.model_dump() for x in result]
-    with open(out, "wb") as f:
-        pkl.dump(to_dump, f)
-
-
-def patchAnalysisResult(input_path, output_path):
-    logger.info(f'Patching analysis result from "{input_path}"')
-    with open(input_path, "rb") as f:
-        result = pkl.load(f)
-        result = AnalysisResult(**result)
-    logger.info("Creating analyzer patch")
-
-    dr = DatasetRepo.getConfig()
-    analyzer = makeResultPatch(result, dr, EraRepo.getConfig())
-    logger.info("Created analyzer patch")
-    if not analyzer:
-        return
-    patched_result = executeAnalysis(analyzer, output_path)
-
-    new_result = result + patched_result
-    saveResult(new_result, output_path)
-
-
-def runFromFile(input_path, output_path, preprocessed_input_path=None):
-
-    logger.info(distributed.client._get_global_client())
-    if preprocessed_input_path:
-        with open(preprocessed_input_path, "rb") as prep_file:
-            preprocessed_input = pkl.load(prep_file)
-            preprocessed_input = [SamplePreprocessed(**x) for x in preprocessed_input]
-            preprocessed_input = {x.sample_id: x for x in preprocessed_input}
-    else:
-        preprocessed_input = {}
-    an = loadDescription(input_path)
-    analyzer = Analyzer(an, DatasetRepo.getConfig(), EraRepo.getConfig())
-    result = executeAnalysis(analyzer, output_path)
-    saveResult(result, output_path)
-
-
-def saveResult(result, output_path):
-    output_path = Path(output_path)
-    output_path.parent.mkdir(exist_ok=True, parents=True)
-    try:
-        with open(output_path, "wb") as f:
-            pkl.dump(result.model_dump(), f)
-    except Exception as e:
-        logger.error(f"An error occurred while attempting to save the results:\n {e}")
-        logger.error(result.model_dump())
-        raise e
-
-
-def executeAnalysis(analyzer, output_path):
-    res = buildAnalysisResult(analyzer)
-    dumped = res.model_dump()
-
-    def groupBySample(data):
-        def getS(x):
-            if isinstance(x, SampleId):
-                return x  # .sample_name
-            if isinstance(x, SubSectorId):
-                return x.sample_id  # .sample_name
-            return x
-
-        ret = {}
-        for x, y in data.items():
-            l = ret.setdefault(x, {})
-            for k, v in y.items():
-                d = l.setdefault(getS(k), {})
-                d[k] = v
-
-        keys = list(it.chain.from_iterable(x.keys() for x in ret.values()))
-        return {key: {k: ret[k][key] for k in ret if key in ret[k]} for key in keys}
-
-    p = {
-        "processed_chunks": {x: y for x, y in res.processed_chunks.items()},
-        "results": {x: y.model_dump() for x, y in res.results.items()},
-        "total_mc_weights": {x: y for x, y in res.total_mc_weights.items()},
-    }
-    grouped = groupBySample(p)
-    l = list(grouped.items())
-    l = sorted(l, key=lambda x: len(analyzer.preprocessed_samples[x[0]].chunks))
-    min_chunks_per_submit = 50
-    current_list = []
-    current = 0
-
-    ret = {}
-    for sample, val in l:
-        current += len(analyzer.preprocessed_samples[sample].chunks)
-        current_list.append((sample, val))
-        if current >= min_chunks_per_submit:
-            logger.info(f"Processing samples: {[x for x,_ in current_list]}")
-            try:
-                portion_computed = dask.compute(current_list)[0]
-                for sample, res in portion_computed:
-                    logger.info(f'Adding sample "{sample}" to result.')
-                    ret[sample] = res
-            except Exception as e:
-                logger.error(
-                    f"An error occurred that caused an exception dask.compute. "
-                    f"This caused {len(current_list)} samples ({current} chunks) to be discarded from computation."
-                    f"The analyzer will continue processing other samples, but will need to patched. "
-                    f"This was caused by the following exception:\n{e}."
-                )
-            current = 0
-            current_list = []
-    if current_list:
-        logger.info(f"Processing samples: {[x for x,_ in current_list]}")
-        try:
-            portion_computed = dask.compute(current_list)[0]
-            for sample, res in portion_computed:
-                logger.info(f'Adding sample "{sample}" to result.')
-                ret[sample] = res
-        except Exception as e:
-            logger.error(
-                f"An error occurred that caused an exception dask.compute. "
-                f"This caused {len(current_list)} samples ({current} chunks) to be discarded from computation."
-                f"The analyzer will continue processing other samples, but will need to patched. "
-                f"This was caused by the following exception:\n{e}."
-            )
-    logger.info(f"Done processing all samples.")
-
-    computed = ret
-    final = {}
-
-    final["total_mc_weights"] = dict(
-        it.chain.from_iterable(
-            (x.get("total_mc_weights", {}).items() for x in computed.values())
-        )
-    )
-    final["results"] = dict(
-        it.chain.from_iterable((x["results"].items() for x in computed.values()))
-    )
-
-    final["processed_chunks"] = dict(
-        it.chain.from_iterable(
-            (x["processed_chunks"].items() for x in computed.values())
-        )
-    )
-
-    final["processed_chunks"] = {  #
-        x: getProcessedChunks(y) for x, y in final["processed_chunks"].items()
-    }
-
-    final = {**dumped, **final}
-
-    final_result = AnalysisResult(**final)
-
-    out = Path(output_path)
-
-    out.parent.mkdir(exist_ok=True, parents=True)
-
-    logger.info(f"Saving results to {out}")
-
-    return final_result

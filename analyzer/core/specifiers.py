@@ -28,6 +28,18 @@ class SubSectorId:
             return value
 
 
+@pyd.dataclasses.dataclass(frozen=True)
+class ShapeVariationId:
+    column_name: str
+    shape_variation: str
+
+
+@pyd.dataclasses.dataclass(frozen=True)
+class BranchId:
+    region_name: str
+    shape_variation: Optional[ShapeVariationId,str] = None
+    
+
 class SectorParams(pyd.BaseModel):
     dataset: DatasetParams
     region: dict[str, Any]

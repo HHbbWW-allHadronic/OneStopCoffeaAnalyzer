@@ -220,11 +220,19 @@ class AnalysisResult(pyd.BaseModel):
 
         desc = copy.copy(self.description)
         new_results = accumulate([self.results, other.results])
+        new_weights = copy.deepcopy(self.total_mc_weights)
+        for k,v in other.total_mc_weights.items():
+            if v is not None:
+                new_weights[k] = v
+        
+        new_weights = accumulate([self.total_mc_weights, other.total_mc_weights])
         return AnalysisResult(
             description=self.description,
             preprocessed_samples=self.preprocessed_samples,
             processed_chunks=self.processed_chunks,
             results=new_results,
+            total_mc_weights=new_weights,
+
         )
 
     def getResults(self, drop_samples=None):
@@ -232,6 +240,7 @@ class AnalysisResult(pyd.BaseModel):
         scaled_sample_results = defaultdict(list)
         for subsector_id, result in self.results.items():
             if subsector_id.sample_id in drop_samples:
+                logger.warn(f"Not including subsector \"{subsector_id}\"")
                 continue
             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
 

@@ -85,8 +85,8 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_mChiUncomp",
         makeAxis(
-            60,
-            0,
+            120,
+            500,
             3000,
             rf"mChiUncomp",
             unit="GeV",
@@ -96,16 +96,16 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_m14_vs_mChiUncomp",
         [
-            makeAxis(60, 0, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(60, 0, 3000, r"$m_{3 (NN)}$", unit="GeV"),
+            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(120, 500, 3000, r"$m_{3 (NN)}$", unit="GeV"),
         ],
         [m14, mChiUncomp],
     )
     analyzer.H(
         f"{model_name}_m14_vs_mChiUncompRatio",
         [
-            makeAxis(60, 0, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(60, 0, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
+            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(120, 0.15, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
         ],
         [m14, mChiUncomp / m14],
     )
@@ -117,7 +117,7 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_mChiComp",
         makeAxis(
-            60,
+            120,
             0,
             3000,
             rf"mChiComp",
@@ -128,16 +128,16 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_m14_vs_mChiComp",
         [
-            makeAxis(60, 0, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(60, 0, 3000, r"$m_{3 (NN)}$", unit="GeV"),
+            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(120, 0.15, 3000, r"$m_{3 (NN)}$", unit="GeV"),
         ],
         [m14, mChiComp],
     )
     analyzer.H(
         f"{model_name}_m14_vs_mChiCompRatio",
         [
-            makeAxis(60, 0, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(60, 0, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
+            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(120, 0.15, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
         ],
         [m14, mChiComp / m14],
     )
