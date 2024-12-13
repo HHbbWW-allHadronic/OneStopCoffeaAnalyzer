@@ -2,6 +2,7 @@ from pathlib import Path
 import matplotlib.font_manager as font_manager
 import matplotlib.pyplot as plt
 from analyzer.configuration import CONFIG
+import mplhep
 
 def loadStyles():
     font_dirs = [str(Path(CONFIG.STATIC_PATH)/"fonts")]
@@ -9,5 +10,6 @@ def loadStyles():
     font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
     for font in font_files:
         font_manager.fontManager.addfont(font)
+    # mplhep.
     plt.style.use(style)
 

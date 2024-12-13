@@ -36,9 +36,3 @@ class ColumnManager:
             return col.nominal_value
         else:
             return col.shape_variations[variation]
-
-
-@dataclass(frozen=True)
-class ShapeSystematicId:
-    column_name: str
-    variation_name: str

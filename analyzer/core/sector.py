@@ -10,17 +10,13 @@ from .specifiers import SectorParams, SubSectorId, SubSectorParams
 @dataclass
 class SubSector:
     subsector_id: SubSectorId
-
     description: str = ""
-
     forbid_data: bool = False
-
     # Parts of the analysis.
     preselection: list[AnalyzerModule] = field(default_factory=list)
     objects: list[AnalyzerModule] = field(default_factory=list)
     selection: list[AnalyzerModule] = field(default_factory=list)
     categories: list[AnalyzerModule] = field(default_factory=list)
-    # preselection_histograms: list[AnalyzerModule] = field(default_factory=list)
     histograms: list[AnalyzerModule] = field(default_factory=list)
     weights: list[AnalyzerModule] = field(default_factory=list)
 

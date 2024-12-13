@@ -31,8 +31,6 @@ class WeightManager:
         else:
             self.weights[subsector_id].add(weight_name, central)
 
-
-
     def variations(self, subsector_id):
         return list(self.weights[subsector_id].variations)
 

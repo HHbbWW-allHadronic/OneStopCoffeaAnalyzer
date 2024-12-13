@@ -89,12 +89,10 @@ def maybeFlatten(data):
 
 
 def fillHistogram(
-    histogram, cat_values, fill_data, weight, variation_val=None, mask=None
+    histogram, cat_values, fill_data, weight=None, variation_val="central", mask=None
 ):
     if variation_val:
         all_values = [variation_val] + cat_values + [maybeFlatten(x) for x in fill_data]
-    else:
-        all_values = cat_values + [maybeFlatten(x) for x in fill_data]
     if weight is not None:
         histogram.fill(*all_values, weight=weight)
     else:
@@ -127,32 +125,38 @@ def __weightedCollection(
     represenative = fill_data[0]
 
     if active_shape_systematic is not None:
-        variations = []
+        weight_variations = []
         if spec.variations and spec.active_shape_systematic not in spec.variations:
             return None
+        central_name = active_shape_systematic
     else:
-        variations = spec.variations
+        central_name = "centra"
+        weight_variations = spec.variations
 
     central_weight = weight_repo.weight(modifier=None)
 
-    axis_labels = ["central", *variations]
+    variations_axis = hist.axis.StrCategory(central_name, name="variation", grow=True)
 
-    variations_axis = hist.axis.StrCategory(axis_labels, name="variation", grow=True)
     all_axes = [variations_axis] + [x.axis for x in categories] + spec.axes
-    cat_values = [transformToFill(represenative, x.values, mask) for x in categories]
     histogram = dah.Hist(*all_axes, storage=spec.storage)
-    central_weight = transformToFill(represenative, central_weight, mask)
 
-    base_variation_val = active_shape_systematic or "central"
+    if central_weight is not None:
+        central_weight = transformToFill(represenative, central_weight, mask)
+        
+    cat_values = [transformToFill(represenative, x.values, mask) for x in categories]
+
+    logger.debug(f"Filling histogram with variation \"{central_name}\"")
     fillHistogram(
         histogram,
         cat_values,
         fill_data,
         central_weight,
-        variation_val=active_shape_systematic,
+        variation_val=central_name
         mask=mask,
     )
-    for variation in variations:
+
+    for weight_variation in weight_variations:
+        logger.debug(f"Filling histogram with variation \"{variation}\"")
         w = weight_repo.weight(modifier=variation)
         real_weight = transformToFill(represenative, w, mask)
         fillHistogram(

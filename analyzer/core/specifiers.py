@@ -34,10 +34,6 @@ class ShapeVariationId:
     shape_variation: str
 
 
-@pyd.dataclasses.dataclass(frozen=True)
-class BranchId:
-    region_name: str
-    shape_variation: Optional[ShapeVariationId,str] = None
     
 
 class SectorParams(pyd.BaseModel):
