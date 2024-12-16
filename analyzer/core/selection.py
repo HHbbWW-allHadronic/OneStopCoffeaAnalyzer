@@ -1,7 +1,7 @@
 import functools as ft
 import logging
 import operator as op
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -62,44 +62,38 @@ class Cutflow(BaseModel):
 
 
 @dataclass
-class SampleSelection:
+class RelativeSelections:
     """
     Selection for a single sample.
     Stores the preselection and selection masks.
     The selection mask is relative to the "or" of all the preselection cuts.
 
-    The general flow for a single sample looks like
-
-
-    AllEvents -> Generate Preselection Masks -> AllEvents[PassAnyPreselectionCut]
-    -> Generate Selection Mask -> Add Preselection Masks to Selection Mask
-    -> Apply Appropriate Cuts for Each Region -> Final Trimmed Events
-
     """
 
-    preselection_mask: PackedSelection = field(default_factory=PackedSelection)
-    selection_mask: PackedSelection = field(default_factory=PackedSelection)
+    relative_selections: OrderedDict[Any, PackedSelection] = field(default_factory=PackedSelection)
 
-    def getPreselectionMask(self):
-        names = self.preselection_mask.names
+    def getInclusiveMask(self, stage):
+        sel = self.relative_selections[stage]
+        names = self.sel.names
         if not names:
             return None
-        return self.preselection_mask.any(*names)
+        return sel.any(*names)
 
-    def addPreselectionMaskToSelection(self, complete_mask):
+
+    def __cascadeInternal(self, prev_stage, next_stage)
+
+    def cascadeToStage(self, target_stage):
         """After finalizing selection  we want to add the preselection cuts to the analysis selection, so that we can generate cutflows etc.
         This function takes each preselection mask and adds the appropriate portion to the final selection, based on complete_mask, which should be the mask used to the compute the events post-preselection (ie the events that are ultimately selected on)
         """
-        for n in self.preselection_mask.names:
-            if complete_mask is None:
-                self.addMask(
-                    n, self.preselection_mask.any(n), stage=AnalysisStage.Selection
-                )
-            else:
+        for stage,sel in self.relative_selections.items():
+            if stage == target_stage:
+                break
+            for n in sel.names:
                 self.addMask(
                     n,
                     self.preselection_mask.any(n)[complete_mask],
-                    stage=AnalysisStage.Selection,
+                    stage=
                 )
 
     def addMask(self, name, mask, type="and", stage=AnalysisStage.Preselection):

@@ -45,6 +45,7 @@ class ExecutionConfig(BaseModel):
     max_workers: int = 20
     step_size: int = 100000
     worker_memory: Optional[str] = "4GB"
+    dule
     dashboard_address: Optional[str] = None
     schedd_address: Optional[str] = None
     worker_timeout: int = 3600
