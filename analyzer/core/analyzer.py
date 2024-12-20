@@ -148,8 +148,6 @@ class Analyzer:
     def getFileOpts(self):
         return FileConfig(
             **self.description.file_config.model_dump(),
-            **(
-                self.user_file_options.model_dump()
                 if self.user_file_options is not None
                 else {}
             ),

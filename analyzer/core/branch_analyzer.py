@@ -4,9 +4,6 @@ import enum
 import inspect
 import itertools as it
 import logging
-from pydantic import BaseModel, ConfigDict
-from .common_types import Scalar
-from coffea.analysis_tools import PackedSelection
 import pickle as pkl
 import traceback
 from collections import defaultdict
@@ -14,46 +11,28 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, ClassVar, Optional, Union
 
+import yaml
+
 import awkward as ak
 import dask
 import distributed
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
+from coffea.analysis_tools import PackedSelection, Weights
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType
+from .common_types import Scalar
 from .specifiers import SampleSpec, SubSectorId
 
 if CONFIG.PRETTY_MODE:
     from rich import print
     from rich.progress import track
 
-
-@dataclass
-class Selection:
-    or_names: tuple[str] = field(default_factory=tuple)
-    and_names: tuple[str] = field(default_factory=tuple)
-
-    def addOne(self, name, type="and"):
-        if type == "and":
-            s = Selection(or_names=tuple(), and_names=(name,))
-        else:
-            s = Selection(or_names=(name,), and_names=tuple())
-        return self.merge(s)
-
-    def merge(self, other):
-        def addTuples(t, o):
-            to_add = [x for x in o if x not in t]
-            return tuple([*t, *to_add])
-
-        return Selection(
-            addTuples(self.or_names, other.or_names),
-            addTuples(self.and_names, other.and_names),
-        )
+logger = logging.getLogger("analyzer.core")
 
 
 class Cutflow(BaseModel):
@@ -76,7 +55,7 @@ class Cutflow(BaseModel):
         return Cutflow(
             cutflow=self.cutflow + other.cutflow,
             one_cut=self.one_cut + other.one_cut,
-            n_minus_one=self.n_minus_one+ other.n_minus_one,
+            n_minus_one=self.n_minus_one + other.n_minus_one,
         )
 
     @property
@@ -85,33 +64,34 @@ class Cutflow(BaseModel):
 
 
 @dataclass
-class Selection:
+class SelectionSet:
     """
     Selection for a single sample.
     Stores the preselection and selection masks.
     The selection mask is relative to the "or" of all the preselection cuts.
     """
 
-
-    selection: PackedSelection
+    selection: PackedSelection = field(default_factory=PackedSelection)
 
     parent_names: Optional[list[str]] = None
-    parent: Optional[Selection] = None
+    parent: Optional["SelectionSet"] = None
 
-
+    def __eq__(self, other):
+        return (
+            self.parent == other.parent
+            and self.selection.names == other.selection.names
+            and self.parent_names == other.parent_names
+        )
 
     def allNames(self):
-        ret =  self.selection.names 
+        ret = self.selection.names
         if parent is not None:
             return ret + self.parent.names
 
     def addMask(self, stage, name, mask):
-        if name in self.allNames():
-            raise KeyError(f'Selection name {name} already exists')
-
-        logger.info(f'Adding name to selection stage "{stage}".')
-        target.add(name, mask)
-
+        if not name in self.allNames():
+            logger.info(f'Adding name to selection stage "{stage}".')
+            target.add(name, mask)
 
     def inclusiveMask(self):
         names = self.selection.names
@@ -128,12 +108,24 @@ class Selection:
         onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
         cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
         nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
-        ret =  Cutflow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
+        ret = Cutflow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
         if parent is not None:
             parent_cutflow = parent.getCutflow(self.parent_names)
             ret = parent_cutflow + ret
 
         return ret
+
+
+@dataclass
+class Selection:
+    parent: SelectionSet
+    names: tuple[str] = field(default_factory=tuple)
+
+    def __add__(self, name):
+        self.names = self.names + (name,)
+
+    def __eq__(self, other):
+        return self.parent == other.parent and self.names == other.names
 
 
 @dataclass
@@ -149,7 +141,6 @@ class Columns:
 
     def __getattr__(self, attr):
         return getattr(self.events, attr)
-
 
     def allShapes(self):
         return it.chain(x.shape_variations for x in self.columns)
@@ -168,7 +159,9 @@ class Columns:
 
 
 @dataclass
-class SubSectorAnalyzer:
+class RegionAnalyzer:
+    # subsector_id: SubSectorId
+    region_name: str
     description: str = ""
     forbid_data: bool = False
 
@@ -181,12 +174,10 @@ class SubSectorAnalyzer:
     histograms: list[AnalyzerModule] = field(default_factory=list)
     weights: list[AnalyzerModule] = field(default_factory=list)
 
-
-
-    preselection: Selection
-    selection: Selection
-    columns: Columns
-    weights: Weights
+    # preselection: Selection
+    # selection: Selection
+    # columns: Columns
+    # weights: Weights
 
     @staticmethod
     def fromRegion(region_desc, sample, module_repo, era_repo):
@@ -225,7 +216,7 @@ class SubSectorAnalyzer:
         selection = resolveModules(region_desc.selection, ModuleType.Selection)
 
         weights = resolveModules(region_desc.weights, ModuleType.Weight)
-        categories = resolveModules(region_desc.categories, ModuleType.Categories)
+        categories = resolveModules(region_desc.categories, ModuleType.Categorization)
 
         preselection_histograms = resolveModules(
             region_desc.preselection_histograms, ModuleType.Histogram
@@ -234,8 +225,8 @@ class SubSectorAnalyzer:
             region_desc.histograms, ModuleType.Histogram
         )
 
-        return SubSectorAnalyzer(
-            subsector_id=SubSectorId(sample.sample_id, region_desc.name),
+        return RegionAnalyzer(
+            region_name=name,
             description=region_desc.description,
             forbid_data=region_desc.forbid_data,
             preselection=preselection,
@@ -247,8 +238,25 @@ class SubSectorAnalyzer:
             weights=weights,
         )
 
-    def run(self, events):
-        pass
+    def runPreselection(self, events, params, selection_set=None):
+
+        if selection_set is None:
+            selection_set = SelectionSet()
+        selection = Selection(parent=selection_set)
+
+        class Selector:
+            def __init__(self, selection, selection_set):
+                self.selection = selection
+                self.selection_set = selection_set
+
+            def add(self, name, mask):
+                self.selection += name
+                return self.selection_set.addMask(name, mask)
+
+        selector = Selector(selection, selection_set)
+        for module in self.preselection:
+            module(events, params, selector)
+        return selection
 
 
 __subsector_param_cache = {}
@@ -276,13 +284,28 @@ def getParamsForSubSector(subsector_id, dataset_repo, era_repo):
     return p
 
 
+__sample_param_cache = {}
+
+
+def getParamsSample(sample_id, dataset_repo, era_repo):
+    if sample_id in __sample_param_cache:
+        return __subsector_param_cache[subsector_id]
+
+    dataset = dataset_repo[sample_id.dataset_name]
+    params = dataset.getSample(sample_id.sample_name).params
+    params.dataset.populateEra(era_repo)
+    return params
+
+
 @dataclass
 class Analyzer:
-    column_manager: Any
-    subsector_analyzers: dict[str, SubSectorAnalyzer]
+    region_analyzers: list[RegionAnalyzer]
 
-    def run(self, events):
-        return {region_name: SubSectorResult}
+    preselection_set: SelectionSet = field(default_factory=SelectionSet)
+
+    def run(self, events, params):
+        for analyzer in self.region_analyzers:
+            analyzer.runPreselection(events, params, self.preselection_set)
 
 
 class AnalysisStage(str, enum.Enum):
@@ -309,8 +332,10 @@ class RegionDescription(BaseModel):
 
     selection: list[ModuleDescription] = Field(default_factory=list)
     objects: list[ModuleDescription] = Field(default_factory=list)
+    corrections: list[ModuleDescription] = Field(default_factory=list)
     preselection: list[ModuleDescription] = Field(default_factory=list)
     preselection_histograms: list[ModuleDescription] = Field(default_factory=list)
+    categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
 
@@ -365,11 +390,63 @@ def loadDescription(input_path):
     return AnalysisDescription(**data)
 
 
+def getSubSectors(description, dataset_repo, era_repo):
+    s_pairs = []
+    ret = defaultdict(list)
+    for dataset_name, regions in description.samples.items():
+        if isinstance(regions, str) and regions == "All":
+            regions = [r.name for r in description.regions]
+        for r in regions:
+            s_pairs.append((dataset_name, r))
+    for dataset_name, region_name in s_pairs:
+        dataset = dataset_repo[dataset_name]
+        region = description.getRegion(region_name)
+        for sample in dataset.samples:
+            subsector = RegionAnalyzer.fromRegion(
+                region,
+                sample,
+                MODULE_REPO,
+                era_repo,
+            )
+            ret[sample.sample_id].append(subsector)
+
+    return ret
+
+
 if __name__ == "__main__":
-    d = loadDescription("configurations/test_config.yaml")
+    import analyzer.modules
+
+    d = loadDescription("configurations/data_mc_comp.yaml")
 
     dr = DatasetRepo.getConfig()
     er = EraRepo.getConfig()
 
-    region = d.getRegion("Signal312")
-    print(region)
+    # region = d.getRegion("Signal312")
+    #
+    # print(region)
+    # s = dr["signal_312_2000_1900"].getSample("signal_312_2000_1900")
+    # ss = RegionAnalyzer.fromRegion(region, s, MODULE_REPO, er)
+    NanoAODSchema.warn_missing_crossrefs = False
+    fname = "https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root"
+    events = NanoEventsFactory.from_root(
+        {fname: "Events"},
+        schemaclass=NanoAODSchema,
+        metadata={"dataset": "DYJets"},
+    ).events()
+
+    subsectors = getSubSectors(d, dr, er)
+    one_sample = subsectors[
+        SampleId(
+            dataset_name="signal_312_2000_1900", sample_name="signal_312_2000_1900"
+        )
+    ]
+    sample_params = getParamsSample(
+        SampleId(
+            dataset_name="signal_312_2000_1900", sample_name="signal_312_2000_1900"
+        ),
+        dr,
+        er,
+    )
+    print(sample_params)
+    analyzer = Analyzer(one_sample)
+    analyzer.run(events, sample_params)

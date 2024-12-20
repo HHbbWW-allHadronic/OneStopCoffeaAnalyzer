@@ -64,11 +64,11 @@ common_items:
       - name: goodjet_ht
       - name: jet_kinematics
       - name: jet_combo_kinematics
-      # - name: b_quark_kinematics
-      #   config:
-      #     - working_point: L
-      #     - working_point: M
-      #     - working_point: T
+      - name: b_quark_kinematics
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
       - name: NN_mass_reco
         config:
           - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt

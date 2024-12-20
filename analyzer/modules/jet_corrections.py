@@ -123,7 +123,7 @@ def applyJetVetoMap(events):
     pass
 
 
-@MODULE_REPO.register(ModuleType.Correction)
+@MODULE_REPO.register(ModuleType.Producer)
 def applyJetCorrections(columns):
     nominal_corrected = makeNominalCorrection(events.Jets)
     columns["corrected_jets"] = nominal_corrected
