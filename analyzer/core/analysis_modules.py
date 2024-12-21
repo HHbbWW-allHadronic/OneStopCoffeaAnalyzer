@@ -37,7 +37,6 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional, Any
 import inspect
 
-
 class ModuleType(str, enum.Enum):
     Selection = "Selection"
     Categorization = "Categorization"
@@ -46,24 +45,28 @@ class ModuleType(str, enum.Enum):
     Producer = "Producer"
 
 
-@dataclass
+@dataclass(frozen=True)
 class AnalyzerModule:
     name: str
     type: ModuleType
     function: Optional[Callable] = None
     description: str = ""
 
-    def __call__(self, events, analyzer, *args, **kwargs):
-        return self.function(events, analyzer, *args, **kwargs)
+
+    def __eq__(self, other):
+        return (self.name, self.type) == (other.name, other.type)
 
 
-@dataclass
+@dataclass(frozen=True)
 class ConfiguredAnalyzerModule:
     module: AnalyzerModule
     config: dict[str, Any] = field(default_factory=dict)
 
     def __call__(self, *args,**kwargs):
         return self.module(*args,**kwargs, **self.config)
+
+    def __eq__(self, other):
+        return (self.module, self.config) == (other.module, other.config)
 
 
 @dataclass
@@ -83,9 +86,6 @@ class ModuleRepo:
             return self.__registerModuleInstance(analyzer_module, *args, **kwargs)
         elif inspect.isclass(analyzer_module):
             return self.__registerModuleClass(first, *args, **kwargs)
-
-
-
 
     def __registerModuleInstance(self, analyzer_module: AnalyzerModule):
         type = analyzer_module.type
@@ -107,7 +107,6 @@ class ModuleRepo:
         )
         self.modules[module_type][name] = analyzer_module
         return function
-        #print(self.modules)
 
 
 MODULE_REPO=ModuleRepo()

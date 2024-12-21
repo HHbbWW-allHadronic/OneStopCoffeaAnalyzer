@@ -118,49 +118,91 @@ class SelectionSet:
 
 @dataclass
 class Selection:
-    parent: SelectionSet
+    select_from: SelectionSet
     names: tuple[str] = field(default_factory=tuple)
 
     def __add__(self, name):
         self.names = self.names + (name,)
 
     def __eq__(self, other):
-        return self.parent == other.parent and self.names == other.names
+        return self.select_from == other.select_from and self.names == other.names
 
+
+
+SHAPE_VAR_SEPARATOR="__"
 
 @dataclass
 class Column:
     name: str
-    nominal_value: Any
-    shape_variations: dict[str, Any] = field(default_factory=dict)
+    shape_variations: list[ str] = field(default_factory=list)
 
+
+    def getColumnName(shape_var=None):
+        if shape_var is None:
+            return self.name
+        return name + SHAPE_VAR_SEPARATOR + shape_var
 
 @dataclass
 class Columns:
+    events: Any
     columns: dict[str, Column] = field(default_factory=dict)
 
-    def __getattr__(self, attr):
-        return getattr(self.events, attr)
-
     def allShapes(self):
-        return it.chain(x.shape_variations for x in self.columns)
+        return list(it.chain.from_iterable(x.shape_variations for x in self.columns))
 
     def add(self, name, nominal_value, variations=None):
-        self.columns[name] = Column(
-            name=name, nominal_value=nominal_value, shape_variations=variations
+        col = Column(
+            name=name, nominal_value=nominal_value, shape_variations=list(variations)
         )
+        self.events[col.name] = nominal_value
+        for svn, val in variations.items():
+            self.events[col.getColumnName(svn)]  = val
 
     def get(self, name, variation=None):
         col = self.columns[name]
-        if variation is None:
-            return col.nominal_value
+        return self.events[col.getColumnName(variation)]
+
+    def __iter__(self):
+        return iter(events.fields)
+
+
+class ColumnShapeSyst(Columns):
+    def __init__(self, base, syst=None):
+        self.base = base
+        self.this = Column(self.base.events)
+        self.syst = syst
+
+    def add(self, name, nominal_value, variations=None, depends_col=None):
+        if depends_col is not None and depends_shape == self.syst[0]:
+            target = self.this
         else:
-            return col.shape_variations[variation]
+            target = self.base
+
+        if self.syst is None:
+            return target.add(name,nominal_value, variations=variations)
+        else:
+            return target.add(name,nominal_value, variations=None)
+
+    def get(self, name):
+        if name == syst[0]:
+            s = self.syst[1]
+        else:
+            s = None
+        if name in self.this:
+            return self.this.get(name, self.syst[1])
+        else:
+            return self.base.get(name, self.syst[1])
+
+
+    def __iter__(self):
+        return it.chain(iter(self.this), iter(self.base))
+
+
+
 
 
 @dataclass
 class RegionAnalyzer:
-    # subsector_id: SubSectorId
     region_name: str
     description: str = ""
     forbid_data: bool = False
@@ -173,11 +215,6 @@ class RegionAnalyzer:
     categories: list[AnalyzerModule] = field(default_factory=list)
     histograms: list[AnalyzerModule] = field(default_factory=list)
     weights: list[AnalyzerModule] = field(default_factory=list)
-
-    # preselection: Selection
-    # selection: Selection
-    # columns: Columns
-    # weights: Weights
 
     @staticmethod
     def fromRegion(region_desc, sample, module_repo, era_repo):
@@ -242,7 +279,7 @@ class RegionAnalyzer:
 
         if selection_set is None:
             selection_set = SelectionSet()
-        selection = Selection(parent=selection_set)
+        selection = Selection(select_from=selection_set)
 
         class Selector:
             def __init__(self, selection, selection_set):
@@ -257,6 +294,33 @@ class RegionAnalyzer:
         for module in self.preselection:
             module(events, params, selector)
         return selection
+
+    def runCorrections(self, events, params, columns=None):
+        if columns is None:
+            columns = Columns(events)
+        for module in self.corrections:
+            module(events, params, columns)
+        return columns
+
+
+    def runBranch(self, columns, params, variation=None):
+        runObject
+            
+
+
+
+    def runObject(self, columns, params, variation=None):
+        shape_columns = ColumnShapeSyst(columns, variation=variation)
+        for module in self.corrections:
+            module(events, params, shape_columns)
+        return columns
+
+    def run(self, columns, params, variation=None):
+        shape_columns = ColumnShapeSyst(columns, variation=variation)
+        for module in self.corrections:
+            module(events, params, shape_columns)
+        return shape_columns
+
 
 
 __subsector_param_cache = {}
@@ -301,11 +365,38 @@ def getParamsSample(sample_id, dataset_repo, era_repo):
 class Analyzer:
     region_analyzers: list[RegionAnalyzer]
 
-    preselection_set: SelectionSet = field(default_factory=SelectionSet)
+
+
+    def runBranch(self, events, params, columns, variation=None):
+        pass
+        
+
+        
+
+    def runPreselectionGroup(self, events, params, region_analyzers, preselection, preselection_set):
+        mask = preselection_set.getMask(preselection.names)
+        events = events[mask]
+        columns = Columns(events)
+
+        for ra in region_analyzers:
+            ra.runCorrections(events,params,columns)
+
+        shape_systs = columns.
+        return columns
 
     def run(self, events, params):
+        preselection_set: SelectionSet = field(default_factory=SelectionSet)
+        region_preselections = []
         for analyzer in self.region_analyzers:
-            analyzer.runPreselection(events, params, self.preselection_set)
+            region_preselections.append((region.name, analyzer.runPreselection(events, params, self.preselection_set)))
+        k = key=lambda x: x[0].names
+        presel_regions = it.groupby(sorted(region_preselections, key=k),key=k)
+        ret = {}
+        for _, items in presel_regions:
+            items = list(items)
+            sel = items[0][1]
+            ret.update(self.runPreselectionGroup(events, params, [x[1] for x in items], sel, preselection_set))
+        return ret
 
 
 class AnalysisStage(str, enum.Enum):
@@ -338,7 +429,6 @@ class RegionDescription(BaseModel):
     categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
-
 
 class ExecutionConfig(BaseModel):
     cluster_type: str = "local"
