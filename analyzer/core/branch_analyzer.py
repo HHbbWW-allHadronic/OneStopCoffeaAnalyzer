@@ -15,7 +15,6 @@ import yaml
 
 import awkward as ak
 import dask
-import distributed
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
 from analyzer.utils.file_tools import extractCmsLocation
@@ -27,178 +26,14 @@ from pydantic import BaseModel, ConfigDict, Field
 from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType
 from .common_types import Scalar
 from .specifiers import SampleSpec, SubSectorId
+from .columns import Column,Columns, ColumnShapeSyst
+from .selection import Cutflow,Selection,SelectionSet
 
 if CONFIG.PRETTY_MODE:
     from rich import print
     from rich.progress import track
 
 logger = logging.getLogger("analyzer.core")
-
-
-class Cutflow(BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    cutflow: list[tuple[str, Scalar]]
-    one_cut: list[tuple[str, Scalar]]
-    n_minus_one: list[tuple[str, Scalar]]
-
-    def __add__(self, other):
-        def add_tuples(a, b):
-            return [(x, y) for x, y in accumulate([dict(a), dict(b)]).items()]
-
-        return Cutflow(
-            cutflow=add_tuples(self.cutflow, other.cutflow),
-            one_cut=add_tuples(self.one_cut, other.one_cut),
-            n_minus_one=add_tuples(self.n_minus_one, other.n_minus_one),
-        )
-
-    def concat(self, other):
-        return Cutflow(
-            cutflow=self.cutflow + other.cutflow,
-            one_cut=self.one_cut + other.one_cut,
-            n_minus_one=self.n_minus_one + other.n_minus_one,
-        )
-
-    @property
-    def selection_efficiency(self):
-        return self.cutflow[-1][1] / self.cutflow[0][1]
-
-
-@dataclass
-class SelectionSet:
-    """
-    Selection for a single sample.
-    Stores the preselection and selection masks.
-    The selection mask is relative to the "or" of all the preselection cuts.
-    """
-
-    selection: PackedSelection = field(default_factory=PackedSelection)
-
-    parent_names: Optional[list[str]] = None
-    parent: Optional["SelectionSet"] = None
-
-    def __eq__(self, other):
-        return (
-            self.parent == other.parent
-            and self.selection.names == other.selection.names
-            and self.parent_names == other.parent_names
-        )
-
-    def allNames(self):
-        ret = self.selection.names
-        if parent is not None:
-            return ret + self.parent.names
-
-    def addMask(self, stage, name, mask):
-        if not name in self.allNames():
-            logger.info(f'Adding name to selection stage "{stage}".')
-            target.add(name, mask)
-
-    def inclusiveMask(self):
-        names = self.selection.names
-        if not names:
-            return None
-        return self.selection.any(*names)
-
-    def getMask(self, names):
-        return self.selections.all(*names)
-
-    def getCutflow(self, names):
-        nmo = sel.nminusone(*names).result()
-        cutflow = sel.cutflow(*names).result()
-        onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
-        cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
-        nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
-        ret = Cutflow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
-        if parent is not None:
-            parent_cutflow = parent.getCutflow(self.parent_names)
-            ret = parent_cutflow + ret
-
-        return ret
-
-
-@dataclass
-class Selection:
-    select_from: SelectionSet
-    names: tuple[str] = field(default_factory=tuple)
-
-    def __add__(self, name):
-        self.names = self.names + (name,)
-
-    def __eq__(self, other):
-        return self.select_from == other.select_from and self.names == other.names
-
-
-
-SHAPE_VAR_SEPARATOR="__"
-
-@dataclass
-class Column:
-    name: str
-    shape_variations: list[ str] = field(default_factory=list)
-
-
-    def getColumnName(shape_var=None):
-        if shape_var is None:
-            return self.name
-        return name + SHAPE_VAR_SEPARATOR + shape_var
-
-@dataclass
-class Columns:
-    events: Any
-    columns: dict[str, Column] = field(default_factory=dict)
-
-    def allShapes(self):
-        return list(it.chain.from_iterable(x.shape_variations for x in self.columns))
-
-    def add(self, name, nominal_value, variations=None):
-        col = Column(
-            name=name, nominal_value=nominal_value, shape_variations=list(variations)
-        )
-        self.events[col.name] = nominal_value
-        for svn, val in variations.items():
-            self.events[col.getColumnName(svn)]  = val
-
-    def get(self, name, variation=None):
-        col = self.columns[name]
-        return self.events[col.getColumnName(variation)]
-
-    def __iter__(self):
-        return iter(events.fields)
-
-
-class ColumnShapeSyst(Columns):
-    def __init__(self, base, syst=None):
-        self.base = base
-        self.this = Column(self.base.events)
-        self.syst = syst
-
-    def add(self, name, nominal_value, variations=None, depends_col=None):
-        if depends_col is not None and depends_shape == self.syst[0]:
-            target = self.this
-        else:
-            target = self.base
-
-        if self.syst is None:
-            return target.add(name,nominal_value, variations=variations)
-        else:
-            return target.add(name,nominal_value, variations=None)
-
-    def get(self, name):
-        if name == syst[0]:
-            s = self.syst[1]
-        else:
-            s = None
-        if name in self.this:
-            return self.this.get(name, self.syst[1])
-        else:
-            return self.base.get(name, self.syst[1])
-
-
-    def __iter__(self):
-        return it.chain(iter(self.this), iter(self.base))
-
-
-
 
 
 @dataclass
@@ -290,8 +125,11 @@ class RegionAnalyzer:
                 self.selection += name
                 return self.selection_set.addMask(name, mask)
 
+        print(selection_set)
         selector = Selector(selection, selection_set)
         for module in self.preselection:
+            print(module)
+            print(selector)
             module(events, params, selector)
         return selection
 
@@ -299,27 +137,27 @@ class RegionAnalyzer:
         if columns is None:
             columns = Columns(events)
         for module in self.corrections:
-            module(events, params, columns)
+            module(columns, params)
         return columns
 
 
     def runBranch(self, columns, params, variation=None):
-        runObject
+        columns = ColumnShapeSyst(columns, syst=variation)
+        runObject(columns, params, variation=None)
             
 
 
 
     def runObject(self, columns, params, variation=None):
-        shape_columns = ColumnShapeSyst(columns, variation=variation)
         for module in self.corrections:
-            module(events, params, shape_columns)
+            module(events, params)
         return columns
 
-    def run(self, columns, params, variation=None):
-        shape_columns = ColumnShapeSyst(columns, variation=variation)
-        for module in self.corrections:
-            module(events, params, shape_columns)
-        return shape_columns
+    # def run(self, columns, params, variation=None):
+    #     shape_columns = ColumnShapeSyst(columns, variation=variation)
+    #     for module in self.corrections:
+    #         module(events, params, shape_columns)
+    #     return shape_columns
 
 
 
@@ -367,8 +205,11 @@ class Analyzer:
 
 
 
-    def runBranch(self, events, params, columns, variation=None):
-        pass
+    def runBranch(self, region_analyzers, columns, params, variation=None):
+        logger.info(f'Running analysis branch for variation {variation}')
+        for ra in region_analyzers:
+            ra.runBranch(columns, params, variation=variation)
+
         
 
         
@@ -381,21 +222,25 @@ class Analyzer:
         for ra in region_analyzers:
             ra.runCorrections(events,params,columns)
 
-        shape_systs = columns.
-        return columns
+        branches = [None] + columns.allShapes()
+        for variation in branches:
+            self.runBranch(region_analyzers, events, params, variation=variation)
 
     def run(self, events, params):
-        preselection_set: SelectionSet = field(default_factory=SelectionSet)
+        preselection_set=  SelectionSet()
         region_preselections = []
         for analyzer in self.region_analyzers:
-            region_preselections.append((region.name, analyzer.runPreselection(events, params, self.preselection_set)))
-        k = key=lambda x: x[0].names
+            region_preselections.append((analyzer, analyzer.runPreselection(events, params, preselection_set)))
+        k = lambda x: x[1].names
+        print(region_preselections)
+
         presel_regions = it.groupby(sorted(region_preselections, key=k),key=k)
+        presel_regions = {x:list(y) for x,y in presel_regions}
         ret = {}
-        for _, items in presel_regions:
-            items = list(items)
+        for presels, items in presel_regions.items():
+            logger.info(f'Running over preselection region "{presels}" containing "{len(items)}" regions.')
             sel = items[0][1]
-            ret.update(self.runPreselectionGroup(events, params, [x[1] for x in items], sel, preselection_set))
+            ret.update(self.runPreselectionGroup(events, params, [x[0] for x in items], sel, preselection_set))
         return ret
 
 
@@ -489,6 +334,7 @@ def getSubSectors(description, dataset_repo, era_repo):
         for r in regions:
             s_pairs.append((dataset_name, r))
     for dataset_name, region_name in s_pairs:
+        logger.debug(f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"')
         dataset = dataset_repo[dataset_name]
         region = description.getRegion(region_name)
         for sample in dataset.samples:
@@ -505,6 +351,9 @@ def getSubSectors(description, dataset_repo, era_repo):
 
 if __name__ == "__main__":
     import analyzer.modules
+    from analyzer.logging import setup_logging
+
+    setup_logging()
 
     d = loadDescription("configurations/data_mc_comp.yaml")
 

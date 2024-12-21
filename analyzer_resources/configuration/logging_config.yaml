@@ -14,10 +14,12 @@ handlers:
     class: rich.logging.RichHandler
     level: DEBUG
     formatter: just_name
+
   info_console:
     class: rich.logging.RichHandler
     level: INFO
     formatter: just_name
+
   warn_console:
     class: rich.logging.RichHandler
     level: WARN

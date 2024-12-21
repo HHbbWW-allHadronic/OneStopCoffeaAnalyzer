@@ -135,6 +135,15 @@ def applyJetCorrections(columns):
     
 
 
+@MODULE_REPO.register(ModuleType.Producer)
+def testJetCorrection(columns, params):
+    j = columns.Jet
+    print(j)
+    columns.add("TestCorrJet", j*1.1, {"Up": j*2, "Down": j*3 })
+
+
+
+
 
 
 

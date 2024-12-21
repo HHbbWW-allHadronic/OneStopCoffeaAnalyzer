@@ -1,15 +1,12 @@
 import os
 from pathlib import Path
 
-venv = Path(os.environ.get("VIRTUAL_ENV"))
-venv_name = str(Path(os.environ.get("VIRTUAL_ENV")).stem)
-__config = {}
-
 
 class Config:
     APPLICATION_DATA = "/srv/.application_data"
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
-    APPLICATION_RESOURCES = "/srv/analyzer_resources"
+    #APPLICATION_RESOURCES = "/srv/analyzer_resources"
+    APPLICATION_RESOURCES = "analyzer_resources"
 
     DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
     ERA_PATHS = [str(Path(APPLICATION_RESOURCES) / "eras")]

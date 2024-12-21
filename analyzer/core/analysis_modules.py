@@ -52,6 +52,8 @@ class AnalyzerModule:
     function: Optional[Callable] = None
     description: str = ""
 
+    def __call__(self, events, analyzer, *args, **kwargs):
+        return self.function(events, analyzer, *args, **kwargs)
 
     def __eq__(self, other):
         return (self.name, self.type) == (other.name, other.type)
