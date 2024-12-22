@@ -31,11 +31,13 @@ hist_manager.add(
    weights_to_apply={name: variations}
 )
 """
+
 import enum
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Any
 import inspect
+
 
 class ModuleType(str, enum.Enum):
     Selection = "Selection"
@@ -58,23 +60,29 @@ class AnalyzerModule:
     def __eq__(self, other):
         return (self.name, self.type) == (other.name, other.type)
 
+    def identity(self):
+        return (self.name,)
+
 
 @dataclass(frozen=True)
 class ConfiguredAnalyzerModule:
     module: AnalyzerModule
     config: dict[str, Any] = field(default_factory=dict)
 
-    def __call__(self, *args,**kwargs):
-        return self.module(*args,**kwargs, **self.config)
+    def __call__(self, *args, **kwargs):
+        return self.module(*args, **kwargs, **self.config)
 
     def __eq__(self, other):
         return (self.module, self.config) == (other.module, other.config)
+
+    def identity(self):
+        return self.module.identity + (self.config,)
 
 
 @dataclass
 class ModuleRepo:
     modules: defaultdict[ModuleType, dict[str, AnalyzerModule]] = field(
-        default_factory=lambda : defaultdict(dict)
+        default_factory=lambda: defaultdict(dict)
     )
 
     def get(self, type, name, configuration=None):
@@ -102,7 +110,7 @@ class ModuleRepo:
     def __registerFunction(self, function: Callable, module_type: ModuleType):
         name = function.__name__
         analyzer_module = AnalyzerModule(
-            name = name,
+            name=name,
             type=module_type,
             function=function,
             description=function.__doc__,
@@ -111,6 +119,4 @@ class ModuleRepo:
         return function
 
 
-MODULE_REPO=ModuleRepo()
-
-
+MODULE_REPO = ModuleRepo()

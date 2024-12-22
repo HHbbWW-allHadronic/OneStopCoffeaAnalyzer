@@ -3,7 +3,7 @@ from fnmatch import fnmatch
 from typing import Any, Optional, Union
 
 import pydantic as pyd
-from analyzer.datasets import DatasetParams, SampleId, SampleType
+from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
 from pydantic import BaseModel, ConfigDict, field_validator, model_validator, field_serializer
 
 logger = logging.getLogger(__name__)
@@ -38,13 +38,16 @@ class ShapeVariationId:
 
 class SectorParams(pyd.BaseModel):
     dataset: DatasetParams
-    region: dict[str, Any]
+    region_name: str
 
 
 class SubSectorParams(pyd.BaseModel):
-    sector: SectorParams
-    sample: dict[str, Any]
-    subsector_id: SubSectorId
+    sample: SampleParams
+    region_name: str
+
+    @property
+    def dataset(self):
+        return self.sample.dataset
 
 
 class SampleSpec(BaseModel):

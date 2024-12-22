@@ -13,19 +13,17 @@ def makeCutSet(x, s, args):
 @MODULE_REPO.register(ModuleType.Producer)
 def core_objects(columns, params):
     logger = getSectorLogger(params)
-    logger.debug(f"B-tagging workign points are:\n {bwps}")
     # If all the columns are already present, ie a skim, don't bother running the module anything
-    if all(x in events.fields for x in PRODUCED_COLUMNS):
-        return
 
 
-    jets = columns["jets"]
-    fat_jets = columns["fat_jets"]
+    jets = columns.get("TestCorrJet")
+    fat_jets = columns.get("FatJet")
 
     good_jets = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
     fat_jets = fat_jets[(fat_jets.pt > 30) & (abs(fat_jets.eta) < 2.4)]
 
     bwps = getBTagWP(params)
+    logger.debug(f"B-tagging workign points are:\n {bwps}")
     loose_b, med_b, tight_b = makeCutSet(
         good_jets,
         good_jets.btagDeepFlavB,
@@ -33,18 +31,22 @@ def core_objects(columns, params):
     )
 
 
-    el = columns.electrons()
-    mu = events.Muon
+    el = columns.get("Electron")
+    mu = columns.get("Muon")
     good_electrons = el[(el.cutBased == 1) & (el.pt > 10) & (abs(el.eta) < 2.4)]
     good_muons = mu[(mu.looseId) & (mu.pfIsoId == 2) & (abs(mu.eta) < 2.4)]
 
-    columns["good_electrons"] =   good_electrons
-    columns["good_muons"] =  good_muons
-    columns["loose_bs"] =  loose_b
-    columns["med_bs"] =  med_b
-    columns["tight_bs"] =  tight_b
+    columns.add("good_jets",    good_jets, shape_dependent=True)
+    columns.add("good_electrons",    good_electrons)
+    columns.add("good_muons",   good_muons)
+    columns.add("loose_bs",   loose_b)
+    columns.add("med_bs",   med_b)
+    columns.add("tight_bs",   tight_b)
     ht = ak.sum(good_jets.pt, axis=1)
-    columns["HT"] = ht
+    columns.add("HT",  ht)
+
+    gj = columns.get("good_jets")
+    m = columns.get("good_muons")
 
 
 

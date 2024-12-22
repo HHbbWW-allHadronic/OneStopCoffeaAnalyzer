@@ -151,7 +151,7 @@ def __weightedCollection(
         cat_values,
         fill_data,
         central_weight,
-        variation_val=central_name
+        variation_val=central_name,
         mask=mask,
     )
 

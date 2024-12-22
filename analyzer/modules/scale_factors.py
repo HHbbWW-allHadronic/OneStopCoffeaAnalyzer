@@ -103,7 +103,8 @@ def btagging_sf(events, params, weight_manager, variations=None, working_points=
 
 @MODULE_REPO.register(ModuleType.Weight)
 def pileup_sf(events, params, weight_manager, variations=None):
-    pu_info = params.sector.dataset.era.pileup_scale_factors
+    return 
+    pu_info = params.dataset.era.pileup_scale_factors
     path = pu_info["file"]
     name = pu_info["name"]
     csset = correctionlib.CorrectionSet.from_file(path)

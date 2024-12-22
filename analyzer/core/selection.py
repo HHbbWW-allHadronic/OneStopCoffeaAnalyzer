@@ -122,6 +122,11 @@ class Selection:
 
     def __add__(self, name):
         self.names = self.names + (name,)
+        return self
+
+
+    def getMask(self):
+        return self.select_from.getMask(self.names)
 
     def __eq__(self, other):
         return self.select_from == other.select_from and self.names == other.names

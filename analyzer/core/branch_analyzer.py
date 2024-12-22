@@ -23,11 +23,12 @@ from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from pydantic import BaseModel, ConfigDict, Field
 
-from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType
+from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType, ConfiguredAnalyzerModule
 from .common_types import Scalar
-from .specifiers import SampleSpec, SubSectorId
-from .columns import Column,Columns, ColumnShapeSyst
-from .selection import Cutflow,Selection,SelectionSet
+from .histograms import HistogramSpec, generateHistogramCollection
+from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
+from .columns import Column, Columns
+from .selection import Cutflow, Selection, SelectionSet
 
 if CONFIG.PRETTY_MODE:
     from rich import print
@@ -37,19 +38,128 @@ logger = logging.getLogger("analyzer.core")
 
 
 @dataclass
+class Category:
+    name: str
+    axis: Any
+    values: Any
+    distinct_values: set[Union[int, str, float]] = field(default_factory=set)
+
+
+class Histogrammer:
+    def __init__(self, weighter, categories=None, active_shape_variation=None):
+        self.weighter = weighter
+        self.active_shape_variation = active_shape_variation
+        self.results = {}
+
+    def H(
+        self,
+        name,
+        axes,
+        values,
+        variations=None,
+        weights=None,
+        description="",
+        no_scale=False,
+        mask=None,
+        storage="weight",
+    ):
+        if not isinstance(axes, (list, tuple)):
+            axes = [axes]
+        spec = HistogramSpec(
+            name=name,
+            axes=axes,
+            storage=storage,
+            description=description,
+            weights=weights,
+            variations=variations,
+            no_scale=no_scale,
+        )
+        ret = generateHistogramCollection(
+            spec,
+            values,
+            self.categories,
+            self.weighter,
+            active_shape_variation=self.active_shape_variation,
+            mask=mask,
+        )
+        self.results[spec.name] = ret
+        return ret
+
+
+class Weighter:
+    def __init__(self, ignore_systematics=False):
+        self.weights = Weights(None, storeIndividual=True)
+        self.ignore_systematics = ignore_systematics
+        self.__cache = {}
+
+    def add(self, weight_name, central, variations=None):
+        if variations and not self.ignore_systematics:
+            systs = [(x, *y) for x, y in variations.items()]
+            name, up, down = list(map(list, zip(*systs)))
+            self.weights.add_multivariation(weight_name, central, name, up, down)
+        else:
+            self.weights.add(weight_name, central)
+
+    def variations(self):
+        return list(self.weights.variations)
+
+    def weight_names(self):
+        return list(self.weights._weights)
+
+    def totalWeight(self, subsector_id):
+        return (
+            ak.sum(self.weight(), axis=0),
+            ak.sum(self.weight() ** 2, axis=0),
+        )
+
+    def weight(self, modifier=None, include=None, exclude=None):
+        inc = include or []
+        exc = exclude or []
+        k = (modifier, tuple(inc), tuple(exc))
+        if k in self.__cache:
+            return self.__cache[k]
+        if include or exclude:
+            ret = self.weights.partial_weight(
+                modifier=modifier, include=inc, exclude=exc
+            )
+        else:
+            ret = self.weights.weight(modifier)
+        self.__cache[k] = ret
+        return ret
+
+
+@dataclass
 class RegionAnalyzer:
     region_name: str
     description: str = ""
     forbid_data: bool = False
 
-    preselection: list[AnalyzerModule] = field(default_factory=list)
-    corrections: list[AnalyzerModule] = field(default_factory=list)
+    preselection: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    corrections: list[ConfiguredAnalyzerModule] = field(default_factory=list)
 
-    objects: list[AnalyzerModule] = field(default_factory=list)
-    selection: list[AnalyzerModule] = field(default_factory=list)
-    categories: list[AnalyzerModule] = field(default_factory=list)
-    histograms: list[AnalyzerModule] = field(default_factory=list)
-    weights: list[AnalyzerModule] = field(default_factory=list)
+    objects: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    selection: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    categories: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    histograms: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    weights: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+
+    def identity(self):
+        r = {
+            y: [x.identity() for x in getattr(self, y)]
+            for y in [
+                "preselection",
+                "corrections",
+                "objects",
+                "selection",
+                "categories",
+                "histograms",
+                "weights",
+            ]
+        }
+        return (self.region_name, r)
+
+    def __eq__(self, other):
+        return self.identity == other.identity
 
     @staticmethod
     def fromRegion(region_desc, sample, module_repo, era_repo):
@@ -110,7 +220,11 @@ class RegionAnalyzer:
             weights=weights,
         )
 
+    def getSectorParams(self, sample_params):
+        return SubSectorParams(sample=sample_params, region_name=self.region_name)
+
     def runPreselection(self, events, params, selection_set=None):
+        params = self.getSectorParams(params)
 
         if selection_set is None:
             selection_set = SelectionSet()
@@ -125,40 +239,68 @@ class RegionAnalyzer:
                 self.selection += name
                 return self.selection_set.addMask(name, mask)
 
-        print(selection_set)
         selector = Selector(selection, selection_set)
         for module in self.preselection:
-            print(module)
-            print(selector)
             module(events, params, selector)
         return selection
 
+    def runSelection(self, columns, params, selection_set=None):
+        params = self.getSectorParams(params)
+        if selection_set is None:
+            selection_set = SelectionSet()
+        selection = Selection(select_from=selection_set)
+
+        class Selector:
+            def __init__(self, selection, selection_set):
+                self.selection = selection
+                self.selection_set = selection_set
+
+            def add(self, name, mask):
+                self.selection += name
+                return self.selection_set.addMask(name, mask)
+
+        selector = Selector(selection, selection_set)
+        for module in self.selection:
+            module(columns, params, selector)
+        return selection
+
     def runCorrections(self, events, params, columns=None):
+        params = self.getSectorParams(params)
         if columns is None:
             columns = Columns(events)
         for module in self.corrections:
             module(columns, params)
         return columns
 
-
-    def runBranch(self, columns, params, variation=None):
-        columns = ColumnShapeSyst(columns, syst=variation)
-        runObject(columns, params, variation=None)
-            
-
-
-
-    def runObject(self, columns, params, variation=None):
-        for module in self.corrections:
-            module(events, params)
+    def runObjects(self, columns, params):
+        params = self.getSectorParams(params)
+        for module in self.objects:
+            module(columns, params)
         return columns
+
+    def runPostSelection(self, columns, params):
+        active_shape = columns.syst
+        weighter = Weighter(ignore_systematics=active_shape is not None)
+        
+        
+        categories = []
+        for module in self.weights:
+            module(columns, params, weighter)
+        for module in categories:
+            module(columns, params)
+        histogrammer = Histogrammer(
+            weighter=weighter,
+            categories=categories,
+            active_shape_variation=active_shape,
+        )
+        for module in self.histograms:
+            module(columns, params, histogrammer)
 
     # def run(self, columns, params, variation=None):
     #     shape_columns = ColumnShapeSyst(columns, variation=variation)
     #     for module in self.corrections:
     #         module(events, params, shape_columns)
     #     return shape_columns
-
 
 
 __subsector_param_cache = {}
@@ -203,44 +345,63 @@ def getParamsSample(sample_id, dataset_repo, era_repo):
 class Analyzer:
     region_analyzers: list[RegionAnalyzer]
 
-
-
-    def runBranch(self, region_analyzers, columns, params, variation=None):
-        logger.info(f'Running analysis branch for variation {variation}')
+    def runBranch(
+        self, region_analyzers, columns, params, preselection, variation=None
+    ):
+        logger.info(f"Running analysis branch for variation {variation}")
+        selection_set = SelectionSet()
+        columns = columns.withSyst(variation)
         for ra in region_analyzers:
-            ra.runBranch(columns, params, variation=variation)
+            ra.runObjects(columns, params)
+        for ra in region_analyzers:
+            selection = ra.runSelection(columns, params, selection_set)
+            mask = selection.getMask()
+            print(columns)
+            new_cols = columns.withEvents(columns.events[mask])
+            ra.runPostSelection(new_cols, params)
+            
 
-        
-
-        
-
-    def runPreselectionGroup(self, events, params, region_analyzers, preselection, preselection_set):
-        mask = preselection_set.getMask(preselection.names)
+    def runPreselectionGroup(
+        self, events, params, region_analyzers, preselection, preselection_set
+    ):
+        mask = preselection.getMask()
+        print(mask)
         events = events[mask]
         columns = Columns(events)
 
         for ra in region_analyzers:
-            ra.runCorrections(events,params,columns)
+            ra.runCorrections(events, params, columns)
 
         branches = [None] + columns.allShapes()
+        logger.info(f"Known variations are {branches}")
         for variation in branches:
-            self.runBranch(region_analyzers, events, params, variation=variation)
+            logger.info(f'Running branch for variation "{variation}"')
+            self.runBranch(
+                region_analyzers, columns, params, preselection, variation=variation
+            )
 
     def run(self, events, params):
-        preselection_set=  SelectionSet()
+        preselection_set = SelectionSet()
         region_preselections = []
         for analyzer in self.region_analyzers:
-            region_preselections.append((analyzer, analyzer.runPreselection(events, params, preselection_set)))
+            region_preselections.append(
+                (analyzer, analyzer.runPreselection(events, params, preselection_set))
+            )
         k = lambda x: x[1].names
-        print(region_preselections)
 
-        presel_regions = it.groupby(sorted(region_preselections, key=k),key=k)
-        presel_regions = {x:list(y) for x,y in presel_regions}
+        presel_regions = it.groupby(sorted(region_preselections, key=k), key=k)
+        presel_regions = {x: list(y) for x, y in presel_regions}
         ret = {}
         for presels, items in presel_regions.items():
-            logger.info(f'Running over preselection region "{presels}" containing "{len(items)}" regions.')
+            logger.info(
+                f'Running over preselection region "{presels}" containing "{len(items)}" regions.'
+            )
             sel = items[0][1]
-            ret.update(self.runPreselectionGroup(events, params, [x[0] for x in items], sel, preselection_set))
+            ret.update(
+                self.runPreselectionGroup(
+                    events, params, [x[0] for x in items], sel, preselection_set
+                )
+            )
         return ret
 
 
@@ -274,6 +435,7 @@ class RegionDescription(BaseModel):
     categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
+
 
 class ExecutionConfig(BaseModel):
     cluster_type: str = "local"
@@ -334,7 +496,9 @@ def getSubSectors(description, dataset_repo, era_repo):
         for r in regions:
             s_pairs.append((dataset_name, r))
     for dataset_name, region_name in s_pairs:
-        logger.debug(f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"')
+        logger.debug(
+            f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"'
+        )
         dataset = dataset_repo[dataset_name]
         region = description.getRegion(region_name)
         for sample in dataset.samples:
@@ -362,11 +526,11 @@ if __name__ == "__main__":
 
     # region = d.getRegion("Signal312")
     #
-    # print(region)
     # s = dr["signal_312_2000_1900"].getSample("signal_312_2000_1900")
     # ss = RegionAnalyzer.fromRegion(region, s, MODULE_REPO, er)
     NanoAODSchema.warn_missing_crossrefs = False
     fname = "https://raw.githubusercontent.com/CoffeaTeam/coffea/master/tests/samples/nano_dy.root"
+    fname = "test.root"
     events = NanoEventsFactory.from_root(
         {fname: "Events"},
         schemaclass=NanoAODSchema,
@@ -386,6 +550,7 @@ if __name__ == "__main__":
         dr,
         er,
     )
-    print(sample_params)
     analyzer = Analyzer(one_sample)
+    # e = events.compute()
+    # print(e)
     analyzer.run(events, sample_params)

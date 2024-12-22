@@ -74,17 +74,15 @@ def smearJets(jets, jer, jet_type, cset, jer_conf, systematic="nom"):
     )
     resrng = correctionlib_wrapper(resrng_unwrapped)
 
-
     key_jersmear = "JERSmear"
     cset_jersmear = core.CorrectionSet.from_file(jer_conf.smear_path)
-    sf_jersmear =  correctionlib_wrapper(cset_jetsmear[key_jersmear])
-    
+    sf_jersmear = correctionlib_wrapper(cset_jetsmear[key_jersmear])
+
     sf_key, res_key = getJerKeys(jer, jet_type)
     sf_corr = correctionlib_wrapper(cset[sf_key])
     res_corr = correctionlib_wrapper(cset[res_key])
     sf = sf_corr.evaluate(jets["eta"], systematic)
     res = pt_corr.evaluate(jets["eta"], jets["pt"], jets["rho"])
-
 
     gen_jets = events[jer_conf.gen_jet_name]
     gjidx = jer_conf.gen_jet_idx_name
@@ -102,20 +100,18 @@ def smearJets(jets, jer, jet_type, cset, jer_conf, systematic="nom"):
     matched_gen_jets = ak.mask(matched_genjets, dpt < jer_conf.pt_min)
     matched_jets = ak.mask(matched_jets, dpt < jer_conf.pt_min)
 
-    jer_smear_factor = sf_jersmear.evaluate(matched_jets.pt, matched_jets.eta, matched_jets.rho, events.event, sf, res)
-    rand = resrng.evaluate(jets.pt. jets.eta, events.event)
-    sqed = sf**2 -1
-    rand_smear = 1 + (rand * res) * ak.sqrt(ak.where(sqed >0, sqed, 0))
+    jer_smear_factor = sf_jersmear.evaluate(
+        matched_jets.pt, matched_jets.eta, matched_jets.rho, events.event, sf, res
+    )
+    rand = resrng.evaluate(jets.pt.jets.eta, events.event)
+    sqed = sf**2 - 1
+    rand_smear = 1 + (rand * res) * ak.sqrt(ak.where(sqed > 0, sqed, 0))
     is_matched = ~ak.is_none(matched_jets.pt, axis=1)
     final_factor = ak.where(is_matched, jer_smear_factor, rand_smear)
     jets_smeared = copy.copy(jets)
-    jets_smeared['pt'] = jets['pt'] * final_factor
-    jets_smeared['mass'] = jets['mass'] * final_factor
+    jets_smeared["pt"] = jets["pt"] * final_factor
+    jets_smeared["mass"] = jets["mass"] * final_factor
     return jets_smeared
-
-
-
-
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -131,20 +127,45 @@ def applyJetCorrections(columns):
     columns["corrected_jets"] = ("jec_down", jec_down)
 
 
-
-    
-
-
 @MODULE_REPO.register(ModuleType.Producer)
 def testJetCorrection(columns, params):
     j = columns.Jet
-    print(j)
-    columns.add("TestCorrJet", j*1.1, {"Up": j*2, "Down": j*3 })
+    columns.add("TestCorrJet", j, {"up" : j, "down" : j})
+    return 
+    fields = j.fields
+    ret = {}
 
+    flat = ak.flatten(j)
 
+    nom = {field: j[field] for field in fields}
+    params = copy.copy(j.layout.parameters)
+    v = j * 3
+    for f in v.fields:
+        nom[f] = v[f]
 
+    nom = ak.zip(
+        nom,
+        depth_limit=1,
+        parameters=params,
+        with_name=flat.layout.parameters["__record__"],
+        behavior=j.behavior
+    )
 
+    for x in ["Up", "Down"]:
+        out = {field: j[field] for field in fields}
+        params = copy.copy(j.layout.parameters)
+        v = j * 3
+        for f in v.fields:
+            out[f] = v[f]
+        out = ak.zip(
+            out,
+            depth_limit=1,
+            parameters=params,
+            with_name=flat.layout.parameters["__record__"],
+            behavior=j.behavior
+        )
+        ret[x] = out
 
-
-
-
+    print(nom)
+    print(nom.E)
+    columns.add("TestCorrJet", nom, ret)

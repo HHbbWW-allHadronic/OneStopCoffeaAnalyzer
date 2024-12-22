@@ -46,13 +46,13 @@ def general_selection(events, params, selector):
     top_two_dr = ak.fill_none(filled_jets[:, 0].delta_r(filled_jets[:, 1]), False)
 
     passes_highptjet = ak.fill_none(filled_jets[:, 0].pt > 300, False)
-    selector.add("highptjet", passes_highptjet, type="and")
+    selector.add("highptjet", passes_highptjet)
 
     passes_jets = (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)
-    selector.add("njets", passes_jets, type="and")
+    selector.add("njets", passes_jets)
 
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
-    selector.add("0Lep", passes_0Lep, type="and")
+    selector.add("0Lep", passes_0Lep)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -65,9 +65,9 @@ def partial_signal312_selection(events, params, selector):
     passes_2bjet = ak.num(med_b) >= 2
     passes_1tightbjet = ak.num(tight_b) >= 1
     passes_b_dr = med_dr > 1
-    selector.add("2bjet", passes_2bjet, type="and")
-    selector.add("1tightbjet", passes_1tightbjet, type="and")
-    selector.add("b_dr", passes_b_dr, type="and")
+    selector.add("2bjet", passes_2bjet)
+    selector.add("1tightbjet", passes_1tightbjet)
+    selector.add("b_dr", passes_b_dr)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -78,8 +78,8 @@ def partial_signal313_selection(events, params, selector):
     tight_dr = ak.fill_none(filled_tight[:, 0].delta_r(filled_tight[:, 1]), False)
     passes_3tightbjet = ak.num(tight_b) >= 3
     passes_b_dr = tight_dr > 1
-    selector.add("3tightbjet", passes_3tightbjet, type="and")
-    selector.add("b_dr", passes_b_dr, type="and")
+    selector.add("3tightbjet", passes_3tightbjet)
+    selector.add("b_dr", passes_b_dr)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -88,4 +88,4 @@ def partial_cr_selection(events, params, selector):
     Requires 0 loose bs.
     """
     loose_b = events.loose_bs
-    selector.add("0looseb", (ak.num(loose_b) == 0), type="and")
+    selector.add("0looseb", (ak.num(loose_b) == 0))
