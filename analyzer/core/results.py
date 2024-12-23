@@ -8,13 +8,11 @@ import logging
 import operator as op
 import pickle as pkl
 from collections import defaultdict
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Optional, Union
 
 import awkward as ak
 import dask
-import distributed
 import pydantic as pyd
 import yaml
 from analyzer.configuration import CONFIG
@@ -23,18 +21,13 @@ from analyzer.utils.file_tools import extractCmsLocation
 from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
-from distributed import Client
 from rich import print
-
-from .analysis_modules import MODULE_REPO
 from .common_types import Scalar
-from .configuration import AnalysisDescription, AnalysisStage
-from .histograms import HistogramCollection, HistogramSpec, generateHistogramCollection
-from .preprocessed import SamplePreprocessed, preprocessBulk
-from .sector import SubSector, getParamsForSubSector
-from .selection import Cutflow, SelectionManager
-from .specifiers import SectorParams, SubSectorId, SubSectorParams
-from .weights import WeightManager
+
+import analyzer.core.branch_analyzer as ana
+import analyzer.core.selection as ans
+import analyzer.core.histograms as anh
+import analyzer.core.specifiers as anp
 
 if CONFIG.PRETTY_MODE:
     from rich.progress import track
@@ -46,7 +39,7 @@ logger = logging.getLogger(__name__)
 class SelectionResult(pyd.BaseModel):
     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 
-    cutflow: Cutflow
+    cutflow: ans.Cutflow
     raw_passed: Scalar
     weighted_sum: Optional[tuple[Scalar, Scalar]]
 
@@ -82,8 +75,9 @@ class SelectionResult(pyd.BaseModel):
 
 
 class SubSectorResult(pyd.BaseModel):
-    params: SubSectorParams
-    histograms: dict[str, HistogramCollection] = pyd.Field(default_factory=dict)
+    region: ana.RegionAnalyzer
+    params: anp.SubSectorParams
+    histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     cutflow_data: Optional[SelectionResult] = None
 
@@ -91,7 +85,7 @@ class SubSectorResult(pyd.BaseModel):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
-        if self.params != other.params:
+        if self.params != other.params or self.region != other.region:
             raise RuntimeError(
                 f"Error: Attempting to merge incomaptible analysis results"
             )
@@ -114,9 +108,9 @@ class SubSectorResult(pyd.BaseModel):
 
 
 class SectorResult(pyd.BaseModel):
-    sector_params: SectorParams
+    sector_params: anp.SectorParams
     sample_params: list[dict[str, Any]]
-    histograms: dict[str, HistogramCollection]
+    histograms: dict[str, anh.HistogramCollection]
     other_data: dict[str, Any]
     cutflow_data: Optional[SelectionResult]
 
@@ -156,145 +150,145 @@ class SectorResult(pyd.BaseModel):
         )
 
 
-class AnalysisResult(pyd.BaseModel):
-    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
-    description: AnalysisDescription
-    preprocessed_samples: dict[SampleId, SamplePreprocessed]
-    processed_chunks: dict[SampleId, Any]
-    results: dict[SubSectorId, SubSectorResult]
-    total_mc_weights: dict[SampleId, Optional[Scalar]]
-
-    @property
-    def raw_events_processed(self):
-        return {
-            sample_id: sum(e - s for _, s, e in chunks)
-            for sample_id, chunks in self.processed_chunks.items()
-        }
-
-    def getBadChunks(self):
-        ret = {
-            n: self.preprocessed_samples[n].chunks.difference(
-                self.processed_chunks.get(n, set())
-            )
-            for n in self.preprocessed_samples
-        }
-        return ret
-
-    def isEmpty(self):
-        return self.limit_chunks is not None and not self.limit_chunks
-
-    def createMissingRunnable(self):
-        logger.debug(f"Scanning for bad chunks")
-        prepped = copy.deepcopy(self.preprocessed_samples)
-        bad_chunks = self.getBadChunks()
-        ret = {}
-        for sid in prepped:
-            logger.info(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
-            bad = bad_chunks[sid]
-            if bad:
-                ret[sid] = prepped[sid]
-                ret[sid].limit_chunks = bad
-        print(list(ret.keys()))
-        return ret
-
-    def __add__(self, other):
-        """Add two analysis results together.
-        Two results may be added if they come from the same configuration, and do not have any overlapping
-        chunks.
-        """
-
-        if self.description != other.description:
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
-
-        if any(
-            self.processed_chunks.get(x, set()).intersection(
-                other.processed_chunks.get(x, set())
-            )
-            for x in set(self.processed_chunks) | set(other.processed_chunks)
-        ):
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
-
-        desc = copy.copy(self.description)
-        new_results = accumulate([self.results, other.results])
-        new_weights = copy.deepcopy(self.total_mc_weights)
-        for k,v in other.total_mc_weights.items():
-            if v is not None:
-                new_weights[k] = v
-        
-        new_weights = accumulate([self.total_mc_weights, other.total_mc_weights])
-        return AnalysisResult(
-            description=self.description,
-            preprocessed_samples=self.preprocessed_samples,
-            processed_chunks=self.processed_chunks,
-            results=new_results,
-            total_mc_weights=new_weights,
-
-        )
-
-    def getResults(self, drop_samples=None):
-        drop_samples = drop_samples or []
-        scaled_sample_results = defaultdict(list)
-        for subsector_id, result in self.results.items():
-            if subsector_id.sample_id in drop_samples:
-                logger.warn(f"Not including subsector \"{subsector_id}\"")
-                continue
-            k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-
-            if result.params.sector.dataset.sample_type == SampleType.MC:
-                sample_info = result.params.sample
-                scale = (
-                    result.params.sector.dataset.lumi
-                    * sample_info["x_sec"]
-                    / self.total_mc_weights[subsector_id.sample_id]
-                )
-                result = result.scaled(scale)
-            scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-
-        return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
-
-    @staticmethod
-    def fromFile(path):
-        with open(path, "rb") as f:
-            data = pkl.load(f)
-        return AnalysisResult(**data)
-
-
-def checkResult(input_path):
-    from rich.console import Console
-    from rich.style import Style
-    from rich.table import Table
-
-    console = Console()
-
-    with open(input_path, "rb") as f:
-        result = pkl.load(f)
-        result = AnalysisResult(**result)
-    dr = DatasetRepo.getConfig()
-    wanted_samples = sorted(list(result.preprocessed_samples))
-    processed = result.raw_events_processed
-
-    table = Table(title="Missing Events")
-    for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
-        table.add_column(x)
-
-    for sample_id in wanted_samples:
-        exp = dr.getSample(sample_id).n_events
-        val = processed.get(sample_id, 0)
-        diff = exp - val
-        done = diff == 0
-        percent = round(val / exp * 100, 2)
-
-        table.add_row(
-            sample_id.dataset_name,
-            sample_id.sample_name,
-            str(percent),
-            f"{val}",
-            f"{exp}",
-            style=Style(color="green" if done else "red"),
-        )
-        # print(f"{sample_id} is missing {diff} events")
-    console.print(table)
+# class AnalysisResult(pyd.BaseModel):
+#     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
+#     description: AnalysisDescription
+#     preprocessed_samples: dict[anp.SampleId, SamplePreprocessed]
+#     processed_chunks: dict[SampleId, Any]
+#     results: dict[SubSectorId, SubSectorResult]
+#     total_mc_weights: dict[SampleId, Optional[Scalar]]
+# 
+#     @property
+#     def raw_events_processed(self):
+#         return {
+#             sample_id: sum(e - s for _, s, e in chunks)
+#             for sample_id, chunks in self.processed_chunks.items()
+#         }
+# 
+#     def getBadChunks(self):
+#         ret = {
+#             n: self.preprocessed_samples[n].chunks.difference(
+#                 self.processed_chunks.get(n, set())
+#             )
+#             for n in self.preprocessed_samples
+#         }
+#         return ret
+# 
+#     def isEmpty(self):
+#         return self.limit_chunks is not None and not self.limit_chunks
+# 
+#     def createMissingRunnable(self):
+#         logger.debug(f"Scanning for bad chunks")
+#         prepped = copy.deepcopy(self.preprocessed_samples)
+#         bad_chunks = self.getBadChunks()
+#         ret = {}
+#         for sid in prepped:
+#             logger.info(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
+#             bad = bad_chunks[sid]
+#             if bad:
+#                 ret[sid] = prepped[sid]
+#                 ret[sid].limit_chunks = bad
+#         print(list(ret.keys()))
+#         return ret
+# 
+#     def __add__(self, other):
+#         """Add two analysis results together.
+#         Two results may be added if they come from the same configuration, and do not have any overlapping
+#         chunks.
+#         """
+# 
+#         if self.description != other.description:
+#             raise RuntimeError(
+#                 f"Error: Attempting to merge incomaptible analysis results"
+#             )
+# 
+#         if any(
+#             self.processed_chunks.get(x, set()).intersection(
+#                 other.processed_chunks.get(x, set())
+#             )
+#             for x in set(self.processed_chunks) | set(other.processed_chunks)
+#         ):
+#             raise RuntimeError(
+#                 f"Error: Attempting to merge incomaptible analysis results"
+#             )
+# 
+#         desc = copy.copy(self.description)
+#         new_results = accumulate([self.results, other.results])
+#         new_weights = copy.deepcopy(self.total_mc_weights)
+#         for k,v in other.total_mc_weights.items():
+#             if v is not None:
+#                 new_weights[k] = v
+#         
+#         new_weights = accumulate([self.total_mc_weights, other.total_mc_weights])
+#         return AnalysisResult(
+#             description=self.description,
+#             preprocessed_samples=self.preprocessed_samples,
+#             processed_chunks=self.processed_chunks,
+#             results=new_results,
+#             total_mc_weights=new_weights,
+# 
+#         )
+# 
+#     def getResults(self, drop_samples=None):
+#         drop_samples = drop_samples or []
+#         scaled_sample_results = defaultdict(list)
+#         for subsector_id, result in self.results.items():
+#             if subsector_id.sample_id in drop_samples:
+#                 logger.warn(f"Not including subsector \"{subsector_id}\"")
+#                 continue
+#             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
+# 
+#             if result.params.sector.dataset.sample_type == SampleType.MC:
+#                 sample_info = result.params.sample
+#                 scale = (
+#                     result.params.sector.dataset.lumi
+#                     * sample_info["x_sec"]
+#                     / self.total_mc_weights[subsector_id.sample_id]
+#                 )
+#                 result = result.scaled(scale)
+#             scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
+# 
+#         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
+# 
+#     @staticmethod
+#     def fromFile(path):
+#         with open(path, "rb") as f:
+#             data = pkl.load(f)
+#         return AnalysisResult(**data)
+# 
+# 
+# def checkResult(input_path):
+#     from rich.console import Console
+#     from rich.style import Style
+#     from rich.table import Table
+# 
+#     console = Console()
+# 
+#     with open(input_path, "rb") as f:
+#         result = pkl.load(f)
+#         result = AnalysisResult(**result)
+#     dr = DatasetRepo.getConfig()
+#     wanted_samples = sorted(list(result.preprocessed_samples))
+#     processed = result.raw_events_processed
+# 
+#     table = Table(title="Missing Events")
+#     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
+#         table.add_column(x)
+# 
+#     for sample_id in wanted_samples:
+#         exp = dr.getSample(sample_id).n_events
+#         val = processed.get(sample_id, 0)
+#         diff = exp - val
+#         done = diff == 0
+#         percent = round(val / exp * 100, 2)
+# 
+#         table.add_row(
+#             sample_id.dataset_name,
+#             sample_id.sample_name,
+#             str(percent),
+#             f"{val}",
+#             f"{exp}",
+#             style=Style(color="green" if done else "red"),
+#         )
+#         # print(f"{sample_id} is missing {diff} events")
+#     console.print(table)

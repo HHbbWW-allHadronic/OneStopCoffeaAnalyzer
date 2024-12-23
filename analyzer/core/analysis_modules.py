@@ -36,6 +36,7 @@ import enum
 from collections import defaultdict
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Any
+from pydantic import BaseModel, Field
 import inspect
 
 
@@ -47,15 +48,14 @@ class ModuleType(str, enum.Enum):
     Producer = "Producer"
 
 
-@dataclass(frozen=True)
-class AnalyzerModule:
+class AnalyzerModule(BaseModel):
     name: str
     type: ModuleType
-    function: Optional[Callable] = None
-    description: str = ""
+    description: Optional[str] = None
+    _function: Optional[Callable] = None
 
     def __call__(self, events, analyzer, *args, **kwargs):
-        return self.function(events, analyzer, *args, **kwargs)
+        return self._function(events, analyzer, *args, **kwargs)
 
     def __eq__(self, other):
         return (self.name, self.type) == (other.name, other.type)
@@ -64,10 +64,9 @@ class AnalyzerModule:
         return (self.name,)
 
 
-@dataclass(frozen=True)
-class ConfiguredAnalyzerModule:
+class ConfiguredAnalyzerModule(BaseModel):
     module: AnalyzerModule
-    config: dict[str, Any] = field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
     def __call__(self, *args, **kwargs):
         return self.module(*args, **kwargs, **self.config)
@@ -87,7 +86,7 @@ class ModuleRepo:
 
     def get(self, type, name, configuration=None):
         config = configuration or {}
-        return ConfiguredAnalyzerModule(self.modules[type][name], config)
+        return ConfiguredAnalyzerModule(module=self.modules[type][name], config=config)
 
     def register(self, first, *args, **kwargs):
         if isinstance(first, ModuleType):
@@ -112,10 +111,11 @@ class ModuleRepo:
         analyzer_module = AnalyzerModule(
             name=name,
             type=module_type,
-            function=function,
             description=function.__doc__,
         )
         self.modules[module_type][name] = analyzer_module
+        self.modules[module_type][name]._function = function
+
         return function
 
 

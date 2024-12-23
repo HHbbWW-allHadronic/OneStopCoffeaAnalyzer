@@ -23,12 +23,18 @@ from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from pydantic import BaseModel, ConfigDict, Field
 
-from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType, ConfiguredAnalyzerModule
+from .analysis_modules import (
+    MODULE_REPO,
+    AnalyzerModule,
+    ModuleType,
+    ConfiguredAnalyzerModule,
+)
 from .common_types import Scalar
-from .histograms import HistogramSpec, generateHistogramCollection
+from .histograms import HistogramSpec, HistogramCollection
 from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
 from .columns import Column, Columns
 from .selection import Cutflow, Selection, SelectionSet
+import analyzer.core.results as results
 
 if CONFIG.PRETTY_MODE:
     from rich import print
@@ -46,9 +52,10 @@ class Category:
 
 
 class Histogrammer:
-    def __init__(self, weighter, categories=None, active_shape_variation=None):
+    def __init__(self, weighter, categories=None, active_shape_systematic=None):
         self.weighter = weighter
-        self.active_shape_variation = active_shape_variation
+        self.categories = categories
+        self.active_shape_systematic = active_shape_systematic
         self.results = {}
 
     def H(
@@ -65,6 +72,8 @@ class Histogrammer:
     ):
         if not isinstance(axes, (list, tuple)):
             axes = [axes]
+        if variations is None:
+            variations = self.weighter.variations
         spec = HistogramSpec(
             name=name,
             axes=axes,
@@ -74,12 +83,12 @@ class Histogrammer:
             variations=variations,
             no_scale=no_scale,
         )
-        ret = generateHistogramCollection(
+        ret = HistogramCollection.create(
             spec,
             values,
             self.categories,
             self.weighter,
-            active_shape_variation=self.active_shape_variation,
+            active_shape_systematic=self.active_shape_systematic,
             mask=mask,
         )
         self.results[spec.name] = ret
@@ -100,13 +109,16 @@ class Weighter:
         else:
             self.weights.add(weight_name, central)
 
+    @property
     def variations(self):
         return list(self.weights.variations)
 
+    @property
     def weight_names(self):
         return list(self.weights._weights)
 
-    def totalWeight(self, subsector_id):
+    @property
+    def total_weight(self):
         return (
             ak.sum(self.weight(), axis=0),
             ak.sum(self.weight() ** 2, axis=0),
@@ -128,38 +140,19 @@ class Weighter:
         return ret
 
 
-@dataclass
-class RegionAnalyzer:
+class RegionAnalyzer(BaseModel):
     region_name: str
     description: str = ""
     forbid_data: bool = False
 
-    preselection: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-    corrections: list[ConfiguredAnalyzerModule] = field(default_factory=list)
+    preselection: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    corrections: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
 
-    objects: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-    selection: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-    categories: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-    histograms: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-    weights: list[ConfiguredAnalyzerModule] = field(default_factory=list)
-
-    def identity(self):
-        r = {
-            y: [x.identity() for x in getattr(self, y)]
-            for y in [
-                "preselection",
-                "corrections",
-                "objects",
-                "selection",
-                "categories",
-                "histograms",
-                "weights",
-            ]
-        }
-        return (self.region_name, r)
-
-    def __eq__(self, other):
-        return self.identity == other.identity
+    objects: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    selection: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    categories: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    histograms: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    weights: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
 
     @staticmethod
     def fromRegion(region_desc, sample, module_repo, era_repo):
@@ -279,10 +272,10 @@ class RegionAnalyzer:
         return columns
 
     def runPostSelection(self, columns, params):
+        params = self.getSectorParams(params)
         active_shape = columns.syst
         weighter = Weighter(ignore_systematics=active_shape is not None)
-        
-        
+
         categories = []
         for module in self.weights:
             module(columns, params, weighter)
@@ -291,10 +284,20 @@ class RegionAnalyzer:
         histogrammer = Histogrammer(
             weighter=weighter,
             categories=categories,
-            active_shape_variation=active_shape,
+            active_shape_systematic=active_shape,
         )
         for module in self.histograms:
             module(columns, params, histogrammer)
+
+
+        print(isinstance(self, RegionAnalyzer))
+        return results.SubSectorResult(
+            region=self.model_dump(),
+            params=params,
+            histograms=histogrammer.results,
+            other_data={},
+            cutflow_data=None,
+        )
 
     # def run(self, columns, params, variation=None):
     #     shape_columns = ColumnShapeSyst(columns, variation=variation)
@@ -353,13 +356,15 @@ class Analyzer:
         columns = columns.withSyst(variation)
         for ra in region_analyzers:
             ra.runObjects(columns, params)
+        ret = {}
         for ra in region_analyzers:
             selection = ra.runSelection(columns, params, selection_set)
             mask = selection.getMask()
             print(columns)
             new_cols = columns.withEvents(columns.events[mask])
-            ra.runPostSelection(new_cols, params)
-            
+            res = ra.runPostSelection(new_cols, params)
+            ret[variation](res)
+        return ret
 
     def runPreselectionGroup(
         self, events, params, region_analyzers, preselection, preselection_set
@@ -374,11 +379,14 @@ class Analyzer:
 
         branches = [None] + columns.allShapes()
         logger.info(f"Known variations are {branches}")
+        ret = []
         for variation in branches:
             logger.info(f'Running branch for variation "{variation}"')
-            self.runBranch(
+            res = self.runBranch(
                 region_analyzers, columns, params, preselection, variation=variation
             )
+            ret.append(res)
+        return list(it.chain.from_iterable(ret))
 
     def run(self, events, params):
         preselection_set = SelectionSet()
@@ -391,17 +399,16 @@ class Analyzer:
 
         presel_regions = it.groupby(sorted(region_preselections, key=k), key=k)
         presel_regions = {x: list(y) for x, y in presel_regions}
-        ret = {}
+        ret = []
         for presels, items in presel_regions.items():
             logger.info(
                 f'Running over preselection region "{presels}" containing "{len(items)}" regions.'
             )
             sel = items[0][1]
-            ret.update(
-                self.runPreselectionGroup(
-                    events, params, [x[0] for x in items], sel, preselection_set
-                )
+            ret += self.runPreselectionGroup(
+                events, params, [x[0] for x in items], sel, preselection_set
             )
+
         return ret
 
 
@@ -553,4 +560,5 @@ if __name__ == "__main__":
     analyzer = Analyzer(one_sample)
     # e = events.compute()
     # print(e)
-    analyzer.run(events, sample_params)
+    r = analyzer.run(events, sample_params)
+    print(r.model_dump())
