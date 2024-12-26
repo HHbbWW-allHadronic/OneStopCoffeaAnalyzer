@@ -1,5 +1,6 @@
 import concurrent.futures
 import copy
+import functools as ft
 import enum
 import inspect
 import itertools as it
@@ -54,6 +55,9 @@ class Columns:
     base: Optional["Columns"] = None
     syst: Optional[tuple[str, str]] = None
 
+    # def __hash__(self):
+    #     return hash((self.events.name, tuple(self.columns), self.syst))
+
     def __getattr__(self, attr):
         if attr in self.columns:
             return self.get(attr)
@@ -72,7 +76,6 @@ class Columns:
             )
         )
 
-
     def getSystName(self):
         if self.syst is not None:
             return self.syst[1]
@@ -83,40 +86,38 @@ class Columns:
             return self.syst[0]
         return None
 
-
     def addVariation(self, name, value, syst=None):
         if name not in self.columns:
             col = Column(name=name)
-            self.columns[name]=col
+            self.columns[name] = col
         col = self.columns[name]
         if syst is not None and syst not in col.shape_variations:
             col.shape_variations.append(syst)
 
         cname = col.getColumnName(syst)
         if cname not in self.events.fields:
-            logger.info(f'Adding column to events: "{cname}"')
+            logger.info("Adding column to events: %s", cname)
             self.events[cname] = value
-            
-
 
     def add(self, name, nominal_value, variations=None, shape_dependent=False):
         if self.syst is not None and variations is not None:
             raise RuntimeError()
 
         variations = variations or {}
-        logger.info(f"Adding columns {name} with variations: {list(variations)}")
-
 
         if self.syst is not None:
             if shape_dependent:
-                self.addVariation(name, nominal_value, syst=self.syst[0] + "__" + self.syst[1])
+                self.addVariation(
+                    name, nominal_value, syst=self.syst[0] + "__" + self.syst[1]
+                )
             else:
                 self.addVariation(name, nominal_value)
         else:
             self.addVariation(name, nominal_value)
-            for syst,val in variations.items():
+            for syst, val in variations.items():
                 self.addVariation(name, val, syst=syst)
 
+    # @ft.lru_cache(maxsize=20)
     def get(self, name):
         if name in self.columns:
             col = self.columns[name]
@@ -125,14 +126,16 @@ class Columns:
             elif self.syst and name == self.syst[0]:
                 n = col.getColumnName(self.syst[1])
             else:
-                real_syst =  "__".join(self.syst)
+                real_syst = "__".join(self.syst)
                 if real_syst in col.shape_variations:
                     n = col.getColumnName(real_syst)
                 else:
                     n = col.getColumnName()
         else:
             n = name
-        logger.info(f'Getting column "{name}" with variation "{self.syst}" = "{n}"')
+        logger.info(
+            'Getting column "%s" with variation "%s" = "%s"', name, self.syst, n
+        )
         return self.events[n]
 
     def withSyst(self, syst):

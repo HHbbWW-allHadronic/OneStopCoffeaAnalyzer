@@ -41,7 +41,7 @@ class EraRepo:
     def load(self, directory):
         logger.info(f"Loading eras from {directory}")
         directory = Path(directory)
-        files = list(directory.glob("*.yaml"))
+        files = list(directory.rglob("*.yaml"))
         file_contents = {}
         for f in files:
             with open(f, "r") as fo:

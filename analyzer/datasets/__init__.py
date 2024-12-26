@@ -7,4 +7,5 @@ from .samples import (
     SampleId,
     SampleParams,
     SampleType
+    FileSet
 )

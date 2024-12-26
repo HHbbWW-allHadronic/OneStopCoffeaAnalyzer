@@ -9,77 +9,46 @@ from .sector import SubSectorId
 from pydantic import BaseClass, Field
 
 
-@dataclass
-class WeightManager:
-    weights: defaultdict[SubSectorId, Weights] = field(
-        default_factory=lambda: defaultdict(lambda: Weights(None, storeIndividual=True))
-    )
+class Weighter:
+    def __init__(self, size=None, ignore_systematics=False):
+        self.weights = Weights(size, storeIndividual=True)
+        self.ignore_systematics = ignore_systematics
+        self.__cache = {}
 
-    __cache: dict[(SubSectorId, str), Any] = field(default_factory=dict)
-
-    def add(self, subsector_id, weight_name, central, variations=None):
-        if subsector_id not in self.weights:
-            if isinstance(central, ak.Array):
-                self.weights[subsector_id] = Weights(ak.num(central, axis=0), storeIndividual=True)
-                
-        if variations:
+    def add(self, weight_name, central, variations=None):
+        if variations and not self.ignore_systematics:
             systs = [(x, *y) for x, y in variations.items()]
             name, up, down = list(map(list, zip(*systs)))
-            self.weights[subsector_id].add_multivariation(
-                weight_name, central, name, up, down
-            )
+            self.weights.add_multivariation(weight_name, central, name, up, down)
         else:
-            self.weights[subsector_id].add(weight_name, central)
+            self.weights.add(weight_name, central)
 
-    def variations(self, subsector_id):
-        return list(self.weights[subsector_id].variations)
+    @property
+    def variations(self):
+        return list(self.weights.variations)
 
-    def weight_names(self, subsector_id):
-        return list(self.weights[subsector_id]._weights)
+    @property
+    def weight_names(self):
+        return list(self.weights._weights)
 
-    def totalWeight(self, subsector_id):
-        return (
-            ak.sum(self.weight(subsector_id), axis=0),
-            ak.sum(self.weight(subsector_id) ** 2, axis=0),
-        )
+    # @property
+    # def total_weight(self):
+    #     return (
+    #         ak.sum(self.weight(), axis=0),
+    #         ak.sum(self.weight() ** 2, axis=0),
+    #     )
 
-    def weight(self, subsector_id, modifier=None, include=None, exclude=None):
+    def weight(self, modifier=None, include=None, exclude=None):
         inc = include or []
         exc = exclude or []
-        k = (subsector_id, modifier, tuple(inc), tuple(exc))
-
+        k = (modifier, tuple(inc), tuple(exc))
         if k in self.__cache:
             return self.__cache[k]
-
-        weights = self.weights[subsector_id]
         if include or exclude:
-            ret = weights.partial_weight(modifier=modifier, include=inc, exclude=exc)
+            ret = self.weights.partial_weight(
+                modifier=modifier, include=inc, exclude=exc
+            )
         else:
-            ret = weights.weight(modifier)
-
+            ret = self.weights.weight(modifier)
         self.__cache[k] = ret
-
         return ret
-
-    def getSubSectorWeighter(self, subsector_id):
-        return WeightManager.SubSectorWeighter(self, subsector_id)
-
-    class SubSectorWeighter:
-        def __init__(self, parent, subsector_id):
-            self.parent = parent
-            self.subsector_id = subsector_id
-
-        def weight(self, *args, **kwargs):
-            return self.parent.weight(self.subsector_id, *args, **kwargs)
-
-        def add(self, *args, **kwargs):
-            return self.parent.add(self.subsector_id, *args, **kwargs)
-
-        @property
-        def variations(self):
-            return self.parent.variations(self.subsector_id)
-
-        @property
-        def weight_names(self):
-            return self.parent.weight_names(self.subsector_id)
-

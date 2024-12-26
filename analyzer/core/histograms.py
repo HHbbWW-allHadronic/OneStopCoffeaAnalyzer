@@ -1,6 +1,6 @@
 import logging
 import operator as op
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 import awkward as ak
 import hist
@@ -41,8 +41,7 @@ def maybeFlatten(data):
 def fillHistogram(
     histogram, cat_values, fill_data, weight=None, variation_val="central", mask=None
 ):
-    if variation_val:
-        all_values = [variation_val] + cat_values + [maybeFlatten(x) for x in fill_data]
+    all_values = [variation_val] + cat_values + [maybeFlatten(x) for x in fill_data]
     if weight is not None:
         histogram.fill(*all_values, weight=weight)
     else:
@@ -56,12 +55,13 @@ class HistogramSpec(BaseModel):
     axes: list[Any]
     storage: str = "weight"
     description: str
-    variations: list[str]
+    variations: Optional[list[str]] = None
     store_unweighted: bool = True
     no_scale: bool = False
 
     def model_post_init(self, __context):
-        self.variations = sorted(self.variations)
+        if self.variations:
+            self.variations = sorted(self.variations)
 
 
 class HistogramCollection(BaseModel):
@@ -99,9 +99,9 @@ class HistogramCollection(BaseModel):
             histogram=self.histogram * scale,
         )
 
-    @staticmethod
-    def create(
-        spec,
+
+    def fill(
+        self,
         fill_data,
         categories,
         weight_repo,
@@ -110,25 +110,19 @@ class HistogramCollection(BaseModel):
     ):
         if not isinstance(fill_data, (list, tuple)):
             fill_data = [fill_data]
-        represenative = fill_data[0]
 
+        represenative = fill_data[0]
         if active_shape_systematic is not None:
             weight_variations = []
-            if spec.variations and spec.active_shape_systematic not in spec.variations:
-                return None
             central_name = active_shape_systematic
         else:
-            central_name = "centra"
-            weight_variations = spec.variations
+            central_name = "central"
+            if self.spec.variations is None:
+                weight_variations = weight_repo.variations
+            else:
+                weight_variations = self.spec.variations
 
         central_weight = weight_repo.weight(modifier=None)
-
-        variations_axis = hist.axis.StrCategory(
-            central_name, name="variation", growth=True
-        )
-
-        all_axes = [variations_axis] + [x.axis for x in categories] + spec.axes
-        histogram = dah.Hist(*all_axes, storage=spec.storage)
 
         if central_weight is not None:
             central_weight = transformToFill(represenative, central_weight, mask)
@@ -136,23 +130,20 @@ class HistogramCollection(BaseModel):
         cat_values = [
             transformToFill(represenative, x.values, mask) for x in categories
         ]
-
-        logger.debug(f'Filling histogram with variation "{central_name}"')
         fillHistogram(
-            histogram,
+            self.histogram,
             cat_values,
             fill_data,
             central_weight,
             variation_val=central_name,
             mask=mask,
         )
-
         for weight_variation in weight_variations:
             logger.debug(f'Filling histogram with variation "{weight_variation}"')
             w = weight_repo.weight(modifier=weight_variation)
             real_weight = transformToFill(represenative, w, mask)
             fillHistogram(
-                histogram,
+                self.histogram,
                 cat_values,
                 fill_data,
                 real_weight,
@@ -160,4 +151,67 @@ class HistogramCollection(BaseModel):
                 mask=mask,
             )
 
+
+
+    @staticmethod
+    def create(spec, categories, delayed=True):
+        variations_axis = hist.axis.StrCategory([], name="variation", growth=True)
+        all_axes = [variations_axis] + [x.axis for x in categories] + spec.axes
+        if delayed:
+            histogram = dah.Hist(*all_axes, storage=spec.storage)
+        else:
+            histogram = hist.Hist(*all_axes, storage=spec.storage)
+            
         return HistogramCollection(spec=spec, histogram=histogram)
+
+class Histogrammer:
+    def __init__(
+        self, storage, weighter, categories=None, active_shape_systematic=None
+    ):
+        self.weighter = weighter
+        self.categories = categories
+        self.active_shape_systematic = active_shape_systematic
+        self.storage = storage
+
+    def H(
+        self,
+        name,
+        axes,
+        values,
+        variations=None,
+        weights=None,
+        description="",
+        no_scale=False,
+        mask=None,
+        storage="weight",
+    ):
+        if name not in self.storage:
+            if not isinstance(axes, (list, tuple)):
+                axes = [axes]
+            spec = HistogramSpec(
+                name=name,
+                axes=axes,
+                storage=storage,
+                description=description,
+                variations=variations,
+                no_scale=no_scale,
+            )
+            ret = HistogramCollection.create(spec, self.categories, delayed=True)
+            self.storage[name] = ret
+        else:
+            ret = self.storage[name]
+
+        if self.active_shape_systematic is not None:
+            shape_sys = "__".join(self.active_shape_systematic)
+        else:
+            shape_sys = None
+
+        ret.fill(
+            values,
+            self.categories,
+            self.weighter,
+            active_shape_systematic=shape_sys,
+            mask=mask,
+        )
+        return ret
+

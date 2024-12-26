@@ -130,7 +130,7 @@ def applyJetCorrections(columns):
 @MODULE_REPO.register(ModuleType.Producer)
 def testJetCorrection(columns, params):
     j = columns.Jet
-    columns.add("TestCorrJet", j, {"up" : j, "down" : j})
+    columns.add("TestCorrJet", j)#), {"up" : j, "down" : j})
     return 
     fields = j.fields
     ret = {}

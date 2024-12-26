@@ -21,9 +21,7 @@ Chunk = namedtuple("Chunk", "file start end")
 
 class SamplePreprocessed(pyd.BaseModel):
     """A preprocessed samples, containing information about the step breakdown of the files in sample_id."""
-
-    sample_id: SampleId
-    chunk_info: dict[str, dict[str, Any]]
+    chunk_info: DatasetSpec
     step_size: int
     form: Optional[str] = None
     limit_chunks: Optional[set[Chunk]] = None

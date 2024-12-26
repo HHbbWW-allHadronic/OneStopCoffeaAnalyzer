@@ -16,7 +16,14 @@ import dask
 import pydantic as pyd
 import yaml
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
+from analyzer.datasets import (
+    DatasetRepo,
+    EraRepo,
+    SampleId,
+    SampleType,
+    SampleParams,
+    FileSet,
+)
 from analyzer.utils.file_tools import extractCmsLocation
 from analyzer.utils.structure_tools import accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
@@ -39,8 +46,7 @@ logger = logging.getLogger(__name__)
 class SelectionResult(pyd.BaseModel):
     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 
-    cutflow: ans.Cutflow
-    raw_passed: Scalar
+    cutflow: ans.SelectionFlow
     weighted_sum: Optional[tuple[Scalar, Scalar]]
 
     def __add__(self, other):
@@ -55,31 +61,29 @@ class SelectionResult(pyd.BaseModel):
 
         return SelectionResult(
             cutflow=self.cutflow + other.cutflow,
-            raw_passed=self.raw_passed + other.raw_passed,
             weighted_sum=new_ws,
         )
 
-    def scaled(self, scale):
-        if self.weighted_sum:
-            nws = (
-                self.weighted_sum[0] * scale,
-                self.weighted_sum[1] * (scale**2),
-            )
-        else:
-            nws = None
-        return SelectionResult(
-            cutflow=self.cutflow,
-            raw_passed=self.raw_passed,
-            weighted_sum=nws,
-        )
+    # def scaled(self, scale):
+    #     if self.weighted_sum:
+    #         nws = (
+    #             self.weighted_sum[0] * scale,
+    #             self.weighted_sum[1] * (scale**2),
+    #         )
+    #     else:
+    #         nws = None
+    #     return SelectionResult(
+    #         cutflow=self.cutflow,
+    #         weighted_sum=nws,
+    #     )
 
 
-class SubSectorResult(pyd.BaseModel):
+class CoreSubSectorResult(pyd.BaseModel):
     region: ana.RegionAnalyzer
-    params: anp.SubSectorParams
+    params: SampleParams
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
-    cutflow_data: Optional[SelectionResult] = None
+    selection_flow: Optional[ans.SelectionFlow] = None
 
     def __add__(self, other):
         """Two SubSector results may be added if they have the same parameters
@@ -92,18 +96,42 @@ class SubSectorResult(pyd.BaseModel):
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
         return SubSectorResult(
+            file_set=self.file_set + other.file_set,
+            region=self.region,
             params=self.params,
             histograms=new_hists,
             other_data=new_other,
-            cutflow_data=self.cutflow_data + other.cutflow_data,
+            selection_flow=self.selection_flow + other.selection_flow,
         )
 
     def scaled(self, scale):
         return SubSectorResult(
+            file_set=self.file_set,
+            region=self.region,
             params=self.params,
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
-            cutflow_data=self.cutflow_data.scaled(scale),
+            selection_flow=self.selection_flow,  # .scaled(scale),
+        )
+
+
+class SubSectorResult(pyd.BaseModel):
+    file_set_target: FileSet
+    file_set_processed: FileSet
+    core_result: CoreSubSectorResult
+
+    def __add__(self, other):
+        return CoreSubSectorResult(
+            file_set_target=self.file_set_target,
+            file_set_processed=self.file_set_processed + other.file_set_processed,
+            core_result=self.core_result + other.core_result,
+        )
+
+    def scaled(self, scale):
+        return SubSectorResult(
+            file_set_target=self.file_set_target,
+            file_set_processed=self.file_set_processed + other.file_set_processed,
+            core_result=self.core_result.scaled(scale)
         )
 
 
@@ -112,7 +140,7 @@ class SectorResult(pyd.BaseModel):
     sample_params: list[dict[str, Any]]
     histograms: dict[str, anh.HistogramCollection]
     other_data: dict[str, Any]
-    cutflow_data: Optional[SelectionResult]
+    cutflow_data: Optional[ans.SelectionFlow] = None
 
     @staticmethod
     def fromSubSectorResult(subsector_result):
@@ -157,14 +185,14 @@ class SectorResult(pyd.BaseModel):
 #     processed_chunks: dict[SampleId, Any]
 #     results: dict[SubSectorId, SubSectorResult]
 #     total_mc_weights: dict[SampleId, Optional[Scalar]]
-# 
+#
 #     @property
 #     def raw_events_processed(self):
 #         return {
 #             sample_id: sum(e - s for _, s, e in chunks)
 #             for sample_id, chunks in self.processed_chunks.items()
 #         }
-# 
+#
 #     def getBadChunks(self):
 #         ret = {
 #             n: self.preprocessed_samples[n].chunks.difference(
@@ -173,10 +201,10 @@ class SectorResult(pyd.BaseModel):
 #             for n in self.preprocessed_samples
 #         }
 #         return ret
-# 
+#
 #     def isEmpty(self):
 #         return self.limit_chunks is not None and not self.limit_chunks
-# 
+#
 #     def createMissingRunnable(self):
 #         logger.debug(f"Scanning for bad chunks")
 #         prepped = copy.deepcopy(self.preprocessed_samples)
@@ -190,35 +218,9 @@ class SectorResult(pyd.BaseModel):
 #                 ret[sid].limit_chunks = bad
 #         print(list(ret.keys()))
 #         return ret
-# 
-#     def __add__(self, other):
-#         """Add two analysis results together.
-#         Two results may be added if they come from the same configuration, and do not have any overlapping
-#         chunks.
-#         """
-# 
-#         if self.description != other.description:
-#             raise RuntimeError(
-#                 f"Error: Attempting to merge incomaptible analysis results"
-#             )
-# 
-#         if any(
-#             self.processed_chunks.get(x, set()).intersection(
-#                 other.processed_chunks.get(x, set())
-#             )
-#             for x in set(self.processed_chunks) | set(other.processed_chunks)
-#         ):
-#             raise RuntimeError(
-#                 f"Error: Attempting to merge incomaptible analysis results"
-#             )
-# 
-#         desc = copy.copy(self.description)
-#         new_results = accumulate([self.results, other.results])
-#         new_weights = copy.deepcopy(self.total_mc_weights)
-#         for k,v in other.total_mc_weights.items():
-#             if v is not None:
-#                 new_weights[k] = v
-#         
+#
+#     def __add__(self,eights[k] = v
+#
 #         new_weights = accumulate([self.total_mc_weights, other.total_mc_weights])
 #         return AnalysisResult(
 #             description=self.description,
@@ -226,9 +228,9 @@ class SectorResult(pyd.BaseModel):
 #             processed_chunks=self.processed_chunks,
 #             results=new_results,
 #             total_mc_weights=new_weights,
-# 
+#
 #         )
-# 
+#
 #     def getResults(self, drop_samples=None):
 #         drop_samples = drop_samples or []
 #         scaled_sample_results = defaultdict(list)
@@ -237,7 +239,7 @@ class SectorResult(pyd.BaseModel):
 #                 logger.warn(f"Not including subsector \"{subsector_id}\"")
 #                 continue
 #             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-# 
+#
 #             if result.params.sector.dataset.sample_type == SampleType.MC:
 #                 sample_info = result.params.sample
 #                 scale = (
@@ -247,41 +249,41 @@ class SectorResult(pyd.BaseModel):
 #                 )
 #                 result = result.scaled(scale)
 #             scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-# 
+#
 #         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
-# 
+#
 #     @staticmethod
 #     def fromFile(path):
 #         with open(path, "rb") as f:
 #             data = pkl.load(f)
 #         return AnalysisResult(**data)
-# 
-# 
+#
+#
 # def checkResult(input_path):
 #     from rich.console import Console
 #     from rich.style import Style
 #     from rich.table import Table
-# 
+#
 #     console = Console()
-# 
+#
 #     with open(input_path, "rb") as f:
 #         result = pkl.load(f)
 #         result = AnalysisResult(**result)
 #     dr = DatasetRepo.getConfig()
 #     wanted_samples = sorted(list(result.preprocessed_samples))
 #     processed = result.raw_events_processed
-# 
+#
 #     table = Table(title="Missing Events")
 #     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
 #         table.add_column(x)
-# 
+#
 #     for sample_id in wanted_samples:
 #         exp = dr.getSample(sample_id).n_events
 #         val = processed.get(sample_id, 0)
 #         diff = exp - val
 #         done = diff == 0
 #         percent = round(val / exp * 100, 2)
-# 
+#
 #         table.add_row(
 #             sample_id.dataset_name,
 #             sample_id.sample_name,

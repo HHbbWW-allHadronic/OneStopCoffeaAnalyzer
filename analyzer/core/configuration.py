@@ -1,14 +1,44 @@
-# from __future__ import annotations
+import copy
 import enum
+import inspect
+import itertools as it
 import logging
+import pickle as pkl
+import traceback
+import operator as op
+from collections import defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, ClassVar, Optional, Union
+import functools as ft
 
-from pydantic import BaseModel, Field
 import yaml
 
-from .specifiers import SampleSpec
+import awkward as ak
+import dask
+from analyzer.configuration import CONFIG
+from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
+from analyzer.utils.file_tools import extractCmsLocation
+from coffea.analysis_tools import PackedSelection, Weights
+from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+import coffea.dataset_tools as cdt
+from coffea.util import decompress_form
+from pydantic import BaseModel, ConfigDict, Field
 
-logger = logging.getLogger(__name__)
+from .analysis_modules import (
+    MODULE_REPO,
+    AnalyzerModule,
+    ModuleType,
+    ConfiguredAnalyzerModule,
+)
+from .common_types import Scalar
+from .histograms import HistogramSpec, HistogramCollection, Histogrammer
+from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
+from .columns import Column, Columns
+from .selection import SelectionFlow, Selection, SelectionSet, Selector
+import analyzer.core.results as results
+from .weights import Weighter
+
 
 
 class AnalysisStage(str, enum.Enum):
@@ -32,10 +62,13 @@ class RegionDescription(BaseModel):
     use_region: bool = True
     forbid_data: bool = False
     description: str = ""
+
     selection: list[ModuleDescription] = Field(default_factory=list)
     objects: list[ModuleDescription] = Field(default_factory=list)
+    corrections: list[ModuleDescription] = Field(default_factory=list)
     preselection: list[ModuleDescription] = Field(default_factory=list)
     preselection_histograms: list[ModuleDescription] = Field(default_factory=list)
+    categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
 
@@ -45,12 +78,10 @@ class ExecutionConfig(BaseModel):
     max_workers: int = 20
     step_size: int = 100000
     worker_memory: Optional[str] = "4GB"
-    dule
     dashboard_address: Optional[str] = None
     schedd_address: Optional[str] = None
     worker_timeout: int = 3600
     extra_files: Optional[list[str]] = None
-
 
 
 class FileConfig(BaseModel):
@@ -86,11 +117,33 @@ class AnalysisDescription(BaseModel):
         return asTuple(self) == asTuple(other)
 
 
-
-
-
 def loadDescription(input_path):
     with open(input_path, "rb") as config_file:
         data = yaml.safe_load(config_file)
     return AnalysisDescription(**data)
-    
+
+
+def getSubSectors(description, dataset_repo, era_repo):
+    s_pairs = []
+    ret = defaultdict(list)
+    for dataset_name, regions in description.samples.items():
+        if isinstance(regions, str) and regions == "All":
+            regions = [r.name for r in description.regions]
+        for r in regions:
+            s_pairs.append((dataset_name, r))
+    for dataset_name, region_name in s_pairs:
+        logger.debug(
+            f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"'
+        )
+        dataset = dataset_repo[dataset_name]
+        region = description.getRegion(region_name)
+        for sample in dataset.samples:
+            subsector = RegionAnalyzer.fromRegion(
+                region,
+                sample,
+                MODULE_REPO,
+                era_repo,
+            )
+            ret[sample.sample_id].append(subsector)
+
+    return ret

@@ -1,6 +1,7 @@
 import collections.abc
 import logging
 import shutil
+from analyzer.configuration import CONFIG
 import tempfile
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
@@ -31,11 +32,10 @@ def getPath(url):
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
     parts = Path(p).parts
-    store_idx = next((i for i, x in enumerate(parts) if x == "store"), None)
-    if store_idx is None:
+    root_idx = next((i for i, x in enumerate(parts) if x in CONFIG.FILE_ROOTS), None)
+    if root_idx is None:
         raise RuntimeError(f"Could not find 'store' in {parts}")
-
-    good_parts = parts[store_idx:]
+    good_parts = parts[root_idx:]
     cms_path = Path("/", *good_parts)
     return str(cms_path)
 
@@ -48,7 +48,11 @@ def pickleWithParents(outpath, data):
 
 
 def compressDirectory(
-         input_dir, root_dir, output, archive_type="gztar", temporary_path=".temporary",
+    input_dir,
+    root_dir,
+    output,
+    archive_type="gztar",
+    temporary_path=".temporary",
 ):
     logger.info(f"Compressing directory '{input_dir}' relative to '{root_dir}'")
     logger.info(f"Output is '{output}'")
@@ -56,7 +60,7 @@ def compressDirectory(
     temp = Path(temporary_path)
     temp.parent.mkdir(exist_ok=True, parents=True)
     output.parent.mkdir(exist_ok=True, parents=True)
-    #base_name = base_dir.stem
+    # base_name = base_dir.stem
     # if not zip_path:
     #     temp_path = Path(tempfile.gettempdir())
     # else:
@@ -145,8 +149,10 @@ def copyFile(fr, to, from_rel_to=None):
         )
 
     elif not ex:
-        to_is_dir = to_path[-1] == '/'
-        logger.info(f'Dest path "{str(to_path)}" does not exist and it will {"" if to_is_dir  else "NOT"} be treated as a directory')
+        to_is_dir = to_path[-1] == "/"
+        logger.info(
+            f'Dest path "{str(to_path)}" does not exist and it will {"" if to_is_dir  else "NOT"} be treated as a directory'
+        )
         if to_is_dir:
             makeDir(client, str(to_path))
             logger.info(f'Creating directory  "{str(to_path)}"')
@@ -185,55 +191,3 @@ def update(d, u):
         else:
             d[k] = v
     return d
-
-
-class DirectoryData:
-    data_file_name = "directory_data.yaml"
-    file_data_key = "file_data"
-
-    def __init__(self, directory):
-        self.directory = Path(directory)
-        self.directory_data_file = self.directory / self.data_file_name
-
-    def getComplete(self):
-        if self.directory_data_file.is_file():
-            with open(self.directory_data_file, "r") as f:
-                data = yaml.safe_load(f)
-            return data
-        else:
-            return {}
-
-    def __updateData(self, newdata):
-        current_data = self.getComplete()
-        new_dict = update(current_data, newdata)
-        f = tempfile.NamedTemporaryFile(delete=False, mode="w", dir=self.directory)
-        f.write(yaml.dump(new_dict))
-        Path(f.name).rename(self.directory_data_file)
-
-    def __key(self, path):
-        k = str(Path(path).relative_to(self.directory))
-        return k
-
-    def get(self, path):
-        k = self.__key(path)
-        return self.getComplete()[self.file_data_key][k]
-
-    def set(self, path, data):
-        k = self.__key(path)
-        d = {self.file_data_key: {k: data}}
-        self.__updateData(d)
-
-    def getGlobal(self):
-        return self.getComplete()["global_data"]
-
-    def setGlobal(self, data):
-        self.__updateData({"global_data": data})
-
-    def sync(self):
-        current_data = self.getAll()
-        for p in self.directory.glob("**/*"):
-            if p.is_file() and p != self.directory_data_file:
-                key = self.__key(path)
-                if key not in current_data:
-                    current_data[self.file_data_key][key] = {}
-        self.__updateData(current_data)

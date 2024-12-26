@@ -3,6 +3,8 @@ from pathlib import Path
 
 
 class Config:
+    FILE_ROOTS = ["store", "local"]
+
     APPLICATION_DATA = "/srv/.application_data"
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
     #APPLICATION_RESOURCES = "/srv/analyzer_resources"
