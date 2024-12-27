@@ -1,10 +1,10 @@
 import logging
 from fnmatch import fnmatch
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, field_serializer
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 

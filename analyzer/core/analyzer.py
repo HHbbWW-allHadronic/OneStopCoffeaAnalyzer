@@ -1,49 +1,23 @@
-import copy
-import enum
-import inspect
 import itertools as it
 import logging
-import pickle as pkl
-import traceback
-import operator as op
-from collections import defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
-import functools as ft
+from typing import Any, Union
 
-import yaml
 
-import awkward as ak
-import dask
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
-from analyzer.utils.file_tools import extractCmsLocation
-from coffea.analysis_tools import PackedSelection, Weights
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-import coffea.dataset_tools as cdt
-from coffea.util import decompress_form
-from pydantic import BaseModel, ConfigDict, Field
-
-from .analysis_modules import (
-    MODULE_REPO,
-    AnalyzerModule,
-    ModuleType,
-    ConfiguredAnalyzerModule,
-)
-from .common_types import Scalar
-from .histograms import HistogramSpec, HistogramCollection, Histogrammer
-from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
-from .columns import Column, Columns
-from .selection import SelectionFlow, Selection, SelectionSet, Selector
+from analyzer.datasets import DatasetRepo, EraRepo, SampleId
+from coffea.nanoevents import NanoAODSchema
+from .region_analyzer import RegionAnalyzer, getParamsSample
+from .configuration import loadDescription, getSubSectors
+from .columns import Columns
+from .selection import SelectionSet
 import analyzer.core.results as results
-from .weights import Weighter
+import analyzer.core.executor as executor
 
 if CONFIG.PRETTY_MODE:
     from rich import print
-    from rich.progress import track
 
-logger = logging.getLogger("analyzer.core")
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -52,6 +26,7 @@ class Category:
     axis: Any
     values: Any
     distinct_values: set[Union[int, str, float]] = field(default_factory=set)
+
 
 @dataclass
 class Analyzer:
@@ -116,7 +91,7 @@ class Analyzer:
             ret.update(res)
 
         ret = {
-            ra.region_name: results.SubSectorResult(
+            ra.region_name: results.CoreSubSectorResult(
                 region=ra.model_dump(),
                 params=params,
                 histograms=histogram_storage[ra.region_name],
@@ -149,14 +124,26 @@ class Analyzer:
                     events, params, [x[0] for x in items], sel, preselection_set
                 )
             )
-
         return ret
 
+
+def makeUnits(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
+    ret = []
+    for sample_id, region_analyzers in subsectors.items():
+        params = dataset_repo[sample_id].params
+        params.dataset.populateEra(era_repo)
+        u = executor.ExecutionUnit(
+            sample_id=sample_id,
+            sample_params=params,
+            file_set=dataset_repo[sample_id].getFileSet(file_retrieval_kwargs),
+            analyzer=Analyzer(region_analyzers),
+        )
+        ret.append(u)
+    return ret
 
 
 if __name__ == "__main__":
     import analyzer.modules
-    import code
     from analyzer.logging import setup_logging
 
     setup_logging()
@@ -166,31 +153,13 @@ if __name__ == "__main__":
     dr = DatasetRepo.getConfig()
     er = EraRepo.getConfig()
 
-    # region = d.getRegion("Signal312")
-    #
-    # s = dr["signal_312_2000_1900"].getSample("signal_312_2000_1900")
-    # ss = RegionAnalyzer.fromRegion(region, s, MODULE_REPO, er)
     NanoAODSchema.warn_missing_crossrefs = False
+
     subsectors = getSubSectors(d, dr, er)
-    one_sample = subsectors[
-        SampleId(dataset_name="testsignal1", sample_name="testsignal1")
-    ]
-    sample_params = getParamsSample(
-        SampleId(dataset_name="testsignal1", sample_name="testsignal1"),
-        dr,
-        er,
-    )
-    s = dr["testsignal1"]["testsignal1"]
-    print(s)
-    # code.interact(local=locals())
-    fs = s.getFileSet({})
-    import sys
-    sys.exit() 
+    units = makeUnits(subsectors, dr, er, {})
 
-    # r = analyzer.run(events, sample_params)
-
-    analyzer = Analyzer(one_sample)
-    de = DaskExecutor()
-    ret = de.run(
-        analyzer, sample_params, {"test1.root": "Events", "test2.root": "Events"}
-    )
+    de = executor.DaskExecutor()
+    de.run(units)
+    # ret = de.run(
+    #     analyzer, sample_params, {"test1.root": "Events", "test2.root": "Events"}
+    # )

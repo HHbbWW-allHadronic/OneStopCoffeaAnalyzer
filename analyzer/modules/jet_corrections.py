@@ -1,12 +1,10 @@
 import copy
 from analyzer.core import MODULE_REPO, ModuleType
 
-import numpy as np
 
 import awkward as ak
 import correctionlib
 import pydantic as pyd
-from coffea.jetmet_tools import CorrectedMETFactory
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 import correctionlib.schemav2 as cs
 

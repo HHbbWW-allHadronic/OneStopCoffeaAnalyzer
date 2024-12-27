@@ -767,4 +767,3 @@ def executeAnalysis(analyzer, output_path):
 
     logger.info(f"Saving results to {out}")
 
-    return final_result

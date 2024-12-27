@@ -1,11 +1,9 @@
 import argparse
 import datetime
-import http.cookiejar
 import json
 import logging
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 import requests
@@ -13,11 +11,7 @@ import yaml
 
 from analyzer.configuration import CONFIG
 from auth_get_sso_cookie import cern_sso
-from coffea.dataset_tools import rucio_utils
-from coffea.dataset_tools.dataset_query import print_dataset_query
 from rich import print
-from rich.console import Console
-from rich.table import Table
 
 
 class MyDumper(yaml.Dumper):

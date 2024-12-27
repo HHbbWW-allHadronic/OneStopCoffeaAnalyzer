@@ -1,37 +1,17 @@
-import concurrent.futures
 import copy
-import enum
-import inspect
-import itertools as it
-import logging
-import pickle as pkl
-import traceback
-import operator as op
 from collections import defaultdict
-from dataclasses import dataclass, field, asdict
-from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
-import functools as ft
+from typing import Any, Optional
 
-import yaml
 
 import awkward as ak
-import dask
 from analyzer.configuration import CONFIG
 from analyzer.utils.file_tools import extractCmsLocation
-from coffea.analysis_tools import PackedSelection, Weights
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-import coffea.dataset_tools as cdt
-from coffea.util import decompress_form
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel
 import analyzer.datasets.files as adf
 
-import coffea.dataset_tools.apply_processor as cda
-from .types import CoffeaFileSpecOptional
 
 if CONFIG.PRETTY_MODE:
-    from rich import print
-    from rich.progress import track
+    pass
 
 
 # class SamplePreprocessed(pyd.BaseModel):
@@ -201,11 +181,34 @@ class FileSet(BaseModel):
             else:
                 del ret[fname]
 
-        return SampleFileChunks(
+        return FileSet(
             files=ret,
             step_size=self.step_size,
             form=form,
         )
+
+    def justProcessed(self, report):
+        passed_report = report[ak.is_none(report.exception)]
+        passed = defaultdict(list)
+        ret = copy.deepcopy(self.files)
+
+        for ok in passed_report:
+            args_as_types = tuple(eval(arg) for arg in ok.args)
+            fname, object_path, start, stop, is_step = args_as_types
+            passed[extractCmsLocation(fname)].append([start, stop])
+
+        for fname in list(ret.keys()):
+            if fname in passed:
+                ret[fname][1]["steps"] = passed[fname]
+            else:
+                del ret[fname]
+
+        return FileSet(
+            files=ret,
+            step_size=self.step_size,
+            form=form,
+        )
+
 
     def updateFromCoffea(self, coffea_fileset):
         ret = copy.deepcopy(self.files)
@@ -221,6 +224,7 @@ class FileSet(BaseModel):
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
+
     def toCoffeaDataset(self):
         coffea_dataset = {
             "files": {
@@ -230,3 +234,4 @@ class FileSet(BaseModel):
             "form": self.form,
         }
         return coffea_dataset
+

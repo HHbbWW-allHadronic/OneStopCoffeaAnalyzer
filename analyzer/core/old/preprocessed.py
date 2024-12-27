@@ -10,8 +10,7 @@ import analyzer.utils.structure_tools as utils
 import coffea.dataset_tools as dst
 import distributed
 import pydantic as pyd
-from analyzer.datasets import SampleId
-from analyzer.utils.file_tools import extractCmsLocation, stripPort
+from analyzer.utils.file_tools import extractCmsLocation
 from coffea.dataset_tools.preprocess import DatasetSpec
 
 logger = logging.getLogger(__name__)

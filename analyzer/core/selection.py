@@ -1,36 +1,17 @@
-import concurrent.futures
 import copy
-import enum
-import inspect
-import itertools as it
 import logging
-import pickle as pkl
-import traceback
-from collections import defaultdict
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
 
-import yaml
 
-import awkward as ak
-import dask
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
-from analyzer.utils.file_tools import extractCmsLocation
-from coffea.analysis_tools import PackedSelection, Weights
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.util import decompress_form
-from pydantic import BaseModel, ConfigDict, Field
+from coffea.analysis_tools import PackedSelection
+from pydantic import BaseModel, ConfigDict
 
-from .analysis_modules import MODULE_REPO, AnalyzerModule, ModuleType
 from .common_types import Scalar
-from .specifiers import SampleSpec, SubSectorId
 from analyzer.utils.structure_tools import accumulate
 
 if CONFIG.PRETTY_MODE:
-    from rich import print
-    from rich.progress import track
+    pass
 
 logger = logging.getLogger("analyzer.core")
 

@@ -6,6 +6,6 @@ from .samples import (
     Sample,
     SampleId,
     SampleParams,
-    SampleType
-    FileSet
+    SampleType,
 )
+from .prepped import FileSet

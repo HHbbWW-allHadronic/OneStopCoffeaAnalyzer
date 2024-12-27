@@ -1,43 +1,24 @@
 # from __future__ import annotations
-import concurrent.futures
-import copy
-import functools as ft
-import itertools as it
-import json
 import logging
-import operator as op
-import pickle as pkl
-from collections import defaultdict
-from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
-import awkward as ak
-import dask
 import pydantic as pyd
-import yaml
 from analyzer.configuration import CONFIG
 from analyzer.datasets import (
-    DatasetRepo,
-    EraRepo,
-    SampleId,
-    SampleType,
     SampleParams,
     FileSet,
 )
-from analyzer.utils.file_tools import extractCmsLocation
 from analyzer.utils.structure_tools import accumulate
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.util import decompress_form
-from rich import print
 from .common_types import Scalar
 
-import analyzer.core.branch_analyzer as ana
+import analyzer.datasets as ad
 import analyzer.core.selection as ans
+import analyzer.core.region_analyzer as anr
 import analyzer.core.histograms as anh
 import analyzer.core.specifiers as anp
 
 if CONFIG.PRETTY_MODE:
-    from rich.progress import track
+    pass
 
 
 logger = logging.getLogger(__name__)
@@ -79,7 +60,7 @@ class SelectionResult(pyd.BaseModel):
 
 
 class CoreSubSectorResult(pyd.BaseModel):
-    region: ana.RegionAnalyzer
+    region: anr.RegionAnalyzer
     params: SampleParams
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
@@ -116,6 +97,7 @@ class CoreSubSectorResult(pyd.BaseModel):
 
 
 class SubSectorResult(pyd.BaseModel):
+    sample_id: ad.SampleId
     file_set_target: FileSet
     file_set_processed: FileSet
     core_result: CoreSubSectorResult

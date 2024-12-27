@@ -2,12 +2,10 @@ import collections.abc
 import logging
 import shutil
 from analyzer.configuration import CONFIG
-import tempfile
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 import pickle
 
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +29,13 @@ def getPath(url):
 
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
+    print(p)
     parts = Path(p).parts
     root_idx = next((i for i, x in enumerate(parts) if x in CONFIG.FILE_ROOTS), None)
     if root_idx is None:
         raise RuntimeError(f"Could not find 'store' in {parts}")
     good_parts = parts[root_idx:]
-    cms_path = Path("/", *good_parts)
+    cms_path = Path(*good_parts)
     return str(cms_path)
 
 

@@ -1,16 +1,8 @@
 import pickle as pkl
 from pathlib import Path
 
-import matplotlib as mpl
-import matplotlib.pyplot as plt
-import mplhep
-import numpy as np
-from analyzer.postprocessing.style import Styler
 
 from ..utils import doFormatting
-from .annotations import addCMSBits, labelAxis
-from .common import PlotConfiguration
-from .utils import addAxesToHist, saveFig
 
 
 def exportHist(

@@ -31,15 +31,13 @@ def makeCluster(args, config=None, **kwargs):
 
 
 def handlePreprocess(args):
-    import analyzer.modules
-    from analyzer.core import loadDescription, preprocessAnalysis
+    from analyzer.core import preprocessAnalysis
 
     client = makeCluster(args)
     preprocessAnalysis(args.input, args.output)
 
 
 def handlePatchPreprocess(args):
-    import analyzer.modules
     from analyzer.core import patchPreprocessedFile
 
     client = makeCluster(args)
@@ -48,8 +46,7 @@ def handlePatchPreprocess(args):
 
 
 def handlePatchRun(args):
-    import analyzer.modules
-    from analyzer.core import loadDescription, preprocessAnalysis, AnalysisResult, patchAnalysisResult
+    from analyzer.core import AnalysisResult, patchAnalysisResult
 
     desc = AnalysisResult.fromFile(args.input).description
     extra_files = desc.execution_config.extra_files
@@ -68,8 +65,7 @@ def handleCheckResult(args):
 
 
 def handleRun(args):
-    import analyzer.modules
-    from analyzer.core import loadDescription, preprocessAnalysis, runFromFile
+    from analyzer.core import loadDescription, runFromFile
 
     desc = loadDescription(args.input)
     exec_config = desc.execution_config

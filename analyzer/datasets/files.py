@@ -1,34 +1,18 @@
-import dataclasses
-import enum
 import itertools as it
-import json
-import logging
 import operator as op
 import random
 import re
 from collections import OrderedDict
 from collections.abc import Mapping
-from functools import cached_property
-from pathlib import Path
-from typing import Any, List, Optional, Union
 from urllib.parse import urlparse
 
-import pydantic as pyd
-import yaml
-from analyzer.configuration import CONFIG
 from analyzer.utils.file_tools import extractCmsLocation
 from pydantic import (
     BaseModel,
     Field,
-    field_serializer,
-    field_validator,
     model_validator,
-    ConfigDict,
 )
-from rich import print
-import analyzer.datasets.prepped as adp
 
-from .era import Era
 
 
 class SampleFile(BaseModel):

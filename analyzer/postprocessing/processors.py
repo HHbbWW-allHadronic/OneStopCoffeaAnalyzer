@@ -11,7 +11,7 @@ import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.core import AnalysisResult
 from analyzer.core.specifiers import SectorSpec
-from rich.progress import Progress, track
+from rich.progress import Progress
 
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat

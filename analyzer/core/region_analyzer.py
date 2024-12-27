@@ -1,47 +1,25 @@
-import copy
-import enum
-import inspect
 import itertools as it
-import logging
-import pickle as pkl
-import traceback
-import operator as op
-from collections import defaultdict
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, ClassVar, Optional, Union
-import functools as ft
 
-import yaml
 
-import awkward as ak
-import dask
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
-from analyzer.utils.file_tools import extractCmsLocation
-from coffea.analysis_tools import PackedSelection, Weights
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-import coffea.dataset_tools as cdt
-from coffea.util import decompress_form
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from .analysis_modules import (
-    MODULE_REPO,
-    AnalyzerModule,
     ModuleType,
     ConfiguredAnalyzerModule,
 )
-from .common_types import Scalar
-from .histograms import HistogramSpec, HistogramCollection, Histogrammer
-from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
-from .columns import Column, Columns
-from .selection import SelectionFlow, Selection, SelectionSet, Selector
-import analyzer.core.results as results
+from .histograms import Histogrammer
+from .specifiers import SectorParams, SubSectorParams
+from .columns import Columns
+from .selection import Selection, SelectionSet, Selector
 from .weights import Weighter
+import logging
 
 if CONFIG.PRETTY_MODE:
-    from rich import print
-    from rich.progress import track
+    pass
+
+logger = logging.getLogger(__name__)
+
 
 class RegionAnalyzer(BaseModel):
     region_name: str
@@ -56,6 +34,23 @@ class RegionAnalyzer(BaseModel):
     categories: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
     histograms: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
     weights: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+
+    def ensureFunction(self, module_repo):
+        todo = [
+            preselection,
+            corrections,
+            objects,
+            selection,
+            categories,
+            histograms,
+            weights,
+        ]
+        for item in todo:
+            for module in item:
+                if module.module._function is None:
+                    module.module._function = module_repo.getFunction(
+                        module.module.type, module.module.name
+                    )
 
     @staticmethod
     def fromRegion(region_desc, sample, module_repo, era_repo):
@@ -175,15 +170,10 @@ class RegionAnalyzer(BaseModel):
         for module in self.histograms:
             module(columns, params, histogrammer)
 
-    # def run(self, columns, params, variation=None):
-    #     shape_columns = ColumnShapeSyst(columns, variation=variation)
-    #     for module in self.corrections:
-    #         module(events, params, shape_columns)
-    #     return shape_columns
-
 
 __subsector_param_cache = {}
 __sample_param_cache = {}
+
 
 def getParamsForSubSector(subsector_id, dataset_repo, era_repo):
     if subsector_id in __subsector_param_cache:

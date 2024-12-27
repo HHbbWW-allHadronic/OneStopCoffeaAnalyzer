@@ -1,44 +1,19 @@
-import copy
 import enum
-import inspect
-import itertools as it
-import logging
-import pickle as pkl
-import traceback
-import operator as op
 from collections import defaultdict
-from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Any, ClassVar, Optional, Union
-import functools as ft
 
 import yaml
 
-import awkward as ak
-import dask
-from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId, SampleType
-from analyzer.utils.file_tools import extractCmsLocation
-from coffea.analysis_tools import PackedSelection, Weights
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-import coffea.dataset_tools as cdt
-from coffea.util import decompress_form
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 from .analysis_modules import (
     MODULE_REPO,
-    AnalyzerModule,
-    ModuleType,
-    ConfiguredAnalyzerModule,
 )
-from .common_types import Scalar
-from .histograms import HistogramSpec, HistogramCollection, Histogrammer
-from .specifiers import SampleSpec, SubSectorId, SectorParams, SubSectorParams
-from .columns import Column, Columns
-from .selection import SelectionFlow, Selection, SelectionSet, Selector
-import analyzer.core.results as results
-from .weights import Weighter
+from .specifiers import SampleSpec
+import logging
+from .region_analyzer import RegionAnalyzer
 
+logger = logging.getLogger(__name__)
 
 
 class AnalysisStage(str, enum.Enum):
@@ -147,3 +122,4 @@ def getSubSectors(description, dataset_repo, era_repo):
             ret[sample.sample_id].append(subsector)
 
     return ret
+

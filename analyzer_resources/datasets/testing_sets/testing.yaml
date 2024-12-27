@@ -7,9 +7,9 @@
     stop_mass: 0
   era: '2018'
   files: 
-    - local: local/test.root
-    - local: local/test1.root
-    - local: local/test2.root
+    - local: applocal/test.root
+    - local: applocal/test1.root
+    - local: applocal/test2.root
 
 - name: testsignal2
   sample_type: MC
@@ -20,9 +20,9 @@
     stop_mass: 0
   era: '2018'
   files: 
-    - local: local/test.root
-    - local: local/test1.root
-    - local: local/test2.root
+    - local: applocal/test.root
+    - local: applocal/test1.root
+    - local: applocal/test2.root
 
 # - name: signal_312_1000_600
 #   sample_type: MC
