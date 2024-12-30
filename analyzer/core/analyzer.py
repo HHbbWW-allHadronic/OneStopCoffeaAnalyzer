@@ -91,7 +91,7 @@ class Analyzer:
             ret.update(res)
 
         ret = {
-            ra.region_name: results.CoreSubSectorResult(
+            ra.region_name: results.SubSectorResult(
                 region=ra.model_dump(),
                 params=params,
                 histograms=histogram_storage[ra.region_name],
@@ -103,6 +103,9 @@ class Analyzer:
         return ret
 
     def run(self, events, params):
+        """
+        Run analyzer over a collection of events, given some parameters.
+        """
         preselection_set = SelectionSet()
         region_preselections = []
         for analyzer in self.region_analyzers:
@@ -124,15 +127,15 @@ class Analyzer:
                     events, params, [x[0] for x in items], sel, preselection_set
                 )
             )
-        return ret
+        return results.CoreAnalyzerResult(results=ret)
 
 
-def makeUnits(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
+def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
     ret = []
     for sample_id, region_analyzers in subsectors.items():
         params = dataset_repo[sample_id].params
         params.dataset.populateEra(era_repo)
-        u = executor.ExecutionUnit(
+        u = executor.AnalysisTask(
             sample_id=sample_id,
             sample_params=params,
             file_set=dataset_repo[sample_id].getFileSet(file_retrieval_kwargs),
@@ -156,8 +159,9 @@ if __name__ == "__main__":
     NanoAODSchema.warn_missing_crossrefs = False
 
     subsectors = getSubSectors(d, dr, er)
-    units = makeUnits(subsectors, dr, er, {})
+    units = makeTasks(subsectors, dr, er, {})
 
+    print(units)
     de = executor.DaskExecutor()
     de.run(units)
     # ret = de.run(

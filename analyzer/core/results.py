@@ -59,7 +59,7 @@ class SelectionResult(pyd.BaseModel):
     #     )
 
 
-class CoreSubSectorResult(pyd.BaseModel):
+class SubSectorResult(pyd.BaseModel):
     region: anr.RegionAnalyzer
     params: SampleParams
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
@@ -96,24 +96,42 @@ class CoreSubSectorResult(pyd.BaseModel):
         )
 
 
-class SubSectorResult(pyd.BaseModel):
-    sample_id: ad.SampleId
-    file_set_target: FileSet
-    file_set_processed: FileSet
-    core_result: CoreSubSectorResult
+class CoreAnalyzerResult(pyd.BaseModel):
+    results: dict[str, SubSectorResult]
 
     def __add__(self, other):
-        return CoreSubSectorResult(
-            file_set_target=self.file_set_target,
+        return CoreAnalyzerResult(
+            results=accumulate([self.results, other.results]),
+        )
+
+    def scaled(self, scale):
+        return CoreAnalyzerResult(
+            results={k: v.scaled(scale) for k, v in self.results()},
+        )
+
+
+class AnalyzerResult(pyd.BaseModel):
+    sample_id: ad.SampleId
+    file_set_processed: FileSet
+    core_result: CoreAnalyzerResult
+
+    def __add__(self, other):
+        if not self.file_set_processed.intersect(other.file_set_processed).empty:
+            raise RuntimeError()
+        if self.sample_id != other.sample_id:
+            raise RuntimeError()
+
+        return AnalyzerResult(
+            sample_id=self.sample_id,
             file_set_processed=self.file_set_processed + other.file_set_processed,
             core_result=self.core_result + other.core_result,
         )
 
     def scaled(self, scale):
-        return SubSectorResult(
-            file_set_target=self.file_set_target,
-            file_set_processed=self.file_set_processed + other.file_set_processed,
-            core_result=self.core_result.scaled(scale)
+        return AnalyzerResult(
+            sample_id=self.sample_id,
+            file_set_processed=self.file_set_processed,
+            core_result=self.core_result.scaled(scale),
         )
 
 
