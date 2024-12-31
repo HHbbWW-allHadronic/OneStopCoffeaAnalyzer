@@ -1,10 +1,14 @@
 import logging
 from typing import Any, Optional
 from rich import print
+import functools as ft
+import operator as op
 
+from collections import defaultdict
 import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.datasets import SampleParams, FileSet, DatasetParams, SampleType
+import pickle as pkl
 from analyzer.utils.structure_tools import accumulate
 from .common_types import Scalar
 
@@ -21,7 +25,6 @@ if CONFIG.PRETTY_MODE:
 logger = logging.getLogger(__name__)
 
 
-
 class BaseResult(pyd.BaseModel):
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
@@ -31,8 +34,6 @@ class BaseResult(pyd.BaseModel):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
-        if self.region != other.region:
-            raise RuntimeError("Different Regions")
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
         return BaseResult(
@@ -107,46 +108,40 @@ class SampleResult(pyd.BaseModel):
             params=self.params,
             file_set_ran=self.file_set_ran,
             file_set_processed=self.file_set_processed,
-            results={k: v.scaled(scale) for k, v in self.results()},
+            results={k: v.scaled(scale) for k, v in self.results.items()},
         )
-
 
     def scaleToPhysical(self):
         if self.params.dataset.sample_type == SampleType.MC:
-            sample_info = result.params.sample
-            scale = (
-                result.params.sector.dataset.lumi
-                * sample_info["x_sec"]
-                / self.total_mc_weights[subsector_id.sample_id]
-            )
+            scale = self.params.dataset.lumi * self.params.x_sec / self.params.n_events
             return self.scaled(scale)
         else:
             return self
 
 
-class AnalysisResult(pyd.BaseModel):
-    results: dict[SampleId, SampleResult]
-
-    def getResults(self, drop_samples=None):
-        drop_samples = drop_samples or []
-        scaled_sample_results = defaultdict(list)
-        for region_name, result in self.results.items():
-            if subsector_id.sample_id in drop_samples:
-                logger.warn(f'Not including subsector "{subsector_id}"')
-                continue
-            k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-
-            if result.params.sector.dataset.sample_type == SampleType.MC:
-                sample_info = result.params.sample
-                scale = (
-                    result.params.sector.dataset.lumi
-                    * sample_info["x_sec"]
-                    / self.total_mc_weights[subsector_id.sample_id]
-                )
-                result = result.scaled(scale)
-            scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-
-        return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
+# class AnalysisResult(pyd.BaseModel):
+#     results: dict[SampleId, SampleResult]
+#
+#     def getResults(self, drop_samples=None):
+#         drop_samples = drop_samples or []
+#         scaled_sample_results = defaultdict(list)
+#         for region_name, result in self.results.items():
+#             if subsector_id.sample_id in drop_samples:
+#                 logger.warn(f'Not including subsector "{subsector_id}"')
+#                 continue
+#             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
+#
+#             if result.params.sector.dataset.sample_type == SampleType.MC:
+#                 sample_info = result.params.sample
+#                 scale = (
+#                     result.params.sector.dataset.lumi
+#                     * sample_info["x_sec"]
+#                     / self.total_mc_weights[subsector_id.sample_id]
+#                 )
+#                 result = result.scaled(scale)
+#             scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
+#
+#         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
 
 
 class DatasetResult(pyd.BaseModel):
@@ -158,11 +153,11 @@ class DatasetResult(pyd.BaseModel):
 
     @staticmethod
     def fromSampleResult(sample_results):
-        if not len(set(x.sample_id.dataset_id for x in sample_results)) == 1:
+        if not len(set(x.sample_id.dataset_name for x in sample_results)) == 1:
             raise RuntimeError()
 
         return DatasetResult(
-            dataset_params=sample_result.params.dataset,
+            dataset_params=sample_results[0].params.dataset,
             results=accumulate(
                 [
                     {k: v.base_result for k, v in r.results.items()}
@@ -172,7 +167,7 @@ class DatasetResult(pyd.BaseModel):
             file_set_ran=accumulate([x.file_set_ran for x in sample_results]),
             file_set_processed=accumulate(
                 [x.file_set_processed for x in sample_results]
-            )
+            ),
         )
 
     def scaled(self, scale):
@@ -196,12 +191,42 @@ class DatasetResult(pyd.BaseModel):
         )
 
 
-
 results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
 
 
 def loadResults(obj):
     return results_adapter.validate_python(obj)
+
+
+def loadFromPaths(paths):
+    results = []
+    for p in paths:
+        with open(p, "rb") as f:
+            data = pkl.load(f)
+            r = loadResults(data)
+            results.append(r)
+    return accumulate(results)
+
+
+def makeDatasetResults(sample_results):
+    key = lambda x: x.sample_id.dataset_name
+    grouped = it.groupby(sorted(sample_results.values, key=key), key=key)
+
+
+def makeDatasetResults(sample_results, drop_samples=None):
+    drop_samples = drop_samples or []
+    scaled_sample_results = defaultdict(list)
+    for result in sample_results.values():
+        if result.sample_id in drop_samples:
+            logger.warn(f'Not including sample "{sample_id}"')
+            continue
+        scaled_sample_results[result.sample_id.dataset_name].append(
+            result.scaleToPhysical()
+        )
+
+    return {
+        x: DatasetResult.fromSampleResult(y) for x, y in scaled_sample_results.items()
+    }
 
 
 # def checkResult(input_path):

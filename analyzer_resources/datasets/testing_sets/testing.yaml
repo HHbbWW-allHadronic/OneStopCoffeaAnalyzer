@@ -21,6 +21,27 @@
   files: 
     - local: applocal/test.root
 
+- name: testsignal3
+  sample_type: MC
+  title: "TESTSIGNAL1"
+  other_data: 
+    stop_mass: 0
+  era: '2018'
+  samples:
+    - name: Part1
+      x_sec: 480
+      n_events: 10000
+      files: 
+        - local: applocal/test1.root
+        - local: applocal/test2.root
+
+    - name: Part2
+      x_sec: 480
+      n_events: 10000
+      files: 
+        - local: applocal/test1.root
+        - local: applocal/test2.root
+
 # - name: signal_312_1000_600
 #   sample_type: MC
 #   title: "$m_{\\tilde{t}} = 1000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"

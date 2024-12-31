@@ -91,10 +91,11 @@ class Analyzer:
         ret = {
             ra.region_name: results.SubSectorResult(
                 region=ra.model_dump(),
-                params=params,
-                histograms=histogram_storage[ra.region_name],
-                other_data={},
-                selection_flow=cutflow_storage[ra.region_name],
+                base_result=results.BaseResult(
+                    histograms=histogram_storage[ra.region_name],
+                    other_data={},
+                    selection_flow=cutflow_storage[ra.region_name],
+                ),
             )
             for ra in region_analyzers
         }

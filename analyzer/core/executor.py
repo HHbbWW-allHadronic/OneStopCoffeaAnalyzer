@@ -353,4 +353,3 @@ class LPCCondorDask(DaskExecutor):
 AnyExecutor = Annotated[
     Union[LocalDaskExecutor, CondorExecutor, ImmediateExecutor, LPCCondorDask],
     Field(discriminator="executor_type"),
-]

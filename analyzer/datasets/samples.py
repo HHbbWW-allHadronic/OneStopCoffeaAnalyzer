@@ -95,7 +95,11 @@ class DatasetParams(BaseModel):
 @pyd.dataclasses.dataclass
 class SampleParams:
     dataset: DatasetParams
-    sample: dict[str, Any]
+    name: str
+    n_events: int
+    x_sec: Optional[float] = None 
+    cms_dataset_regex: Optional[str] = None
+    total_gen_weight: Optional[str] = None
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -124,6 +128,8 @@ class SampleId:
             return {"dataset_name": a, "sample_name": b}
         else:
             return value
+
+
 
 
 class Sample(BaseModel):
@@ -163,7 +169,7 @@ class Sample(BaseModel):
     def params(self):
         return SampleParams(
             dataset=self._parent_dataset.params,
-            sample=self.dict(exclude=["files"]),
+            **self.dict(exclude=["files"]),
         )
 
     def useFilesFromReplicaCache(self):
