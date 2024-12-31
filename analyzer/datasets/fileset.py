@@ -4,7 +4,6 @@ from typing import Any, Optional
 
 
 import awkward as ak
-from analyzer.configuration import CONFIG
 from analyzer.utils.file_tools import extractCmsLocation
 from pydantic import BaseModel
 import analyzer.datasets.files as adf

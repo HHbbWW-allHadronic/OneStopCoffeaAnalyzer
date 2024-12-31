@@ -14,22 +14,16 @@ import awkward as ak
 
 from analyzer.utils.file_tools import compressDirectory
 from distributed import LocalCluster
-from rich.progress import Progress
 
 from dataclasses import dataclass
-import datetime
-import logging
 import os
 import shutil
-import time
 from pathlib import Path
 
 from pydantic import TypeAdapter
 import dask
-import yaml
 from analyzer.utils.file_tools import compressDirectory
 from distributed import LocalCluster, Client
-from rich.progress import Progress
 
 from analyzer.configuration import CONFIG
 from analyzer.datasets import FileSet, SampleId, SampleParams
@@ -171,7 +165,6 @@ class LocalDaskExecutor(DaskExecutor):
     executor_type: Literal["dask_local"] = "dask_local"
 
     def setup(self):
-        print("Starting scheduler")
         self._cluster = LocalCluster(
             dashboard_address=self.dashboard_address,
             memory_limit=self.memory,
@@ -179,6 +172,7 @@ class LocalDaskExecutor(DaskExecutor):
             scheduler_kwargs={"host": self.schedd_address},
         )
         self._client = Client(self._cluster)
+        super().setup()
 
 
 class ImmediateExecutor(Executor):

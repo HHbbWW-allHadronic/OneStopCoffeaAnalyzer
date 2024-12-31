@@ -6,7 +6,6 @@ import awkward as ak
 import hist
 import hist.dask as dah
 from pydantic import BaseModel, ConfigDict
-import dask_awkward as dak
 
 Hist = Union[hist.Hist, dah.Hist]
 

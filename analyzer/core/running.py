@@ -1,17 +1,10 @@
-import itertools as it
-import logging
-import sys
 import pickle as pkl
-from dataclasses import dataclass, field
-from typing import Any, Union
 from pathlib import Path
 
 
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId
-from coffea.nanoevents import NanoAODSchema
+from analyzer.datasets import DatasetRepo, EraRepo
 
-from analyzer.core.region_analyzer import RegionAnalyzer, getParamsSample
 from analyzer.core.configuration import getSubSectors, loadDescription
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.executor import AnalysisTask
@@ -36,7 +29,7 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
 
 
 def runFromPath(path, output, executor_name, save_separate=False):
-    import analyzer.modules
+    pass
 
     output=Path(output)
     description = loadDescription(path)
@@ -44,6 +37,8 @@ def runFromPath(path, output, executor_name, save_separate=False):
         raise KeyError()
         
     executor = description.executors[executor_name]
+    executor.setup()
+    print(executor)
     
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()

@@ -1,24 +1,19 @@
 import itertools as it
 import logging
-import pickle as pkl
 from dataclasses import dataclass, field
 from typing import Any, Union
 
 
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo, SampleId
-from coffea.nanoevents import NanoAODSchema
 
-from analyzer.core.region_analyzer import RegionAnalyzer, getParamsSample
-import analyzer.core.configuration as acc 
+from analyzer.core.region_analyzer import RegionAnalyzer
 
 from analyzer.core.columns import Columns
 from analyzer.core.selection import SelectionSet
 import analyzer.core.results as results
-import analyzer.core.executor as executor
 
 if CONFIG.PRETTY_MODE:
-    from rich import print
+    pass
 
 logger = logging.getLogger(__name__)
 

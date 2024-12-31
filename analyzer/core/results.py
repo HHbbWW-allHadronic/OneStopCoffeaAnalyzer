@@ -15,7 +15,6 @@ import analyzer.datasets as ad
 import analyzer.core.selection as ans
 import analyzer.core.region_analyzer as anr
 import analyzer.core.histograms as anh
-import analyzer.core.specifiers as anp
 
 
 if CONFIG.PRETTY_MODE:

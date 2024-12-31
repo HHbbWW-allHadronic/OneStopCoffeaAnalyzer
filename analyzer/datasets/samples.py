@@ -349,6 +349,8 @@ class DatasetRepo:
         for f in files:
             with open(f, "r") as fo:
                 data = yaml.safe_load(fo)
+                if not data:
+                    continue 
                 for d in data:
                     s = Dataset(**d)
                     if s.name in self.datasets:
