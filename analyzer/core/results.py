@@ -1,6 +1,6 @@
-# from __future__ import annotations
 import logging
 from typing import Any, Optional
+from rich import print
 
 import pydantic as pyd
 from analyzer.configuration import CONFIG
@@ -16,6 +16,7 @@ import analyzer.core.selection as ans
 import analyzer.core.region_analyzer as anr
 import analyzer.core.histograms as anh
 import analyzer.core.specifiers as anp
+
 
 if CONFIG.PRETTY_MODE:
     pass
@@ -77,7 +78,6 @@ class SubSectorResult(pyd.BaseModel):
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
         return SubSectorResult(
-            file_set=self.file_set + other.file_set,
             region=self.region,
             params=self.params,
             histograms=new_hists,
@@ -87,7 +87,6 @@ class SubSectorResult(pyd.BaseModel):
 
     def scaled(self, scale):
         return SubSectorResult(
-            file_set=self.file_set,
             region=self.region,
             params=self.params,
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
@@ -96,88 +95,95 @@ class SubSectorResult(pyd.BaseModel):
         )
 
 
-class CoreAnalyzerResult(pyd.BaseModel):
+class CoreSampleResult(pyd.BaseModel):
     results: dict[str, SubSectorResult]
 
     def __add__(self, other):
-        return CoreAnalyzerResult(
+        return CoreSampleResult(
             results=accumulate([self.results, other.results]),
         )
 
     def scaled(self, scale):
-        return CoreAnalyzerResult(
+        return CoreSampleResult(
             results={k: v.scaled(scale) for k, v in self.results()},
         )
 
 
-class AnalyzerResult(pyd.BaseModel):
+class SampleResult(pyd.BaseModel):
     sample_id: ad.SampleId
+    file_set_ran: FileSet
     file_set_processed: FileSet
-    core_result: CoreAnalyzerResult
+    core_result: CoreSampleResult
 
     def __add__(self, other):
-        if not self.file_set_processed.intersect(other.file_set_processed).empty:
-            raise RuntimeError()
-        if self.sample_id != other.sample_id:
-            raise RuntimeError()
+        fs = self.file_set_processed.intersect(other.file_set_processed)
+        print(fs)
+        if not fs.empty and False:
+            error = (
+                f"Could not add analysis results because the file sets over which they successfully processed overlap."
+                f"Overlapping files:\n{fs}"
+            )
+            raise RuntimeError(error)
 
-        return AnalyzerResult(
+        return SampleResult(
             sample_id=self.sample_id,
+            file_set_ran=self.file_set_ran + other.file_set_ran,
             file_set_processed=self.file_set_processed + other.file_set_processed,
             core_result=self.core_result + other.core_result,
         )
 
     def scaled(self, scale):
-        return AnalyzerResult(
+        return SampleResult(
             sample_id=self.sample_id,
+            file_set_ran=self.file_set_ran + other.file_set_ran,
             file_set_processed=self.file_set_processed,
             core_result=self.core_result.scaled(scale),
         )
 
 
-class SectorResult(pyd.BaseModel):
-    sector_params: anp.SectorParams
-    sample_params: list[dict[str, Any]]
-    histograms: dict[str, anh.HistogramCollection]
-    other_data: dict[str, Any]
-    cutflow_data: Optional[ans.SelectionFlow] = None
-
-    @staticmethod
-    def fromSubSectorResult(subsector_result):
-        return SectorResult(
-            sector_params=subsector_result.params.sector,
-            sample_params=[subsector_result.params.sample],
-            histograms=subsector_result.histograms,
-            other_data=subsector_result.other_data,
-            cutflow_data=subsector_result.cutflow_data,
-        )
-
-    def scaled(self, scale):
-        return SectorResult(
-            sector_params=self.sector_params,
-            sample_params=[subsector_result.params.sample_params],
-            histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
-            other_data=self.other_data,
-            cutflow_data=self.cutflow_data.scaled(scale),
-        )
-
-    def __add__(self, other):
-        """Two subsector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-        if self.sector_params != other.sector_params:
-            raise RuntimeError(f"Error: Attempting to merge incomaptible results")
-        new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
-        return SectorResult(
-            sector_params=self.sector_params,
-            sample_params=self.sample_params + other.sample_params,
-            histograms=new_hists,
-            other_data=new_other,
-            cutflow_data=self.cutflow_data + other.cutflow_data,
-        )
-
-
+# class SectorResult(pyd.BaseModel):
+#     sector_params: anp.SectorParams
+#     sample_params: list[dict[str, Any]]
+#     histograms: dict[str, anh.HistogramCollection]
+#     other_data: dict[str, Any]
+#     cutflow_data: Optional[ans.SelectionFlow] = None
+# 
+#     @staticmethod
+#     def fromSubSectorResult(subsector_result):
+#         return SectorResult(
+#             sector_params=subsector_result.params.sector,
+#             sample_params=[subsector_result.params.sample],
+#             histograms=subsector_result.histograms,
+#             other_data=subsector_result.other_data,
+#             cutflow_data=subsector_result.cutflow_data,
+#         )
+# 
+#     def scaled(self, scale):
+#         return SectorResult(
+#             sector_params=self.sector_params,
+#             sample_params=[subsector_result.params.sample_params],
+#             histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
+#             other_data=self.other_data,
+#             cutflow_data=self.cutflow_data.scaled(scale),
+#         )
+# 
+#     def __add__(self, other):
+#         """Two subsector results may be added if they have the same parameters
+#         We simply sum the histograms and cutflow data.
+#         """
+#         if self.sector_params != other.sector_params:
+#             raise RuntimeError(
+#                 f"Error: Attempting to merge incomaptible results. The two results have different parameters."
+#             )
+#         new_hists = accumulate([self.histograms, other.histograms])
+#         new_other = accumulate([self.other_data, other.other_data])
+#         return SectorResult(
+#             sector_params=self.sector_params,
+#             sample_params=self.sample_params + other.sample_params,
+#             histograms=new_hists,
+#             other_data=new_other,
+#             cutflow_data=self.cutflow_data + other.cutflow_data,
+#         )
 # class AnalysisResult(pyd.BaseModel):
 #     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 #     description: AnalysisDescription
@@ -294,3 +300,5 @@ class SectorResult(pyd.BaseModel):
 #         )
 #         # print(f"{sample_id} is missing {diff} events")
 #     console.print(table)
+
+

@@ -8,4 +8,4 @@ from .samples import (
     SampleParams,
     SampleType,
 )
-from .prepped import FileSet
+from .fileset import FileSet

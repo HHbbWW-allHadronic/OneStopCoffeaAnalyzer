@@ -1,5 +1,6 @@
 import itertools as it
 import logging
+import pickle as pkl
 from dataclasses import dataclass, field
 from typing import Any, Union
 
@@ -7,10 +8,12 @@ from typing import Any, Union
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetRepo, EraRepo, SampleId
 from coffea.nanoevents import NanoAODSchema
-from .region_analyzer import RegionAnalyzer, getParamsSample
-from .configuration import loadDescription, getSubSectors
-from .columns import Columns
-from .selection import SelectionSet
+
+from analyzer.core.region_analyzer import RegionAnalyzer, getParamsSample
+import analyzer.core.configuration as acc 
+
+from analyzer.core.columns import Columns
+from analyzer.core.selection import SelectionSet
 import analyzer.core.results as results
 import analyzer.core.executor as executor
 
@@ -127,43 +130,4 @@ class Analyzer:
                     events, params, [x[0] for x in items], sel, preselection_set
                 )
             )
-        return results.CoreAnalyzerResult(results=ret)
-
-
-def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
-    ret = []
-    for sample_id, region_analyzers in subsectors.items():
-        params = dataset_repo[sample_id].params
-        params.dataset.populateEra(era_repo)
-        u = executor.AnalysisTask(
-            sample_id=sample_id,
-            sample_params=params,
-            file_set=dataset_repo[sample_id].getFileSet(file_retrieval_kwargs),
-            analyzer=Analyzer(region_analyzers),
-        )
-        ret.append(u)
-    return ret
-
-
-if __name__ == "__main__":
-    import analyzer.modules
-    from analyzer.logging import setup_logging
-
-    setup_logging()
-
-    d = loadDescription("configurations/data_mc_comp.yaml")
-
-    dr = DatasetRepo.getConfig()
-    er = EraRepo.getConfig()
-
-    NanoAODSchema.warn_missing_crossrefs = False
-
-    subsectors = getSubSectors(d, dr, er)
-    units = makeTasks(subsectors, dr, er, {})
-
-    print(units)
-    de = executor.DaskExecutor()
-    de.run(units)
-    # ret = de.run(
-    #     analyzer, sample_params, {"test1.root": "Events", "test2.root": "Events"}
-    # )
+        return results.CoreSampleResult(results=ret)

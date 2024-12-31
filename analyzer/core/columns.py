@@ -3,6 +3,7 @@ import itertools as it
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Optional
+import dask_awkward as dak
 
 
 from analyzer.configuration import CONFIG
@@ -37,6 +38,10 @@ class Columns:
     # def __hash__(self):
     #     return hash((self.events.name, tuple(self.columns), self.syst))
 
+    @property
+    def delayed(self):
+        return isinstance(self.events, dak.Array)
+
     def __getattr__(self, attr):
         if attr in self.columns:
             return self.get(attr)
@@ -54,6 +59,7 @@ class Columns:
                 [(x.name, y) for y in x.shape_variations] for x in self.columns.values()
             )
         )
+
 
     def getSystName(self):
         if self.syst is not None:

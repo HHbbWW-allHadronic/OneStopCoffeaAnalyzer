@@ -6,6 +6,7 @@ import awkward as ak
 import hist
 import hist.dask as dah
 from pydantic import BaseModel, ConfigDict
+import dask_awkward as dak
 
 Hist = Union[hist.Hist, dah.Hist]
 
@@ -99,7 +100,6 @@ class HistogramCollection(BaseModel):
             histogram=self.histogram * scale,
         )
 
-
     def fill(
         self,
         fill_data,
@@ -151,8 +151,6 @@ class HistogramCollection(BaseModel):
                 mask=mask,
             )
 
-
-
     @staticmethod
     def create(spec, categories, delayed=True):
         variations_axis = hist.axis.StrCategory([], name="variation", growth=True)
@@ -161,17 +159,23 @@ class HistogramCollection(BaseModel):
             histogram = dah.Hist(*all_axes, storage=spec.storage)
         else:
             histogram = hist.Hist(*all_axes, storage=spec.storage)
-            
         return HistogramCollection(spec=spec, histogram=histogram)
+
 
 class Histogrammer:
     def __init__(
-        self, storage, weighter, categories=None, active_shape_systematic=None
+        self,
+        storage,
+        weighter,
+        categories=None,
+        active_shape_systematic=None,
+        delayed=True,
     ):
         self.weighter = weighter
         self.categories = categories
         self.active_shape_systematic = active_shape_systematic
         self.storage = storage
+        self.delayed = delayed
 
     def H(
         self,
@@ -196,7 +200,7 @@ class Histogrammer:
                 variations=variations,
                 no_scale=no_scale,
             )
-            ret = HistogramCollection.create(spec, self.categories, delayed=True)
+            ret = HistogramCollection.create(spec, self.categories, delayed=self.delayed)
             self.storage[name] = ret
         else:
             ret = self.storage[name]
@@ -214,4 +218,3 @@ class Histogrammer:
             mask=mask,
         )
         return ret
-

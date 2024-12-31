@@ -3,6 +3,7 @@ import itertools as it
 
 from analyzer.configuration import CONFIG
 from pydantic import BaseModel, Field
+import awkward as ak
 
 from .analysis_modules import (
     ModuleType,
@@ -154,7 +155,11 @@ class RegionAnalyzer(BaseModel):
     def runPostSelection(self, columns, params, histogram_storage):
         params = self.getSectorParams(params)
         active_shape = columns.syst
-        weighter = Weighter(ignore_systematics=active_shape is not None)
+        if columns.delayed:
+            size = None
+        else:
+            size = ak.num(columns.events, axis=0)
+        weighter = Weighter(size=size, ignore_systematics=active_shape is not None)
 
         categories = []
         for module in self.weights:
@@ -166,6 +171,7 @@ class RegionAnalyzer(BaseModel):
             weighter=weighter,
             categories=categories,
             active_shape_systematic=active_shape,
+            delayed=columns.delayed,
         )
         for module in self.histograms:
             module(columns, params, histogrammer)

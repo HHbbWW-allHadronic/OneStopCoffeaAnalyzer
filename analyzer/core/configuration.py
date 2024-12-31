@@ -9,9 +9,11 @@ from pydantic import BaseModel, Field
 from .analysis_modules import (
     MODULE_REPO,
 )
-from .specifiers import SampleSpec
 import logging
-from .region_analyzer import RegionAnalyzer
+
+import analyzer.core.specifiers as specs 
+import analyzer.core.region_analyzer as ra
+import analyzer.core.executor as executor
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ class AnalysisStage(str, enum.Enum):
 
 class ModuleDescription(BaseModel):
     name: str
-    sample_spec: Optional[SampleSpec] = None
+    sample_spec: Optional[specs.SampleSpec] = None
     config: Optional[Union[list[dict[str, Any]], dict[str, Any]]] = None
 
 
@@ -70,9 +72,13 @@ class FileConfig(BaseModel):
     use_replicas: bool = True
 
 
+
+
+
 class AnalysisDescription(BaseModel):
     name: str
-    execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
+    executors: dict[str,  executor.AnyExecutor] 
+    # execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
     file_config: FileConfig = Field(default_factory=FileConfig)
     samples: dict[str, Union[list[str], str]]
     regions: list[RegionDescription]
@@ -113,7 +119,7 @@ def getSubSectors(description, dataset_repo, era_repo):
         dataset = dataset_repo[dataset_name]
         region = description.getRegion(region_name)
         for sample in dataset.samples:
-            subsector = RegionAnalyzer.fromRegion(
+            subsector = ra.RegionAnalyzer.fromRegion(
                 region,
                 sample,
                 MODULE_REPO,
@@ -122,4 +128,8 @@ def getSubSectors(description, dataset_repo, era_repo):
             ret[sample.sample_id].append(subsector)
 
     return ret
+
+
+
+
 

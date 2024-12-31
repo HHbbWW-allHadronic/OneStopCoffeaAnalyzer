@@ -2,153 +2,9 @@ import argparse
 import logging
 import sys
 from pathlib import Path
-
 from analyzer.logging import setup_logging
 
 logger = logging.getLogger(__name__)
-
-
-def makeCluster(args, config=None, **kwargs):
-    from analyzer.clients import createNewCluster
-    from distributed.client import Client
-
-    workers = args.workers or config.max_workers
-    timeout = args.timeout or config.worker_timeout
-    cluster_type = args.type or config.cluster_type
-    memory = args.memory or config.worker_memory
-
-    logger.info("Handling cluster-start")
-    config = {
-        "max_workers": workers,
-        "memory": memory,
-        "schedd_host": args.scheduler,
-        "dashboard_host": args.dashboard,
-        "timeout": timeout,
-        **kwargs,
-    }
-    client = Client(createNewCluster(cluster_type, config))
-    return client
-
-
-def handlePreprocess(args):
-    from analyzer.core import preprocessAnalysis
-
-    client = makeCluster(args)
-    preprocessAnalysis(args.input, args.output)
-
-
-def handlePatchPreprocess(args):
-    from analyzer.core import patchPreprocessedFile
-
-    client = makeCluster(args)
-    output = args.output or args.input
-    patchPreprocessedFile(args.input, output)
-
-
-def handlePatchRun(args):
-    from analyzer.core import AnalysisResult, patchAnalysisResult
-
-    desc = AnalysisResult.fromFile(args.input).description
-    extra_files = desc.execution_config.extra_files
-    exec_config = desc.execution_config
-
-    client = makeCluster(args, config=exec_config, extra_files=extra_files)
-
-    output = args.output or args.input
-    patchAnalysisResult(args.input, output)
-
-
-def handleCheckResult(args):
-    from analyzer.core import checkResult
-
-    checkResult(args.input)
-
-
-def handleRun(args):
-    from analyzer.core import loadDescription, runFromFile
-
-    desc = loadDescription(args.input)
-    exec_config = desc.execution_config
-    extra_files = exec_config.extra_files
-    client = makeCluster(args, config=exec_config, extra_files=extra_files)
-    # while (client.status == "running") and (
-    #     len(client.scheduler_info()["workers"]) < 20
-    # ):
-    #     print("Waiting")
-    #     sleep(1.0)
-
-    # with dm.memray_workers():
-    runFromFile(
-        args.input, args.output, preprocessed_input_path=args.preprocessed_inputs
-    )
-    client.shutdown(),
-
-
-def handleGenReplicas(args):
-    from analyzer.datasets import DatasetRepo
-
-    dr = DatasetRepo.getConfig()
-    dr.buildReplicaCache(args.force)
-
-
-def commonInOut(parser):
-    parser.add_argument("input", type=Path, help="Input data path.")
-    parser.add_argument(
-        "-o", "--output", required=True, type=Path, help="Output data path."
-    )
-
-
-def commonDask(parser):
-    parser.add_argument(
-        "-t",
-        "--type",
-        type=str,
-        help="Type of cluster",
-    )
-    parser.add_argument(
-        "-d",
-        "--dashboard",
-        type=str,
-        default="localhost:8787",
-        help="Host for scheduler",
-    )
-    parser.add_argument(
-        "-s",
-        "--scheduler",
-        type=str,
-        default=None,
-        help="Host for scheduler",
-    )
-    parser.add_argument(
-        "-w", "--workers", default=None, type=int, help="Number of workers"
-    )
-    parser.add_argument(
-        "-m", "--memory", default=None, type=str, help="Worker memory"
-    )
-    parser.add_argument(
-        "--timeout",
-        type=int,
-        default=None,
-        help="Maximum time in seconds to run the cluster",
-    )
-
-
-def addSubparserPreprocess(subparsers):
-    """Just produce preprocessed inputs"""
-    subparser = subparsers.add_parser("preprocess", help="Create preprocessed inputs")
-    commonInOut(subparser)
-    commonDask(subparser)
-    subparser.set_defaults(func=handlePreprocess)
-
-
-def addSubparserPatchPreprocess(subparsers):
-    """Update an existing preprocessed file with any missing info"""
-    subparser = subparsers.add_parser(
-        "patch-preprocessed", help="Run analyzer over some collection of samples"
-    )
-    commonDask(subparser)
-    commonInOut(subparser)
-    subparser.set_defaults(func=handlePatchPreprocess)
 
 
 def addSubparserGenerateReplicaCache(subparsers):
@@ -166,30 +22,6 @@ def addSubparserGenerateReplicaCache(subparsers):
     subparser.set_defaults(func=handleGenReplicas)
 
 
-def addSubparserRun(subparsers):
-    subparser = subparsers.add_parser("run-analysis", help="Run analysis")
-    commonInOut(subparser)
-    commonDask(subparser)
-    subparser.add_argument(
-        "-p",
-        "--preprocessed-inputs",
-        type=str,
-        default=None,
-        help="Preprocessed inputs",
-    )
-    subparser.set_defaults(func=handleRun)
-
-
-def addSubparserPatchRun(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "patch-result", help="Attempt to patch issues in a results file."
-    )
-    commonInOut(subparser)
-    commonDask(subparser)
-    subparser.set_defaults(func=handlePatchRun)
-
-
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser("check-result", help="Check result")
@@ -197,24 +29,44 @@ def addSubparserCheckResult(subparsers):
     subparser.set_defaults(func=handleCheckResult)
 
 
+
+def handleRun(args):
+    from analyzer.core.running import runFromPath
+    runFromPath(args.input, args.output, args.executor, args.save_separate)
+
+
+
+def addSubparserRun(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("run", help="Run analyzer")
+    subparser.add_argument("input", type=Path, help="Input data path.")
+    subparser.add_argument(
+        "-o", "--output", type=Path, help="Output path", required=True
+    )
+    subparser.add_argument(
+        "-s", "--save-separate", action="store_true", help="If set, store results separately"
+    )
+    subparser.add_argument(
+        "-e", "--executor", type=str, help="Name of executor to use", required=True
+    )
+    subparser.set_defaults(func=handleRun)
+
+
 def addGeneralArguments(parser):
     parser.add_argument("--log-level", type=str, default="WARN", help="Logging level")
 
 
 def runCli():
-    import argcomplete
+
     parser = argparse.ArgumentParser(prog="SingleStopAnalyzer")
     addGeneralArguments(parser)
 
     subparsers = parser.add_subparsers()
-    addSubparserPreprocess(subparsers)
-    addSubparserPatchRun(subparsers)
     addSubparserRun(subparsers)
-    addSubparserCheckResult(subparsers)
-    addSubparserPatchPreprocess(subparsers)
-    addSubparserGenerateReplicaCache(subparsers)
+    # addSubparserCheckResult(subparsers)
+    # addSubparserGenerateReplicaCache(subparsers)
 
-    argcomplete.autocomplete(parser)
+    # argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 

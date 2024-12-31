@@ -18,7 +18,7 @@ from pydantic import (
     model_validator,
     ConfigDict,
 )
-import analyzer.datasets.prepped as adp
+from .fileset import FileSet
 import analyzer.datasets.files as adf
 
 
@@ -224,7 +224,7 @@ class Sample(BaseModel):
             )
             for f, d in self.fdict.items()
         }
-        return adp.FileSet(
+        return FileSet(
             files=ret,
             step_size=None,
             form=None,
