@@ -29,8 +29,7 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
 
 
 def runFromPath(path, output, executor_name, save_separate=False):
-    pass
-
+    import analyzer.modules
     output=Path(output)
     description = loadDescription(path)
     if executor_name not in description.executors:
@@ -38,7 +37,6 @@ def runFromPath(path, output, executor_name, save_separate=False):
         
     executor = description.executors[executor_name]
     executor.setup()
-    print(executor)
     
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()

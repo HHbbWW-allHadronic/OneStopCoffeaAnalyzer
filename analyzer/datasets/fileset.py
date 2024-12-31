@@ -84,7 +84,15 @@ class FileSet(BaseModel):
     def empty(self):
         return not self.files or all(not x["steps"] for _, (_, x) in self.files.items())
 
-    def dropChunk(self, fname ,chunk):
+    @property
+    def events(self):
+        return sum(
+            s[1] - s[0] if s is not None else 0
+            for x in self.files.values()
+            for s in x[1]["steps"]
+        )
+
+    def dropChunk(self, fname, chunk):
         self.files[fname][1]["steps"].remove(chunk)
 
     def getSampleFile(self, identity):
@@ -161,23 +169,21 @@ class FileSet(BaseModel):
     def toCoffeaDataset(self, simple=False):
         if simple:
             coffea_dataset = {
-            "files": {
-                f.getFile(**self.file_retrieval_kwargs): data["object_path"]
-                for f, data in self.files.values()
-            },
-            "form": self.form}
+                "files": {
+                    f.getFile(**self.file_retrieval_kwargs): data["object_path"]
+                    for f, data in self.files.values()
+                },
+                "form": self.form,
+            }
         else:
             coffea_dataset = {
-            "files": {
-                f.getFile(**self.file_retrieval_kwargs): copy.deepcopy(data)
-                for f, data in self.files.values()
-            },
-            "form": self.form,
-        }
+                "files": {
+                    f.getFile(**self.file_retrieval_kwargs): copy.deepcopy(data)
+                    for f, data in self.files.values()
+                },
+                "form": self.form,
+            }
         return coffea_dataset
 
+
 # def getPatch(target, processed):
-
-        
-
-

@@ -47,17 +47,20 @@ executors:
     executor_type: dask_local
   imm:
     executor_type: immediate
+    step_size: 100
+
+  dask_condor:
+    executor_type: dask_condor
+    max_workers: 20
+    worker_memory: 2GB
+    worker_timeout: 7200
+    chunk_size: 100000
+    extra_files:
+        - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
 
 
 # Samples and in which regions they should be processed
 execution_config:
-  cluster_type: lpccondor
-  max_workers: 20
-  worker_memory: 4GB
-  worker_timeout: 7200
-  chunk_size: 100000
-  extra_files:
-    - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
 
 file_config:
   location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]

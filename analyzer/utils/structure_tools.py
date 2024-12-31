@@ -2,7 +2,7 @@ import copy
 import operator
 import subprocess
 from collections.abc import MutableMapping, MutableSet
-from typing import Iterable, Optional, TypeVar, Union
+from typing import Iterable, Optional, TypeVar, Union, Any
 
 from dask.base import DaskMethodsMixin
 
@@ -25,7 +25,7 @@ def get_git_revision_short_hash() -> str:
     )
 
 
-def deepMerge(a: dict, b: dict, path=[], overwrite=True):
+def deepMerge(a: dict[Any,Any], b: dict[Any,Any], path=[], overwrite=True):
     for key in b:
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
@@ -38,11 +38,13 @@ def deepMerge(a: dict, b: dict, path=[], overwrite=True):
 
 # From https://github.com/CoffeaTeam/coffea/blob/v2023.7.0.rc0/src/coffea/processor/accumulator.py
 T = TypeVar("T")
+
 @runtime_checkable
 class Addable(Protocol):
     def __add__(self: T, other: T) -> T:
         ...
-Accumulatable = Union[Addable, MutableSet, MutableMapping]
+
+Accumulatable = Addable| MutableSet['Accumulatable'] | MutableMapping[Any, 'Accumulatable']
 
 
 

@@ -4,10 +4,7 @@ from rich import print
 
 import pydantic as pyd
 from analyzer.configuration import CONFIG
-from analyzer.datasets import (
-    SampleParams,
-    FileSet,
-)
+from analyzer.datasets import SampleParams, FileSet, DatasetParams, SampleType
 from analyzer.utils.structure_tools import accumulate
 from .common_types import Scalar
 
@@ -24,95 +21,62 @@ if CONFIG.PRETTY_MODE:
 logger = logging.getLogger(__name__)
 
 
-class SelectionResult(pyd.BaseModel):
-    model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
 
-    cutflow: ans.SelectionFlow
-    weighted_sum: Optional[tuple[Scalar, Scalar]]
-
-    def __add__(self, other):
-        """Two cutflows may be sumed by simply adding them"""
-        if self.weighted_sum is not None:
-            new_ws = (
-                (self.weighted_sum[0] + other.weighted_sum[0]),
-                (self.weighted_sum[1] + other.weighted_sum[1]),
-            )
-        else:
-            new_ws = None
-
-        return SelectionResult(
-            cutflow=self.cutflow + other.cutflow,
-            weighted_sum=new_ws,
-        )
-
-    # def scaled(self, scale):
-    #     if self.weighted_sum:
-    #         nws = (
-    #             self.weighted_sum[0] * scale,
-    #             self.weighted_sum[1] * (scale**2),
-    #         )
-    #     else:
-    #         nws = None
-    #     return SelectionResult(
-    #         cutflow=self.cutflow,
-    #         weighted_sum=nws,
-    #     )
-
-
-class SubSectorResult(pyd.BaseModel):
-    region: anr.RegionAnalyzer
-    params: SampleParams
+class BaseResult(pyd.BaseModel):
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
-    selection_flow: Optional[ans.SelectionFlow] = None
+    selection_flow: ans.SelectionFlow | None = None
 
-    def __add__(self, other):
+    def __add__(self, other: "SubSectorResult"):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
-        if self.params != other.params or self.region != other.region:
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
+        if self.region != other.region:
+            raise RuntimeError("Different Regions")
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
-        return SubSectorResult(
-            region=self.region,
-            params=self.params,
+        return BaseResult(
             histograms=new_hists,
             other_data=new_other,
             selection_flow=self.selection_flow + other.selection_flow,
         )
 
     def scaled(self, scale):
-        return SubSectorResult(
-            region=self.region,
-            params=self.params,
+        return BaseResult(
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
             selection_flow=self.selection_flow,  # .scaled(scale),
         )
 
 
-class CoreSampleResult(pyd.BaseModel):
-    results: dict[str, SubSectorResult]
+class SubSectorResult(pyd.BaseModel):
+    region: anr.RegionAnalyzer
+    base_result: BaseResult
 
-    def __add__(self, other):
-        return CoreSampleResult(
-            results=accumulate([self.results, other.results]),
+    def __add__(self, other: "SubSectorResult"):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        if self.region != other.region:
+            raise RuntimeError("Different Regions")
+        return SubSectorResult(
+            region=self.region, base_result=self.base_result + other.base_result
         )
 
     def scaled(self, scale):
-        return CoreSampleResult(
-            results={k: v.scaled(scale) for k, v in self.results()},
+        return SubSectorResult(
+            region=self.region, base_result=self.base_result.scaled(scale)
         )
 
 
 class SampleResult(pyd.BaseModel):
     sample_id: ad.SampleId
+
+    params: SampleParams
+    results: dict[str, SubSectorResult]
+
     file_set_ran: FileSet
     file_set_processed: FileSet
-    core_result: CoreSampleResult
 
     def __add__(self, other):
         fs = self.file_set_processed.intersect(other.file_set_processed)
@@ -124,146 +88,122 @@ class SampleResult(pyd.BaseModel):
             )
             raise RuntimeError(error)
 
+        if self.params != other.params or self.region != other.region:
+            raise RuntimeError(
+                f"Error: Attempting to merge incomaptible analysis results"
+            )
+
         return SampleResult(
             sample_id=self.sample_id,
+            params=self.params,
             file_set_ran=self.file_set_ran + other.file_set_ran,
             file_set_processed=self.file_set_processed + other.file_set_processed,
-            core_result=self.core_result + other.core_result,
+            results=accumulate([self.results, other.results]),
         )
 
     def scaled(self, scale):
         return SampleResult(
             sample_id=self.sample_id,
-            file_set_ran=self.file_set_ran + other.file_set_ran,
+            params=self.params,
+            file_set_ran=self.file_set_ran,
             file_set_processed=self.file_set_processed,
-            core_result=self.core_result.scaled(scale),
+            results={k: v.scaled(scale) for k, v in self.results()},
         )
 
 
-# class SectorResult(pyd.BaseModel):
-#     sector_params: anp.SectorParams
-#     sample_params: list[dict[str, Any]]
-#     histograms: dict[str, anh.HistogramCollection]
-#     other_data: dict[str, Any]
-#     cutflow_data: Optional[ans.SelectionFlow] = None
-# 
-#     @staticmethod
-#     def fromSubSectorResult(subsector_result):
-#         return SectorResult(
-#             sector_params=subsector_result.params.sector,
-#             sample_params=[subsector_result.params.sample],
-#             histograms=subsector_result.histograms,
-#             other_data=subsector_result.other_data,
-#             cutflow_data=subsector_result.cutflow_data,
-#         )
-# 
-#     def scaled(self, scale):
-#         return SectorResult(
-#             sector_params=self.sector_params,
-#             sample_params=[subsector_result.params.sample_params],
-#             histogrmams={x: y.scaled(scale) for x, y in self.histograms.items()},
-#             other_data=self.other_data,
-#             cutflow_data=self.cutflow_data.scaled(scale),
-#         )
-# 
-#     def __add__(self, other):
-#         """Two subsector results may be added if they have the same parameters
-#         We simply sum the histograms and cutflow data.
-#         """
-#         if self.sector_params != other.sector_params:
-#             raise RuntimeError(
-#                 f"Error: Attempting to merge incomaptible results. The two results have different parameters."
-#             )
-#         new_hists = accumulate([self.histograms, other.histograms])
-#         new_other = accumulate([self.other_data, other.other_data])
-#         return SectorResult(
-#             sector_params=self.sector_params,
-#             sample_params=self.sample_params + other.sample_params,
-#             histograms=new_hists,
-#             other_data=new_other,
-#             cutflow_data=self.cutflow_data + other.cutflow_data,
-#         )
-# class AnalysisResult(pyd.BaseModel):
-#     model_config = pyd.ConfigDict(arbitrary_types_allowed=True)
-#     description: AnalysisDescription
-#     preprocessed_samples: dict[anp.SampleId, SamplePreprocessed]
-#     processed_chunks: dict[SampleId, Any]
-#     results: dict[SubSectorId, SubSectorResult]
-#     total_mc_weights: dict[SampleId, Optional[Scalar]]
-#
-#     @property
-#     def raw_events_processed(self):
-#         return {
-#             sample_id: sum(e - s for _, s, e in chunks)
-#             for sample_id, chunks in self.processed_chunks.items()
-#         }
-#
-#     def getBadChunks(self):
-#         ret = {
-#             n: self.preprocessed_samples[n].chunks.difference(
-#                 self.processed_chunks.get(n, set())
-#             )
-#             for n in self.preprocessed_samples
-#         }
-#         return ret
-#
-#     def isEmpty(self):
-#         return self.limit_chunks is not None and not self.limit_chunks
-#
-#     def createMissingRunnable(self):
-#         logger.debug(f"Scanning for bad chunks")
-#         prepped = copy.deepcopy(self.preprocessed_samples)
-#         bad_chunks = self.getBadChunks()
-#         ret = {}
-#         for sid in prepped:
-#             logger.info(f"Sample {sid} has {len(bad_chunks[sid])} bad chunks.")
-#             bad = bad_chunks[sid]
-#             if bad:
-#                 ret[sid] = prepped[sid]
-#                 ret[sid].limit_chunks = bad
-#         print(list(ret.keys()))
-#         return ret
-#
-#     def __add__(self,eights[k] = v
-#
-#         new_weights = accumulate([self.total_mc_weights, other.total_mc_weights])
-#         return AnalysisResult(
-#             description=self.description,
-#             preprocessed_samples=self.preprocessed_samples,
-#             processed_chunks=self.processed_chunks,
-#             results=new_results,
-#             total_mc_weights=new_weights,
-#
-#         )
-#
-#     def getResults(self, drop_samples=None):
-#         drop_samples = drop_samples or []
-#         scaled_sample_results = defaultdict(list)
-#         for subsector_id, result in self.results.items():
-#             if subsector_id.sample_id in drop_samples:
-#                 logger.warn(f"Not including subsector \"{subsector_id}\"")
-#                 continue
-#             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-#
-#             if result.params.sector.dataset.sample_type == SampleType.MC:
-#                 sample_info = result.params.sample
-#                 scale = (
-#                     result.params.sector.dataset.lumi
-#                     * sample_info["x_sec"]
-#                     / self.total_mc_weights[subsector_id.sample_id]
-#                 )
-#                 result = result.scaled(scale)
-#             scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-#
-#         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
-#
-#     @staticmethod
-#     def fromFile(path):
-#         with open(path, "rb") as f:
-#             data = pkl.load(f)
-#         return AnalysisResult(**data)
-#
-#
+    def scaleToPhysical(self):
+        if self.params.dataset.sample_type == SampleType.MC:
+            sample_info = result.params.sample
+            scale = (
+                result.params.sector.dataset.lumi
+                * sample_info["x_sec"]
+                / self.total_mc_weights[subsector_id.sample_id]
+            )
+            return self.scaled(scale)
+        else:
+            return self
+
+
+class AnalysisResult(pyd.BaseModel):
+    results: dict[SampleId, SampleResult]
+
+    def getResults(self, drop_samples=None):
+        drop_samples = drop_samples or []
+        scaled_sample_results = defaultdict(list)
+        for region_name, result in self.results.items():
+            if subsector_id.sample_id in drop_samples:
+                logger.warn(f'Not including subsector "{subsector_id}"')
+                continue
+            k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
+
+            if result.params.sector.dataset.sample_type == SampleType.MC:
+                sample_info = result.params.sample
+                scale = (
+                    result.params.sector.dataset.lumi
+                    * sample_info["x_sec"]
+                    / self.total_mc_weights[subsector_id.sample_id]
+                )
+                result = result.scaled(scale)
+            scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
+
+        return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
+
+
+class DatasetResult(pyd.BaseModel):
+    dataset_params: DatasetParams
+    results: dict[str, BaseResult]
+
+    file_set_ran: FileSet
+    file_set_processed: FileSet
+
+    @staticmethod
+    def fromSampleResult(sample_results):
+        if not len(set(x.sample_id.dataset_id for x in sample_results)) == 1:
+            raise RuntimeError()
+
+        return DatasetResult(
+            dataset_params=sample_result.params.dataset,
+            results=accumulate(
+                [
+                    {k: v.base_result for k, v in r.results.items()}
+                    for r in sample_results
+                ]
+            ),
+            file_set_ran=accumulate([x.file_set_ran for x in sample_results]),
+            file_set_processed=accumulate(
+                [x.file_set_processed for x in sample_results]
+            )
+        )
+
+    def scaled(self, scale):
+        return DatasetReult(
+            dataset_params=self.dataset_params,
+            region_results={k: v.scaled(scale) for k, v in results.items()},
+            file_set_ran=self.file_set_ran,
+            file_set_processed=self.file_set_processed,
+        )
+
+    def __add__(self, other):
+        if self.dataset_params != other.dataset_params:
+            raise RuntimeError(
+                f"Error: Attempting to merge incomaptible results. The two results have different parameters."
+            )
+        return SectorResult(
+            dataset_params=self.dataset_params,
+            results=accumulate([self.result, other.results]),
+            file_set_ran=self.file_set_ran + other.file_set_ran,
+            file_set_processed=self.file_set_processed + other.file_set_processed,
+        )
+
+
+
+results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
+
+
+def loadResults(obj):
+    return results_adapter.validate_python(obj)
+
+
 # def checkResult(input_path):
 #     from rich.console import Console
 #     from rich.style import Style
@@ -299,5 +239,3 @@ class SampleResult(pyd.BaseModel):
 #         )
 #         # print(f"{sample_id} is missing {diff} events")
 #     console.print(table)
-
-

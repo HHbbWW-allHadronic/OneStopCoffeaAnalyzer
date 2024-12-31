@@ -8,7 +8,7 @@ import abc
 import dask
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from pydantic import BaseModel, Field
-from typing import Optional, Literal, Union, Annotated
+from typing import Optional, Literal, Union, Annotated, Any
 from coffea.util import decompress_form
 import awkward as ak
 
@@ -23,6 +23,7 @@ from pathlib import Path
 from pydantic import TypeAdapter
 import dask
 from analyzer.utils.file_tools import compressDirectory
+from analyzer.utils.structure_tools import accumulate
 from distributed import LocalCluster, Client
 
 from analyzer.configuration import CONFIG
@@ -52,7 +53,7 @@ class AnalysisTask:
     analyzer: core_analyzer.Analyzer
 
 
-def giveIdToTasks(tasks):
+def giveIdToTasks(tasks: AnalysisTask):
     return {str(uuid.uuid4()): task for task in tasks}
 
 
@@ -72,7 +73,7 @@ class Executor(abc.ABC, BaseModel):
         pass
 
     @abc.abstractmethod
-    def run(self, tasks):
+    def run(self, tasks: dict[Any, AnalysisTask]):
         pass
 
 
@@ -83,6 +84,7 @@ class DaskExecutor(Executor):
     max_workers: Optional[int] = 2
     min_workers: Optional[int] = 0
     adapt: bool = True
+    step_size: Optional[int] = 100000
 
     def setup(self):
         if self.adapt and False:
@@ -90,7 +92,7 @@ class DaskExecutor(Executor):
                 min_workers=self.min_workers, max_workers=self.max_workers
             )
 
-    def _preprocess(self, tasks, step_size=50):
+    def _preprocess(self, tasks):
         to_prep = {
             uid: task.file_set.justUnchunked().toCoffeaDataset()
             for uid, task in tasks.items()
@@ -100,16 +102,15 @@ class DaskExecutor(Executor):
             save_form=False,
             skip_bad_files=True,
             uproot_options={"timeout": 1},
-            step_size=step_size,
+            step_size=self.step_size,
         )
         new_filesets = {
             uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
             for uid, task in tasks.items()
         }
         for v in new_filesets.values():
-            v.step_size = step_size
+            v.step_size = self.step_size
 
-        print(new_filesets)
         return new_filesets
 
     def run(self, tasks):
@@ -149,13 +150,12 @@ class DaskExecutor(Executor):
         final_result = {}
         for k, v in results.items():
             processed = file_sets[k].justProcessed(v["report"])
-            print(processed)
-            core = core_results.CoreSampleResult(**v["result"])
             final_result[k] = core_results.SampleResult(
                 sample_id=tasks[k].sample_id,
                 file_set_ran=file_sets[k],
                 file_set_processed=processed,
-                core_result=core,
+                params=tasks[k].sample_params,
+                results=v["result"],
             )
 
         return final_result
@@ -178,8 +178,9 @@ class LocalDaskExecutor(DaskExecutor):
 class ImmediateExecutor(Executor):
     executor_type: Literal["immediate"] = "immediate"
     catch_exceptions: Optional[bool] = False
+    step_size: Optional[int] = 100000
 
-    def _preprocess(self, tasks, step_size=50):
+    def _preprocess(self, tasks):
         to_prep = {
             uid: task.file_set.justUnchunked().toCoffeaDataset()
             for uid, task in tasks.items()
@@ -188,7 +189,7 @@ class ImmediateExecutor(Executor):
             to_prep,
             save_form=False,
             skip_bad_files=True,
-            step_size=step_size,
+            step_size=self.step_size,
             scheduler="single-threaded",
         )
         new_filesets = {
@@ -196,7 +197,7 @@ class ImmediateExecutor(Executor):
             for uid, task in tasks.items()
         }
         for v in new_filesets.values():
-            v.step_size = step_size
+            v.step_size = self.step_size
 
         return new_filesets
 
@@ -218,7 +219,7 @@ class ImmediateExecutor(Executor):
                     if ret is None:
                         ret = task.analyzer.run(events, task.sample_params)
                     else:
-                        ret += task.analyzer.run(events, task.sample_params)
+                        ret = accumulate([ret, task.analyzer.run(events, task.sample_params)])
                 except Exception as e:
                     if not self.catch_exceptions:
                         raise
@@ -236,7 +237,8 @@ class ImmediateExecutor(Executor):
                 sample_id=tasks[k].sample_id,
                 file_set_ran=fs,
                 file_set_processed=processed,
-                core_result=result,
+                params=tasks[k].sample_params,
+                results=result,
             )
 
         print(final_result)

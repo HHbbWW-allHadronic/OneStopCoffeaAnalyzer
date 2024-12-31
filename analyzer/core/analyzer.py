@@ -125,4 +125,4 @@ class Analyzer:
                     events, params, [x[0] for x in items], sel, preselection_set
                 )
             )
-        return results.CoreSampleResult(results=ret)
+        return ret
