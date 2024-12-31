@@ -22,8 +22,8 @@
     - local: applocal/test.root
 
 - name: testsignal3
-  sample_type: MC
-  title: "TESTSIGNAL1"
+  sample_type: Data
+  title: "TESTSIGNAL3"
   other_data: 
     stop_mass: 0
   era: '2018'
@@ -39,8 +39,7 @@
       x_sec: 480
       n_events: 10000
       files: 
-        - local: applocal/test1.root
-        - local: applocal/test2.root
+        - local: applocal/test.root
 
 # - name: signal_312_1000_600
 #   sample_type: MC

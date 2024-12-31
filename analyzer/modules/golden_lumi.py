@@ -31,7 +31,6 @@ def getLumiMask(lumi_json):
 
 @MODULE_REPO.register(ModuleType.Selection)
 def golden_lumi_filter(events, params, selector):
-    lumi_json = params.sector.dataset.era.golden_json
-    logger.info(f"Applying lumi json {lumi_json} to {params.sample['name']}")
+    lumi_json = params.dataset.era.golden_json
     lmask = getLumiMask(lumi_json)
-    selector.add(f"golden_lumi", lmask(events.run, events.luminosityBlock), type="and")
+    selector.add(f"golden_lumi", lmask(events.run, events.luminosityBlock))

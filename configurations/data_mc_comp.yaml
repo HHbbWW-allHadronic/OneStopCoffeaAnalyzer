@@ -5,7 +5,7 @@ name: DataMC
 samples:
   #signal_312_2000_1900: All
   # testsignal1: All
-  # testsignal2: All
+  testsignal2: All
   testsignal3: All
   # QCDInclusive2018: All
   # Data2018: [Control, Signal312]
@@ -46,6 +46,8 @@ samples:
 executors:
   local:
     executor_type: dask_local
+    step_size: 100
+    max_workers: 4
   imm:
     executor_type: immediate
     step_size: 100
@@ -118,7 +120,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      # - <<: *common_preselection
       - name: signal_hlt
     selection: 
       - name: general_selection
@@ -131,7 +133,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      # - <<: *common_preselection
       - name: hlt_single_jet
     selection: 
       - name: general_selection
@@ -144,7 +146,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      # - <<: *common_preselection
       - name: hlt_HT
     selection: 
       - name: general_selection

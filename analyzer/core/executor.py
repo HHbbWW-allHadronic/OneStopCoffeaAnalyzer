@@ -139,10 +139,10 @@ class DaskExecutor(Executor):
             ).events()
             all_events[k] = (events, report)
         for k, task in tasks.items():
+            r = task.analyzer.run(all_events[k][0], task.sample_params)
+            r = core_results.subsector_adapter.dump_python(r)
             ret[k] = {
-                "result": task.analyzer.run(
-                    all_events[k][0], task.sample_params
-                ).model_dump(),
+                "result": r,
                 "report": all_events[k][1],
             }
         results = dask.compute(ret)[0]
@@ -219,7 +219,9 @@ class ImmediateExecutor(Executor):
                     if ret is None:
                         ret = task.analyzer.run(events, task.sample_params)
                     else:
-                        ret = accumulate([ret, task.analyzer.run(events, task.sample_params)])
+                        ret = accumulate(
+                            [ret, task.analyzer.run(events, task.sample_params)]
+                        )
                 except Exception as e:
                     if not self.catch_exceptions:
                         raise
@@ -353,3 +355,4 @@ class LPCCondorDask(DaskExecutor):
 AnyExecutor = Annotated[
     Union[LocalDaskExecutor, CondorExecutor, ImmediateExecutor, LPCCondorDask],
     Field(discriminator="executor_type"),
+]

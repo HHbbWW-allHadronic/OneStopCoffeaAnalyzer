@@ -82,7 +82,7 @@ class SampleResult(pyd.BaseModel):
     def __add__(self, other):
         fs = self.file_set_processed.intersect(other.file_set_processed)
         print(fs)
-        if not fs.empty and False:
+        if not fs.empty:
             error = (
                 f"Could not add analysis results because the file sets over which they successfully processed overlap."
                 f"Overlapping files:\n{fs}"
@@ -113,10 +113,15 @@ class SampleResult(pyd.BaseModel):
 
     def scaleToPhysical(self):
         if self.params.dataset.sample_type == SampleType.MC:
-            scale = self.params.dataset.lumi * self.params.x_sec / self.params.n_events
-            return self.scaled(scale)
+            scale = (
+                self.params.dataset.lumi
+                * self.params.x_sec
+                / self.file_set_processed.events
+            )
         else:
-            return self
+            scale = self.params.n_events / self.file_set_processed.events
+
+        return self.scaled(scale)
 
 
 # class AnalysisResult(pyd.BaseModel):
@@ -192,6 +197,7 @@ class DatasetResult(pyd.BaseModel):
 
 
 results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
+subsector_adapter = pyd.TypeAdapter(dict[str, SubSectorResult])
 
 
 def loadResults(obj):
