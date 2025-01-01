@@ -92,14 +92,6 @@ class DatasetParams(BaseModel):
             self.era = era_repo[self.era]
 
 
-@pyd.dataclasses.dataclass
-class SampleParams:
-    dataset: DatasetParams
-    name: str
-    n_events: int
-    x_sec: Optional[float] = None 
-    cms_dataset_regex: Optional[str] = None
-    total_gen_weight: Optional[str] = None
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -131,6 +123,19 @@ class SampleId:
 
 
 
+@pyd.dataclasses.dataclass
+class SampleParams:
+    dataset: DatasetParams
+    name: str
+    n_events: int
+    x_sec: Optional[float] = None 
+    cms_dataset_regex: Optional[str] = None
+    total_gen_weight: Optional[str] = None
+
+    @property
+    def sample_id(self):
+        return SampleId(dataset_name=self.dataset.name, sample_name=self.name)
+    
 
 class Sample(BaseModel):
     """A single sample.

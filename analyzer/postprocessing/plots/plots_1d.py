@@ -1,11 +1,10 @@
-
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
 from analyzer.postprocessing.style import Styler
 
-from ..utils import doFormatting
+from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import addAxesToHist, saveFig
@@ -24,6 +23,7 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
 
 def plotOne(
     histogram,
+    group_params,
     sectors,
     output_name,
     style_set,
@@ -45,23 +45,16 @@ def plotOne(
             flow="none",
             **style.get("step"),
         )
-        # mplhep.histplot(
-        #     h,
-        #     ax=ax,
-        #     label=sector.sector_params.dataset.title,
-        #     density=normalize,
-        #     **style.get("step"),
-        # )
 
     labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
     labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)
     addCMSBits(ax, sectors, plot_configuration=plot_configuration)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
-    #mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_legend(ax, soft_fail=True)
     mplhep.ylow(ax)
-    o = doFormatting(output_name, p, histogram_name=histogram)
-    saveFig(fig,  o)
+    o = doFormatting(output_name, group_params, histogram_name=histogram)
+    saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)
 
 
@@ -76,6 +69,7 @@ def makeStrHist(data, ax_name=None):
 
 def __plotStrCatOne(
     getter,
+    group_params,
     sectors,
     output_name,
     style_set,
@@ -103,20 +97,21 @@ def __plotStrCatOne(
     labelAxis(ax, "x", h.axes)
     ax.tick_params(axis="x", rotation=90)
     addCMSBits(ax, sectors, plot_configuration=plot_configuration)
-    #mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_legend(ax, soft_fail=True)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
-    #mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_legend(ax, soft_fail=True)
 
-    o = doFormatting(output_name, p, histogram_name=(ax_name or ""))
+    o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
     fig.tight_layout()
-    saveFig(fig,  o)
+    saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)
 
 
 def __plotStrCatAsTable(
     getter,
     sectors,
+    group_params,
     output_name,
     style_set,
     ax_name=None,
@@ -126,17 +121,17 @@ def __plotStrCatAsTable(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     mpl.use("Agg")
-    
+
     rep_data = getter(sectors[0])
     col_labels = [x[0] for x in rep_data]
     rows = []
     row_labels = []
 
-    figsize=(len(rep_data)*0.3, len(sectors)*0.3)
+    figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
     fig, ax = plt.subplots(figsize=figsize)
     fig.patch.set_visible(False)
-    ax.axis('off')
-    ax.axis('tight')
+    ax.axis("off")
+    ax.axis("tight")
     for sector in sectors:
         p = sector.sector_params
         style = styler.getStyle(p)
@@ -144,26 +139,24 @@ def __plotStrCatAsTable(
         row_labels.append(sector.sector_params.dataset.title)
         rows.append([x[1] for x in data])
 
-
-    table= ax.table(
+    table = ax.table(
         cellText=rows,
         rowLabels=row_labels,
         colLabels=col_labels,
     )
 
-    o = doFormatting(output_name, p, histogram_name=(ax_name or ""))
+    o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
     fig.tight_layout()
-    saveFig(fig,  o)
+    saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)
 
 
 def plotStrCat(*args, table_mode=False, **kwargs):
     def makeGetter(n):
         def inner(sec):
-            return getattr(sec.cutflow_data.cutflow, n)
+            return getattr(sec.result.selection_flow, n)
 
         return inner
-
 
     if table_mode:
         f = __plotStrCatAsTable
@@ -176,6 +169,7 @@ def plotStrCat(*args, table_mode=False, **kwargs):
 
 def plotRatio(
     histogram,
+    group_params,
     numerators,
     denominator,
     output_name,
@@ -253,14 +247,12 @@ def plotRatio(
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
     labelAxis(ratio_ax, "x", den.axes)
-    addCMSBits(ax, (denominator,), plot_configuration=plot_configuration) 
+    addCMSBits(ax, (denominator,), plot_configuration=plot_configuration)
     ratio_ax.set_ylabel("Ratio", loc="center")
     ax.tick_params(axis="x", which="both", labelbottom=False)
     mplhep.sort_legend(ax=ax)
-    #mplhep.yscale_legend(ax, soft_fail=True)
-    o = doFormatting(output_name, p, histogram_name=histogram)
+    # mplhep.yscale_legend(ax, soft_fail=True)
+    o = doFormatting(output_name, group_params, histogram_name=histogram)
     fig.tight_layout()
-    saveFig(fig,  o)
+    saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)
-
-

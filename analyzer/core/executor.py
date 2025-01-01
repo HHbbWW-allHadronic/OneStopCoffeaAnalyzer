@@ -34,7 +34,6 @@ import analyzer.core.results as core_results
 
 try:
     from lpcjobqueue import LPCCondorCluster
-
     from lpcjobqueue.schedd import SCHEDD
 
     LPCQUEUE_AVAILABLE = True
@@ -45,8 +44,7 @@ except ImportError as e:
 EXECUTORS = {}
 
 
-@dataclass
-class AnalysisTask:
+class AnalysisTask(BaseModel):
     sample_id: SampleId
     sample_params: SampleParams
     file_set: FileSet
@@ -57,12 +55,6 @@ def giveIdToTasks(tasks: AnalysisTask):
     return {str(uuid.uuid4()): task for task in tasks}
 
 
-class CondorExecutor(BaseModel):
-    executor_type: Literal["condor"] = "condor"
-    max_workers: int
-    memory: str
-    disk: str
-    timeout: Optional[int] = None
 
 
 dict_adapter = TypeAdapter(dict)
@@ -248,6 +240,73 @@ class ImmediateExecutor(Executor):
         return final_result
 
 
+def setupForCondor(
+    analysis_root_dir,
+    venv_path=None,
+    x509_path=None,
+    temporary_path=None,
+    extra_files=None,
+):
+    extra_files = extra_files or []
+    base = (
+        apptainer_container
+        or Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
+    )
+    venv = venv_path or Path(os.environ.get("VIRTUAL_ENV"))
+    x509 = x509_path or Path(os.environ.get("X509_USER_PROXY")).absolute()
+
+    compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
+    analyzer_compressed = (
+        Path(CONFIG.APPLICATION_DATA) / "compressed" / "analyzer.tar.gz"
+    )
+    if not compressed_env.exists():
+        compressDirectory(
+            input_dir=".application_data/venv",
+            root_dir=analysis_root_dir,
+            output=compressed_env,
+            archive_type="gztar",
+        )
+    compressDirectory(
+        input_dir=Path(analyzer.__file__).parent.relative_to(analysis_root_dir),
+        root_dir=analysis_root_dir,
+        output=analyzer_compressed,
+        archive_type="gztar",
+    )
+
+    transfer_input_files = ["setup.sh", compressed_env, analyzer_compressed]
+
+    if extra_files:
+        extra_compressed = (
+            Path(CONFIG.APPLICATION_DATA) / "compressed" / "extra_files.tar.gz"
+        )
+        transfer_input_files.append(extra_compressed)
+        temp = Path(temporary_path)
+        extra_files_path = temp / "extra_files/"
+        extra_files_path.mkdir(exist_ok=True, parents=True)
+        for i in extra_files:
+            src = Path(i)
+            shutil.copytree(src, extra_files_path / i)
+
+        compressDirectory(
+            input_dir="",
+            root_dir=extra_files_path,
+            output=extra_compressed,
+            archive_type="gztar",
+        )
+    if x509:
+        transfer_input_files.append(x509)
+
+    return transfer_input_files
+
+class CondorExecutor(BaseModel):
+    executor_type: Literal["condor"] = "condor"
+    memory: str = "2GB"
+    disk: str = "2GB"
+    files_per_job: int = 4
+    chunk_size: int = 100000
+    timeout: Optional[int] = None
+
+
 class LPCCondorDask(DaskExecutor):
     executor_type: Literal["dask_condor"] = "dask_condor"
     apptainer_working_dir: Optional[str] = None
@@ -261,11 +320,8 @@ class LPCCondorDask(DaskExecutor):
     analysis_root_dir: Optional[str] = "/srv"
 
     def setup(self):
-        """Create a new dask cluster for use with LPC condor."""
         if not LPCQUEUE_AVAILABLE:
             raise NotImplemented("LPC Condor can only be used at the LPC.")
-        extra_files = extra_files or []
-
         apptainer_container = "/".join(
             Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
         )
@@ -273,57 +329,13 @@ class LPCCondorDask(DaskExecutor):
         logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
         logpath.mkdir(exist_ok=True, parents=True)
 
-        base = (
-            self.apptainer_container
-            or Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
+        transfer_input_files = setupForCondor(
+            apptainer_working_dir=self.apptainer_working_dir,
+            venv_path=self.venv_path,
+            x509_path=self.x509_path,
+            temporary_path=self.temporary_path,
+            extra_file=self.extra_files,
         )
-        venv = self.venv_path or Path(os.environ.get("VIRTUAL_ENV"))
-        x509 = self.x509_path or Path(os.environ.get("X509_USER_PROXY")).absolute()
-
-        compressed_env = (
-            Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
-        )
-        analyzer_compressed = (
-            Path(CONFIG.APPLICATION_DATA) / "compressed" / "analyzer.tar.gz"
-        )
-        if not compressed_env.exists():
-            compressDirectory(
-                input_dir=".application_data/venv",
-                root_dir=self.analysis_root_dir,
-                output=compressed_env,
-                archive_type="gztar",
-            )
-        compressDirectory(
-            input_dir=Path(analyzer.__file__).parent.relative_to(
-                self.analysis_root_dir
-            ),
-            root_dir=self.analysis_root_dir,
-            output=analyzer_compressed,
-            archive_type="gztar",
-        )
-
-        transfer_input_files = ["setup.sh", compressed_env, analyzer_compressed]
-
-        if self.extra_files:
-            extra_compressed = (
-                Path(CONFIG.APPLICATION_DATA) / "compressed" / "extra_files.tar.gz"
-            )
-            transfer_input_files.append(extra_compressed)
-            temp = Path(self.temporary_path)
-            extra_files_path = temp / "extra_files/"
-            extra_files_path.mkdir(exist_ok=True, parents=True)
-            for i in self.extra_files:
-                src = Path(i)
-                shutil.copytree(src, extra_files_path / i)
-
-            compressDirectory(
-                input_dir="",
-                root_dir=extra_files_path,
-                output=extra_compressed,
-                archive_type="gztar",
-            )
-        if x509:
-            transfer_input_files.append(x509)
         kwargs = {}
         kwargs["worker_extra_args"] = [
             *dask.config.get("jobqueue.lpccondor.worker_extra_args"),
@@ -335,24 +347,28 @@ class LPCCondorDask(DaskExecutor):
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
         s = SCHEDD()
-        # print(s)
         self._cluster = LPCCondorCluster(
             ship_env=False,
             image=apptainer_container,
             memory=memory,
             transfer_input_files=transfer_input_files,
-            log_directory=logpath,
+            log_directory=self.base_log_path,
             scheduler_options=dict(
-                # address=schedd_host,
                 dashboard_address=dashboard_address
             ),
             **kwargs,
         )
-        self._cluster.adapt(minimum=self.min_workers, maximum=self.max_workers)
         self._client = Client(self._cluster)
+        super().setup()
 
 
 AnyExecutor = Annotated[
     Union[LocalDaskExecutor, CondorExecutor, ImmediateExecutor, LPCCondorDask],
     Field(discriminator="executor_type"),
 ]
+
+
+class PackagedTask(BaseModel):
+    identifier: str
+    executor: AnyExecutor
+    task: AnalysisTask

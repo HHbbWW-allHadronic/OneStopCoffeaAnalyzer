@@ -1,9 +1,11 @@
 PostDefaults:
   style_set: "default.yaml"
+
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: pdf
-  to_plot:
+    image_type: ".png"
+
+  to_process:
     sample_spec:
       name:
         - signal_312_2000_1900
@@ -14,20 +16,16 @@ PostDefaults:
         - signal_312_1200_900
         - Data*
         - QCD*
-  to_export: {sample_spec: {name: ["signal_312_*", "QCD*", "Data*"] }}
+        - '*'
 
 Postprocessing:
   - name: 2D Stuff
     action: Histogram2D
     histogram_names:
       - m13_vs_m14
-      - m24_vs_m14
-      - ratio_m24_vs_m14
-      - ratio_m13_vs_m14
-      - nn_uncomp_0p67_m14_vs_mChiUncomp
-      - nn_uncomp_0p67_m14_vs_mChiUncompRatio
-      - nn_comp_0p67_m14_vs_mChiUncompRatio
-      - nn_comp_0p67_m14_vs_mChiUncomp
+      # - m24_vs_m14
+      # - ratio_m24_vs_m14
+      # - ratio_m13_vs_m14
 
     to_plot:
       sample_spec:
@@ -36,70 +34,59 @@ Postprocessing:
           - QCD*
     normalize: True
     color_scale: log
-    output_name: "postprocessing/plots/{dataset.era.name}/{region.region_name}/{dataset.name}/{histogram_name}.pdf"
-    groupby: ["dataset.era.name", "region.region_name", "dataset.name"]
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region_name", "dataset.name"]
     plot_configuration:
       cms_text: "Preliminary"
       cms_text_color: Black
       image_type: pdf
 
-  # - name: Export Hists
-  #   action: ExportHists
-  #   histogram_names:
-  #     - m13_m
-  #     - m24_m
-  #     - m14_m
-  #     - m13_vs_m14
-  #     - m24_vs_m14
-  #     - ratio_m24_vs_m14
-  #     - nn_uncomp_0p67_m14_vs_mChiUncomp
-  #     - nn_uncomp_0p67_m14_vs_mChiUncompRatio
-  #     - nn_comp_0p67_m14_vs_mChiUncomp
-  #     - nn_comp_0p67_m14_vs_mChiUncompRatio
-  #     - nn_comp_0p67_m14_vs_mChiComp
-  # 
-  #   output_name: "postprocessing/regression_results/second_{dataset.era.name}_{region.region_name}_{histogram_name}.pkl"
-  #   groupby: ["dataset.era.name", "region.region_name"]
-  # 
-  # - name: Cutflow
-  #   action: PlotCutflow
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{region.region_name}/{dataset.name}_{histogram_name}.pdf"
-  #   groupby: ["dataset.era.name", "region.region_name", "dataset.name"]
-  #   normalize: false
-  # 
-  # - name: Plot Basic stuff
-  #   action: Histogram1D
-  #   histogram_names:
-  #     - m13_m
-  #     - m24_m
-  #     - m14_m
-  #     - m13_vs_m14
-  #     - m24_vs_m14
-  #     - ratio_m24_vs_m14
-  #     - nn_uncomp_0p67_mChiComp
-  #     - nn_uncomp_0p67_mChiUncomp
-  #     - nn_comp_0p67_mChiComp
-  #     - nn_comp_0p67_mChiUncomp
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{region.region_name}/{histogram_name}.pdf"
-  #   groupby: ["dataset.era.name", "region.region_name"]
-  #   normalize: false
-  # 
-  # 
-  # - name: Normalized stuff
-  #   action: Histogram1D
-  #   histogram_names:
-  #     - m13_m
-  #     - m24_m
-  #     - m14_m
-  #     - m13_vs_m14
-  #     - m24_vs_m14
-  #     - ratio_m24_vs_m14
-  #     - nn_uncomp_0p67_mChiComp
-  #     - nn_uncomp_0p67_mChiUncomp
-  #     - nn_comp_0p67_mChiComp
-  #     - nn_comp_0p67_mChiUncomp
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{region.region_name}/normalized_{histogram_name}.pdf"
-  #   groupby: ["dataset.era.name", "region.region_name"]
-  #   normalize: true
-  #   plot_configuration:
-  #     y_label: "Normalized Events"
+  - name: Export Hists
+    action: ExportHists
+    histogram_names:
+      - m13_m
+      # - m24_m
+      # - m14_m
+      # - m13_vs_m14
+      # - m24_vs_m14
+      # - ratio_m24_vs_m14
+    output_name: "postprocessing/regression_results/{dataset.era.name}_{region_name}_{histogram_name}.pkl"
+    groupby: ["dataset.era.name", "region_name"]
+
+  
+  - name: Cutflow
+    action: PlotCutflow
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}_{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region_name", "dataset.name"]
+    normalize: false
+  
+  - name: Plot Basic stuff
+    action: Histogram1D
+    histogram_names:
+      - m13_m
+      # - m24_m
+      # - m14_m
+      # - m13_vs_m14
+      # - m24_vs_m14
+      # - ratio_m24_vs_m14
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region_name"]
+    normalize: false
+  
+  
+  - name: Normalized stuff
+    action: Histogram1D
+    histogram_names:
+      - m13_m
+      # - m24_m
+      # - m14_m
+      # - m13_vs_m14
+      # - m24_vs_m14
+      # - ratio_m24_vs_m14
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/normalized_{histogram_name}.pdf"
+    groupby: ["dataset.era.name", "region_name"]
+    normalize: true
+    plot_configuration:
+      y_label: "Normalized Events"
+
+

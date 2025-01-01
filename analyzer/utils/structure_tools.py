@@ -13,6 +13,7 @@ except ImportError:
 
     from typing_extensions import Protocol  # type: ignore
 
+
 def get_git_revision_hash() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
 
@@ -25,7 +26,7 @@ def get_git_revision_short_hash() -> str:
     )
 
 
-def deepMerge(a: dict[Any,Any], b: dict[Any,Any], path=[], overwrite=True):
+def deepMerge(a: dict[Any, Any], b: dict[Any, Any], path=[], overwrite=True):
     for key in b:
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
@@ -36,16 +37,36 @@ def deepMerge(a: dict[Any,Any], b: dict[Any,Any], path=[], overwrite=True):
             a[key] = b[key]
     return a
 
+
+def dictIntersect(a, b):
+    if not type(a) == type(b):
+        raise KeyError()
+    if isinstance(a, dict):
+        ret = {}
+        for k in a:
+            if k in b:
+                d = dictIntersect(a[k], b[k])
+                isd = isinstance(d, dict) 
+                if (isd and d) or (not isd and d is not None ):
+                    ret[k] = d
+        return ret
+    else:
+        if a == b:
+            return a
+
+
 # From https://github.com/CoffeaTeam/coffea/blob/v2023.7.0.rc0/src/coffea/processor/accumulator.py
 T = TypeVar("T")
 
+
 @runtime_checkable
 class Addable(Protocol):
-    def __add__(self: T, other: T) -> T:
-        ...
+    def __add__(self: T, other: T) -> T: ...
 
-Accumulatable = Addable| MutableSet['Accumulatable'] | MutableMapping[Any, 'Accumulatable']
 
+Accumulatable = (
+    Addable | MutableSet["Accumulatable"] | MutableMapping[Any, "Accumulatable"]
+)
 
 
 def add(a: Accumulatable, b: Accumulatable) -> Accumulatable:

@@ -6,9 +6,8 @@ import yaml
 
 from pydantic import BaseModel, Field
 
-from .analysis_modules import (
-    MODULE_REPO,
-)
+from .analysis_modules import MODULE_REPO
+
 import logging
 
 import analyzer.core.specifiers as specs 

@@ -7,7 +7,13 @@ import operator as op
 from collections import defaultdict
 import pydantic as pyd
 from analyzer.configuration import CONFIG
-from analyzer.datasets import SampleParams, FileSet, DatasetParams, SampleType
+from analyzer.datasets import (
+    SampleParams,
+    FileSet,
+    DatasetParams,
+    SampleType,
+    DatasetRepo,
+)
 import pickle as pkl
 from analyzer.utils.structure_tools import accumulate
 from .common_types import Scalar
@@ -16,6 +22,7 @@ import analyzer.datasets as ad
 import analyzer.core.selection as ans
 import analyzer.core.region_analyzer as anr
 import analyzer.core.histograms as anh
+import analyzer.core.specifiers as spec
 
 
 if CONFIG.PRETTY_MODE:
@@ -79,9 +86,12 @@ class SampleResult(pyd.BaseModel):
     file_set_ran: FileSet
     file_set_processed: FileSet
 
+    @property
+    def processed_events(self):
+        return self.file_set_processed.events
+
     def __add__(self, other):
         fs = self.file_set_processed.intersect(other.file_set_processed)
-        print(fs)
         if not fs.empty:
             error = (
                 f"Could not add analysis results because the file sets over which they successfully processed overlap."
@@ -124,29 +134,18 @@ class SampleResult(pyd.BaseModel):
         return self.scaled(scale)
 
 
-# class AnalysisResult(pyd.BaseModel):
-#     results: dict[SampleId, SampleResult]
-#
-#     def getResults(self, drop_samples=None):
-#         drop_samples = drop_samples or []
-#         scaled_sample_results = defaultdict(list)
-#         for region_name, result in self.results.items():
-#             if subsector_id.sample_id in drop_samples:
-#                 logger.warn(f'Not including subsector "{subsector_id}"')
-#                 continue
-#             k = (subsector_id.sample_id.dataset_name, subsector_id.region_name)
-#
-#             if result.params.sector.dataset.sample_type == SampleType.MC:
-#                 sample_info = result.params.sample
-#                 scale = (
-#                     result.params.sector.dataset.lumi
-#                     * sample_info["x_sec"]
-#                     / self.total_mc_weights[subsector_id.sample_id]
-#                 )
-#                 result = result.scaled(scale)
-#             scaled_sample_results[k].append(SectorResult.fromSubSectorResult(result))
-#
-#         return {x: ft.reduce(op.add, y) for x, y in scaled_sample_results.items()}
+class SectorResult(pyd.BaseModel):
+    sector_params: spec.SectorParams
+    result: BaseResult
+
+    @property
+    def params_dict(self):
+        return self.sector_params.model_dump()
+
+
+    @property
+    def histograms(self):
+        return self.result.histograms
 
 
 class DatasetResult(pyd.BaseModel):
@@ -195,6 +194,18 @@ class DatasetResult(pyd.BaseModel):
             file_set_processed=self.file_set_processed + other.file_set_processed,
         )
 
+    @property
+    def sector_results(self):
+        return [
+            SectorResult(
+                sector_params=spec.SectorParams(
+                    dataset=self.dataset_params, region_name=rn
+                ),
+                result=result,
+            )
+            for rn, result in self.results.items()
+        ]
+
 
 results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
 subsector_adapter = pyd.TypeAdapter(dict[str, SubSectorResult])
@@ -204,7 +215,7 @@ def loadResults(obj):
     return results_adapter.validate_python(obj)
 
 
-def loadFromPaths(paths):
+def loadSampleResultFromPaths(paths):
     results = []
     for p in paths:
         with open(p, "rb") as f:
@@ -235,38 +246,34 @@ def makeDatasetResults(sample_results, drop_samples=None):
     }
 
 
-# def checkResult(input_path):
-#     from rich.console import Console
-#     from rich.style import Style
-#     from rich.table import Table
-#
-#     console = Console()
-#
-#     with open(input_path, "rb") as f:
-#         result = pkl.load(f)
-#         result = AnalysisResult(**result)
-#     dr = DatasetRepo.getConfig()
-#     wanted_samples = sorted(list(result.preprocessed_samples))
-#     processed = result.raw_events_processed
-#
-#     table = Table(title="Missing Events")
-#     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
-#         table.add_column(x)
-#
-#     for sample_id in wanted_samples:
-#         exp = dr.getSample(sample_id).n_events
-#         val = processed.get(sample_id, 0)
-#         diff = exp - val
-#         done = diff == 0
-#         percent = round(val / exp * 100, 2)
-#
-#         table.add_row(
-#             sample_id.dataset_name,
-#             sample_id.sample_name,
-#             str(percent),
-#             f"{val}",
-#             f"{exp}",
-#             style=Style(color="green" if done else "red"),
-#         )
-#         # print(f"{sample_id} is missing {diff} events")
-#     console.print(table)
+def checkResult(paths):
+    from rich.console import Console
+    from rich.style import Style
+    from rich.table import Table
+
+    console = Console()
+
+    results = list(loadSampleResultFromPaths(paths).values())
+
+    table = Table(title="Missing Events")
+    for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
+        table.add_column(x)
+
+    for result in results:
+        sample_id = result.params.sample_id
+        exp = result.params.n_events
+        val = result.processed_events
+        diff = exp - val
+        done = diff == 0
+        percent = round(val / exp * 100, 2)
+
+        table.add_row(
+            sample_id.dataset_name,
+            sample_id.sample_name,
+            str(percent),
+            f"{val}",
+            f"{exp}",
+            style=Style(color="green" if done else "red"),
+        )
+        # print(f"{sample_id} is missing {diff} events")
+    console.print(table)

@@ -8,6 +8,7 @@ from analyzer.datasets import DatasetRepo, EraRepo
 from analyzer.core.configuration import getSubSectors, loadDescription
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.executor import AnalysisTask
+from .analysis_modules import MODULE_REPO
 
 if CONFIG.PRETTY_MODE:
     from rich import print
@@ -58,3 +59,18 @@ def runFromPath(path, output, executor_name, save_separate=False):
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 
 
+
+def runPackagedTask(packaged_task, output):
+    import analyzer.modules
+    mr = analyzer.core.analysis
+
+    iden = packaged_task.identifier
+    task = packaged_task.task
+    executor=packaged_task.executor
+
+    task.analyzer.ensureFunction(MODULE_REPO)
+
+    results = executor.run({iden: task})
+
+    with open(output, "wb") as f:
+        pkl.dump({x: y.model_dump() for x, y in results.items()}, f)

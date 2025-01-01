@@ -1,7 +1,7 @@
 - name: testsignal1
   sample_type: MC
   title: "TESTSIGNAL1"
-  n_events: 10000
+  n_events: 202
   x_sec: 480
   other_data: 
     stop_mass: 0
@@ -13,7 +13,7 @@
 - name: testsignal2
   sample_type: MC
   title: "TESTSIGNAL2"
-  n_events: 10000
+  n_events: 101
   x_sec: 480
   other_data: 
     stop_mass: 0
@@ -30,14 +30,14 @@
   samples:
     - name: Part1
       x_sec: 480
-      n_events: 10000
+      n_events: 202
       files: 
         - local: applocal/test1.root
         - local: applocal/test2.root
 
     - name: Part2
       x_sec: 480
-      n_events: 10000
+      n_events: 101
       files: 
         - local: applocal/test.root
 

@@ -13,7 +13,8 @@ def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False):
 def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
     path = Path(out)
     path.parent.mkdir(exist_ok=True, parents=True)
-    path = path.with_suffix(extension)
+    if extension:
+        path = path.with_suffix(extension)
     fig.savefig(path, metadata=metadata, **kwargs)
 
 

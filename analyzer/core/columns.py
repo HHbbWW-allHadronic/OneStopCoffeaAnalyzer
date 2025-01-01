@@ -6,15 +6,9 @@ from typing import Any, Optional
 import dask_awkward as dak
 
 
-from analyzer.configuration import CONFIG
-
-
-if CONFIG.PRETTY_MODE:
-    pass
+logger = logging.getLogger(__name__)
 
 SHAPE_VAR_SEPARATOR = "__"
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -34,6 +28,9 @@ class Columns:
     columns: dict[str, Column] = field(default_factory=dict)
     base: Optional["Columns"] = None
     syst: Optional[tuple[str, str]] = None
+    __column_cache: dict[tuple[str, tuple[str, str] | None], Any] = field(
+        default_factory=dict
+    )
 
     # def __hash__(self):
     #     return hash((self.events.name, tuple(self.columns), self.syst))
@@ -60,7 +57,6 @@ class Columns:
             )
         )
 
-
     def getSystName(self):
         if self.syst is not None:
             return self.syst[1]
@@ -81,7 +77,7 @@ class Columns:
 
         cname = col.getColumnName(syst)
         if cname not in self.events.fields:
-            logger.info("Adding column to events: %s", cname)
+            logger.debug("Adding column to events: %s", cname)
             self.events[cname] = value
 
     def add(self, name, nominal_value, variations=None, shape_dependent=False):
@@ -102,8 +98,9 @@ class Columns:
             for syst, val in variations.items():
                 self.addVariation(name, val, syst=syst)
 
-    # @ft.lru_cache(maxsize=20)
     def get(self, name):
+        # if (name,self.syst) in self.__column_cache:
+        #     return self.__column_cache[(name,self.syst)]
         if name in self.columns:
             col = self.columns[name]
             if self.syst is None:
@@ -118,9 +115,10 @@ class Columns:
                     n = col.getColumnName()
         else:
             n = name
-        logger.info(
+        logger.debug(
             'Getting column "%s" with variation "%s" = "%s"', name, self.syst, n
         )
+        # self.__column_cache[(name,self.syst)] = self.events[n]
         return self.events[n]
 
     def withSyst(self, syst):

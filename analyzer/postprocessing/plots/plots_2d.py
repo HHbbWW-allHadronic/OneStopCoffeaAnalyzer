@@ -1,10 +1,9 @@
-
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
 from analyzer.postprocessing.style import Styler
 
-from ..utils import doFormatting
+from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig
@@ -12,6 +11,7 @@ from .utils import saveFig
 
 def plot2D(
     histogram_name,
+    group_params,
     sector,
     output_name,
     style_set,
@@ -27,7 +27,7 @@ def plot2D(
     style = styler.getStyle(p)
     h = sector.histograms[histogram_name].get()
     if normalize:
-        h = h/np.sum(h.values())
+        h = h / np.sum(h.values())
     if color_scale == "log":
         art = h.plot2d(norm=matplotlib.colors.LogNorm())
     else:
@@ -39,10 +39,10 @@ def plot2D(
     addCMSBits(
         ax,
         [sector],
-        extra_text=f"{p.region['region_name']}\n{p.dataset.title}",
+        extra_text=f"{p.region_name}\n{p.dataset.title}",
         text_color="white",
         plot_configuration=plot_configuration,
     )
-    o = doFormatting(output_name, p, histogram_name=histogram_name)
-    saveFig(fig, o)
+    o = doFormatting(output_name, group_params, histogram_name=histogram_name)
+    saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)

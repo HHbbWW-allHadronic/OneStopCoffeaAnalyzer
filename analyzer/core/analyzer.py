@@ -127,3 +127,9 @@ class Analyzer:
                 )
             )
         return ret
+
+
+
+    def ensureFunction(self, module_repo):
+        for ra in self.region_analyzers:
+            ra.ensureFunction(module_repo)
