@@ -10,9 +10,6 @@ from analyzer.core.analyzer import Analyzer
 from analyzer.core.executor import AnalysisTask
 from .analysis_modules import MODULE_REPO
 
-if CONFIG.PRETTY_MODE:
-    pass
-
 
 def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
     ret = []
@@ -30,6 +27,8 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
 
 
 def saveResults(results, output, save_separate=False):
+    if not results:
+        return
     if save_separate:
         output.mkdir(exist_ok=True, parents=True)
         for k, v in results.items():
@@ -48,6 +47,9 @@ def runFromPath(path, output, executor_name, save_separate=False):
 
     executor = description.executors[executor_name]
     executor.setup()
+    if hasattr(executor, "output_dir") and executor.output_dir is None:
+        executor.output_dir = str(output)
+        
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
@@ -62,17 +64,25 @@ def runFromPath(path, output, executor_name, save_separate=False):
     saveResults(results, output, save_separate=save_separate)
 
 
-def runPackagedTask(packaged_task, output, save_separate=False):
+def runPackagedTask(packaged_task, output=None, output_dir=None, save_separate=False):
     import analyzer.modules
 
+    if output_dir is None:
+        output_dir = Path(".")
+    else:
+        output_dir = Path(output_dir)
+    output_dir.mkdir(exist_ok=True, parents=True)
+
     iden = packaged_task.identifier
+    output = output or iden
+
     task = packaged_task.task
-    executor = packaged_task.executor
+    executor = packaged_task.executor 
 
     task.analyzer.ensureFunction(MODULE_REPO)
 
     results = executor.run({task.sample_id: task})
-    saveResults(results, output, save_separate=save_separate)
+    saveResults(results, output_dir / output, save_separate=save_separate)
 
 
 def mergeResults(paths, output_path, save_separate=False):

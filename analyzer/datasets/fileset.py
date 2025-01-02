@@ -191,6 +191,19 @@ class FileSet(BaseModel):
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
+    def splitFiles(self, files_per_set):
+        lst = list(self.files.items())
+        files_split = {(i, i + n): dict(lst[i : i + n]) for i in range(0, len(lst), n)}
+        return {
+            k: FileSet(
+                files=v,
+                step_size=self.step_size,
+                form=coffea_fileset["form"],
+                file_retrieval_kwargs=self.file_retrieval_kwargs,
+            )
+            for k, v in files_split.items()
+        }
+
     def toCoffeaDataset(self, simple=False):
         if simple:
             coffea_dataset = {

@@ -52,6 +52,10 @@ executors:
     executor_type: immediate
     step_size: 50
 
+  condor:
+    executor_type: condor
+    step_size: 100
+
   dask_condor:
     executor_type: dask_condor
     max_workers: 20

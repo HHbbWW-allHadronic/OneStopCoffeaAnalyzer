@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+tar xzf environment.tar.gz
+tar xzf analyzer.tar.gz
+[[ -f extra_files.tar.gz ]] && tar xzf extra_files.tar.gz
+source setup.sh bashrc
+echo "Virtual ENV IS" $VIRTUAL_ENV
+ls -alhtr
+ls -alhtr .application_data
+export X509_USER_PROXY=$(realpath $(find . -iname 'x509*'))
+echo 'X509 Is'
+echo $X509_USER_PROXY
+python3 -m analyzer run-task $1

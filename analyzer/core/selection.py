@@ -92,7 +92,10 @@ class SelectionSet:
 
     def getMask(self, names):
         logger.info(f"Getting selection for names {names}")
-        return self.selection.all(*names)
+        if names:
+            return self.selection.all(*names)
+        else:
+            return None
 
     def getSelectionFlow(self, names):
         nmo = self.selection.nminusone(*names).result()

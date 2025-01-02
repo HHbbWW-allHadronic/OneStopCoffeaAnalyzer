@@ -56,8 +56,12 @@ class Analyzer:
             if variation is None:
                 cutflow_storage[ra.region_name] = selection.getSelectionFlow()
 
+
             mask = selection.getMask()
-            new_cols = columns.withEvents(columns.events[mask])
+            if mask is not None:
+                new_cols = columns.withEvents(columns.events[mask])
+            else:
+                new_cols = columns
             res = ra.runPostSelection(new_cols, params, hs)
             ret[(ra.region_name, variation)] = res
         return ret
@@ -69,7 +73,8 @@ class Analyzer:
         histogram_storage = {ra.region_name: {} for ra in region_analyzers}
         cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
         mask = preselection.getMask()
-        events = events[mask]
+        if mask is not None:
+            events = events[mask]
         columns = Columns(events)
         for ra in region_analyzers:
             ra.runCorrections(events, params, columns)
