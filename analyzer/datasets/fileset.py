@@ -2,6 +2,7 @@ import copy
 import itertools as it
 from collections import defaultdict
 from typing import Any
+from rich import print
 
 
 import awkward as ak
@@ -107,7 +108,10 @@ class FileSet(BaseModel):
 
     @property
     def empty(self):
-        return not self.files or all(not x["steps"] for _, (_, x) in self.files.items())
+        ret = not self.files or all(
+            x["steps"] is not None and not x["steps"] for _, x in self.files.values()
+        )
+        return ret
 
     @property
     def events(self):

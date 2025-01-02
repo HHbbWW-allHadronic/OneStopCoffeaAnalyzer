@@ -80,15 +80,8 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
         raise RuntimeError()
 
     this_step_size = next(iter(step_sizes))
-    to_prep = {
-        uid: task.file_set.justUnchunked().toCoffeaDataset()
-        for uid, task in tasks.items()
-        if not task.file_set.justUnchunked().empty
-    }
-    # for z in to_prep.values():
-    #     for i, x in list(enumerate(z["files"])):
-    #         if i % 2 == 1:
-    #             del z["files"][x]
+    to_prep = {uid: task.file_set.justUnchunked() for uid, task in tasks.items()}
+    to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
 
@@ -388,7 +381,7 @@ class CondorExecutor(Executor):
 
         job_desc = {
             "executable": self.executable,
-            "arguments": f"$(input_file_name) {str(self.output_dir)}",
+            "arguments": f" $(input_file_name) {str(self.output_dir)}",
             "transfer_input_files": "$(input_file)",
             "should_transfer_files": "yes",
             "output": log_dir / "$(input_file_name).out",
