@@ -29,15 +29,26 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
     return ret
 
 
+def saveResults(results, output, save_separate=False):
+    if save_separate:
+        output.mkdir(exist_ok=True, parents=True)
+        for k, v in results.items():
+            with open(output / f"{k}.pkl", "wb") as f:
+                pkl.dump({k: v.model_dump()}, f)
+    else:
+        with open(output, "wb") as f:
+            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+
+
 def runFromPath(path, output, executor_name, save_separate=False):
-    output=Path(output)
+    output = Path(output)
     description = loadDescription(path)
     if executor_name not in description.executors:
         raise KeyError()
-        
+
     executor = description.executors[executor_name]
     executor.setup()
-    
+
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     subsectors = getSubSectors(description, dataset_repo, era_repo)
@@ -48,15 +59,7 @@ def runFromPath(path, output, executor_name, save_separate=False):
     tasks = {task.sample_id: task for task in tasks}
     results = executor.run(tasks)
 
-    if save_separate:
-        output.mkdir(exist_ok=True, parents=True)
-        for k,v in results.items():
-            with open(output/ f"{k}.pkl", "wb") as f:
-                pkl.dump({k: v.model_dump()}, f)
-    else:
-        with open(output, "wb") as f:
-            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
-
+    saveResults(results, output, save_separate=save_separate)
 
 
 def runPackagedTask(packaged_task, output, save_separate=False):
@@ -64,22 +67,14 @@ def runPackagedTask(packaged_task, output, save_separate=False):
 
     iden = packaged_task.identifier
     task = packaged_task.task
-    executor=packaged_task.executor
+    executor = packaged_task.executor
 
     task.analyzer.ensureFunction(MODULE_REPO)
 
     results = executor.run({task.sample_id: task})
-
-    if save_separate:
-        output.mkdir(exist_ok=True, parents=True)
-        for k,v in results.items():
-            with open(output/ f"{k}.pkl", "wb") as f:
-                pkl.dump({k: v.model_dump()}, f)
-    else:
-        with open(output, "wb") as f:
-            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+    saveResults(results, output, save_separate=save_separate)
 
 
-
-    # with open(output, "wb") as f:
-    #     pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+def mergeResults(paths, output_path, save_separate=False):
+    result = loadSampleResultFromPaths(paths)
+    saveResults(results, output, save_separate=save_separate)
