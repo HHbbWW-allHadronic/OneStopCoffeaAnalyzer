@@ -66,6 +66,41 @@ class Executor(abc.ABC, BaseModel):
         pass
 
 
+def preprocess(tasks, default_step_size=100000, scheduler=None):
+    step_sizes = set(x.file_set.step_size for x in tasks.values())
+    if len(step_sizes) != 1:
+        raise RuntimeError()
+
+    this_step_size = next(iter(step_sizes))
+    to_prep = {
+        uid: task.file_set.justUnchunked().toCoffeaDataset()
+        for uid, task in tasks.items()
+        if not task.file_set.justUnchunked().empty
+    }
+    # for z in to_prep.values():
+    #     for i, x in list(enumerate(z["files"])):
+    #         if i % 2 == 1:
+    #             del z["files"][x]
+    if not to_prep:
+        return {uid: task.file_set for uid, task in tasks.items()}
+
+    out, all_items = dst.preprocess(
+        to_prep,
+        save_form=False,
+        skip_bad_files=True,
+        step_size=this_step_size or default_step_size,
+        scheduler=scheduler,
+    )
+    new_filesets = {
+        uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
+        for uid, task in tasks.items()
+    }
+    for v in new_filesets.values():
+        v.step_size = default_step_size
+
+    return new_filesets
+
+
 class DaskExecutor(Executor):
     memory: str = "2GB"
     dashboard_address: str | None = "localhost:8787"
@@ -82,25 +117,7 @@ class DaskExecutor(Executor):
             )
 
     def _preprocess(self, tasks):
-        to_prep = {
-            uid: task.file_set.justUnchunked().toCoffeaDataset()
-            for uid, task in tasks.items()
-        }
-        out, all_items = dst.preprocess(
-            to_prep,
-            save_form=False,
-            skip_bad_files=True,
-            uproot_options={"timeout": 1},
-            step_size=self.step_size,
-        )
-        new_filesets = {
-            uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
-            for uid, task in tasks.items()
-        }
-        for v in new_filesets.values():
-            v.step_size = self.step_size
-
-        return new_filesets
+        return preprocess(tasks, default_step_size=self.step_size)
 
     def run(self, tasks):
         ret = {}
@@ -170,42 +187,9 @@ class ImmediateExecutor(Executor):
     step_size: int | None = 100000
 
     def _preprocess(self, tasks):
-        step_sizes = set(x.file_set.step_size for x in tasks.values())
-        if len(step_sizes) != 1:
-            raise RuntimeError()
-
-        this_step_size = next(iter(step_sizes))
-
-        print(list(x.file_set for x in tasks.values()))
-
-        to_prep = {
-            uid: task.file_set.justUnchunked().toCoffeaDataset()
-            for uid, task in tasks.items()
-            if not task.file_set.justUnchunked().empty
-        }
-        # for z in to_prep.values():
-        #     for i, x in list(enumerate(z["files"])):
-        #         if i % 2 == 1:
-        #             del z["files"][x]
-        if not to_prep:
-            return {uid: task.file_set for uid, task in tasks.items()}
-
-        out, all_items = dst.preprocess(
-            to_prep,
-            save_form=False,
-            skip_bad_files=True,
-            step_size=this_step_size or self.step_size,
-            scheduler="single-threaded",
+        return preprocess(
+            tasks, default_step_size=self.step_size, scheduler="single-threaded"
         )
-        new_filesets = {
-            uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
-            for uid, task in tasks.items()
-        }
-        print(new_filesets)
-        for v in new_filesets.values():
-            v.step_size = self.step_size
-
-        return new_filesets
 
     def __run_task(self, k, task):
         fs = self._preprocess({k: task})[k]
