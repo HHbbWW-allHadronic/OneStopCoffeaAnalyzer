@@ -4,7 +4,7 @@ version = "0.1.0"
 description = ""
 authors = ["UMN Stealth Stop Group"]
 license = "MIT"
-readme = "README.org"
+readme = "README.md"
 
 [tool.poetry.scripts]
 analyzer = 'analyzer.cli:main'
@@ -16,7 +16,7 @@ matplotlib = "^3.7"
 coffea = {version="^2024", extras=["dask"]} 
 jupyter = "*"
 pyyaml = "^6.0"
-lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "main" , optional=true}
+lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "main"}
 gpytorch  = {version = ">=1.11", optional=true}
 pyro-ppl = "*"
 numexpr = ">=2.8.4"
@@ -24,7 +24,6 @@ argcomplete='^3.4.0'
 
 [tool.poetry.extras]
 torch=["gpytorch", "pyro-ppl"]
-lpcqueue=["lpcjobqueue"]
 
 [tool.poetry.group.dev.dependencies]
 black = "^23.3.0"

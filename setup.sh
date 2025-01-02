@@ -6,6 +6,10 @@ container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-das
 env_extras="lpcqueue"
 virtual_env_path="$application_data/venv"
 
+LPC_CONDOR_CONFIG=/etc/condor/config.d/01_cmslpc_interactive
+LPC_CONDOR_LOCAL=/usr/local/bin/cmslpc-local-conf.py
+
+
 
 function box_out()
 {
@@ -163,15 +167,28 @@ function startup_with_container(){
     mkdir -p $rel_data
     local in_apptainer=${APPTAINER_COMMAND:-false}
     local apptainer_flags=""
+
+    cat <<EOF > .cmslpc-local-conf
+#!/bin/bash
+python3 ${LPC_CONDOR_LOCAL}.orig | grep -v "LOCAL_CONFIG_FILE"
+EOF
+    chmod u+x .cmslpc-local-conf
+
     if [ "$in_apptainer"  = false ]; then
-        if command -v condor_config_val &> /dev/null; then
-            condor_config_val  -summary > .condor_config
-        fi
+        # if command -v condor_config_val &> /dev/null; then
+        #     condor_config_val  -summary > .condor_config
+        # fi
+        export CONDOR_CONFIG=${LPC_CONDOR_CONFIG}
         if [[ -e $HISTFILE ]]; then
             apptainer_flags="$apptainer_flags --bind $HISTFILE:/srv/.bash_history"
         fi
         if [[ $(hostname) =~ "fnal" ]]; then
-            apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch/"
+            apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch"
+            apptainer_flags="$apptainer_flags --bind /cvmfs"
+            apptainer_flags="$apptainer_flags --bind /cvmfs/grid.cern.ch/etc/grid-security:/etc/grid-security"
+            apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_CONFIG}"
+            apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig"
+            apptainer_flags="$apptainer_flags --bind .cmslpc-local-conf:${LPC_CONDOR_LOCAL}"
         fi
         if [[ $(hostname) =~ "umn" ]]; then
             apptainer_flags="$apptainer_flags --bind /local/cms/user/"
@@ -185,12 +202,11 @@ function startup_with_container(){
 
 
         apptainer exec \
-                  --env "APPTAINER_WORKING_DIR=$PWD" \
-                  --env "APPTAINER_IMAGE=$container" $apptainer_flags \
-                  --bind /cvmfs \
-                  --bind ${PWD}:/srv \
-                  --pwd /srv "$container" /bin/bash \
-                  --rcfile <(printf "source setup.sh bashrc")
+            --env "APPTAINER_WORKING_DIR=$PWD" \
+            --env "APPTAINER_IMAGE=$container" $apptainer_flags \
+            --bind ${PWD}:/srv \
+            --pwd /srv "$container" /bin/bash \
+            --rcfile <(printf "source setup.sh bashrc")
     else
         printf "Already in apptainer, nothing to do.\n"
     fi

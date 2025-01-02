@@ -29,7 +29,6 @@ def getPath(url):
 
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
-    print(p)
     parts = Path(p).parts
     root_idx = next((i for i, x in enumerate(parts) if x in CONFIG.FILE_ROOTS), None)
     if root_idx is None:
@@ -77,10 +76,10 @@ def compressDirectory(
     #     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "*.md"),
     # )
     package_path = shutil.make_archive(
-        temp / stem,
+        str(temp / stem),
         archive_type,
-        root_dir=root_dir,
-        base_dir=input_dir,
+        root_dir=str(root_dir),
+        base_dir=str(input_dir),
         verbose=True,
         dry_run=False,
         group=None,

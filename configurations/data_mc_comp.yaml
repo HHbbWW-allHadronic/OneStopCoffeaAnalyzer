@@ -3,62 +3,63 @@ name: DataMC
 
 # Samples and in which regions they should be processed
 samples:
-  #signal_312_2000_1900: All
-  testsignal1: All
+  signal_312_2000_1900: All
+  # testsignal1: All
   # testsignal2: All
   # testsignal3: All
-  # QCDInclusive2018: All
-  # Data2018: [Control, Signal312]
-  # signal_312_1500_1400: [Signal312, Control]
-  # signal_312_1200_400: [Signal312, Control]
-  # signal_312_1200_600: [Signal312, Control]
-  # signal_312_1200_1100: [Signal312, Control]
-  # signal_312_1300_1200: [Signal312, Control]
-  # signal_312_1400_400: [Signal312, Control]
-  # signal_312_1400_1300: [Signal312, Control]
-  # signal_312_1500_400: [Signal312, Control]
-  # signal_312_1500_600: [Signal312, Control]
-  # signal_312_1500_900: [Signal312, Control]
-  # signal_312_1500_1400: [Signal312, Control]
-  # signal_312_2000_400: [Signal312, Control]
-  # signal_312_1300_400: [Signal312, Control]
-  # signal_312_1300_600: [Signal312, Control]
-  # signal_312_2000_900: [Signal312, Control]
-  # signal_312_2000_1900: [Signal312, Control]
-  # signal_312_1000_700: [Signal312, Control]
-  # signal_312_1000_800: [Signal312, Control]
-  # signal_312_1200_700: [Signal312, Control]
-  # signal_312_1200_800: [Signal312, Control]
-  # signal_312_1500_100: [Signal312, Control]
-  # signal_312_1500_1000: [Signal312, Control]
-  # signal_312_1500_1200: [Signal312, Control]
-  # signal_312_1500_1300: [Signal312, Control]
-  # signal_312_1500_1350: [Signal312, Control]
-  # signal_312_1500_1450: [Signal312, Control]
-  # signal_312_2000_1200: [Signal312, Control]
-  # signal_312_2000_1600: [Signal312, Control]
-  # signal_312_2000_1700: [Signal312, Control]
-  # signal_312_1000_400: [Signal312, Control]
-  # signal_312_1000_600: [Signal312, Control]
-  # signal_312_1000_900: [Signal312, Control]
+  # # Data2018: [Control, Signal312]
+  QCDInclusive2018: All
+  signal_312_1500_1400: All
+  signal_312_1200_400: All
+  signal_312_1200_600: All
+  signal_312_1200_1100: All
+  signal_312_1300_1200: All
+  signal_312_1400_400: All
+  signal_312_1400_1300: All
+  signal_312_1500_400: All
+  signal_312_1500_600: All
+  signal_312_1500_900: All
+  signal_312_1500_1400: All
+  signal_312_2000_400: All
+  signal_312_1300_400: All
+  signal_312_1300_600: All
+  signal_312_2000_900: All
+  signal_312_2000_1900: All
+  signal_312_1000_700: All
+  signal_312_1000_800: All
+  signal_312_1200_700: All
+  signal_312_1200_800: All
+  signal_312_1500_100: All
+  signal_312_1500_1000: All
+  signal_312_1500_1200: All
+  signal_312_1500_1300: All
+  signal_312_1500_1350: All
+  signal_312_1500_1450: All
+  signal_312_2000_1200: All
+  signal_312_2000_1600: All
+  signal_312_2000_1700: All
+  signal_312_1000_400: All
+  signal_312_1000_600: All
+  signal_312_1000_900: All
 
 
 executors:
   local:
     executor_type: dask_local
-    step_size: 100
+    step_size: 100000
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 50
+    step_size: 100000
+    catch_exceptions: False
 
   condor:
     executor_type: condor
-    step_size: 100
+    step_size: 100000
 
   dask_condor:
     executor_type: dask_condor
-    max_workers: 20
+    max_workers: 50
     worker_memory: 2GB
     worker_timeout: 7200
     chunk_size: 100000
@@ -83,11 +84,11 @@ common_items:
       - name: goodjet_ht
       - name: jet_kinematics
       - name: jet_combo_kinematics
-      # - name: NN_mass_reco
-      #   config:
-      #     - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
-      #       scaler_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl
-      #       model_name: uncomp_0p67
+      - name: NN_mass_reco
+        config:
+          - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
+            scaler_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl
+            model_name: uncomp_0p67
 
 
     common_objects: &common_objects
@@ -124,7 +125,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      # - <<: *common_preselection
+      - <<: *common_preselection
       - name: signal_hlt
     selection: 
       - name: general_selection
@@ -137,7 +138,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      # - <<: *common_preselection
+      - <<: *common_preselection
       - name: hlt_single_jet
     selection: 
       - name: general_selection
@@ -150,7 +151,7 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      # - <<: *common_preselection
+      - <<: *common_preselection
       - name: hlt_HT
     selection: 
       - name: general_selection

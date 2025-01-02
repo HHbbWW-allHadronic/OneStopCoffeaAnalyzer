@@ -1,9 +1,11 @@
 from __future__ import annotations
 from rich import print
 import copy
+import yaml
 import uuid
 import os
 import coffea.dataset_tools as dst
+import analyzer
 import abc
 
 import dask
@@ -11,6 +13,7 @@ from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from pydantic import BaseModel, Field
 from typing import Literal, Annotated, Any, ClassVar
 from coffea.util import decompress_form
+from analyzer.utils.file_tools import extractCmsLocation
 import awkward as ak
 
 from analyzer.utils.file_tools import compressDirectory
@@ -20,6 +23,7 @@ import os
 import shutil
 from pathlib import Path
 
+import logging
 from pydantic import TypeAdapter
 import dask
 from analyzer.utils.file_tools import compressDirectory
@@ -40,6 +44,8 @@ try:
 except ImportError as e:
     LPCQUEUE_AVAILABLE = False
 
+
+logger = logging.getLogger(__name__)
 
 EXECUTORS = {}
 
@@ -85,6 +91,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
 
+    print("HERE")
     out, all_items = dst.preprocess(
         to_prep,
         save_form=False,
@@ -92,6 +99,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
     )
+    print("HERE1")
     new_filesets = {
         uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
         for uid, task in tasks.items()
@@ -107,15 +115,13 @@ class DaskExecutor(Executor):
     dashboard_address: str | None = "localhost:8787"
     schedd_address: str | None = "localhost:12358"
     max_workers: int | None = 2
-    min_workers: int | None = 0
+    min_workers: int | None = 1
     adapt: bool = True
     step_size: int | None = 100000
 
     def setup(self):
-        if self.adapt and False:
-            self._cluster.adapt(
-                min_workers=self.min_workers, max_workers=self.max_workers
-            )
+        if self.adapt:
+            self._cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
 
     def _preprocess(self, tasks):
         return preprocess(tasks, default_step_size=self.step_size)
@@ -165,6 +171,8 @@ class DaskExecutor(Executor):
                 results=v["result"],
             )
 
+        print(final_result)
+
         return final_result
 
 
@@ -172,6 +180,9 @@ class LocalDaskExecutor(DaskExecutor):
     executor_type: Literal["dask_local"] = "dask_local"
 
     def setup(self):
+        with open(CONFIG.DASK_CONFIG_PATH) as f:
+            defaults = yaml.safe_load(f)
+            dask.config.update(dask.config.config, defaults, priority="new")
         self._cluster = LocalCluster(
             dashboard_address=self.dashboard_address,
             memory_limit=self.memory,
@@ -184,8 +195,8 @@ class LocalDaskExecutor(DaskExecutor):
 
 class ImmediateExecutor(Executor):
     executor_type: Literal["immediate"] = "immediate"
-    catch_exceptions: bool | None = True
-    step_size: int | None = 100000
+    catch_exceptions: bool = True
+    step_size: int = 100000
 
     def _preprocess(self, tasks):
         return preprocess(
@@ -213,13 +224,11 @@ class ImmediateExecutor(Executor):
                         ret = accumulate(
                             [ret, task.analyzer.run(events, task.sample_params)]
                         )
-                    # if i % 2 == 1:
-                    #     raise RuntimeError()
                 except Exception as e:
                     print(e)
                     if not self.catch_exceptions:
                         raise
-                    processed.dropChunk(fname, [start, end])
+                    processed.dropChunk(extractCmsLocation(fname), [start, end])
         return ret, fs, processed
 
     def run(self, tasks):
@@ -229,45 +238,46 @@ class ImmediateExecutor(Executor):
 
         final_result = {}
         for k, (result, fs, processed) in ret.items():
-            final_result[k] = core_results.SampleResult(
-                sample_id=tasks[k].sample_id,
-                file_set_ran=fs,
-                file_set_processed=processed,
-                params=tasks[k].sample_params,
-                results=result,
-            )
-
-        print(final_result)
+            if result is not None:
+                final_result[k] = core_results.SampleResult(
+                    sample_id=tasks[k].sample_id,
+                    file_set_ran=fs,
+                    file_set_processed=processed,
+                    params=tasks[k].sample_params,
+                    results=result,
+                )
 
         return final_result
 
 
 def setupForCondor(
     analysis_root_dir=None,
+    apptainer_dir=None,
     venv_path=None,
     x509_path=None,
     temporary_path=None,
     extra_files=None,
 ):
-    extra_files = extra_files or []
-    base = (
-        analysis_root_dir
-        or Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
-    )
-    venv = venv_path or Path(os.environ.get("VIRTUAL_ENV"))
-    x509 = x509_path or Path(os.environ.get("X509_USER_PROXY")).absolute()
 
+    print(f"{analysis_root_dir = }")
+    print(f"{apptainer_dir = }")
+    print(f"{venv_path = }")
+    print(f"{x509_path = }")
+    print(f"{temporary_path = }")
+    extra_files = extra_files or []
     compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
     analyzer_compressed = (
         Path(CONFIG.APPLICATION_DATA) / "compressed" / "analyzer.tar.gz"
     )
-    if not compressed_env.exists():
-        compressDirectory(
-            input_dir=".application_data/venv",
-            root_dir=analysis_root_dir,
-            output=compressed_env,
-            archive_type="gztar",
-        )
+
+    if venv_path:
+        if not compressed_env.exists():
+            compressDirectory(
+                input_dir=".application_data/venv",
+                root_dir=analysis_root_dir,
+                output=compressed_env,
+                archive_type="gztar",
+            )
     compressDirectory(
         input_dir=Path(analyzer.__file__).parent.relative_to(analysis_root_dir),
         root_dir=analysis_root_dir,
@@ -295,8 +305,8 @@ def setupForCondor(
             output=extra_compressed,
             archive_type="gztar",
         )
-    if x509:
-        transfer_input_files.append(x509)
+    if x509_path:
+        transfer_input_files.append(x509_path)
 
     return transfer_input_files
 
@@ -365,7 +375,7 @@ class CondorExecutor(Executor):
         import datetime
 
         transfer_input_files = setupForCondor(
-            analysis_root_dir=self.apptainer_working_dir,
+            # analysis_root_dir=self.apptainer_working_dir,
             venv_path=self.venv_path,
             x509_path=self.x509_path,
             temporary_path=self.temporary_path,
@@ -401,16 +411,28 @@ class CondorExecutor(Executor):
 class LPCCondorDask(DaskExecutor):
     executor_type: Literal["dask_condor"] = "dask_condor"
     apptainer_working_dir: str | None = None
+    base_working_dir: str | None = None
     venv_path: str | None = None
     x509_path: str | None = None
     base_log_path: str | None = "/uscmst1b_scratch/lpc1/3DayLifetime/"
     temporary_path: str | None = ".temporary"
 
     extra_files: list[str] = Field(default_factory=list)
-    condor_hard_timeout: int | None = 7200
+    worker_timeout: int | None = 7200
     analysis_root_dir: str | None = "/srv"
 
+    def model_post_init(self, __context):
+        self.venv_path = self.venv_path or os.environ.get("VIRTUAL_ENV")
+        self.x509_path = self.x509_path or os.environ.get("X509_USER_PROXY")
+        self.apptainer_working_dir = self.apptainer_working_dir or os.environ.get(
+            "APPTAINER_WORKING_DIR", "."
+        )
+        self._working_dir = str(Path(".").absolute())
+
     def setup(self):
+        with open(CONFIG.DASK_CONFIG_PATH) as f:
+            defaults = yaml.safe_load(f)
+            dask.config.update(dask.config.config, defaults, priority="new")
         if not LPCQUEUE_AVAILABLE:
             raise NotImplemented("LPC Condor can only be used at the LPC.")
         apptainer_container = "/".join(
@@ -421,11 +443,12 @@ class LPCCondorDask(DaskExecutor):
         logpath.mkdir(exist_ok=True, parents=True)
 
         transfer_input_files = setupForCondor(
-            apptainer_working_dir=self.apptainer_working_dir,
+            analysis_root_dir=self._working_dir,
+            apptainer_dir=self.apptainer_working_dir,
             venv_path=self.venv_path,
             x509_path=self.x509_path,
             temporary_path=self.temporary_path,
-            extra_file=self.extra_files,
+            extra_files=self.extra_files,
         )
         kwargs = {}
         kwargs["worker_extra_args"] = [
@@ -433,20 +456,21 @@ class LPCCondorDask(DaskExecutor):
             # "--preload",
             # "lpcjobqueue.patch",
         ]
-        kwargs["job_extra_directives"] = {"+MaxRuntime": timeout}
-        kwargs["python"] = f"{venv}/bin/python"
+        kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
+        kwargs["python"] = f"{self.venv_path}/bin/python"
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
         s = SCHEDD()
         self._cluster = LPCCondorCluster(
             ship_env=False,
             image=apptainer_container,
-            memory=memory,
+            memory=self.memory,
             transfer_input_files=transfer_input_files,
-            log_directory=self.base_log_path,
-            scheduler_options=dict(dashboard_address=dashboard_address),
+            log_directory=logpath,
+            scheduler_options=dict(dashboard_address=self.dashboard_address),
             **kwargs,
         )
+        print(self._cluster)
         self._client = Client(self._cluster)
         super().setup()
 

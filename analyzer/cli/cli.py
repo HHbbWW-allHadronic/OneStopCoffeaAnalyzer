@@ -7,8 +7,14 @@ from analyzer.logging import setup_logging
 logger = logging.getLogger(__name__)
 
 
-def addSubparserGenerateReplicaCache(subparsers):
+def handleGenReplicas(args):
+    from analyzer.datasets import DatasetRepo
 
+    dr = DatasetRepo.getConfig()
+    dr.buildReplicaCache(args.force)
+
+
+def addSubparserGenerateReplicaCache(subparsers):
     subparser = subparsers.add_parser(
         "generate-replicas",
         help="Use Rucio to get the replicas for datasets representing a standard CMS sample",
@@ -24,7 +30,9 @@ def addSubparserGenerateReplicaCache(subparsers):
 
 def handleCheckResults(args):
     from analyzer.core.results import checkResult
+
     checkResult(args.input)
+
 
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
@@ -33,11 +41,11 @@ def addSubparserCheckResult(subparsers):
     subparser.set_defaults(func=handleCheckResults)
 
 
-
 def handleSamples(args):
     from .sample_report import createSampleTable
     from analyzer.datasets import DatasetRepo
     from rich.console import Console
+
     console = Console()
     repo = DatasetRepo.getConfig()
     table = createSampleTable(repo)
@@ -55,12 +63,11 @@ def handleRunPackaged(args):
     from analyzer.core.executor import PackagedTask
     import analyzer.modules
     import pickle as pkl
-    with open(args.input, 'rb') as  f:
+
+    with open(args.input, "rb") as f:
         task = f.load(f)
         task = PackagedTask(**task)
-    runPackagedTask(task, output_dir = args.output_dir)
-
-
+    runPackagedTask(task, output_dir=args.output_dir)
 
 
 def addSubparserRunPackaged(subparsers):
@@ -74,8 +81,8 @@ def addSubparserRunPackaged(subparsers):
 def handleRun(args):
     from analyzer.core.running import runFromPath
     import analyzer.modules
-    runFromPath(args.input, args.output, args.executor, args.save_separate)
 
+    runFromPath(args.input, args.output, args.executor, args.save_separate)
 
 
 def addSubparserRun(subparsers):
@@ -86,7 +93,10 @@ def addSubparserRun(subparsers):
         "-o", "--output", type=Path, help="Output path", required=True
     )
     subparser.add_argument(
-        "-s", "--save-separate", action="store_true", help="If set, store results separately"
+        "-s",
+        "--save-separate",
+        action="store_true",
+        help="If set, store results separately",
     )
     subparser.add_argument(
         "-e", "--executor", type=str, help="Name of executor to use", required=True
@@ -107,7 +117,7 @@ def runCli():
     addSubparserRun(subparsers)
     addSubparserSampleReport(subparsers)
     addSubparserCheckResult(subparsers)
-    # addSubparserGenerateReplicaCache(subparsers)
+    addSubparserGenerateReplicaCache(subparsers)
 
     # argcomplete.autocomplete(parser)
 
@@ -125,5 +135,3 @@ def main():
     setup_logging(default_level=args.log_level)
     if hasattr(args, "func"):
         args.func(args)
-
-
