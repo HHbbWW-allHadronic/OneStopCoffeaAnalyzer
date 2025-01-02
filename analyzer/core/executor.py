@@ -388,7 +388,7 @@ class CondorExecutor(Executor):
 
         job_desc = {
             "executable": self.executable,
-            "arguments": f"--output-dir {str(self.output_dir)} $(input_file_name)",
+            "arguments": f"$(input_file_name) {str(self.output_dir)}",
             "transfer_input_files": "$(input_file)",
             "should_transfer_files": "yes",
             "output": log_dir / "$(input_file_name).out",
