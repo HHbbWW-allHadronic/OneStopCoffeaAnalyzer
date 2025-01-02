@@ -1,3 +1,4 @@
+from __future__ import annotations
 import dataclasses
 import enum
 import itertools as it
@@ -5,7 +6,7 @@ import json
 import logging
 from functools import cached_property
 from pathlib import Path
-from typing import Any, List, Optional, Union
+from typing import Any, List
 
 import pydantic as pyd
 import yaml
@@ -71,12 +72,12 @@ class DatasetParams(BaseModel):
 
     name: str
     title: str
-    era: Union[str, Era]
+    era: str | Era
     sample_type: SampleType
     other_data: dict[str, Any] = Field(default_factory=dict)
-    skimmed_from: Optional[str] = None
+    skimmed_from: str | None = None
 
-    _lumi: Optional[float] = None
+    _lumi: float | None = None
 
     @property
     def lumi(self) -> float:
@@ -90,8 +91,6 @@ class DatasetParams(BaseModel):
     def populateEra(self, era_repo):
         if isinstance(self.era, str):
             self.era = era_repo[self.era]
-
-
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -122,20 +121,19 @@ class SampleId:
             return value
 
 
-
 @pyd.dataclasses.dataclass
 class SampleParams:
     dataset: DatasetParams
     name: str
     n_events: int
-    x_sec: Optional[float] = None 
-    cms_dataset_regex: Optional[str] = None
-    total_gen_weight: Optional[str] = None
+    x_sec: float | None = None
+    cms_dataset_regex: str | None = None
+    total_gen_weight: str | None = None
 
     @property
     def sample_id(self):
         return SampleId(dataset_name=self.dataset.name, sample_name=self.name)
-    
+
 
 class Sample(BaseModel):
     """A single sample.
@@ -144,11 +142,11 @@ class Sample(BaseModel):
 
     name: str
     n_events: int
-    x_sec: Optional[float] = None  # Only needed if SampleType == MC
+    x_sec: float | None = None  # Only needed if SampleType == MC
     files: List[adf.SampleFile] = Field(default_factory=list)
-    cms_dataset_regex: Optional[str] = None
-    total_gen_weight: Optional[str] = None
-    _parent_dataset: Optional["Dataset"] = None
+    cms_dataset_regex: str | None = None
+    total_gen_weight: str | None = None
+    _parent_dataset: Dataset| None = None
 
     @cached_property
     def fdict(self):
@@ -254,9 +252,9 @@ class Dataset(BaseModel):
     era: str
     sample_type: SampleType
     samples: List[Sample] = Field(default_factory=list)
-    lumi: Optional[float] = None
+    lumi: float | None = None
     other_data: dict[str, Any] = Field(default_factory=dict)
-    skimmed_from: Optional[str] = None
+    skimmed_from: str | None = None
 
     @property
     def params(self):
@@ -361,7 +359,7 @@ class DatasetRepo:
             with open(f, "r") as fo:
                 data = yaml.safe_load(fo)
                 if not data:
-                    continue 
+                    continue
                 for d in data:
                     s = Dataset(**d)
                     if s.name in self.datasets:

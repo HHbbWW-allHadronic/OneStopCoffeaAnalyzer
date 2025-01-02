@@ -1,13 +1,13 @@
 import logging
 import operator as op
-from typing import Any, Union, Optional
+from typing import Any
 
 import awkward as ak
 import hist
 import hist.dask as dah
 from pydantic import BaseModel, ConfigDict
 
-Hist = Union[hist.Hist, dah.Hist]
+Hist = hist.Hist | dah.Hist
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,7 @@ class HistogramSpec(BaseModel):
     axes: list[Any]
     storage: str = "weight"
     description: str
-    variations: Optional[list[str]] = None
+    variations: list[str] | None = None
     store_unweighted: bool = True
     no_scale: bool = False
 

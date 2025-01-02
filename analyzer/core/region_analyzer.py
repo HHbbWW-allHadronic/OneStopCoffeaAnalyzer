@@ -38,13 +38,13 @@ class RegionAnalyzer(BaseModel):
 
     def ensureFunction(self, module_repo):
         todo = [
-            preselection,
-            corrections,
-            objects,
-            selection,
-            categories,
-            histograms,
-            weights,
+            self.preselection,
+            self.corrections,
+            self.objects,
+            self.selection,
+            self.categories,
+            self.histograms,
+            self.weights,
         ]
         for item in todo:
             for module in item:

@@ -2,7 +2,7 @@ import copy
 import operator
 import subprocess
 from collections.abc import MutableMapping, MutableSet
-from typing import Iterable, Optional, TypeVar, Union, Any
+from typing import Iterable, TypeVar, Any
 
 from dask.base import DaskMethodsMixin
 
@@ -46,8 +46,8 @@ def dictIntersect(a, b):
         for k in a:
             if k in b:
                 d = dictIntersect(a[k], b[k])
-                isd = isinstance(d, dict) 
-                if (isd and d) or (not isd and d is not None ):
+                isd = isinstance(d, dict)
+                if (isd and d) or (not isd and d is not None):
                     ret[k] = d
         return ret
     else:
@@ -144,8 +144,8 @@ def iadd(a: Accumulatable, b: Accumulatable) -> Accumulatable:
 
 
 def accumulate(
-    items: Iterable[Optional[Accumulatable]], accum: Optional[Accumulatable] = None
-) -> Optional[Accumulatable]:
+    items: Iterable[Accumulatable], accum: Accumulatable | None = None
+) -> Accumulatable | None:
     gen = (x for x in items if x is not None)
     try:
         if accum is None:

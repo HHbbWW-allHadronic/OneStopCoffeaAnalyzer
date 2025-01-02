@@ -1,10 +1,8 @@
-import concurrent.futures as cf
 import functools as ft
 import itertools as it
 import logging
 from pathlib import Path
-from typing import Optional, Union, Literal
-from analyzer.datasets import SampleId
+from typing import Literal
 
 import yaml
 
@@ -13,7 +11,6 @@ from analyzer.configuration import CONFIG
 
 from analyzer.core.specifiers import SectorSpec
 
-from rich.progress import Progress
 
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
@@ -26,7 +23,7 @@ from .grouping import createSectorGroups
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 
 logger = logging.getLogger(__name__)
-StyleLike = Union[Style, str]
+StyleLike = Style | str
 
 
 @registerPostprocessor
@@ -35,15 +32,15 @@ class Histogram1D(pyd.BaseModel):
 
     to_process: SectorSpec
 
-    style_set: Union[str, StyleSet]
+    style_set: str | StyleSet
 
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
     output_name: str = "{histogram_name}"
 
-    axis_options: Optional[dict[str, Union[Mode, str, int]]] = None
+    axis_options: dict[str, Mode | str | int] | None = None
     normalize: bool = False
 
-    plot_configuration: Optional[PlotConfiguration] = None
+    plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
@@ -105,17 +102,17 @@ class Histogram2D(pyd.BaseModel):
 
     histogram_names: list[str]
     to_process: SectorSpec
-    style_set: Union[str, StyleSet]
+    style_set: str| StyleSet
 
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
     output_name: str = "{histogram_name}"
 
-    axis_options: Optional[dict[str, Union[Mode, str, int]]] = None
+    axis_options: dict[str, Mode| str| int] | None = None
     normalize: bool = False
 
     color_scale: Literal["log", "linear"] = "linear"
 
-    plot_configuration: Optional[PlotConfiguration] = None
+    plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
@@ -148,13 +145,13 @@ class Histogram2D(pyd.BaseModel):
 @registerPostprocessor
 class PlotCutflow(pyd.BaseModel):
     to_process: SectorSpec
-    style_set: Union[str, StyleSet]
+    style_set: str| StyleSet
 
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
     output_name: str = "{histogram_name}"
     normalize: bool = False
     table_mode: bool = False
-    plot_configuration: Optional[PlotConfiguration] = None
+    plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
@@ -188,11 +185,11 @@ class RatioPlot(pyd.BaseModel):
     numerator: SectorSpec
     denominator: SectorSpec
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
-    style_set: Union[str, StyleSet]
+    style_set: str| StyleSet
     output_name: str = "{histogram_name}"
-    axis_options: Optional[dict[str, Union[Mode, str, int]]] = None
+    axis_options: dict[str, Mode | str| int] | None = None
     normalize: bool = False
-    plot_configuration: Optional[PlotConfiguration] = None
+    plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
         nums = [x for x in results if self.numerator.passes(x.sector_params)]

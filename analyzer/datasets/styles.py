@@ -1,10 +1,9 @@
-from typing import Optional
 from dataclasses import fields
 from pydantic import BaseModel
 
 class Style(BaseModel):
-    color: Optional[str]
-    alpha: Optional[float]
+    color: str | None
+    alpha: float | None
 
     def keys(self):
         return (

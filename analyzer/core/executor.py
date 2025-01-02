@@ -8,14 +8,13 @@ import abc
 import dask
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from pydantic import BaseModel, Field
-from typing import Optional, Literal, Union, Annotated, Any
+from typing import Literal, Annotated, Any
 from coffea.util import decompress_form
 import awkward as ak
 
 from analyzer.utils.file_tools import compressDirectory
 from distributed import LocalCluster
 
-from dataclasses import dataclass
 import os
 import shutil
 from pathlib import Path
@@ -55,8 +54,6 @@ def giveIdToTasks(tasks: AnalysisTask):
     return {str(uuid.uuid4()): task for task in tasks}
 
 
-
-
 dict_adapter = TypeAdapter(dict)
 
 
@@ -71,12 +68,12 @@ class Executor(abc.ABC, BaseModel):
 
 class DaskExecutor(Executor):
     memory: str = "2GB"
-    dashboard_address: Optional[str] = "localhost:8787"
-    schedd_address: Optional[str] = "localhost:12358"
-    max_workers: Optional[int] = 2
-    min_workers: Optional[int] = 0
+    dashboard_address: str | None = "localhost:8787"
+    schedd_address: str | None = "localhost:12358"
+    max_workers: int | None = 2
+    min_workers: int | None = 0
     adapt: bool = True
-    step_size: Optional[int] = 100000
+    step_size: int | None = 100000
 
     def setup(self):
         if self.adapt and False:
@@ -169,25 +166,42 @@ class LocalDaskExecutor(DaskExecutor):
 
 class ImmediateExecutor(Executor):
     executor_type: Literal["immediate"] = "immediate"
-    catch_exceptions: Optional[bool] = False
-    step_size: Optional[int] = 100000
+    catch_exceptions: bool | None = True
+    step_size: int | None = 100000
 
     def _preprocess(self, tasks):
+        step_sizes = set(x.file_set.step_size for x in tasks.values())
+        if len(step_sizes) != 1:
+            raise RuntimeError()
+
+        this_step_size = next(iter(step_sizes))
+
+        print(list(x.file_set for x in tasks.values()))
+
         to_prep = {
             uid: task.file_set.justUnchunked().toCoffeaDataset()
             for uid, task in tasks.items()
+            if not task.file_set.justUnchunked().empty
         }
+        # for z in to_prep.values():
+        #     for i, x in list(enumerate(z["files"])):
+        #         if i % 2 == 1:
+        #             del z["files"][x]
+        if not to_prep:
+            return {uid: task.file_set for uid, task in tasks.items()}
+
         out, all_items = dst.preprocess(
             to_prep,
             save_form=False,
             skip_bad_files=True,
-            step_size=self.step_size,
+            step_size=this_step_size or self.step_size,
             scheduler="single-threaded",
         )
         new_filesets = {
             uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
             for uid, task in tasks.items()
         }
+        print(new_filesets)
         for v in new_filesets.values():
             v.step_size = self.step_size
 
@@ -214,7 +228,10 @@ class ImmediateExecutor(Executor):
                         ret = accumulate(
                             [ret, task.analyzer.run(events, task.sample_params)]
                         )
+                    # if i % 2 == 1:
+                    #     raise RuntimeError()
                 except Exception as e:
+                    print(e)
                     if not self.catch_exceptions:
                         raise
                     processed.dropChunk(fname, [start, end])
@@ -298,26 +315,27 @@ def setupForCondor(
 
     return transfer_input_files
 
+
 class CondorExecutor(BaseModel):
     executor_type: Literal["condor"] = "condor"
     memory: str = "2GB"
     disk: str = "2GB"
     files_per_job: int = 4
     chunk_size: int = 100000
-    timeout: Optional[int] = None
+    timeout: int | None = None
 
 
 class LPCCondorDask(DaskExecutor):
     executor_type: Literal["dask_condor"] = "dask_condor"
-    apptainer_working_dir: Optional[str] = None
-    venv_path: Optional[str] = None
-    x509_path: Optional[str] = None
-    base_log_path: Optional[str] = "/uscmst1b_scratch/lpc1/3DayLifetime/"
-    temporary_path: Optional[str] = ".temporary"
+    apptainer_working_dir: str | None = None
+    venv_path: str | None = None
+    x509_path: str | None = None
+    base_log_path: str | None = "/uscmst1b_scratch/lpc1/3DayLifetime/"
+    temporary_path: str | None = ".temporary"
 
     extra_files: list[str] = Field(default_factory=list)
-    condor_hard_timeout: Optional[int] = 7200
-    analysis_root_dir: Optional[str] = "/srv"
+    condor_hard_timeout: int | None = 7200
+    analysis_root_dir: str | None = "/srv"
 
     def setup(self):
         if not LPCQUEUE_AVAILABLE:
@@ -353,9 +371,7 @@ class LPCCondorDask(DaskExecutor):
             memory=memory,
             transfer_input_files=transfer_input_files,
             log_directory=self.base_log_path,
-            scheduler_options=dict(
-                dashboard_address=dashboard_address
-            ),
+            scheduler_options=dict(dashboard_address=dashboard_address),
             **kwargs,
         )
         self._client = Client(self._cluster)
@@ -363,7 +379,7 @@ class LPCCondorDask(DaskExecutor):
 
 
 AnyExecutor = Annotated[
-    Union[LocalDaskExecutor, CondorExecutor, ImmediateExecutor, LPCCondorDask],
+    LocalDaskExecutor | CondorExecutor | ImmediateExecutor | LPCCondorDask,
     Field(discriminator="executor_type"),
 ]
 

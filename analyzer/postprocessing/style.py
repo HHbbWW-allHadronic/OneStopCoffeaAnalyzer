@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 import matplotlib.typing as mplt
 import matplotlib as mpl
@@ -11,30 +10,30 @@ logger = logging.getLogger(__name__)
 
 
 class Style(BaseModel):
-    color: Optional[mplt.ColorType] = None
-    linestyle: Optional[mplt.LineStyleType] = None
-    drawstyle: Optional[mplt.DrawStyleType] = None
-    fillstyle: Optional[mplt.FillStyleType] = None
-    capstyle: Optional[mplt.CapStyleType] = None
-    joinstyle: Optional[mplt.JoinStyleType] = None
-    fill: Optional[bool] = None
-    fill_opacity: Optional[float] = None
-    fill_hatching: Optional[str] = None
-    line_width: Optional[float] = None
-    markersize: Optional[float] = 5
-    marker: Optional[str] = "o"
+    color: mplt.ColorType | None = None
+    linestyle: mplt.LineStyleType | None = None
+    drawstyle: mplt.DrawStyleType | None = None
+    fillstyle: mplt.FillStyleType | None = None
+    capstyle: mplt.CapStyleType | None = None
+    joinstyle: mplt.JoinStyleType | None = None
+    fill: bool | None = None
+    fill_opacity: float | None = None
+    fill_hatching: str | None = None
+    line_width: float | None = None
+    markersize: float | None = 5
+    marker: str | None = "o"
 
-    def get(self,type, prepend=None):
+    def get(self, type, prepend=None):
         mapping = dict(
-            step=("color", ),
-            fill=("color", ),
-            band=("color", ),
-            errorbar=("color", "markersize", "marker" ),
+            step=("color",),
+            fill=("color",),
+            band=("color",),
+            errorbar=("color", "markersize", "marker"),
         )
-        ret= self.model_dump(include=mapping[type])
+        ret = self.model_dump(include=mapping[type])
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
         if prepend:
-            ret = {f"{prepend}_{x}": y for x,y in ret.items()}
+            ret = {f"{prepend}_{x}": y for x, y in ret.items()}
         return ret
 
 
@@ -66,7 +65,6 @@ cms_colors_10 = [
 ]
 
 
-
 class StyleSet(BaseModel):
     styles: list[StyleRule] = Field(default_factory=list)
 
@@ -87,7 +85,9 @@ class Styler:
     def __init__(self, style_set, expected_num=6):
         self.style_set = style_set
         self.expected_num = expected_num
-        self.cycler =  cycler(linestyle=["-", "--", ":", "-."]) * cycler(color=cms_colors_10) 
+        self.cycler = cycler(linestyle=["-", "--", ":", "-."]) * cycler(
+            color=cms_colors_10
+        )
         self.cycle_iter = iter(self.cycler)
 
     def getStyle(self, sector_params):

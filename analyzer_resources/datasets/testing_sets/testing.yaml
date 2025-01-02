@@ -1,14 +1,16 @@
 - name: testsignal1
   sample_type: MC
   title: "TESTSIGNAL1"
-  n_events: 202
+  n_events: 404
   x_sec: 480
   other_data: 
     stop_mass: 0
   era: '2018'
   files: 
+    - local: applocal/test.root
     - local: applocal/test1.root
     - local: applocal/test2.root
+    - local: applocal/test3.root
 
 - name: testsignal2
   sample_type: MC
@@ -35,11 +37,6 @@
         - local: applocal/test1.root
         - local: applocal/test2.root
 
-    - name: Part2
-      x_sec: 480
-      n_events: 101
-      files: 
-        - local: applocal/test.root
 
 # - name: signal_312_1000_600
 #   sample_type: MC

@@ -1,8 +1,5 @@
 import logging
-from typing import Any, Optional
-from rich import print
-import functools as ft
-import operator as op
+from typing import Any
 
 from collections import defaultdict
 import pydantic as pyd
@@ -12,11 +9,9 @@ from analyzer.datasets import (
     FileSet,
     DatasetParams,
     SampleType,
-    DatasetRepo,
 )
 import pickle as pkl
 from analyzer.utils.structure_tools import accumulate
-from .common_types import Scalar
 
 import analyzer.datasets as ad
 import analyzer.core.selection as ans
@@ -99,7 +94,7 @@ class SampleResult(pyd.BaseModel):
             )
             raise RuntimeError(error)
 
-        if self.params != other.params or self.region != other.region:
+        if self.params != other.params:
             raise RuntimeError(
                 f"Error: Attempting to merge incomaptible analysis results"
             )

@@ -1,6 +1,7 @@
 import copy
+import itertools as it
 from collections import defaultdict
-from typing import Any, Optional
+from typing import Any
 
 
 import awkward as ak
@@ -11,15 +12,13 @@ import analyzer.datasets.files as adf
 
 class FileSet(BaseModel):
     files: dict[str, tuple[adf.SampleFile, dict]]
-    step_size: Optional[int]
-    form: Optional[str] = None
-    file_retrieval_kwargs: Optional[dict[str, Any]] = None
+    step_size: int | None
+    form: str | None = None
+    file_retrieval_kwargs: dict[str, Any] | None = None
 
     def intersect(self, other):
-        # ret = copy.deepcopy(self.files)
         common_files = set(self.files).intersection(other.files)
         ret = {}
-        print(common_files)
         for fname in common_files:
             data_this = self.files[fname][1]
             sf_this = self.files[fname][0]
@@ -41,14 +40,33 @@ class FileSet(BaseModel):
         )
 
     def add(self, other):
-        ret = copy.deepcopy(self.files)
-        for fname, (_, data) in ret.items():
-            if fname not in other.files:
-                continue
-            if not (data["steps"] is None and other.files[fname]["steps"] is None):
-                data["steps"] = (data["steps"] or []) + (
-                    other.files[fname][1]["steps"] or []
-                )
+        ret = {}
+        for fname, (s, data) in it.chain(self.files.items(), other.files.items()):
+            if fname not in ret:
+                ret[fname] = (s, data)
+            else:
+                c = ret[fname][1]
+                steps_init = c["steps"]
+                steps_other = data["steps"]
+                if steps_init is None and steps_other is None:
+                    c["steps"] = None
+                elif steps_init is None:
+                    c["steps"] = steps_other
+                elif steps_other is None:
+                    c["steps"] = steps_init
+                else:
+                    steps_new = [x for x in steps_other if x not in steps_init]
+                    c["steps"] = list(sorted(steps_init + steps_new))
+
+        return FileSet(
+            files=ret,
+            step_size=self.step_size,
+            form=self.form,
+            file_retrieval_kwargs=self.file_retrieval_kwargs,
+        )
+
+    def withoutFiles(self, other):
+        ret = {x: y for x, y in self.files.items() if x not in other.files}
         return FileSet(
             files=ret,
             step_size=self.step_size,
@@ -58,15 +76,22 @@ class FileSet(BaseModel):
 
     def sub(self, other):
         ret = copy.deepcopy(self.files)
-        for fname, (_, data) in ret.items():
-            if fname not in other.files:
-                continue
-            if not (data["steps"] is None and other.files[fname]["steps"] is None):
-                data["steps"] = [
-                    s
-                    for s in (data["steps"] or [])
-                    if s not in (other[fname]["steps"] or [])
-                ]
+        common_files = set(self.files).intersection(other.files)
+
+        for fname in common_files:
+            ret_data = ret[fname][1]
+            other_data = other.files[fname][1]
+
+            new_steps = [
+                x
+                for x in (ret_data["steps"] or [])
+                if x not in (other_data["steps"] or [])
+            ]
+            if not new_steps:
+                del ret[fname]
+            else:
+                ret[fname][1]["steps"] = new_steps
+
         return FileSet(
             files=ret,
             step_size=self.step_size,
@@ -100,7 +125,7 @@ class FileSet(BaseModel):
 
     def justChunked(self):
         ret = copy.deepcopy(self.files)
-        for k in ret.keys():
+        for k in list(ret.keys()):
             if ret[k][1]["steps"] is None:
                 del ret[k]
         return FileSet(
@@ -112,7 +137,7 @@ class FileSet(BaseModel):
 
     def justUnchunked(self):
         ret = copy.deepcopy(self.files)
-        for k in ret.keys():
+        for k in list(ret.keys()):
             if ret[k][1]["steps"] is not None:
                 del ret[k]
         return FileSet(

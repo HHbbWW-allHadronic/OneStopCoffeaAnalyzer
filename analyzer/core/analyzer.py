@@ -1,16 +1,19 @@
 import itertools as it
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Union
+from typing import Any
+from collections.abc import Sequence
 
 
 from analyzer.configuration import CONFIG
 
 from analyzer.core.region_analyzer import RegionAnalyzer
 
+from analyzer.datasets import SampleParams
 from analyzer.core.columns import Columns
-from analyzer.core.selection import SelectionSet
+from analyzer.core.selection import SelectionSet,Selection, SelectionFlow
 import analyzer.core.results as results
+from analyzer.core.histograms import Hist
 
 if CONFIG.PRETTY_MODE:
     pass
@@ -23,7 +26,7 @@ class Category:
     name: str
     axis: Any
     values: Any
-    distinct_values: set[Union[int, str, float]] = field(default_factory=set)
+    distinct_values: set[int| str| float] = field(default_factory=set)
 
 
 @dataclass
@@ -32,14 +35,14 @@ class Analyzer:
 
     def _runBranch(
         self,
-        region_analyzers,
-        columns,
-        params,
-        preselection,
-        preselection_set,
-        histogram_storage,
-        cutflow_storage,
-        variation=None,
+        region_analyzers: Sequence[RegionAnalyzer],
+        columns: Columns,
+        params: SampleParams,
+        preselection: Selection,
+        preselection_set: SelectionSet,
+        histogram_storage: dict[str,Hist],
+        cutflow_storage: dict[str,SelectionFlow],
+        variation =None,
     ):
         logger.info(f"Running analysis branch for variation {variation}")
         selection_set = SelectionSet(parent_selection=preselection)

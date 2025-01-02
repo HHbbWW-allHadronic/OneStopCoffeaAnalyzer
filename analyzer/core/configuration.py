@@ -10,7 +10,7 @@ from .analysis_modules import MODULE_REPO
 
 import logging
 
-import analyzer.core.specifiers as specs 
+import analyzer.core.specifiers as specs
 import analyzer.core.region_analyzer as ra
 import analyzer.core.executor as executor
 
@@ -29,8 +29,8 @@ class AnalysisStage(str, enum.Enum):
 
 class ModuleDescription(BaseModel):
     name: str
-    sample_spec: Optional[specs.SampleSpec] = None
-    config: Optional[Union[list[dict[str, Any]], dict[str, Any]]] = None
+    sample_spec: specs.SampleSpec | None = None
+    config: list[dict[str, Any]] | dict[str, Any] | None = None
 
 
 class RegionDescription(BaseModel):
@@ -53,11 +53,11 @@ class ExecutionConfig(BaseModel):
     cluster_type: str = "local"
     max_workers: int = 20
     step_size: int = 100000
-    worker_memory: Optional[str] = "4GB"
-    dashboard_address: Optional[str] = None
-    schedd_address: Optional[str] = None
+    worker_memory: str | None = "4GB"
+    dashboard_address: str | None = None
+    schedd_address: str | None = None
     worker_timeout: int = 3600
-    extra_files: Optional[list[str]] = None
+    extra_files: list[str] | None = None
 
 
 class FileConfig(BaseModel):
@@ -71,15 +71,12 @@ class FileConfig(BaseModel):
     use_replicas: bool = True
 
 
-
-
-
 class AnalysisDescription(BaseModel):
     name: str
-    executors: dict[str,  executor.AnyExecutor] 
+    executors: dict[str, executor.AnyExecutor]
     # execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
     file_config: FileConfig = Field(default_factory=FileConfig)
-    samples: dict[str, Union[list[str], str]]
+    samples: dict[str, list[str] | str]
     regions: list[RegionDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
     special_region_names: ClassVar[tuple[str]] = ("All",)
@@ -127,8 +124,3 @@ def getSubSectors(description, dataset_repo, era_repo):
             ret[sample.sample_id].append(subsector)
 
     return ret
-
-
-
-
-

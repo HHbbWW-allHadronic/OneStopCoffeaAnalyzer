@@ -1,6 +1,5 @@
 import logging
 from fnmatch import fnmatch
-from typing import Optional, Union
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
@@ -53,9 +52,9 @@ class SubSectorParams(pyd.BaseModel):
 class SampleSpec(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
-    name: Optional[Union[list[str], str]] = None
-    era: Optional[Union[list[str], str]] = None
-    sample_type: Optional[SampleType] = None
+    name: list[str]| str | None = None
+    era: list[str]| str | None = None
+    sample_type: SampleType | None = None
 
     @field_validator("name", "era")
     @classmethod
@@ -96,8 +95,8 @@ class SampleSpec(BaseModel):
 
 
 class SectorSpec(BaseModel):
-    sample_spec: Optional[SampleSpec] = None
-    region_name: Optional[Union[list[str], str]] = None
+    sample_spec: SampleSpec | None = None
+    region_name: list[str]| str | None = None
 
     @field_validator("region_name")
     @classmethod

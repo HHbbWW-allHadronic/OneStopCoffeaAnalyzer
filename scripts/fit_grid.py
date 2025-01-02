@@ -37,8 +37,8 @@ operators = {"=": op.eq, "<": op.lt, ">": op.gt, "<=": op.le, ">=": op.ge}
 @dataclass
 class Filter:
     field: str
-    value: Union[str, int, float]
-    operator: Callable[[Union[str, int, float], Union[str, int, float]], bool]
+    value: str| int| float
+    operator: Callable[[str| int| float, str| int| float], bool]
 
     @staticmethod
     def make(string):

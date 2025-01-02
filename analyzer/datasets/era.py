@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Optional, Any
+from typing import Any
 import yaml
 from pydantic import BaseModel, Field, AliasChoices
 import dataclasses
@@ -20,8 +20,8 @@ class Era(BaseModel):
 
     pileup_scale_factors: dict[str, str]
     btag_scale_factors: dict[str, str]
-    jet_pileup_id: Optional[dict[str, Any]] = None
-    jet_veto_maps: Optional[dict[str, Any]] = None
+    jet_pileup_id: dict[str, Any] | None = None
+    jet_veto_maps: dict[str, Any] | None = None
 
 
     @property

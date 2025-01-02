@@ -4,9 +4,9 @@ name: DataMC
 # Samples and in which regions they should be processed
 samples:
   #signal_312_2000_1900: All
-  # testsignal1: All
-  testsignal2: All
-  testsignal3: All
+  testsignal1: All
+  # testsignal2: All
+  # testsignal3: All
   # QCDInclusive2018: All
   # Data2018: [Control, Signal312]
   # signal_312_1500_1400: [Signal312, Control]
@@ -50,7 +50,7 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 100
+    step_size: 50
 
   dask_condor:
     executor_type: dask_condor

@@ -11,7 +11,7 @@ from analyzer.core.executor import AnalysisTask
 from .analysis_modules import MODULE_REPO
 
 if CONFIG.PRETTY_MODE:
-    from rich import print
+    pass
 
 
 def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
@@ -30,7 +30,6 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
 
 
 def runFromPath(path, output, executor_name, save_separate=False):
-    import analyzer.modules
     output=Path(output)
     description = loadDescription(path)
     if executor_name not in description.executors:
@@ -60,9 +59,8 @@ def runFromPath(path, output, executor_name, save_separate=False):
 
 
 
-def runPackagedTask(packaged_task, output):
+def runPackagedTask(packaged_task, output, save_separate=False):
     import analyzer.modules
-    mr = analyzer.core.analysis
 
     iden = packaged_task.identifier
     task = packaged_task.task
@@ -70,7 +68,18 @@ def runPackagedTask(packaged_task, output):
 
     task.analyzer.ensureFunction(MODULE_REPO)
 
-    results = executor.run({iden: task})
+    results = executor.run({task.sample_id: task})
 
-    with open(output, "wb") as f:
-        pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+    if save_separate:
+        output.mkdir(exist_ok=True, parents=True)
+        for k,v in results.items():
+            with open(output/ f"{k}.pkl", "wb") as f:
+                pkl.dump({k: v.model_dump()}, f)
+    else:
+        with open(output, "wb") as f:
+            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+
+
+
+    # with open(output, "wb") as f:
+    #     pkl.dump({x: y.model_dump() for x, y in results.items()}, f)

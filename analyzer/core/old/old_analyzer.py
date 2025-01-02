@@ -48,7 +48,7 @@ class Category:
     name: str
     axis: Any
     values: Any
-    distinct_values: set[Union[int, str, float]] = field(default_factory=set)
+    distinct_values: set[int| str| float] = field(default_factory=set)
 
 
 class SubSectorAnalyzer:

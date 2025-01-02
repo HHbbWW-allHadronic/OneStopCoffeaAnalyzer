@@ -35,7 +35,7 @@ hist_manager.add(
 import enum
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Any
+from typing import Callable, Any
 from pydantic import BaseModel, Field
 import inspect
 
@@ -51,8 +51,8 @@ class ModuleType(str, enum.Enum):
 class AnalyzerModule(BaseModel):
     name: str
     type: ModuleType
-    description: Optional[str] = None
-    _function: Optional[Callable] = None
+    description: str | None = None
+    _function: Callable | None = None
 
     def __call__(self, events, analyzer, *args, **kwargs):
         return self._function(events, analyzer, *args, **kwargs)

@@ -1,8 +1,9 @@
+from __future__ import annotations
 import copy
 import itertools as it
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 import dask_awkward as dak
 
 
@@ -26,8 +27,8 @@ class Column:
 class Columns:
     events: Any
     columns: dict[str, Column] = field(default_factory=dict)
-    base: Optional["Columns"] = None
-    syst: Optional[tuple[str, str]] = None
+    base: Columns | None = None
+    syst: tuple[str, str] | None = None
     __column_cache: dict[tuple[str, tuple[str, str] | None], Any] = field(
         default_factory=dict
     )

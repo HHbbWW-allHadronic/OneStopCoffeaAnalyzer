@@ -312,15 +312,15 @@ def addSignalToHist(hist, normalize_to, mean, sigma, name="fake_signal"):
 class GaussianProcessFitResult:
     fit_type: str
     lower_bound: float
-    window: Optional[tuple[float, float]] = None
-    force_scale: Optional[float] = None
-    inject_signal_base: Optional[float] = None
-    inject_signal_rate: Optional[float] = None
-    inject_signal_params: Optional[Tuple[float, float]] = None
-    pull_figure_name: Optional[str] = None
+    window: tuple[float, float] | None = None
+    force_scale: float | None = None
+    inject_signal_base: float | None = None
+    inject_signal_rate: float | None = None
+    inject_signal_params: Tuple[float, float] | None = None
+    pull_figure_name: str | None = None
 
-    length_scale: Optional[float] = None
-    reduced_chi2: Optional[float] = None
+    length_scale: float | None = None
+    reduced_chi2: float | None = None
 
     def getString(self):
         all_parts = []

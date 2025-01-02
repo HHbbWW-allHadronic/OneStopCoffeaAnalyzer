@@ -34,7 +34,7 @@ Postprocessing:
           - QCD*
     normalize: True
     color_scale: log
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}.pdf"
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
     groupby: ["dataset.era.name", "region_name", "dataset.name"]
     plot_configuration:
       cms_text: "Preliminary"
@@ -69,7 +69,7 @@ Postprocessing:
       # - m13_vs_m14
       # - m24_vs_m14
       # - ratio_m24_vs_m14
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}.pdf"
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
     groupby: ["dataset.era.name", "region_name"]
     normalize: false
   
@@ -83,7 +83,7 @@ Postprocessing:
       # - m13_vs_m14
       # - m24_vs_m14
       # - ratio_m24_vs_m14
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/normalized_{histogram_name}.pdf"
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/normalized_{histogram_name}"
     groupby: ["dataset.era.name", "region_name"]
     normalize: true
     plot_configuration:
