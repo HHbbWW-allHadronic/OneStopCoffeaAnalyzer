@@ -1,0 +1,83 @@
+- name: qcd_inclusive_2016_preVFP
+  title: QCD
+  era: '2016_preVFP'
+  sample_type: MC
+  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM'
+
+- name: qcd_inclusive_2016_postVFP
+  title: QCD
+  era: '2016_postVFP'
+  sample_type: MC
+  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v1/NANOAODSIM'
+
+- name: qcd_inclusive_2017
+  title: QCD
+  era: '2017'
+  sample_type: MC
+  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v1/NANOAODSIM'
+
+- name: qcd_inclusive_2018
+  title: QCD
+  era: '2018'
+  sample_type: MC
+  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM'
+
+
+
+- name: data_singlemuon_2016post
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: 2016_postVFP
+  cms_regex: '/SingleMuon/Run2016*-UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD' 
+
+- name: data_singlemuon_2016pre
+  title: Data
+  sample_field: 2
+  sample_type: Data
+  era: 2016_preVFP
+  cms_regex:  '/SingleMuon/Run2016*HIPM_UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: data_singlemuon_2017
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2017'
+  cms_regex: '/SingleMuon/Run2017*-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD'
+  filter_regex: 'Run2017[BCDEF]'
+
+- name: data_singlemuon_2018
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2018'
+  cms_regex: '/SingleMuon/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: data_JetHT_2016post
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: 2016_postVFP
+  cms_regex: '/JetHT/Run2016*-UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD' 
+
+- name: data_JetHT_2016pre
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: 2016_preVFP
+  cms_regex:  '/JetHT/Run2016*HIPM_UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: data_JetHT_2017
+  title: Data
+  sample_type: Data
+  era: '2017'
+  sample_field: 2
+  cms_regex: '/JetHT/Run2017*-UL2017_MiniAODv2_NanoAODv9-v1/NANOAOD'
+  filter_regex: 'Run2017[BCDEF]'
+
+- name: data_JetHT_2018
+  title: Data
+  sample_type: Data
+  era: '2018'
+  sample_field: 2
+  cms_regex: '/JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
