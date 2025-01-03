@@ -39,7 +39,7 @@ def saveResults(results, output, save_separate=False):
             with open(output / f"{k}.pkl", "wb") as f:
                 pkl.dump({k: v.model_dump()}, f)
     else:
-        output.parent(exist_ok=True, parents=True)
+        output.parent.mkdir(exist_ok=True, parents=True)
         with open(output, "wb") as f:
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 

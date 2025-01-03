@@ -56,10 +56,11 @@ executors:
 
   dask_condor:
     executor_type: dask_condor
-    max_workers: 50
+    max_workers: 150
+    min_workers: 10
     worker_memory: 2GB
     worker_timeout: 7200
-    chunk_size: 100000
+    chunk_size: 250000
     extra_files:
         - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
 

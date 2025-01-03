@@ -1,14 +1,17 @@
 import argparse
 import datetime
 import json
+from rich.prompt import Prompt, Confirm
 import logging
 import subprocess
 import sys
 from pathlib import Path
+from rich.progress import track
 import re
 
 import requests
 import yaml
+from pydantic import BaseModel, model_validator, TypeAdapter
 
 from analyzer.configuration import CONFIG
 
@@ -23,6 +26,25 @@ class MyDumper(yaml.Dumper):
 
 AUTH_HOSTNAME = "auth.cern.ch"
 AUTH_REALM = "cern"
+
+
+class ProtoDataset(BaseModel):
+    name: str
+    title: str
+    cms_regex: str
+    era: str
+    sample_type: str
+    filter_regex: str | None = None
+    sample_field: int = 1
+    locate_xsec: bool | None = False
+    known_xsec: float | None = None
+
+    @property
+    def save_path(self):
+        return (Path(self.era) / self.name).with_suffix(".yaml")
+
+
+ProtoDatasetList = TypeAdapter(list[ProtoDataset])
 
 
 def getToken():
@@ -130,6 +152,36 @@ def getSamples(dataset):
     return sorted([x["dataset"][0]["name"] for x in query(f"dataset={dataset}")])
 
 
+def buildDatasetFromProto(protoset, output, skip_existing=True):
+    output = Path(output)
+    output = output / protoset.save_path
+
+    if output.exists() and skip_existing:
+        return
+
+    ds = buildDataset(
+        protoset.name,
+        protoset.title,
+        protoset.era,
+        protoset.sample_type,
+        protoset.cms_regex,
+        include_xsec=protoset.locate_xsec,
+        sample_name_field=protoset.sample_field,
+        filter_extra=protoset.filter_regex,
+    )
+
+    output.parent.mkdir(exist_ok=True, parents=True)
+
+    with open(output, "w") as f:
+        yaml.dump(
+            ds,
+            stream=f,
+            sort_keys=False,
+            Dumper=MyDumper,
+            default_flow_style=False,
+        )
+
+
 def buildDataset(
     dataset_name,
     dataset_title,
@@ -148,17 +200,28 @@ def buildDataset(
         "era": str(era),
         "samples": [],
     }
-    samples = getSamples(query)
+    samples = sorted(getSamples(query))
+
     if filter_extra:
         samples = [s for s in samples if re.search(filter_extra, s)]
-    print(samples)
-    yn = input("Ok? (y/n)")
-    if yn != "y":
-        sys.exit()
-    for sample in samples:
-        print(sample)
+
+    sample_info = [
+        dict(query=sample, name=Path(sample).parts[sample_name_field])
+        for sample in samples
+    ]
+
+    print(header)
+    print(sample_info)
+
+    ok = Confirm.ask("Are these samples Ok?")
+
+    if not ok:
+        return
+
+    for sinfo in track(sample_info):
+        name = sinfo["name"]
+        sample = sinfo["query"]
         name = Path(sample).parts[sample_name_field]
-        print(name)
         events = countEvents(sample)
         files = [f"root://cmsxrootd.fnal.gov/{x}" for x in getFiles(sample)]
         x_sec = None
@@ -182,47 +245,11 @@ def getArgs():
     parser = argparse.ArgumentParser(description="")
     parser.add_argument(
         "-o",
-        "--output",
+        "--output-dir",
         required=True,
     )
-    parser.add_argument(
-        "-n",
-        "--name",
-        required=True,
-    )
-    parser.add_argument(
-        "-t",
-        "--title",
-        required=True,
-    )
-    parser.add_argument(
-        "-y",
-        "--era",
-        type=str,
-        required=True,
-    )
-    parser.add_argument(
-        "-p",
-        "--type",
-        required=True,
-    )
-    parser.add_argument(
-        "-f",
-        "--filter-extra",
-        help="Filter extra",
-        default=None,
-        type=str,
-    )
-    parser.add_argument(
-        "-s",
-        "--sample-name-field",
-        required=True,
-        type=int,
-    )
-    parser.add_argument("-x", "--no-include-xsec", default=False, action="store_true")
-    parser.add_argument(
-        "query",
-    )
+    parser.add_argument("input")
+    parser.add_argument("-l", "--limit-regex")
     args = parser.parse_args()
     return args
 
@@ -230,24 +257,11 @@ def getArgs():
 if __name__ == "__main__":
     f = None
     args = getArgs()
-    q = args.query
-    output = args.output
-    ds = buildDataset(
-        args.name,
-        args.title,
-        args.era,
-        args.type,
-        q,
-        include_xsec=not args.no_include_xsec,
-        token_file=f,
-        sample_name_field=args.sample_name_field,
-        filter_extra=args.filter_extra,
-    )
-    with open(output, "w") as f:
-        yaml.dump(
-            ds,
-            stream=f,
-            sort_keys=False,
-            Dumper=MyDumper,
-            default_flow_style=False,
-        )
+    with open(args.input) as f:
+        data = yaml.safe_load(f)
+
+    data = ProtoDatasetList.validate_python(data)
+    if args.limit_regex:
+        data = [x for x in data if re.search(args.limit_regex, x.name)]
+    for d in data:
+        buildDatasetFromProto(d, args.output_dir)

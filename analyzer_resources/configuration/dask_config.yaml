@@ -7,6 +7,12 @@ distributed:
   nanny:
     environ:
       MALLOC_TRIM_THRESHOLD_: 0
+  scheduler:
+    worker-saturation: 0.5
+
+adaptive:
+  wait-count: 20
+
 jobqueue:
   lpccondor:
     name: dask-worker
@@ -28,7 +34,7 @@ jobqueue:
       #- "--no-dashboard"
 
     # HTCondor Resource Manager options
-    disk: 200MB                  # Total amount of disk per job
+    disk: 1GB                  # Total amount of disk per job
     job-extra: {}               # Extra submit attributes
     log-directory: null
     env-extra: null

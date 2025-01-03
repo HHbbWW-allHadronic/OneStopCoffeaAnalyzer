@@ -87,9 +87,6 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
     to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
-
-    print(to_prep)
-
     out, all_items = dst.preprocess(
         to_prep,
         save_form=False,
@@ -97,7 +94,6 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
     )
-    print("HERE1")
     new_filesets = {
         uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
         for uid, task in tasks.items()
@@ -169,7 +165,6 @@ class DaskExecutor(Executor):
                 results=v["result"],
             )
 
-        print(final_result)
 
         return final_result
 
