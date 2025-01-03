@@ -104,6 +104,46 @@ def addSubparserRun(subparsers):
     subparser.set_defaults(func=handleRun)
 
 
+def handlePatch(args):
+    from analyzer.core.running import runFromPath, patchFromPath
+    import analyzer.modules
+
+    patchFromPath(
+        args.input,
+        args.output,
+        args.executor,
+        args.description,
+        args.save_separate,
+        args.ignore_ret_prefs,
+    )
+
+
+def addSubparserPatch(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("patch", help="Run analyzer")
+    subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
+    subparser.add_argument(
+        "-o", "--output", type=Path, help="Output path", required=True
+    )
+    subparser.add_argument(
+        "-s",
+        "--save-separate",
+        action="store_true",
+        help="If set, store results separately",
+    )
+    subparser.add_argument(
+        "-e", "--executor", type=str, help="Name of executor to use", required=True
+    )
+    subparser.add_argument(
+        "-i", "--ignore-ret-prefs", action="store_true", default=False
+    )
+
+    subparser.add_argument(
+        "-d", "--description", type=str, help="Description", required=True
+    )
+    subparser.set_defaults(func=handlePatch)
+
+
 def addGeneralArguments(parser):
     parser.add_argument("--log-level", type=str, default="WARN", help="Logging level")
 
@@ -116,6 +156,7 @@ def runCli():
     subparsers = parser.add_subparsers()
     addSubparserRun(subparsers)
     addSubparserSampleReport(subparsers)
+    addSubparserPatch(subparsers)
     addSubparserCheckResult(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
 

@@ -44,11 +44,8 @@ try:
 except ImportError as e:
     LPCQUEUE_AVAILABLE = False
 
-
+NanoAODSchema.warn_missing_crossrefs = False
 logger = logging.getLogger(__name__)
-
-EXECUTORS = {}
-
 
 class AnalysisTask(BaseModel):
     sample_id: SampleId
@@ -91,7 +88,8 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
 
-    print("HERE")
+    print(to_prep)
+
     out, all_items = dst.preprocess(
         to_prep,
         save_form=False,

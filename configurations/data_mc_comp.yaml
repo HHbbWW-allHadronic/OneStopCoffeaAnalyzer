@@ -3,44 +3,41 @@ name: DataMC
 
 # Samples and in which regions they should be processed
 samples:
-  signal_312_2000_1900: All
-  # testsignal1: All
-  # testsignal2: All
-  # testsignal3: All
-  # # Data2018: [Control, Signal312]
-  QCDInclusive2018: All
-  signal_312_1500_1400: All
-  signal_312_1200_400: All
-  signal_312_1200_600: All
-  signal_312_1200_1100: All
-  signal_312_1300_1200: All
-  signal_312_1400_400: All
-  signal_312_1400_1300: All
-  signal_312_1500_400: All
-  signal_312_1500_600: All
-  signal_312_1500_900: All
-  signal_312_1500_1400: All
-  signal_312_2000_400: All
-  signal_312_1300_400: All
-  signal_312_1300_600: All
-  signal_312_2000_900: All
-  signal_312_2000_1900: All
-  signal_312_1000_700: All
-  signal_312_1000_800: All
-  signal_312_1200_700: All
-  signal_312_1200_800: All
-  signal_312_1500_100: All
-  signal_312_1500_1000: All
-  signal_312_1500_1200: All
-  signal_312_1500_1300: All
-  signal_312_1500_1350: All
-  signal_312_1500_1450: All
-  signal_312_2000_1200: All
-  signal_312_2000_1600: All
-  signal_312_2000_1700: All
-  signal_312_1000_400: All
-  signal_312_1000_600: All
-  signal_312_1000_900: All
+  Data2018: [Control, Signal312, Signal312_HT, Signal312_SingleJet]
+  # signal_312_2000_1900: All
+  # QCDInclusive2018: All
+  # signal_312_1500_1400: All
+  # signal_312_1200_400: All
+  # signal_312_1200_600: All
+  # signal_312_1200_1100: All
+  # signal_312_1300_1200: All
+  # signal_312_1400_400: All
+  # signal_312_1400_1300: All
+  # signal_312_1500_400: All
+  # signal_312_1500_600: All
+  # signal_312_1500_900: All
+  # signal_312_1500_1400: All
+  # signal_312_2000_400: All
+  # signal_312_1300_400: All
+  # signal_312_1300_600: All
+  # signal_312_2000_900: All
+  # signal_312_2000_1900: All
+  # signal_312_1000_700: All
+  # signal_312_1000_800: All
+  # signal_312_1200_700: All
+  # signal_312_1200_800: All
+  # signal_312_1500_100: All
+  # signal_312_1500_1000: All
+  # signal_312_1500_1200: All
+  # signal_312_1500_1300: All
+  # signal_312_1500_1350: All
+  # signal_312_1500_1450: All
+  # signal_312_2000_1200: All
+  # signal_312_2000_1600: All
+  # signal_312_2000_1700: All
+  # signal_312_1000_400: All
+  # signal_312_1000_600: All
+  # signal_312_1000_900: All
 
 
 executors:
@@ -158,19 +155,18 @@ regions:
       - name: partial_signal312_selection
     histograms: *common_signal
     weights: *common_weights
-  # 
-  # 
-  # - name: Control
-  #   objects: *common_objects
-  #   corrections: *common_corrections
-  #   preselection:
-  #     - <<: *common_preselection
-  #     - name: signal_hlt
-  #   selection: 
-  #     - name: general_selection
-  #     - name: partial_cr_selection
-  #   histograms: *common_signal
-  #   weights: *common_weights
+
+  - name: Control
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - <<: *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_cr_selection
+    histograms: *common_signal
+    weights: *common_weights
   # 
   # - name: SingleMuon
   #   objects: *common_objects

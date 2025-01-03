@@ -17,11 +17,9 @@ except ImportError as e:
 def getMissingFileset(target: FileSet, prepped: FileSet, processed: FileSet):
     failed_to_process = prepped - processed
     failed_to_prep = target.withoutFiles(prepped.justChunked())
-    return failed_to_process + failed_to_prep
+    return (failed_to_process + failed_to_prep)
 
-def getSamplePatch(sample_result: SampleResult, dataset_repo=None):
-    if dataset_repo is None:
-        dataset_repo = DatasetRepo.getConfig()
+def getSamplePatch(sample_result: SampleResult, dataset_repo):
 
     sample = dataset_repo[sample_result.sample_id]
     ran = sample_result.file_set_ran

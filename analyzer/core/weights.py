@@ -1,15 +1,17 @@
-
 from coffea.analysis_tools import Weights
-
 
 
 class Weighter:
     def __init__(self, size=None, ignore_systematics=False):
         self.weights = Weights(size, storeIndividual=True)
         self.ignore_systematics = ignore_systematics
+        self.is_zero = size == 0
+
         self.__cache = {}
 
     def add(self, weight_name, central, variations=None):
+        if self.is_zero:
+            return
         if variations and not self.ignore_systematics:
             systs = [(x, *y) for x, y in variations.items()]
             name, up, down = list(map(list, zip(*systs)))
