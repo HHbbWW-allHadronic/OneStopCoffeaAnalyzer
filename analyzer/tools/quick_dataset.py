@@ -5,12 +5,14 @@ import logging
 import subprocess
 import sys
 from pathlib import Path
+import re
 
 import requests
 import yaml
 
 from analyzer.configuration import CONFIG
-from auth_get_sso_cookie import cern_sso
+
+# from auth_get_sso_cookie import cern_sso
 from rich import print
 
 
@@ -137,6 +139,7 @@ def buildDataset(
     include_xsec=True,
     token_file=None,
     sample_name_field=1,
+    filter_extra=None,
 ):
     header = {
         "name": dataset_name,
@@ -146,8 +149,10 @@ def buildDataset(
         "samples": [],
     }
     samples = getSamples(query)
+    if filter_extra:
+        samples = [s for s in samples if re.search(filter_extra, s)]
     print(samples)
-    yn = input("Ok?")
+    yn = input("Ok? (y/n)")
     if yn != "y":
         sys.exit()
     for sample in samples:
@@ -202,14 +207,19 @@ def getArgs():
         required=True,
     )
     parser.add_argument(
+        "-f",
+        "--filter-extra",
+        help="Filter extra",
+        default=None,
+        type=str,
+    )
+    parser.add_argument(
         "-s",
         "--sample-name-field",
         required=True,
         type=int,
     )
-    parser.add_argument("-x", "--no-include-xsec",
-                        default=False,
-                        action="store_true")
+    parser.add_argument("-x", "--no-include-xsec", default=False, action="store_true")
     parser.add_argument(
         "query",
     )
@@ -231,6 +241,7 @@ if __name__ == "__main__":
         include_xsec=not args.no_include_xsec,
         token_file=f,
         sample_name_field=args.sample_name_field,
+        filter_extra=args.filter_extra,
     )
     with open(output, "w") as f:
         yaml.dump(
