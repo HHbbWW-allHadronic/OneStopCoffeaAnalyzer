@@ -45,8 +45,6 @@ class SectorGroup:
     sectors: list[SectorResult]
 
     def compatible(self, other):
-        print(f"{self.parameters = }")
-        print(f"{other.parameters = }")
         return self.parameters == other.parameters
 
     def __len__(self):

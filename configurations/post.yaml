@@ -3,62 +3,45 @@ PostDefaults:
 
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: ".png"
+    image_type: ".pdf"
+    cms_text_color: Black
 
   to_process:
     sample_spec:
       name:
-        - Data*
-        - QCD*
+        - data_JetHT_2018
+        - 'QCD*2018'
 
 Postprocessing:
-  - name: 1D Stuff
+  - name: Plots
     action: Histogram1D
     histogram_names:
       - h_njet
-      # - m13_vs_m14
-      # - m24_vs_m14
-      # - ratio_m24_vs_m14
-      # - ratio_m13_vs_m14
+      - m13_m
+      - HT
+      - pt_1
+      - pt_2
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+    groupby: ["dataset.era.name", "region_name"]
 
-    to_plot:
-      sample_spec:
-        name:
-          - Data*
-          - QCD*
-    normalize: True
-    color_scale: log
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
-    groupby: ["dataset.era.name", "region_name", "dataset.name"]
-    plot_configuration:
-      cms_text: "Preliminary"
-      cms_text_color: Black
-      image_type: pdf
-
-
-Postprocessing:
   - name: Ratio
     action: RatioPlot
     histogram_names:
       - h_njet
-
-    
+      - m13_m
+      - HT
+      - pt_1
+      - pt_2
 
     denominator:
       sample_spec:
         name:
-          - Data*
-
+          - 'data*2018'
     numerator:
       sample_spec:
         name:
-          - QCD*
+          - 'QCD*2018'
 
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
 
     groupby: ["dataset.era.name", "region_name"]
-
-    plot_configuration:
-      cms_text: "Preliminary"
-      cms_text_color: Black
-      image_type: pdf

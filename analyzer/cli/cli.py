@@ -116,6 +116,39 @@ def addSubparserRun(subparsers):
     subparser.set_defaults(func=handleRun)
 
 
+def handlePost(args):
+    from analyzer.postprocessing.running import runPostprocessors
+
+    return runPostprocessors(args.config, args.input, parallel=args.parallel)
+
+
+def addSubparserPost(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("postprocess", help="Postprocessing utilities")
+    subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
+    subparser.add_argument(
+        "-c", "--config", type=Path, help="Configuration path", required=True
+    )
+    subparser.add_argument(
+        "-p", "--parallel", type=int, default=None, help="Number of processes to use"
+    )
+    subparser.set_defaults(func=handlePost)
+
+
+
+def handleQuicklook(args):
+    from .quicklook import quicklookFiles
+    quicklookFiles(args.input)
+    
+
+
+def addSubparserQuicklookFile(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("quicklook", help="Quick information about a result.")
+    subparser.add_argument("input", nargs=1, type=Path, help="Input files path.")
+    subparser.set_defaults(func=handleQuicklook)
+
+
 def handlePatch(args):
     from analyzer.core.running import runFromPath, patchFromPath
     import analyzer.modules
@@ -171,6 +204,8 @@ def runCli():
     addSubparserPatch(subparsers)
     addSubparserCheckResult(subparsers)
     addSubparserGenerateReplicaCache(subparsers)
+    addSubparserQuicklookFile(subparsers)
+    addSubparserPost(subparsers)
 
     # argcomplete.autocomplete(parser)
 

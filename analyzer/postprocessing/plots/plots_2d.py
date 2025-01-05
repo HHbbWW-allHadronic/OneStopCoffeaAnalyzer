@@ -7,6 +7,7 @@ from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig
+from .mplstyles import loadStyles
 
 
 def plot2D(
@@ -22,6 +23,7 @@ def plot2D(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     matplotlib.use("Agg")
+    loadStyles()
     # fig, ax = plt.subplots()
     p = sector.sector_params
     style = styler.getStyle(p)

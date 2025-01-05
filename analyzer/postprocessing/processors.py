@@ -208,7 +208,7 @@ class RatioPlot(pyd.BaseModel):
                     ft.partial(
                         plotRatio,
                         histogram,
-                        sector_group.parameters,
+                        den_group.parameters,
                         num_group.sectors,
                         den_group.sectors[0],
                         self.output_name,
@@ -225,39 +225,3 @@ class RatioPlot(pyd.BaseModel):
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
 
-
-if __name__ == "__main__":
-    from analyzer.logging import setup_logging
-    from .plots.mplstyles import loadStyles
-
-    loadStyles()
-    setup_logging()
-
-    loaded = loadPostprocessors("configurations/post.yaml")
-    # result = AnalysisResult.fromFile("results/histograms/2024_10_06.pkl")
-    # result = AnalysisResult.fromFile("results/histograms/2024_11_05_patched.pkl")
-    # result = AnalysisResult.fromFile("test.pkl")
-    sample_results = loadSampleResultFromPaths(Path("test_results").glob("*.pkl"))
-    dataset_results = makeDatasetResults(sample_results)
-    sector_results = list(
-        it.chain.from_iterable(r.sector_results for r in dataset_results.values())
-    )
-
-    tasks = []
-
-    for processor in loaded:
-        processor.init()
-        tasks += processor.getExe(sector_results)
-
-    results = [f() for f in tasks]
-
-    import sys
-
-    sys.exit()
-    print("HERE")
-    # with Progress() as progress:
-    #     task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
-    #     with cf.ProcessPoolExecutor(max_workers=8) as executor:
-    #         results = [executor.submit(f) for f in tasks]
-    #         for i in cf.as_completed(results):
-    #             progress.advance(task_id)

@@ -125,7 +125,6 @@ class SampleResult(pyd.BaseModel):
             )
         else:
             scale = self.params.n_events / self.file_set_processed.events
-
         return self.scaled(scale)
 
 
@@ -136,7 +135,6 @@ class SectorResult(pyd.BaseModel):
     @property
     def params_dict(self):
         return self.sector_params.model_dump()
-
 
     @property
     def histograms(self):
@@ -232,9 +230,10 @@ def makeDatasetResults(sample_results, drop_samples=None):
         if result.sample_id in drop_samples:
             logger.warn(f'Not including sample "{sample_id}"')
             continue
-        scaled_sample_results[result.sample_id.dataset_name].append(
-            result.scaleToPhysical()
-        )
+        if result.processed_events > 0:
+            scaled_sample_results[result.sample_id.dataset_name].append(
+                result.scaleToPhysical()
+            )
 
     return {
         x: DatasetResult.fromSampleResult(y) for x, y in scaled_sample_results.items()

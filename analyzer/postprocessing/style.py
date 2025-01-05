@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 class Style(BaseModel):
     color: mplt.ColorType | None = None
+    plottype: str = "step"
     linestyle: mplt.LineStyleType | None = None
     drawstyle: mplt.DrawStyleType | None = None
     fillstyle: mplt.FillStyleType | None = None
@@ -23,14 +24,16 @@ class Style(BaseModel):
     markersize: float | None = 5
     marker: str | None = "o"
 
-    def get(self, type, prepend=None):
+    def get(self, plottype=None, prepend=None):
+        if plottype is None:
+            plottype = self.plottype
         mapping = dict(
             step=("color",),
             fill=("color",),
             band=("color",),
             errorbar=("color", "markersize", "marker"),
         )
-        ret = self.model_dump(include=mapping[type])
+        ret = self.model_dump(include=mapping[plottype])
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
         if prepend:
             ret = {f"{prepend}_{x}": y for x, y in ret.items()}

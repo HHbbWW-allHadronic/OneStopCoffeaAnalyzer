@@ -1,1 +1,18 @@
-{}
+styles:
+  - sector_spec:
+      sample_spec:
+        name: 'data*'
+    style:
+      plottype: errorbar
+      color: black
+      linestyle: null
+      marker: 's'
+
+  - sector_spec:
+      sample_spec:
+        name: 'data*'
+    style:
+      plottype: errorbar
+      color: black
+      linestyle: null
+      marker: 's'

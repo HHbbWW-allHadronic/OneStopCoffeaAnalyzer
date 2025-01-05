@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import mplhep
 import numpy as np
 from analyzer.postprocessing.style import Styler
+from .mplstyles import loadStyles
 
 from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
@@ -32,6 +33,7 @@ def plotOne(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
+    loadStyles()
     mpl.use("Agg")
     fig, ax = plt.subplots()
     for sector in sectors:
@@ -42,8 +44,10 @@ def plotOne(
             ax=ax,
             label=sector.sector_params.dataset.title,
             density=normalize,
+            yerr=True,
             flow="none",
-            **style.get("step"),
+            histtype=style.plottype,
+            **style.get(),
         )
 
     labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
@@ -79,6 +83,7 @@ def __plotStrCatOne(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
+    loadStyles()
     mpl.use("Agg")
 
     fig, ax = plt.subplots()
@@ -90,7 +95,8 @@ def __plotStrCatOne(
             ax=ax,
             label=sector.sector_params.dataset.title,
             density=normalize,
-            **style.get("step"),
+            histtype=style.plottype,
+            **style.get(),
         )
     ax.legend()
     labelAxis(ax, "y", h.axes)
@@ -120,6 +126,7 @@ def __plotStrCatAsTable(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
+    loadStyles()
     mpl.use("Agg")
 
     rep_data = getter(sectors[0])
@@ -181,18 +188,20 @@ def plotRatio(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
+    loadStyles()
     mpl.use("Agg")
     fig, ax = plt.subplots()
     den = denominator.histograms[histogram].get()
     ratio_ax = addAxesToHist(ax, size=1.5, pad=0.3)
     p = denominator.sector_params
     style = styler.getStyle(p)
-    mplhep.histplot(
-        den,
+    den.plot1d(
         ax=ax,
         label=denominator.sector_params.dataset.title,
         density=normalize,
-        **style.get("step"),
+        histtype=style.plottype,
+        yerr=True,
+        **style.get(),
     )
     x_values = den.axes[0].centers
     left_edge = den.axes.edges[0][0]
@@ -213,17 +222,19 @@ def plotRatio(
         all_ratios.append(ratio)
         all_uncertainties.append(unc)
 
-        mplhep.histplot(
-            h,
+        h.plot1d(
             ax=ax,
             label=sector.sector_params.dataset.title,
             density=normalize,
-            **s.get("step"),
+            yerr=True,
+            histtype=s.plottype,
+            **s.get(),
         )
 
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
 
+        s = styler.getStyle(denominator.sector_params)
         all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
         ratio_ax.errorbar(
             x_values,
