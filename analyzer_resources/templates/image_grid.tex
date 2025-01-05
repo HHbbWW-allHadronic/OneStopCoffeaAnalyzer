@@ -1,0 +1,22 @@
+\documentclass[10pt]{article}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage[margin=1in]{geometry}
+\usepackage{caption}
+\usepackage{subcaption}
+
+
+\begin{document}
+
+\BLOCK{for image in images}
+\begin{minipage}{0.5\textwidth}
+  \begin{figure}
+    \includegraphics[width=\textwidth]{\VAR{image.path}}
+    \caption{image.caption}
+  \end{figure}
+\end{minipage}
+\BLOCK{if loop.index is divisibleby(4)}
+
+\BLOCK{endif}
+\BLOCK{endfor}
+\end{document}
