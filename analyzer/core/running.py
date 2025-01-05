@@ -44,25 +44,33 @@ def saveResults(results, output, save_separate=False):
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 
 
-def runFromPath(path, output, executor_name, save_separate=False):
+def runFromPath(path, output, executor_name, save_separate=False, test_mode=False):
     output = Path(output)
     description = loadDescription(path)
-    if executor_name not in description.executors:
-        raise KeyError()
-
-    executor = description.executors[executor_name]
-    executor.setup()
-    if hasattr(executor, "output_dir") and executor.output_dir is None:
-        executor.output_dir = str(output)
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     subsectors = getSubSectors(description, dataset_repo, era_repo)
+
+    for k, v in subsectors.items():
+        print(f"{k} => {[x.region_name for x in v]}")
+
     tasks = makeTasks(
         subsectors, dataset_repo, era_repo, description.file_config.model_dump()
     )
 
     tasks = {task.sample_id: task for task in tasks}
+
+    if executor_name not in description.executors:
+        raise KeyError()
+    
+
+    executor = description.executors[executor_name]
+    executor.test_mode = test_mode
+    executor.setup()
+    if hasattr(executor, "output_dir") and executor.output_dir is None:
+        executor.output_dir = str(output)
+
     results = executor.run(tasks)
 
     saveResults(results, output, save_separate=save_separate)

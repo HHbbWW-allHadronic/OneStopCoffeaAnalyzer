@@ -82,7 +82,13 @@ def handleRun(args):
     from analyzer.core.running import runFromPath
     import analyzer.modules
 
-    runFromPath(args.input, args.output, args.executor, args.save_separate)
+    runFromPath(
+        args.input,
+        args.output,
+        args.executor,
+        args.save_separate,
+        test_mode=args.test_mode,
+    )
 
 
 def addSubparserRun(subparsers):
@@ -91,6 +97,12 @@ def addSubparserRun(subparsers):
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o", "--output", type=Path, help="Output path", required=True
+    )
+    subparser.add_argument(
+        "--test-mode",
+        default=False,
+        action="store_true",
+        help="Run in test mode",
     )
     subparser.add_argument(
         "-s",

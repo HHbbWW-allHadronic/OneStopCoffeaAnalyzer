@@ -69,6 +69,7 @@ dict_adapter = TypeAdapter(dict)
 
 
 class Executor(abc.ABC, BaseModel):
+    test_mode: bool = False
 
     def setup(self):
         pass
@@ -78,16 +79,24 @@ class Executor(abc.ABC, BaseModel):
         pass
 
 
-def preprocess(tasks, default_step_size=100000, scheduler=None):
+def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False):
     step_sizes = set(x.file_set.step_size for x in tasks.values())
     if len(step_sizes) != 1:
         raise RuntimeError()
 
     this_step_size = next(iter(step_sizes))
     to_prep = {uid: task.file_set.justUnchunked() for uid, task in tasks.items()}
+    if test_mode:
+        to_prep = {
+            uid: task.file_set.slice(files=slice(0,1)) for uid, task in tasks.items()
+        }
+
     to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
+
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
+
+    logger.info(f"Preprocessing %d samples", len(to_prep))
     out, all_items = dst.preprocess(
         to_prep,
         save_form=False,
@@ -99,6 +108,11 @@ def preprocess(tasks, default_step_size=100000, scheduler=None):
         uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
         for uid, task in tasks.items()
     }
+
+    if test_mode:
+        new_filesets = {
+            uid: f.slice(chunks=slice(0,1)) for uid, f in new_filesets.items()
+        }
     for v in new_filesets.values():
         v.step_size = default_step_size
 
@@ -121,7 +135,9 @@ class DaskExecutor(Executor):
             )
 
     def _preprocess(self, tasks):
-        return preprocess(tasks, default_step_size=self.step_size)
+        return preprocess(
+            tasks, default_step_size=self.step_size, test_mode=self.test_mode
+        )
 
     def run(self, tasks):
         ret = {}
@@ -230,7 +246,10 @@ class ImmediateExecutor(Executor):
 
     def _preprocess(self, tasks):
         return preprocess(
-            tasks, default_step_size=self.step_size, scheduler="single-threaded"
+            tasks,
+            default_step_size=self.step_size,
+            scheduler="single-threaded",
+            test_mode=self.test_mode,
         )
 
     def __run_task(self, k, task):

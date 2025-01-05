@@ -7,12 +7,17 @@ formatters:
   simple:
     format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   just_name:
-    format: "%(name)s\n%(message)s"
+    format: "%(name)s%(message)s"
 
 handlers:
   debug_console:
     class: rich.logging.RichHandler
     level: DEBUG
+    formatter: just_name
+
+  error_console:
+    class: rich.logging.RichHandler
+    level: ERROR
     formatter: just_name
 
   info_console:
@@ -50,19 +55,19 @@ loggers:
     propagate: false
   distributed.core:
     level: INFO
-    handlers: [debug_file_handler, warn_console]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   distributed.client:
     level: INFO
-    handlers: [debug_file_handler, warn_console]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   distributed.scheduler:
     level: INFO
-    handlers: [debug_file_handler, warn_console]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   dask:
     level: INFO 
-    handlers: [warn_console, debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
 
 root:

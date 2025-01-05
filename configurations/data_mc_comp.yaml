@@ -7,7 +7,6 @@ samples:
   data_JetHT_2017: [Control]
   data_JetHT_2016pre: [Control]
   data_JetHT_2016post: [Control]
-
   QCDInclusive2018: All
   signal_312_2000_1900: All
   signal_312_1500_1400: All

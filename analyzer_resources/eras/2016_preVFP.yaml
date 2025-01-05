@@ -22,7 +22,7 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2016preVFP_UL/puWeights.json.gz
     name: Collisions16_UltraLegacy_goldenJSON
 
-  triggers:
+  trigger_names:
     HT: PFHT900
     AK8SingleJetPt: AK8PFJet360_TrimMass30
 

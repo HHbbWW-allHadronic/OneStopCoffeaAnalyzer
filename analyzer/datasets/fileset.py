@@ -235,5 +235,21 @@ class FileSet(BaseModel):
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
+    def slice(self, files=None, chunks=None):
+        ret = list(copy.deepcopy(self.files).items())
+        if files is not None:
+            ret = ret[files]
+        ret = dict(ret)
+        if chunks is not None:
+            for _, x in ret.values():
+                if x["steps"] is not None:
+                    x["steps"] = x["steps"][chunks]
+        return FileSet(
+            files=ret,
+            step_size=self.step_size,
+            form=self.form,
+            file_retrieval_kwargs=self.file_retrieval_kwargs,
+        )
+
 
 # def getPatch(target, processed):
