@@ -8,21 +8,15 @@ PostDefaults:
   to_process:
     sample_spec:
       name:
-        - signal_312_2000_1900
-        - signal_312_2000_900
-        - signal_312_2000_400
-        - signal_312_1500_1400
-        - signal_312_1500_600
-        - signal_312_1200_900
         - Data*
         - QCD*
-        - '*'
 
 Postprocessing:
-  - name: 2D Stuff
-    action: Histogram2D
+  - name: 1D Stuff
+    action: Histogram1D
     histogram_names:
-      - m13_vs_m14
+      - h_njet
+      # - m13_vs_m14
       # - m24_vs_m14
       # - ratio_m24_vs_m14
       # - ratio_m13_vs_m14
@@ -41,52 +35,30 @@ Postprocessing:
       cms_text_color: Black
       image_type: pdf
 
-  - name: Export Hists
-    action: ExportHists
-    histogram_names:
-      - m13_m
-      # - m24_m
-      # - m14_m
-      # - m13_vs_m14
-      # - m24_vs_m14
-      # - ratio_m24_vs_m14
-    output_name: "postprocessing/regression_results/{dataset.era.name}_{region_name}_{histogram_name}.pkl"
-    groupby: ["dataset.era.name", "region_name"]
 
-  
-  - name: Cutflow
-    action: PlotCutflow
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}_{histogram_name}.pdf"
-    groupby: ["dataset.era.name", "region_name", "dataset.name"]
-    normalize: false
-  
-  - name: Plot Basic stuff
-    action: Histogram1D
+Postprocessing:
+  - name: Ratio
+    action: RatioPlot
     histogram_names:
-      - m13_m
-      # - m24_m
-      # - m14_m
-      # - m13_vs_m14
-      # - m24_vs_m14
-      # - ratio_m24_vs_m14
+      - h_njet
+
+    
+
+    denominator:
+      sample_spec:
+        name:
+          - Data*
+
+    numerator:
+      sample_spec:
+        name:
+          - QCD*
+
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+
     groupby: ["dataset.era.name", "region_name"]
-    normalize: false
-  
-  
-  - name: Normalized stuff
-    action: Histogram1D
-    histogram_names:
-      - m13_m
-      # - m24_m
-      # - m14_m
-      # - m13_vs_m14
-      # - m24_vs_m14
-      # - ratio_m24_vs_m14
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/normalized_{histogram_name}"
-    groupby: ["dataset.era.name", "region_name"]
-    normalize: true
+
     plot_configuration:
-      y_label: "Normalized Events"
-
-
+      cms_text: "Preliminary"
+      cms_text_color: Black
+      image_type: pdf

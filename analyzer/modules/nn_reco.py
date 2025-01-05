@@ -15,7 +15,7 @@ def NN_mass_reco(
     from .utils.axes import makeAxis
 
     class jetAssignmentNN(torch_wrapper):
-        def prepare_awkward(self, events, scalerFile):
+        def prepare_awkward(self, events, scalerFile, _fake):
 
             with open(scalerFile, 'rb') as f:
                 scaler = pickle.load(f)
@@ -78,7 +78,7 @@ def NN_mass_reco(
         raise ValueError("NN Mass Reco Requires a model path and scaler path")
     jets = events.good_jets
     model = jetAssignmentNN(model_path)
-    outputs = model(events.events, scaler_path)[:, 0]
+    outputs = model(events, scaler_path, events.events)[:, 0]
     m14 = jets[:, 0:4].sum().mass
     mChiUncomp = (
         jets[ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]].sum().mass

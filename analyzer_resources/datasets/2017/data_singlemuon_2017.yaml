@@ -1,0 +1,5 @@
+- name: data_singlemuon_2017
+  title: Data
+  sample_type: Data
+  era: '2017'
+  samples: []

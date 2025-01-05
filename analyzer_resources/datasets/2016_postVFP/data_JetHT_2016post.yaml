@@ -1,7 +1,7 @@
-- name: Data2016_postVFP
-  title: Data2016postVFP
+- name: data_JetHT_2016post
+  title: Data
   sample_type: Data
-  era: '2016_postVFP'
+  era: 2016_postVFP
   samples:
     - name: Run2016F-UL2016_MiniAODv2_NanoAODv9-v1
       n_events: 6613811

@@ -255,6 +255,7 @@ def getArgs():
 
 
 if __name__ == "__main__":
+    token = getToken()
     f = None
     args = getArgs()
     with open(args.input) as f:

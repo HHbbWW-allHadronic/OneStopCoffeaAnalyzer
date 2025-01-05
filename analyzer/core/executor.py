@@ -47,6 +47,7 @@ except ImportError as e:
 NanoAODSchema.warn_missing_crossrefs = False
 logger = logging.getLogger(__name__)
 
+
 class AnalysisTask(BaseModel):
     sample_id: SampleId
     sample_params: SampleParams
@@ -115,7 +116,9 @@ class DaskExecutor(Executor):
 
     def setup(self):
         if self.adapt:
-            self._cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
+            self._cluster.adapt(
+                minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
+            )
 
     def _preprocess(self, tasks):
         return preprocess(tasks, default_step_size=self.step_size)
@@ -135,36 +138,70 @@ class DaskExecutor(Executor):
             else:
                 maybe_base_form = None
 
-            events, report = NanoEventsFactory.from_root(
-                cds["files"],
-                schemaclass=NanoAODSchema,
-                uproot_options=dict(
-                    allow_read_errors_with_report=True,
-                    timeout=30,
-                ),
-                known_base_form=maybe_base_form,
-            ).events()
-            all_events[k] = (events, report)
+            try:
+                events, report = NanoEventsFactory.from_root(
+                    cds["files"],
+                    schemaclass=NanoAODSchema,
+                    uproot_options=dict(
+                        allow_read_errors_with_report=True,
+                        timeout=30,
+                    ),
+                    known_base_form=maybe_base_form,
+                ).events()
+                all_events[k] = (events, report)
+            except Exception as e:
+                logger.warn(
+                    f"An exception occurred while preprocessing task {k}."
+                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
+                )
+                pass
         for k, task in tasks.items():
-            r = task.analyzer.run(all_events[k][0], task.sample_params)
-            r = core_results.subsector_adapter.dump_python(r)
-            ret[k] = {
-                "result": r,
-                "report": all_events[k][1],
-            }
-        results = dask.compute(ret)[0]
+            if k in all_events:
+                r = task.analyzer.run(all_events[k][0], task.sample_params)
+                r = core_results.subsector_adapter.dump_python(r)
+                ret[k] = {
+                    "result": r,
+                    "report": all_events[k][1],
+                }
+            else:
+                ret[k] = None
+
+        computed_results = {}
+        for k, v in ret.items():
+            if v is not None:
+                try:
+                    logger.info(f"Attempting to computing {k}")
+                    result = dask.compute(v)[0]
+                    computed_results[k] = result
+                except Exception as e:
+                    logger.warn(
+                        f"An exception occurred while processing task {k}."
+                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
+                    )
+                    computed_results[k] = None
+            else:
+                logger.info(f"Nothing to compute for {k}")
+                computed_results[k] = None
 
         final_result = {}
-        for k, v in results.items():
-            processed = file_sets[k].justProcessed(v["report"])
-            final_result[k] = core_results.SampleResult(
-                sample_id=tasks[k].sample_id,
-                file_set_ran=file_sets[k],
-                file_set_processed=processed,
-                params=tasks[k].sample_params,
-                results=v["result"],
-            )
-
+        for k, v in computed_results.items():
+            if v is not None:
+                processed = file_sets[k].justProcessed(v["report"])
+                final_result[k] = core_results.SampleResult(
+                    sample_id=tasks[k].sample_id,
+                    file_set_ran=file_sets[k],
+                    file_set_processed=processed,
+                    params=tasks[k].sample_params,
+                    results=v["result"],
+                )
+            else:
+                final_result[k] = core_results.SampleResult(
+                    sample_id=tasks[k].sample_id,
+                    file_set_ran=file_sets[k],
+                    file_set_processed=file_sets[k].asEmpty(),
+                    params=tasks[k].sample_params,
+                    results={},
+                )
 
         return final_result
 

@@ -227,5 +227,13 @@ class FileSet(BaseModel):
             }
         return coffea_dataset
 
+    def asEmpty(self):
+        return FileSet(
+            files={},
+            step_size=self.step_size,
+            form=self.form,
+            file_retrieval_kwargs=self.file_retrieval_kwargs,
+        )
+
 
 # def getPatch(target, processed):
