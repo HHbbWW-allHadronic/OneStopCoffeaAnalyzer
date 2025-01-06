@@ -88,7 +88,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
     to_prep = {uid: task.file_set.justUnchunked() for uid, task in tasks.items()}
     if test_mode:
         to_prep = {
-            uid: task.file_set.slice(files=slice(0,1)) for uid, task in tasks.items()
+            uid: task.file_set.slice(files=slice(0, 1)) for uid, task in tasks.items()
         }
 
     to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
@@ -111,7 +111,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
 
     if test_mode:
         new_filesets = {
-            uid: f.slice(chunks=slice(0,1)) for uid, f in new_filesets.items()
+            uid: f.slice(chunks=slice(0, 1)) for uid, f in new_filesets.items()
         }
     for v in new_filesets.values():
         v.step_size = default_step_size
@@ -274,10 +274,14 @@ class ImmediateExecutor(Executor):
                             [ret, task.analyzer.run(events, task.sample_params)]
                         )
                 except Exception as e:
-                    print(e)
+                    logger.warn(
+                        f"An exception occurred while running {fname} ({start},{end}).\n"
+                        f"{e}"
+                    )
                     if not self.catch_exceptions:
                         raise
-                    processed.dropChunk(extractCmsLocation(fname), [start, end])
+                    else:
+                        processed.dropChunk(extractCmsLocation(fname), [start, end])
         return ret, fs, processed
 
     def run(self, tasks):
