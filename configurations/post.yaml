@@ -9,8 +9,8 @@ PostDefaults:
   to_process:
     sample_spec:
       name:
-        - data_JetHT_2018
-        - 'QCD*2018'
+        - 'data_JetHT-*'
+        - 'qcd_*'
 
 Postprocessing:
   - name: Plots
@@ -36,11 +36,11 @@ Postprocessing:
     denominator:
       sample_spec:
         name:
-          - 'data*2018'
+          - 'data*'
     numerator:
       sample_spec:
         name:
-          - 'QCD*2018'
+          - 'qcd*'
 
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
 

@@ -63,7 +63,7 @@
 - name: data_JetHT_2016pre
   title: Data
   sample_type: Data
-  sample_field: 2data_singlemuon_2017.yaml
+  sample_field: 2
   era: 2016_preVFP
   cms_regex:  '/JetHT/Run2016*HIPM_UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD'
 
@@ -108,6 +108,6 @@
 - name: data_JetHT_2023post
   title: Data
   sample_type: Data
-  era: '2022_postBPix'
+  era: '2023_postBPix'
   sample_field: 2
   cms_regex: '/JetMET*/Run2023D-22Sep2023_v*-v*/NANOAOD'

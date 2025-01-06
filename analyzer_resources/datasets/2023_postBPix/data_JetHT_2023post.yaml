@@ -1,7 +1,7 @@
 - name: data_JetHT_2023post
   title: Data
   sample_type: Data
-  era: 2022_postBPix
+  era: 2023_postBPix
   samples:
     - name: Run2023D-22Sep2023_v1-v1
       n_events: 61507467
