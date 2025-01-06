@@ -287,7 +287,12 @@ class ImmediateExecutor(Executor):
     def run(self, tasks):
         ret = {}
         for k, task in tasks.items():
-            ret[k] = self.__run_task(k, task)
+            try:
+                ret[k] = self.__run_task(k, task)
+            except Exception as e:
+                logger.warn(f"An exception occurred while running {k}.\n" f"{e}")
+                if not self.catch_exceptions:
+                    raise
 
         final_result = {}
         for k, (result, fs, processed) in ret.items():
