@@ -7,7 +7,7 @@ formatters:
   simple:
     format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
   just_name:
-    format: "%(name)s%(message)s"
+    format: "%(name)s - %(message)s"
 
 handlers:
   debug_console:

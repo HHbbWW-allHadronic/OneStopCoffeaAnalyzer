@@ -7,7 +7,12 @@ samples:
   data_JetHT_2017: [Control]
   data_JetHT_2016pre: [Control]
   data_JetHT_2016post: [Control]
-  QCDInclusive2018: All
+
+  qcd_inclusive_2018: All
+  qcd_inclusive_2017: All
+  qcd_inclusive_2016_preVFP: All
+  qcd_inclusive_2016_postVFP: All
+
   signal_312_2000_1900: All
   signal_312_1500_1400: All
   signal_312_1200_400: All
@@ -50,8 +55,8 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 100000
-    catch_exceptions: False
+    step_size: 1000000
+    catch_exceptions: True
 
   condor:
     executor_type: condor
@@ -85,6 +90,11 @@ common_items:
       - name: goodjet_ht
       - name: jet_kinematics
       - name: jet_combo_kinematics
+      - name: b_quark_kinematics
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
       - name: NN_mass_reco
         config:
           - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt

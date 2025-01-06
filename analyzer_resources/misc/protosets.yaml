@@ -81,3 +81,41 @@
   era: '2018'
   sample_field: 2
   cms_regex: '/JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: data_JetHT_2022
+  title: Data
+  sample_type: Data
+  era: '2018'
+  sample_field: 2
+  filter_regex: 'Run2022[CD]'
+  cms_regex: '/Jet*T/Run2022*-22Sep2023-v1/NANOAOD'
+
+- name: data_JetHT_2022pre
+  title: Data
+  sample_type: Data
+  era: '2022_preEE'
+  sample_field: 2
+  filter_regex: 'Run2022[CD]'
+  cms_regex: '/Jet*T/Run2022*-22Sep2023-v1/NANOAOD'
+
+- name: data_JetHT_2022post
+  title: Data
+  sample_type: Data
+  era: '2022_postEE'
+  sample_field: 2
+  filter_regex: 'Run2022[EFG]'
+  cms_regex: '/JetMET/Run2022*-22Sep2023-v*/NANOAOD'
+
+- name: data_JetHT_2023pre
+  title: Data
+  sample_type: Data
+  era: '2023_preBPix'
+  sample_field: 2
+  cms_regex: '/JetMET*/Run2023C-22Sep2023_v*-v*/NANOAOD'
+
+- name: data_JetHT_2023post
+  title: Data
+  sample_type: Data
+  era: '2022_postBPix'
+  sample_field: 2
+  cms_regex: '/JetMET*/Run2023D-22Sep2023_v*-v*/NANOAOD'

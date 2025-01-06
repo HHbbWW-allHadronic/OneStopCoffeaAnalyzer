@@ -45,6 +45,12 @@ class Columns:
             return self.get(attr)
         return getattr(self.events, attr)
 
+    def __getitem__(self, item):
+        if item in self.columns:
+            return self.get(item)
+        return getattr(self.events, item)
+
+
     def __iter__(self):
         return iter(self.events.fields)
 
