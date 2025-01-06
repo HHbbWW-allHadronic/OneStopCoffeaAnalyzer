@@ -192,6 +192,8 @@ EOF
         fi
         if [[ $(hostname) =~ "umn" ]]; then
             apptainer_flags="$apptainer_flags --bind /local/cms/user/"
+            apptainer_flags="$apptainer_flags --bind /cvmfs"
+            apptainer_flags="$apptainer_flags --bind /cvmfs/grid.cern.ch/etc/grid-security:/etc/grid-security"
         fi
         if [[ ! -z "${X509_USER_PROXY}" ]]; then
             apptainer_flags="$apptainer_flags --bind ${X509_USER_PROXY%/*}"

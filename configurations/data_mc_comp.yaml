@@ -1,51 +1,16 @@
-# The name of analysis to be run
 name: DataMC
 
-# Samples and in which regions they should be processed
 samples:
   data_JetHT_2018: [Control]
   data_JetHT_2017: [Control]
   data_JetHT_2016pre: [Control]
   data_JetHT_2016post: [Control]
 
-  qcd_inclusive_2018: All
-  qcd_inclusive_2017: All
-  qcd_inclusive_2016_preVFP: All
-  qcd_inclusive_2016_postVFP: All
+  qcd_inclusive_2018: [Control]
+  qcd_inclusive_2017: [Control]
+  qcd_inclusive_2016_preVFP: [Control]
+  qcd_inclusive_2016_postVFP: [Control]
 
-  signal_312_2000_1900: All
-  signal_312_1500_1400: All
-  signal_312_1200_400: All
-  signal_312_1200_600: All
-  signal_312_1200_1100: All
-  signal_312_1300_1200: All
-  signal_312_1400_400: All
-  signal_312_1400_1300: All
-  signal_312_1500_400: All
-  signal_312_1500_600: All
-  signal_312_1500_900: All
-  signal_312_1500_1400: All
-  signal_312_2000_400: All
-  signal_312_1300_400: All
-  signal_312_1300_600: All
-  signal_312_2000_900: All
-  signal_312_2000_1900: All
-  signal_312_1000_700: All
-  signal_312_1000_800: All
-  signal_312_1200_700: All
-  signal_312_1200_800: All
-  signal_312_1500_100: All
-  signal_312_1500_1000: All
-  signal_312_1500_1200: All
-  signal_312_1500_1300: All
-  signal_312_1500_1350: All
-  signal_312_1500_1450: All
-  signal_312_2000_1200: All
-  signal_312_2000_1600: All
-  signal_312_2000_1700: All
-  signal_312_1000_400: All
-  signal_312_1000_600: All
-  signal_312_1000_900: All
 
 
 executors:
@@ -73,15 +38,9 @@ executors:
         - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
 
 
-# Samples and in which regions they should be processed
-execution_config:
-
 file_config:
   location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
   use_replicas: True
-  skimming:
-    output: "root://blabla/SingleStop/"
-    use_skims_path: "root://blabla/SingleStop/"
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
@@ -129,47 +88,7 @@ common_items:
         sample_spec:
           sample_type: MC
 
-
 regions:
-  - name: Signal312
-    forbid_data: true
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: signal_hlt
-    selection: 
-      - name: general_selection
-      - name: partial_signal312_selection
-    histograms: *common_signal
-    weights: *common_weights
-
-  - name: Signal312_SingleJet
-    forbid_data: true
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: hlt_single_jet
-    selection: 
-      - name: general_selection
-      - name: partial_signal312_selection
-    histograms: *common_signal
-    weights: *common_weights
-
-  - name: Signal312_HT
-    forbid_data: true
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: hlt_HT
-    selection: 
-      - name: general_selection
-      - name: partial_signal312_selection
-    histograms: *common_signal
-    weights: *common_weights
-
   - name: Control
     objects: *common_objects
     corrections: *common_corrections
@@ -181,15 +100,3 @@ regions:
       - name: partial_cr_selection
     histograms: *common_signal
     weights: *common_weights
-  # 
-  # - name: SingleMuon
-  #   objects: *common_objects
-  #   corrections: *common_corrections
-  #   preselection:
-  #     - <<: *common_preselection
-  #     - name: single_muon
-  #   selection: 
-  #     - name: general_selection
-  #     - name: partial_cr_selection
-  #   histograms: *common_signal
-  #   weights: *common_weights

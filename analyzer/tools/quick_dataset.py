@@ -230,16 +230,16 @@ def buildDatasetFromProto(protoset, output, xsec_db, skip_existing=True):
         filter_extra=protoset.filter_regex,
     )
 
-    output.parent.mkdir(exist_ok=True, parents=True)
-
-    with open(output, "w") as f:
-        yaml.dump(
-            ds,
-            stream=f,
-            sort_keys=False,
-            Dumper=MyDumper,
-            default_flow_style=False,
-        )
+    if ds:
+        output.parent.mkdir(exist_ok=True, parents=True)
+        with open(output, "w") as f:
+            yaml.dump(
+                ds,
+                stream=f,
+                sort_keys=False,
+                Dumper=MyDumper,
+                default_flow_style=False,
+            )
 
 
 def buildDataset(

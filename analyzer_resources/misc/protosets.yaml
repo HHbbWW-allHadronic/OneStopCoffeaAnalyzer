@@ -63,7 +63,7 @@
 - name: data_JetHT_2016pre
   title: Data
   sample_type: Data
-  sample_field: 2
+  sample_field: 2data_singlemuon_2017.yaml
   era: 2016_preVFP
   cms_regex:  '/JetHT/Run2016*HIPM_UL2016_MiniAODv2_NanoAODv9-v*/NANOAOD'
 
@@ -81,14 +81,6 @@
   era: '2018'
   sample_field: 2
   cms_regex: '/JetHT/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
-
-- name: data_JetHT_2022
-  title: Data
-  sample_type: Data
-  era: '2018'
-  sample_field: 2
-  filter_regex: 'Run2022[CD]'
-  cms_regex: '/Jet*T/Run2022*-22Sep2023-v1/NANOAOD'
 
 - name: data_JetHT_2022pre
   title: Data
