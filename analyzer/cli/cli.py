@@ -41,6 +41,25 @@ def addSubparserCheckResult(subparsers):
     subparser.set_defaults(func=handleCheckResults)
 
 
+def handleQuickDataset(args):
+    from analyzer.tools.quick_dataset import run
+
+    run(args.input, args.output_dir, args.limit_regex)
+
+
+def addSubparserQuickDataset(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("dataset-builder", help="Check result")
+    subparser.add_argument("input", type=Path, help="Input data path.")
+    subparser.add_argument(
+        "-o",
+        "--output-dir",
+        required=True,
+    )
+    subparser.add_argument("-l", "--limit-regex")
+    subparser.set_defaults(func=handleQuickDataset)
+
+
 def handleSamples(args):
     from .sample_report import createSampleTable
     from analyzer.datasets import DatasetRepo
@@ -135,16 +154,17 @@ def addSubparserPost(subparsers):
     subparser.set_defaults(func=handlePost)
 
 
-
 def handleQuicklook(args):
     from .quicklook import quicklookFiles
+
     quicklookFiles(args.input)
-    
 
 
 def addSubparserQuicklookFile(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("quicklook", help="Quick information about a result.")
+    subparser = subparsers.add_parser(
+        "quicklook", help="Quick information about a result."
+    )
     subparser.add_argument("input", nargs=1, type=Path, help="Input files path.")
     subparser.set_defaults(func=handleQuicklook)
 
@@ -206,6 +226,7 @@ def runCli():
     addSubparserGenerateReplicaCache(subparsers)
     addSubparserQuicklookFile(subparsers)
     addSubparserPost(subparsers)
+    addSubparserQuickDataset(subparsers)
 
     # argcomplete.autocomplete(parser)
 

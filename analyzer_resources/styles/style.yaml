@@ -1,18 +1,15 @@
 styles:
-  - sector_spec:
-      sample_spec:
-        name: 'data*'
-    style:
-      plottype: errorbar
-      color: black
-      linestyle: null
-      marker: 's'
 
   - sector_spec:
-      sample_spec:
-        name: 'data*'
+      sample_name: 'data*'
     style:
       plottype: errorbar
       color: black
       linestyle: null
-      marker: 's'
+      marker: 'o'
+
+  - sector_spec:
+      sample_name: 'QCD*'
+    style:
+      plottype: step
+      color: blue

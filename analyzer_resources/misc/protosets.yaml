@@ -20,7 +20,7 @@
   title: QCD
   era: '2018'
   sample_type: MC
-  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv2-106X_upgrade2018_realistic_v15_L1v1-v1/NANOAODSIM'
+  cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v*/NANOAODSIM'
 
 
 

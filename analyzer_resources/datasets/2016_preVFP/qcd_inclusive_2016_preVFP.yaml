@@ -6,6 +6,7 @@
     - name: QCD_HT1000to1500_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 4773503
       cms_dataset_regex: /QCD_HT1000to1500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 1127000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT1000to1500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2520000/B08F23E2-EC1B-DC46-8FED-D2C84D0122FC.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT1000to1500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2520000/CCBC910C-2C5B-BD4D-8E32-5A1B9864698B.root
@@ -21,6 +22,7 @@
     - name: QCD_HT100to200_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 26312661
       cms_dataset_regex: /QCD_HT100to200_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 23590000000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT100to200_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/270000/088EDB49-0617-F346-AE66-A8719B809CC5.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT100to200_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/270000/2E2E6803-7787-2F44-AA67-AE68FB6D6E9C.root
@@ -112,6 +114,7 @@
     - name: QCD_HT1500to2000_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 3503675
       cms_dataset_regex: /QCD_HT1500to2000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 109800.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT1500to2000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2530000/51ABACAF-F114-6449-9820-9848013A2F22.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT1500to2000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/270000/6B86F706-9FFF-B64A-ACD7-A9F4232003A5.root
@@ -153,6 +156,7 @@
     - name: QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 1629000
       cms_dataset_regex: /QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 21980.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/EB00CF83-028D-9145-810F-B0FA615D4C60.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/AD847709-0770-C24E-B695-EEA27513AE6C.root
@@ -167,6 +171,7 @@
     - name: QCD_HT200to300_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 16524587
       cms_dataset_regex: /QCD_HT200to300_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 1555000000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT200to300_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/95BE87C2-0043-2349-9E9B-B782319D420A.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT200to300_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2540000/7E714278-C17E-C34E-AC1C-91033A6D3A3D.root
@@ -218,6 +223,7 @@
     - name: QCD_HT300to500_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 15341307
       cms_dataset_regex: /QCD_HT300to500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 324500000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT300to500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2550000/E8820068-BCF2-6843-AD23-58BBCB27E876.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT300to500_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2550000/BC3A4946-59C7-494D-BD50-B2C3662E3983.root
@@ -311,6 +317,7 @@
     - name: QCD_HT500to700_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 15775001
       cms_dataset_regex: /QCD_HT500to700_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 30310000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT500to700_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/260000/375B26F4-A772-2C47-8433-1427395A2EE4.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT500to700_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2520000/601FB4E5-62D8-EE41-9172-33945D6CFCBA.root
@@ -349,6 +356,7 @@
     - name: QCD_HT50to100_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 12233035
       cms_dataset_regex: /QCD_HT50to100_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 187300000000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT50to100_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/E575050D-7FF3-C644-973B-22E94DC10E53.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT50to100_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/30000/43992FA8-8459-D849-827E-2CA88F1BD9BD.root
@@ -415,6 +423,7 @@
     - name: QCD_HT700to1000_TuneCP5_PSWeights_13TeV-madgraph-pythia8
       n_events: 15808790
       cms_dataset_regex: /QCD_HT700to1000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v1/NANOAODSIM
+      x_sec: 6444000.0
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT700to1000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2530000/4C6049C2-2196-3E43-AE0B-554130A4E774.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL16NanoAODAPVv9/QCD_HT700to1000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/NANOAODSIM/106X_mcRun2_asymptotic_preVFP_v11-v1/2520000/A3A54CF9-927C-5846-A816-0A7829D25C40.root

@@ -146,7 +146,7 @@ class Sample(BaseModel):
     files: List[adf.SampleFile] = Field(default_factory=list)
     cms_dataset_regex: str | None = None
     total_gen_weight: str | None = None
-    _parent_dataset: Dataset| None = None
+    _parent_dataset: Dataset | None = None
 
     @cached_property
     def fdict(self):

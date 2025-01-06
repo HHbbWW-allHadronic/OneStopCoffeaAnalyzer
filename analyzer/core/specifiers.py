@@ -133,7 +133,7 @@ class SectorSpec(BaseModel):
     def ifSingleton(cls, values):
         if "sample_spec" not in values:
             sample_spec = {
-                "name": values.get("name"),
+                "name": values.get("sample_name"),
                 "era": values.get("era"),
                 "sample_type": values.get("sample_type"),
             }
