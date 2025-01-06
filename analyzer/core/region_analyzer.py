@@ -165,7 +165,7 @@ class RegionAnalyzer(BaseModel):
         for module in self.weights:
             module(columns, params, weighter)
         for module in categories:
-            module(columns, params)
+            module(columns, params, categories)
         histogrammer = Histogrammer(
             storage=histogram_storage,
             weighter=weighter,

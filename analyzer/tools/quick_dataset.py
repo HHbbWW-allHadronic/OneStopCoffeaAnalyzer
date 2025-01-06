@@ -1,24 +1,23 @@
 import argparse
-import operator as op
-import itertools as it
 import datetime
+import itertools as it
 import json
-from rich.prompt import Prompt, Confirm
 import logging
+import operator as op
+import re
 import subprocess
 import sys
 from pathlib import Path
-from rich.progress import track
-import re
 
 import requests
 import yaml
-from pydantic import BaseModel, model_validator, TypeAdapter
 
 from analyzer.configuration import CONFIG
-
 from auth_get_sso_cookie import cern_sso
+from pydantic import BaseModel, TypeAdapter, model_validator
 from rich import print
+from rich.progress import track
+from rich.prompt import Confirm, Prompt
 
 
 class MyDumper(yaml.Dumper):
@@ -41,6 +40,7 @@ class ProtoDataset(BaseModel):
     locate_xsec: bool = False
     known_xsec: float | None = None
     process_field: int = 1
+    append_name_field: int | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -227,6 +227,7 @@ def buildDatasetFromProto(protoset, output, xsec_db, skip_existing=True):
         include_xsec=protoset.locate_xsec,
         sample_name_field=protoset.sample_field,
         sample_process_field=protoset.process_field,
+        append_name_field=protoset.append_name_field,
         filter_extra=protoset.filter_regex,
     )
 
@@ -253,6 +254,7 @@ def buildDataset(
     token_file=None,
     sample_name_field=1,
     sample_process_field=2,
+    append_name_field=None,
     filter_extra=None,
 ):
     header = {
@@ -271,6 +273,10 @@ def buildDataset(
         dict(query=sample, name=Path(sample).parts[sample_name_field])
         for sample in samples
     ]
+
+    if append_name_field is not None:
+        for d in sample_info:
+            d["name"] = d["name"] + "_" + Path(d["query"]).parts[append_name_field]
 
     if sample_type == "MC":
         for d in sample_info:

@@ -1,0 +1,68 @@
+# The name of analysis to be run
+name: Complete
+# Samples and in which regions they should be processed
+samples:
+  data_singlemuon_2018: [MuonEff]
+  data_singlemuon_2017: [MuonEff]
+  data_singlemuon_2016pre: [MuonEff]
+  data_singlemuon_2016post: [MuonEff]
+
+
+
+executors:
+  local:
+    executor_type: dask_local
+    step_size: 100000
+    max_workers: 4
+  imm:
+    executor_type: immediate
+    step_size: 1000000
+    catch_exceptions: True
+
+  condor:
+    executor_type: condor
+    step_size: 100000
+
+  dask_condor:
+    executor_type: dask_condor
+    max_workers: 150
+    min_workers: 80
+    worker_memory: 2GB
+    worker_timeout: 7200
+    chunk_size: 400000
+
+
+file_config:
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  use_replicas: True
+
+regions:
+  - name: MuonEff
+    objects:
+      - name: trigger_eff_objects
+    preselection:
+      - name: golden_lumi_filter
+        sample_spec:
+          sample_type: Data
+      - name: iso_muon
+    selection: 
+      - name: trig_eff_selection
+    categories:
+      - name: pass_HT_category
+    histograms:
+      - name: goodjet_ht
+    weights: 
+      - name: L1_prefiring_sf
+        sample_spec:
+          eras: ["2016", "2017", "2018"]
+          sample_type: MC
+        config:
+          variations: All
+
+      - name: sign_gen_weight
+        sample_spec:
+          sample_type: MC
+
+      - name: pileup_sf
+        sample_spec:
+          sample_type: MC

@@ -168,11 +168,7 @@ function startup_with_container(){
     local in_apptainer=${APPTAINER_COMMAND:-false}
     local apptainer_flags=""
 
-    cat <<EOF > .cmslpc-local-conf
-#!/bin/bash
-python3 ${LPC_CONDOR_LOCAL}.orig | grep -v "LOCAL_CONFIG_FILE"
-EOF
-    chmod u+x .cmslpc-local-conf
+
 
     if [ "$in_apptainer"  = false ]; then
         # if command -v condor_config_val &> /dev/null; then
@@ -189,6 +185,11 @@ EOF
             apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_CONFIG}"
             apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig"
             apptainer_flags="$apptainer_flags --bind .cmslpc-local-conf:${LPC_CONDOR_LOCAL}"
+            cat <<EOF > .cmslpc-local-conf
+#!/bin/bash
+python3 ${LPC_CONDOR_LOCAL}.orig | grep -v "LOCAL_CONFIG_FILE"
+EOF
+            chmod u+x .cmslpc-local-conf
         fi
         if [[ $(hostname) =~ "umn" ]]; then
             apptainer_flags="$apptainer_flags --bind /local/cms/user/"

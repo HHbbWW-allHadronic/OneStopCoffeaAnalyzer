@@ -1,6 +1,7 @@
 from __future__ import annotations
 import dataclasses
 import enum
+from rich.progress import track
 import itertools as it
 import json
 import logging
@@ -190,7 +191,10 @@ class Sample(BaseModel):
         t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
         flat = dict(t)
         if len(flat) != len(self.files):
-            raise RuntimeError(f"Possible missing files for {self.name}")
+            raise RuntimeError(f"Possible missing files for {self._parent_dataset.name} - {self.name}."
+                               f"The number of files in the replica cache is {len(flat)}."
+                               f"The number of files in the dateset is {len(self.files)}."
+                               )
         for f in self.files:
             cms_loc = f.cmsLocation()
             for l, p in flat[cms_loc].items():
@@ -372,7 +376,7 @@ class DatasetRepo:
             self.useReplicaCache()
 
     def buildReplicaCache(self, force=False):
-        for dataset in self.datasets.values():
+        for dataset in track(self.datasets.values()):
             logger.info(f"Building replicas for {dataset}")
             for sample in dataset.samples:
                 logger.info(

@@ -87,6 +87,7 @@
   sample_type: Data
   era: '2022_preEE'
   sample_field: 2
+  append_name_field: 1
   filter_regex: 'Run2022[CD]'
   cms_regex: '/Jet*T/Run2022*-22Sep2023-v1/NANOAOD'
 
