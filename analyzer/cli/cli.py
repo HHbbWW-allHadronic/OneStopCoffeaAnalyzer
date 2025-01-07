@@ -36,8 +36,8 @@ def handleCheckResults(args):
 
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("check-results", help="Check result")
-    subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
+    subparser = subparsers.add_parser("check-results", help="Check results")
+    subparser.add_argument("input", nargs="+", type=Path, help="Input data paths.")
     subparser.set_defaults(func=handleCheckResults)
 
 
@@ -49,7 +49,7 @@ def handleQuickDataset(args):
 
 def addSubparserQuickDataset(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("dataset-builder", help="Check result")
+    subparser = subparsers.add_parser("dataset-builder", help="Construct datasets from simple descriptions.")
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o",
@@ -73,7 +73,7 @@ def handleSamples(args):
 
 def addSubparserSampleReport(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("samples", help="Run analyzer")
+    subparser = subparsers.add_parser("samples", help="Get information on available samples")
     subparser.set_defaults(func=handleSamples)
 
 
@@ -91,7 +91,7 @@ def handleRunPackaged(args):
 
 def addSubparserRunPackaged(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("run-packaged", help="Run analyzer")
+    subparser = subparsers.add_parser("run-packaged", help="Run a packaged task")
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.add_argument("--output-dir", type=Path, help="Output data path.")
     subparser.set_defaults(func=handleRunPackaged)
@@ -112,7 +112,7 @@ def handleRun(args):
 
 def addSubparserRun(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("run", help="Run analyzer")
+    subparser = subparsers.add_parser("run", help="Run analyzer based on provided configuration")
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o", "--output", type=Path, help="Output path", required=True
@@ -197,7 +197,7 @@ def handlePatch(args):
 
 def addSubparserPatch(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("patch", help="Run analyzer")
+    subparser = subparsers.add_parser("patch", help="Patch a result by running over missing chunks.")
     subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o", "--output", type=Path, help="Output path", required=True

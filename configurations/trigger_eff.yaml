@@ -15,6 +15,8 @@ executors:
     executor_type: dask_local
     step_size: 100000
     max_workers: 4
+    adapt: false
+
   imm:
     executor_type: immediate
     step_size: 100000
@@ -27,7 +29,7 @@ executors:
   dask_condor:
     executor_type: dask_condor
     max_workers: 150
-    min_workers: 80
+    min_workers: 20
     worker_memory: 2GB
     worker_timeout: 7200
     chunk_size: 400000

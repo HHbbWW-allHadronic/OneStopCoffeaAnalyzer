@@ -33,14 +33,9 @@ def openNoOverwrite(file_name, *args, **kwargs):
     p = Path(file_name)
     orig_stem = p.stem
     i = 1
-    print(p)
-    print(p.exists())
     while p.exists():
         p = p.with_stem(orig_stem + "_" + str(i))
         i += 1
-
-    print(p)
-    print(p.exists())
 
     handle = open(p, *args, **kwargs)
     yield handle
@@ -80,7 +75,7 @@ def runFromPath(path, output, executor_name, save_separate=False, test_mode=Fals
     tasks = {task.sample_id: task for task in tasks}
 
     if executor_name not in description.executors:
-        raise KeyError()
+        raise KeyError(f"Unknown executor {executor_name}")
 
     executor = description.executors[executor_name]
     executor.test_mode = test_mode

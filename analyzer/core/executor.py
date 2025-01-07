@@ -83,12 +83,13 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
             uid: task.file_set.slice(files=slice(0, 1)) for uid, task in tasks.items()
         }
 
+
     to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
 
     if not to_prep:
         return {uid: task.file_set for uid, task in tasks.items()}
 
-    logger.info(f"Preprocessing %d samples", len(to_prep))
+    logger.info("Preprocessing %d samples", len(to_prep))
     out, all_items = dst.preprocess(
         to_prep,
         save_form=False,
@@ -98,7 +99,9 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
         # allow_empty_datasets=True
     )
     new_filesets = {
-        uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
+        uid: (
+            task.file_set.updateFromCoffea(out[uid]) if uid in out else task.file_set
+        ).justChunked()
         for uid, task in tasks.items()
     }
 
@@ -174,7 +177,7 @@ class DaskExecutor(Executor):
                 # print(len(d.get_all_dependencies()))
                 # import sys
                 # sys.exit()
-                
+
                 ret[k] = {
                     "result": r,
                     "report": all_events[k][1],
@@ -192,7 +195,7 @@ class DaskExecutor(Executor):
                 except Exception as e:
                     logger.warn(
                         f"An exception occurred while processing task {k}."
-                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
+                        "This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
                     )
                     computed_results[k] = None
             else:
@@ -317,11 +320,11 @@ def setupForCondor(
     extra_files=None,
 ):
 
-    print(f"{analysis_root_dir = }")
-    print(f"{apptainer_dir = }")
-    print(f"{venv_path = }")
-    print(f"{x509_path = }")
-    print(f"{temporary_path = }")
+    # print(f"{analysis_root_dir = }")
+    # print(f"{apptainer_dir = }")
+    # print(f"{venv_path = }")
+    # print(f"{x509_path = }")
+    # print(f"{temporary_path = }")
     extra_files = extra_files or []
     compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
     analyzer_compressed = (
@@ -515,7 +518,7 @@ class LPCCondorDask(DaskExecutor):
             # "lpcjobqueue.patch",
         ]
         kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
-        kwargs["python"] = f"{self.venv_path}/bin/python"
+        kwargs["python"] = f"{str(self.venv_path)}/bin/python"
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
         s = SCHEDD()
