@@ -283,9 +283,9 @@ def buildDataset(
             x = xsec_database.get(Path(d["query"]).parts[sample_process_field])
             if x is not None:
                 d["x_sec"] = x.cross_section * 1000
+
     print(header)
     print(sample_info)
-
     ok = Confirm.ask("Are these samples Ok?")
 
     if not ok:

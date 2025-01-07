@@ -11,7 +11,7 @@ from analyzer.core.region_analyzer import RegionAnalyzer
 
 from analyzer.datasets import SampleParams
 from analyzer.core.columns import Columns
-from analyzer.core.selection import SelectionSet,Selection, SelectionFlow
+from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
 from analyzer.core.histograms import Hist
 
@@ -21,12 +21,6 @@ if CONFIG.PRETTY_MODE:
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class Category:
-    name: str
-    axis: Any
-    values: Any
-    distinct_values: set[int| str| float] = field(default_factory=set)
 
 
 @dataclass
@@ -40,9 +34,9 @@ class Analyzer:
         params: SampleParams,
         preselection: Selection,
         preselection_set: SelectionSet,
-        histogram_storage: dict[str,Hist],
-        cutflow_storage: dict[str,SelectionFlow],
-        variation =None,
+        histogram_storage: dict[str, Hist],
+        cutflow_storage: dict[str, SelectionFlow],
+        variation=None,
     ):
         logger.info(f"Running analysis branch for variation {variation}")
         selection_set = SelectionSet(parent_selection=preselection)
@@ -55,7 +49,6 @@ class Analyzer:
             selection = ra.runSelection(columns, params, selection_set)
             if variation is None:
                 cutflow_storage[ra.region_name] = selection.getSelectionFlow()
-
 
             mask = selection.getMask()
             if mask is not None:
@@ -135,8 +128,6 @@ class Analyzer:
                 )
             )
         return ret
-
-
 
     def ensureFunction(self, module_repo):
         for ra in self.region_analyzers:

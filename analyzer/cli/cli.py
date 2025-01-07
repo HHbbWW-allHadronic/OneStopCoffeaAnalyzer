@@ -155,9 +155,12 @@ def addSubparserPost(subparsers):
 
 
 def handleQuicklook(args):
-    from .quicklook import quicklookFiles
+    from .quicklook import quicklookFiles, quicklookHistsPath
 
-    quicklookFiles(args.input)
+    if args.region_name:
+        quicklookHistsPath(args.input, args.region_name, args.hist_name, args.interact)
+    else:
+        quicklookFiles(args.input)
 
 
 def addSubparserQuicklookFile(subparsers):
@@ -166,6 +169,15 @@ def addSubparserQuicklookFile(subparsers):
         "quicklook", help="Quick information about a result."
     )
     subparser.add_argument("input", nargs=1, type=Path, help="Input files path.")
+    subparser.add_argument(
+        "-r", "--region-name", default=None, type=str, help="Region name"
+    )
+    subparser.add_argument(
+        "-n", "--hist-name", default=None, type=str, help="hist_name"
+    )
+    subparser.add_argument(
+        "-i", "--interact", action="store_true", default=False, help="interact"
+    )
     subparser.set_defaults(func=handleQuicklook)
 
 

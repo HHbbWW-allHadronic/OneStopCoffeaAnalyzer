@@ -3,6 +3,7 @@ import itertools as it
 
 from analyzer.configuration import CONFIG
 from pydantic import BaseModel, Field
+from typing import Any
 import awkward as ak
 
 from .analysis_modules import (
@@ -15,11 +16,28 @@ from .columns import Columns
 from .selection import Selection, SelectionSet, Selector
 from .weights import Weighter
 import logging
+from dataclasses import dataclass
 
 if CONFIG.PRETTY_MODE:
     pass
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class Category:
+    name: str
+    axis: Any
+    values: Any
+    distinct_values: set[int | str | float] | None = None
+
+
+class Categorizer:
+    def __init__(self):
+        self.storage = []
+
+    def add(self, *args, **kwargs):
+        self.storage.append(Category(*args, **kwargs))
 
 
 class RegionAnalyzer(BaseModel):
@@ -161,15 +179,16 @@ class RegionAnalyzer(BaseModel):
             size = ak.num(columns.events, axis=0)
         weighter = Weighter(size=size, ignore_systematics=active_shape is not None)
 
-        categories = []
+        categorizer = Categorizer()
         for module in self.weights:
             module(columns, params, weighter)
-        for module in categories:
-            module(columns, params, categories)
+        for module in self.categories:
+            module(columns, params, categorizer)
+
         histogrammer = Histogrammer(
             storage=histogram_storage,
             weighter=weighter,
-            categories=categories,
+            categories=categorizer.storage,
             active_shape_systematic=active_shape,
             delayed=columns.delayed,
         )

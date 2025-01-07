@@ -8,9 +8,9 @@
   era: '2018'
   files: 
     - local: applocal/test.root
-    - local: applocal/test1.root
-    - local: applocal/test2.root
-    - local: applocal/test3.root
+    # - local: applocal/test1.root
+    # - local: applocal/test2.root
+    # - local: applocal/test3.root
 
 - name: testsignal2
   sample_type: MC
@@ -22,6 +22,14 @@
   era: '2018'
   files: 
     - local: applocal/test.root
+
+- name: testmuondata
+  sample_type: Data
+  title: "testmuondata"
+  n_events: 1001
+  era: '2018'
+  files: 
+    - local: applocal/muon2018tiny.root
 
 - name: testsignal3
   sample_type: Data

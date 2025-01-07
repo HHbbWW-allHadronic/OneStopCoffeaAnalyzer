@@ -25,4 +25,6 @@
   trigger_names:
     HT: PFHT900
     AK8SingleJetPt: AK8PFJet360_TrimMass30
+    IsoMuon: IsoMu24
+    SingleMuon: Mu50
 

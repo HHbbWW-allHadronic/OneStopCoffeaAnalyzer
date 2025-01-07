@@ -16,7 +16,6 @@ from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 
 
 def quicklookSample(result):
-
     data = {
         "sample_name": result.sample_id.sample_name,
         "data_name": result.sample_id.dataset_name,
@@ -24,12 +23,28 @@ def quicklookSample(result):
         "processed_events": result.processed_events,
         "expected_events": result.params.n_events,
         "regions": list(result.results),
-        "region_hists": {x: list(y.base_result.histograms) for x, y in result.results.items()},
+        "region_hists": {
+            x: list(y.base_result.histograms) for x, y in result.results.items()
+        },
     }
     print(data)
+
+
+def quicklookHist(result, region, hist):
+    h = result.results[region].base_result.histograms[hist].histogram
+    return h
 
 
 def quicklookFiles(paths):
     results = loadSampleResultFromPaths(paths)
     for k, v in results.items():
         quicklookSample(v)
+
+
+def quicklookHistsPath(paths, region, hist, interact=False):
+    results = loadSampleResultFromPaths(paths)
+    for k, v in results.items():
+        h = quicklookHist(v, region, hist)
+    if interact:
+        import code
+        code.interact(local={"histogram": h})

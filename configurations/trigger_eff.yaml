@@ -2,6 +2,7 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
+  # testmuondata: All
   data_singlemuon_2018: [MuonEff]
   data_singlemuon_2017: [MuonEff]
   data_singlemuon_2016pre: [MuonEff]
@@ -16,8 +17,8 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 1000000
-    catch_exceptions: True
+    step_size: 100000
+    catch_exceptions: False
 
   condor:
     executor_type: condor
@@ -40,17 +41,22 @@ regions:
   - name: MuonEff
     objects:
       - name: trigger_eff_objects
+
     preselection:
       - name: golden_lumi_filter
         sample_spec:
           sample_type: Data
       - name: iso_muon
+
     selection: 
       - name: trig_eff_selection
+
     categories:
       - name: pass_HT_category
+
     histograms:
       - name: goodjet_ht
+
     weights: 
       - name: L1_prefiring_sf
         sample_spec:
