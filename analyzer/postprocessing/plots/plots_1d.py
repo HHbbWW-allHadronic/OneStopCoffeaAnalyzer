@@ -28,6 +28,7 @@ def plotOne(
     sectors,
     output_name,
     style_set,
+    scale="linear",
     normalize=False,
     plot_configuration=None,
 ):
@@ -55,6 +56,8 @@ def plotOne(
     addCMSBits(ax, sectors, plot_configuration=plot_configuration)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
+    ax.set_yscale(scale)
+
     # mplhep.yscale_legend(ax, soft_fail=True)
     mplhep.ylow(ax)
     o = doFormatting(output_name, group_params, histogram_name=histogram)

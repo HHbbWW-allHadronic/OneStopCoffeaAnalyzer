@@ -34,7 +34,7 @@ from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 def runPostprocessors(config, input_files, parallel=8):
     loadStyles()
     print("Loading Postprocessors")
-    loaded = loadPostprocessors("configurations/post.yaml")
+    loaded = loadPostprocessors(config)
     print("Loading Samples")
     sample_results = loadSampleResultFromPaths(input_files)
     dataset_results = makeDatasetResults(sample_results)

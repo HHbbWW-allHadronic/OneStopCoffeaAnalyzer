@@ -37,6 +37,8 @@ class Histogram1D(pyd.BaseModel):
     groupby: list[str] = ["dataset.era.name", "region.region_name"]
     output_name: str = "{histogram_name}"
 
+    scale: Literal["log", "linear"] = "linear"
+
     axis_options: dict[str, Mode | str | int] | None = None
     normalize: bool = False
 
@@ -55,6 +57,7 @@ class Histogram1D(pyd.BaseModel):
                         sector_group.parameters,
                         sector_group.sectors,
                         self.output_name,
+                        scale=self.scale,
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=self.plot_configuration,
@@ -224,4 +227,3 @@ class RatioPlot(pyd.BaseModel):
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
-
