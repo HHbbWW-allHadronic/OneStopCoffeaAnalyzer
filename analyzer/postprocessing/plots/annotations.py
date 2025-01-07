@@ -8,12 +8,14 @@ def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration
         plot_configuration = PlotConfiguration()
     lumis = set(str(x.sector_params.dataset.lumi) for x in sectors)
     energies = set(str(x.sector_params.dataset.era.energy) for x in sectors)
+    era = set(str(x.sector_params.dataset.era.name) for x in sectors)
+    era_text = f"{'/'.join(era)}"
     lumi_text = (
         plot_configuration.lumi_text
         or f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
     )
 
-    mplhep.cms.lumitext(text=lumi_text, ax=ax)
+    mplhep.cms.lumitext(text=era_text + ", " + lumi_text, ax=ax)
     text = plot_configuration.cms_text
     if extra_text is not None:
         text += "\n" + extra_text

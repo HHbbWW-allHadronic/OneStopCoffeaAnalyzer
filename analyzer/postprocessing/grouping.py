@@ -1,10 +1,13 @@
 import functools as ft
 import itertools as it
 import string
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
+from pydantic import BaseModel ,Field
 
 from analyzer.core.results import SectorResult
+
+from .split_histogram import Mode, splitHistogram
 
 
 def getNested(d, s):
@@ -30,7 +33,6 @@ def doFormatting(s, data, **kwargs):
 
 
 def groupBy(data, fields):
-
     def k(v):
         return tuple([getNested(v.params_dict, x) for x in fields])
 
@@ -43,6 +45,7 @@ def groupBy(data, fields):
 class SectorGroup:
     parameters: dict[Any, Any]
     sectors: list[SectorResult]
+    axis_options: dict[str, Mode] | None = None
 
     def compatible(self, other):
         return self.parameters == other.parameters
@@ -54,8 +57,15 @@ class SectorGroup:
         return iter(self.sectors)
 
 
-def createSectorGroups(sectors, *fields):
+
+class SectorGroupSpec(BaseModel):
+    fields: list[str]
+    axis_options: dict[str, Mode] | None = None
+
+
+def createSectorGroups(sectors, *fields, axis_options=None):
     grouped = groupBy(sectors, fields)
     return [
-        SectorGroup(parameters=params, sectors=sectors) for params, sectors in grouped
+        SectorGroup(parameters=params, sectors=sectors, axis_options=axis_options)
+        for params, sectors in grouped
     ]

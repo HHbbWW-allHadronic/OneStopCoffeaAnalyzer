@@ -41,7 +41,37 @@ Postprocessing:
       sample_spec:
         name:
           - 'qcd*'
+          
 
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
 
     groupby: ["dataset.era.name", "region_name"]
+
+  - name: Ratio
+    action: RatioPlot
+    histogram_names:
+      - h_njet
+      - m13_m
+      - HT
+      - pt_1
+      - pt_2
+
+    denominator:
+      sample_spec:
+        name:
+          - 'data*'
+      axis:
+        variation: central
+    numerator:
+      sample_spec:
+        name:
+          - 'data*'
+        variation: SPLIT
+
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
+
+    groupby: ["dataset.era.name", "region_name"]
+
+
+    data2018, {variation=central}
+    

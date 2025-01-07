@@ -71,6 +71,54 @@ class Histogram1D(pyd.BaseModel):
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
 
+@registerPostprocessor
+class TriggerEff(pyd.BaseModel):
+    histogram_names: list[str]
+
+    to_process: SectorSpec
+
+    style_set: str | StyleSet
+
+    trigger_axis: str
+
+    groupby: list[str] = ["dataset.era.name", "region.region_name"]
+    output_name: str = "{histogram_name}"
+
+    scale: Literal["log", "linear"] = "linear"
+
+    axis_options: dict[str, Mode | str | int] | None = None
+    normalize: bool = False
+
+    plot_configuration: PlotConfiguration | None = None
+
+    def getExe(self, results):
+        sectors = [x for x in results if self.to_process.passes(x.sector_params)]
+        r = createSectorGroups(sectors, *self.groupby)
+        ret = []
+        for histogram in self.histogram_names:
+            for sector_group in r:
+                ret.append(
+                    ft.partial(
+                        plotOne,
+                        histogram,
+                        sector_group.parameters,
+                        sector_group.sectors,
+                        self.output_name,
+                        scale=self.scale,
+                        style_set=self.style_set,
+                        normalize=self.normalize,
+                        plot_configuration=self.plot_configuration,
+                    )
+                )
+        return ret
+
+    def init(self):
+        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        with open(config_path, "r") as f:
+            d = yaml.safe_load(f)
+        self.style_set = StyleSet(**d)
+
+
 
 @registerPostprocessor
 class ExportHists(pyd.BaseModel):
