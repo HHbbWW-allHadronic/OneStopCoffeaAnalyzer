@@ -1,61 +1,39 @@
 # The name of analysis to be run
-name: SingleStop
-
+name: Test
 # Samples and in which regions they should be processed
 samples:
-  signal_312_2000_1900: [Signal312,Control]
-  QCDInclusive2018: [Signal312,Control]
-  signal_312_1500_1400: [Signal312, Control]
-  signal_312_1200_400: [Signal312, Control]
-  signal_312_1200_600: [Signal312, Control]
-  signal_312_1200_1100: [Signal312, Control]
-  signal_312_1300_1200: [Signal312, Control]
-  signal_312_1400_400: [Signal312, Control]
-  signal_312_1400_1300: [Signal312, Control]
-  signal_312_1500_400: [Signal312, Control]
-  signal_312_1500_600: [Signal312, Control]
-  signal_312_1500_900: [Signal312, Control]
-  signal_312_1500_1400: [Signal312, Control]
-  signal_312_2000_400: [Signal312, Control]
-  signal_312_1300_400: [Signal312, Control]
-  signal_312_1300_600: [Signal312, Control]
-  signal_312_2000_900: [Signal312, Control]
-  signal_312_2000_1900: [Signal312, Control]
-  signal_312_1000_700: [Signal312, Control]
-  signal_312_1000_800: [Signal312, Control]
-  signal_312_1200_700: [Signal312, Control]
-  signal_312_1200_800: [Signal312, Control]
-  signal_312_1500_100: [Signal312, Control]
-  signal_312_1500_1000: [Signal312, Control]
-  signal_312_1500_1200: [Signal312, Control]
-  signal_312_1500_1300: [Signal312, Control]
-  signal_312_1500_1350: [Signal312, Control]
-  signal_312_1500_1450: [Signal312, Control]
-  signal_312_2000_1200: [Signal312, Control]
-  signal_312_2000_1600: [Signal312, Control]
-  signal_312_2000_1700: [Signal312, Control]
-  signal_312_1000_400: [Signal312, Control]
-  signal_312_1000_600: [Signal312, Control]
-  signal_312_1000_900: [Signal312, Control]
+  testsignal1: All
 
-  # Data2018: [Control, Signal312, Signal313]
+executors:
+  local:
+    executor_type: dask_local
+    step_size: 100000
+    max_workers: 4
+    adapt: false
+  imm:
+    executor_type: immediate
+    step_size: 1000000
+    catch_exceptions: True
 
-# Samples and in which regions they should be processed
-execution_config:
-  cluster_type: lpccondor
-  max_workers: 20
-  worker_memory: 4GB
-  worker_timeout: 7200
-  chunk_size: 100000
-  extra_files:
-    - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
+  condor:
+    executor_type: condor
+    step_size: 100000
+
+  dask_condor:
+    executor_type: dask_condor
+    max_workers: 150
+    min_workers: 80
+    worker_memory: 2GB
+    worker_timeout: 7200
+    chunk_size: 400000
+    extra_files:
+        - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
+
+
 
 file_config:
   location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
   use_replicas: True
-  skimming:
-    output: "root://blabla/SingleStop/"
-    use_skims_path: "root://blabla/SingleStop/"
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
@@ -79,6 +57,9 @@ common_items:
     common_objects: &common_objects
       - name: core_objects
 
+    common_corrections: &common_corrections
+      - name: testJetCorrection
+
     common_preselection: &common_preselection 
       - name: golden_lumi_filter
         sample_spec:
@@ -101,30 +82,11 @@ common_items:
           sample_type: MC
 
 
-# A region has a name, followed by description of what modules should be run
-# for each stage of the analysis: preselection, object_creation, selection, categorization, and histogram production for the given region.
-# Additionally, a module may also have a `sample_spec` option, which limits which samples it applies to, ie only make gen-level hists for MC.
-# Weighting information is defined in the weights nodes, described below.
 regions:
- # - name: Signal313
- #   forbid_data: true
- #   objects: *common_objects
- #   preselection:
- #     - name: selection_hlt
- #   selection:
- #     - name: general_selection
- #     - name: 313_selection
- #   categories:
- #     - njets_category:
- #   histograms: *common_signal
- #   weights:
- #     - <<: *common_weights
- #     - name: btag_scale_factors
- #       config:
- #           working_points: [T]
   - name: Signal312
-    forbid_data: false
+    forbid_data: true
     objects: *common_objects
+    corrections: *common_corrections
     preselection:
       - <<: *common_preselection
       - name: signal_hlt
@@ -134,15 +96,28 @@ regions:
     histograms: *common_signal
     weights: *common_weights
 
-
-  - name: Control
-    objects: *common_objects
-    preselection:
-      - <<: *common_preselection
-      - name: signal_hlt
-    selection: 
-      - name: general_selection
-      - name: partial_cr_selection
-    histograms: *common_signal
-    weights: *common_weights
-
+  # - name: Signal312_SingleJet
+  #   forbid_data: true
+  #   objects: *common_objects
+  #   corrections: *common_corrections
+  #   preselection:
+  #     - <<: *common_preselection
+  #     - name: hlt_single_jet
+  #   selection: 
+  #     - name: general_selection
+  #     - name: partial_signal312_selection
+  #   histograms: *common_signal
+  #   weights: *common_weights
+  # 
+  # 
+  # - name: Control
+  #   objects: *common_objects
+  #   corrections: *common_corrections
+  #   preselection:
+  #     - <<: *common_preselection
+  #     - name: signal_hlt
+  #   selection: 
+  #     - name: general_selection
+  #     - name: partial_cr_selection
+  #   histograms: *common_signal
+  #   weights: *common_weights

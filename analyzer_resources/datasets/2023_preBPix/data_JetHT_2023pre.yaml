@@ -3,7 +3,7 @@
   sample_type: Data
   era: 2023_preBPix
   samples:
-    - name: Run2023C-22Sep2023_v1-v1
+    - name: Run2023C-22Sep2023_v1-v1_JetMET0
       n_events: 56089464
       cms_dataset_regex: /JetMET0/Run2023C-22Sep2023_v1-v1/NANOAOD
       files:
@@ -76,7 +76,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v1-v1/40000/be87a591-3743-4d3e-8759-edb0326d0b51.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v1-v1/40000/be5c545f-e37a-4b99-a141-2ab0f6129488.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v1-v1/50000/ead8ff44-7fab-4225-bc56-e2d4ae4a1926.root
-    - name: Run2023C-22Sep2023_v2-v1
+    - name: Run2023C-22Sep2023_v2-v1_JetMET0
       n_events: 17154040
       cms_dataset_regex: /JetMET0/Run2023C-22Sep2023_v2-v1/NANOAOD
       files:
@@ -114,7 +114,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v2-v1/50000/0d228478-ce15-45db-8e49-79d0f605ccc7.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v2-v1/40000/e1bf7c0b-74f3-415d-ba15-f71cc885951d.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v2-v1/410000/fc00af49-0192-4b9a-b3d0-301b5f1876d7.root
-    - name: Run2023C-22Sep2023_v3-v1
+    - name: Run2023C-22Sep2023_v3-v1_JetMET0
       n_events: 14859886
       cms_dataset_regex: /JetMET0/Run2023C-22Sep2023_v3-v1/NANOAOD
       files:
@@ -146,7 +146,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v3-v1/30000/b43e2273-f368-46ad-aa91-962634649c2f.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v3-v1/30000/175daac7-a71e-40b4-bd62-182deedb5e4b.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v3-v1/50000/254f640e-2bfc-4210-95d1-586fe631a80f.root
-    - name: Run2023C-22Sep2023_v4-v1
+    - name: Run2023C-22Sep2023_v4-v1_JetMET0
       n_events: 105910300
       cms_dataset_regex: /JetMET0/Run2023C-22Sep2023_v4-v1/NANOAOD
       files:
@@ -275,7 +275,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v4-v1/2540000/cc701dc9-f0f8-42dd-a57f-abd330da1e41.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v4-v1/2540000/000ddcf4-658b-42c8-a742-bbcf7060f1ab.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET0/NANOAOD/22Sep2023_v4-v1/25410000/1f858d53-5fb4-497f-bd83-8bd5dcd1c199.root
-    - name: Run2023C-22Sep2023_v1-v1
+    - name: Run2023C-22Sep2023_v1-v1_JetMET1
       n_events: 56071751
       cms_dataset_regex: /JetMET1/Run2023C-22Sep2023_v1-v1/NANOAOD
       files:
@@ -352,7 +352,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v1-v1/40000/2275e8ba-37a9-4c4f-89b2-b4aa7c914d58.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v1-v1/40000/8c4e7807-0297-47e7-9f0a-fbd1b15fae56.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v1-v1/50000/5273ad2d-db7c-4002-9128-7d4cb6c5a6f4.root
-    - name: Run2023C-22Sep2023_v2-v1
+    - name: Run2023C-22Sep2023_v2-v1_JetMET1
       n_events: 17149627
       cms_dataset_regex: /JetMET1/Run2023C-22Sep2023_v2-v1/NANOAOD
       files:
@@ -386,7 +386,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v2-v1/50000/6d5997c9-71fa-4677-99db-991e7b7f1468.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v2-v1/50000/cf1ffbcc-8740-4e4c-b884-b3a0f78d6f18.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v2-v1/50000/05545e93-936d-45f1-bd72-06e96ac3a130.root
-    - name: Run2023C-22Sep2023_v3-v1
+    - name: Run2023C-22Sep2023_v3-v1_JetMET1
       n_events: 14852598
       cms_dataset_regex: /JetMET1/Run2023C-22Sep2023_v3-v1/NANOAOD
       files:
@@ -417,7 +417,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v3-v1/40000/6c9417fe-1cdc-4be7-a818-69927a49993b.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v3-v1/40000/31f7e69b-0f21-4b00-986d-aedd9189162a.root
         - root://cmsxrootd.fnal.gov//store/data/Run2023C/JetMET1/NANOAOD/22Sep2023_v3-v1/2540000/e563f0d9-53ad-4023-94c2-b7c8dbc50c00.root
-    - name: Run2023C-22Sep2023_v4-v1
+    - name: Run2023C-22Sep2023_v4-v1_JetMET1
       n_events: 105874180
       cms_dataset_regex: /JetMET1/Run2023C-22Sep2023_v4-v1/NANOAOD
       files:

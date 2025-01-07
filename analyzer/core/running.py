@@ -1,17 +1,16 @@
+import contextlib
 import pickle as pkl
 from pathlib import Path
-from rich import print
-
 
 from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetRepo, EraRepo
-
+from analyzer.core.analysis_modules import MODULE_REPO
+from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import getSubSectors, loadDescription
+from analyzer.core.executor import AnalysisTask
 from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
-from analyzer.core.analyzer import Analyzer
-from analyzer.core.executor import AnalysisTask
-from analyzer.core.analysis_modules import MODULE_REPO
+from analyzer.datasets import DatasetRepo, EraRepo
+from rich import print
 
 
 def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
@@ -29,6 +28,25 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
     return ret
 
 
+@contextlib.contextmanager
+def openNoOverwrite(file_name, *args, **kwargs):
+    p = Path(file_name)
+    orig_stem = p.stem
+    i = 1
+    print(p)
+    print(p.exists())
+    while p.exists():
+        p = p.with_stem(orig_stem + "_" + str(i))
+        i += 1
+
+    print(p)
+    print(p.exists())
+
+    handle = open(p, *args, **kwargs)
+    yield handle
+    handle.close()
+
+
 def saveResults(results, output, save_separate=False):
     if not results:
         return
@@ -36,11 +54,11 @@ def saveResults(results, output, save_separate=False):
     if save_separate:
         output.mkdir(exist_ok=True, parents=True)
         for k, v in results.items():
-            with open(output / f"{k}.pkl", "wb") as f:
+            with openNoOverwrite(output / f"{k}.pkl", "wb") as f:
                 pkl.dump({k: v.model_dump()}, f)
     else:
         output.parent.mkdir(exist_ok=True, parents=True)
-        with open(output, "wb") as f:
+        with openNoOverwrite(output, "wb") as f:
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 
 
@@ -63,7 +81,6 @@ def runFromPath(path, output, executor_name, save_separate=False, test_mode=Fals
 
     if executor_name not in description.executors:
         raise KeyError()
-    
 
     executor = description.executors[executor_name]
     executor.test_mode = test_mode

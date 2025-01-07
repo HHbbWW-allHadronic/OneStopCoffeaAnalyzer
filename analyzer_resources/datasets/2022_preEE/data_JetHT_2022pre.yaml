@@ -3,7 +3,7 @@
   sample_type: Data
   era: 2022_preEE
   samples:
-    - name: Run2022C-22Sep2023-v1
+    - name: Run2022C-22Sep2023-v1_JetHT
       n_events: 15620904
       cms_dataset_regex: /JetHT/Run2022C-22Sep2023-v1/NANOAOD
       files:
@@ -32,7 +32,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetHT/NANOAOD/22Sep2023-v1/410000/ee2c8654-4fff-458c-93dd-7a61964c0311.root
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetHT/NANOAOD/22Sep2023-v1/2520000/3ee9e17f-a2cc-4e02-a4c7-3f7fc148423d.root
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetHT/NANOAOD/22Sep2023-v1/2520000/d056f41d-8d76-4d82-bc01-77b649d3c9fa.root
-    - name: Run2022C-22Sep2023-v1
+    - name: Run2022C-22Sep2023-v1_JetMET
       n_events: 169187457
       cms_dataset_regex: /JetMET/Run2022C-22Sep2023-v1/NANOAOD
       files:
@@ -242,7 +242,7 @@
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetMET/NANOAOD/22Sep2023-v1/2530000/e4bb6e09-af8e-4b2a-8f9e-5a3b72de50ab.root
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetMET/NANOAOD/22Sep2023-v1/2530000/0b6815d2-5fd6-4b55-9374-a32b052c129b.root
         - root://cmsxrootd.fnal.gov//store/data/Run2022C/JetMET/NANOAOD/22Sep2023-v1/2530000/27f35e3e-ceb0-4707-98fd-65e35243d747.root
-    - name: Run2022D-22Sep2023-v1
+    - name: Run2022D-22Sep2023-v1_JetMET
       n_events: 100853361
       cms_dataset_regex: /JetMET/Run2022D-22Sep2023-v1/NANOAOD
       files:

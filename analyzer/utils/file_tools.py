@@ -1,11 +1,11 @@
 import collections.abc
 import logging
+import pickle
 import shutil
-from analyzer.configuration import CONFIG
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
-import pickle
 
+from analyzer.configuration import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +27,27 @@ def getPath(url):
     return Path(p)
 
 
+def multiMatch(l, elements):
+    if not isinstance(elements, (tuple, list)):
+        elements = (elements,)
+    else:
+        elements = tuple(elements)
+    n = len(elements)
+    for i in range(len(l) - n + 1):
+        if elements == tuple(l[i : i + n]):
+            return i + n - 1
+    return None
+
+
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
     parts = Path(p).parts
-    root_idx = next((i for i, x in enumerate(parts) if x in CONFIG.FILE_ROOTS), None)
+    root_idx = None
+    for r in CONFIG.FILE_ROOTS:
+        m = multiMatch(parts, r)
+        if m is not None:
+            root_idx = m
+            break
     if root_idx is None:
         raise RuntimeError(f"Could not find 'store' in {parts}")
     good_parts = parts[root_idx:]

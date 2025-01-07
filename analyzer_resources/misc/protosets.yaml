@@ -96,6 +96,7 @@
   sample_type: Data
   era: '2022_postEE'
   sample_field: 2
+  append_name_field: 1
   filter_regex: 'Run2022[EFG]'
   cms_regex: '/JetMET/Run2022*-22Sep2023-v*/NANOAOD'
 
@@ -104,6 +105,7 @@
   sample_type: Data
   era: '2023_preBPix'
   sample_field: 2
+  append_name_field: 1
   cms_regex: '/JetMET*/Run2023C-22Sep2023_v*-v*/NANOAOD'
 
 - name: data_JetHT_2023post
@@ -111,4 +113,5 @@
   sample_type: Data
   era: '2023_postBPix'
   sample_field: 2
+  append_name_field: 1
   cms_regex: '/JetMET*/Run2023D-22Sep2023_v*-v*/NANOAOD'

@@ -294,7 +294,6 @@ def buildDataset(
     for sinfo in track(sample_info):
         name = sinfo["name"]
         sample = sinfo["query"]
-        name = Path(sample).parts[sample_name_field]
         events = countEvents(sample)
         files = [f"root://cmsxrootd.fnal.gov/{x}" for x in getFiles(sample)]
         # x_sec = getSampleXSec(sample, token_file),

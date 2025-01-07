@@ -1,40 +1,32 @@
 from __future__ import annotations
-from rich import print
-import copy
-import yaml
-import uuid
-import os
-import coffea.dataset_tools as dst
-import analyzer
+
 import abc
-
-import dask
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from pydantic import BaseModel, Field
-from typing import Literal, Annotated, Any, ClassVar
-from coffea.util import decompress_form
-from analyzer.utils.file_tools import extractCmsLocation
-import awkward as ak
-
-from analyzer.utils.file_tools import compressDirectory
-from distributed import LocalCluster
-
+import copy
+import itertools as it
+import logging
 import os
 import shutil
+import uuid
 from pathlib import Path
+from typing import Annotated, Any, ClassVar, Literal
 
-import logging
-from pydantic import TypeAdapter
-import dask
-from analyzer.utils.file_tools import compressDirectory
-from analyzer.utils.structure_tools import accumulate
-from distributed import LocalCluster, Client
+import yaml
 
-from analyzer.configuration import CONFIG
-from analyzer.datasets import FileSet, SampleId, SampleParams
-
+import analyzer
 import analyzer.core.analyzer as core_analyzer
 import analyzer.core.results as core_results
+import awkward as ak
+import coffea.dataset_tools as dst
+import dask
+from analyzer.configuration import CONFIG
+from analyzer.datasets import FileSet, SampleId, SampleParams
+from analyzer.utils.file_tools import compressDirectory, extractCmsLocation
+from analyzer.utils.structure_tools import accumulate
+from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from coffea.util import decompress_form
+from distributed import Client, LocalCluster
+from pydantic import BaseModel, Field, TypeAdapter
+from rich import print
 
 try:
     from lpcjobqueue import LPCCondorCluster
@@ -103,6 +95,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
         skip_bad_files=True,
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
+        # allow_empty_datasets=True
     )
     new_filesets = {
         uid: task.file_set.updateFromCoffea(out[uid]).justChunked()
@@ -175,6 +168,13 @@ class DaskExecutor(Executor):
             if k in all_events:
                 r = task.analyzer.run(all_events[k][0], task.sample_params)
                 r = core_results.subsector_adapter.dump_python(r)
+                # opt = dask.optimize(r)
+                # d= opt[0]["Signal312"]["base_result"]["histograms"]["HT"]["histogram"].dask
+                # print(d)
+                # print(len(d.get_all_dependencies()))
+                # import sys
+                # sys.exit()
+                
                 ret[k] = {
                     "result": r,
                     "report": all_events[k][1],
@@ -290,7 +290,7 @@ class ImmediateExecutor(Executor):
             try:
                 ret[k] = self.__run_task(k, task)
             except Exception as e:
-                logger.warn(f"An exception occurred while running {k}.\n" f"{e}")
+                logger.warn(f"An exception occurred while running {k}.\n {e}")
                 if not self.catch_exceptions:
                     raise
 

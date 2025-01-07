@@ -7,12 +7,7 @@ from collections.abc import Mapping
 from urllib.parse import urlparse
 
 from analyzer.utils.file_tools import extractCmsLocation
-from pydantic import (
-    BaseModel,
-    Field,
-    model_validator,
-)
-
+from pydantic import BaseModel, Field, model_validator
 
 
 class SampleFile(BaseModel):
@@ -35,7 +30,7 @@ class SampleFile(BaseModel):
     def setFile(self, location, url):
         if self.cmsLocation() != extractCmsLocation(url):
             raise ValueError(
-                f"Url '{url}' does not have the same correct cms-location {self.cmsLocation()}"
+                f"Url '{url}' does not have the same correct cms-location \"{self.cmsLocation()}\" != \"{extractCmsLocation(url)}\""
             )
         self.paths[location] = url
 
