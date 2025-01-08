@@ -43,15 +43,15 @@ def quicklookFiles(paths):
 def quicklookHistsPath(paths, region, hist, interact=False):
     results = loadSampleResultFromPaths(paths)
     for k, v in results.items():
-        h = quicklookHist(v, region, hist)
+        histogram = quicklookHist(v, region, hist)
     if interact:
         import code
         import readline
         import rlcompleter
 
-        # vars = globals()
-        # vars.update(locals())
-        vars = {"histogram": h}
+        vars = globals()
+        vars.update(locals())
+        # vars = {"histogram": h}
         readline.set_completer(rlcompleter.Completer(vars).complete)
         readline.parse_and_bind("tab: complete")
         code.InteractiveConsole(vars).interact()

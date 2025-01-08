@@ -4,23 +4,33 @@ import itertools as it
 from collections import OrderedDict
 
 
-
 class Mode(str, enum.Enum):
-    Split = "split"
-    Sum = "sum"
+    Split = "Split"
+    Sum = "Sum"
 
 
-def splitHistogram(histogram, axis_options, allow_missing=False):
+def splitHistogram(histogram, axis_options, allow_missing=False, return_labels=False):
     h = copy.deepcopy(histogram)
     if allow_missing:
         axis_options = {x: y for x, y in axis_options if x in histogram.axes}
+
     sum_axes_names = [a for a, y in axis_options.items() if y == Mode.Sum]
-    split_axes = [histogram.axes[y] for a, y in axis_options.items() if y == Mode.Split]
+
+    split_axes = [histogram.axes[a] for a, y in axis_options.items() if y == Mode.Split]
+    print(split_axes)
     val_axes = {a: y for a, y in axis_options.items() if not isinstance(y, Mode)}
-    h = h[{x: sum for x in sum_axes_names}]
+    print(val_axes)
+    first = {**val_axes, **{x: sum for x in sum_axes_names}}
+    h = h[first]
     if not split_axes:
-        return h
-    possible_values = {**{x.name: list(x) for x in split_axes}, **val_axes}
+        if return_labels:
+            return h, []
+        else:
+            return h
+    possible_values = {(x.name): list(x) for x in split_axes}
     options = OrderedDict(possible_values)
     ret = {x: h[dict(zip(options.keys(), x))] for x in it.product(*options.values())}
-    return ret
+    if return_labels:
+        return ret, [(x.name or x.label) for x in split_axes]
+    else:
+        return ret
