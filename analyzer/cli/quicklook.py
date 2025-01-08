@@ -8,11 +8,9 @@ import yaml
 
 import pydantic as pyd
 from analyzer.configuration import CONFIG
-
+from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 from analyzer.core.specifiers import SectorSpec
 from rich import print
-
-from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 
 
 def quicklookSample(result):
@@ -32,6 +30,7 @@ def quicklookSample(result):
 
 def quicklookHist(result, region, hist):
     h = result.results[region].base_result.histograms[hist].histogram
+    print(h)
     return h
 
 
@@ -47,4 +46,12 @@ def quicklookHistsPath(paths, region, hist, interact=False):
         h = quicklookHist(v, region, hist)
     if interact:
         import code
-        code.interact(local={"histogram": h})
+        import readline
+        import rlcompleter
+
+        # vars = globals()
+        # vars.update(locals())
+        vars = {"histogram": h}
+        readline.set_completer(rlcompleter.Completer(vars).complete)
+        readline.parse_and_bind("tab: complete")
+        code.InteractiveConsole(vars).interact()
