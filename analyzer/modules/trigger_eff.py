@@ -77,6 +77,6 @@ def pass_HT_category(events, params, categories):
     ht_trigger_name = era_info.trigger_names["HT"]
     categories.add(
         name="PassHT",
-        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, label="PassHT"),
+        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHT"),
         values=events.HLT[ht_trigger_name],
     )
