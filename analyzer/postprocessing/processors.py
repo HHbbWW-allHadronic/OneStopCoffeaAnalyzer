@@ -217,7 +217,7 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
     plot_configuration: PlotConfiguration | None = None
     ratio_ylim: tuple[float, float] = (0, 2)
     ratio_hlines: list[float] = pyd.Field(default_factory=lambda: [1.0])
-    ratio_height: float = 3.0
+    ratio_height: float = 1.5
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
 
     def getExe(self, results):

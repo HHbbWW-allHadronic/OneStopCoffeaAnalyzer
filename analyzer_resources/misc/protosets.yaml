@@ -22,6 +22,33 @@
   sample_type: MC
   cms_regex: '/QCD_HT*_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v*/NANOAODSIM'
 
+- name: qcd_inclusive_2023_postBPix
+  title: QCD
+  era: '2023_postBPix'
+  sample_type: MC
+  filter_regex: 'PT-(\d+to\d+|3200)_'
+  cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer23*NanoAODv12-130X_mcRun3_2023_realistic_postBPix*/NANOAODSIM'
+
+- name: qcd_inclusive_2023_preBPix
+  title: QCD
+  era: '2023_preBPix'
+  sample_type: MC
+  filter_regex: 'PT-(\d+to\d+|3200)_'
+  cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM'
+  
+- name: qcd_inclusive_2022_preEE
+  title: QCD
+  era: '2023_preEE'
+  sample_type: MC
+  filter_regex: 'PT-(\d+to\d+|3200)_'
+  cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM'
+
+- name: qcd_inclusive_2022_postEE
+  title: QCD
+  era: '2023_postEE'
+  sample_type: MC
+  filter_regex: 'PT-(\d+to\d+|3200)_'
+  cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM'
 
 
 - name: data_singlemuon_2016post
