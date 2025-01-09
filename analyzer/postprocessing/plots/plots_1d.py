@@ -182,19 +182,21 @@ def plotRatio(
     output_path,
     style_set,
     normalize=False,
-    middle=1,
     ratio_ylim=(0, 2),
+    ratio_type="poisson",
     scale="linear",
     plot_configuration=None,
+    ratio_hlines=(1.0,),
+    ratio_height=1.5,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
     fig, ax = plt.subplots()
-    ratio_ax = addAxesToHist(ax, size=1.5, pad=0.3)
+    ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
-    style = styler.getStyle(denominator.sector_parameters)
+    style = denominator.style or styler.getStyle(denominator.sector_parameters)
     den_hist.plot1d(
         ax=ax,
         label=denominator.title,
@@ -214,9 +216,9 @@ def plotRatio(
         title = num.title
         h = num.histogram
         sp = num.sector_parameters
-        s = styler.getStyle(num.sector_parameters)
+        s = num.style or styler.getStyle(num.sector_parameters)
         n, d = h.values(), den_hist.values()
-        ratio, unc = getRatioAndUnc(n, d)
+        ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
         if normalize:
             with np.errstate(divide="ignore", invalid="ignore"):
                 ratio = (n / np.sum(n)) / (d / np.sum(d))
@@ -242,9 +244,9 @@ def plotRatio(
         )
         # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
 
-    central_value_artist = ratio_ax.axhline(
-        middle, color="black", linestyle="dashed", linewidth=1.0
-    )
+    for l in ratio_hlines:
+        ratio_ax.axhline(l, color="black", linestyle="dashed", linewidth=1.0)
+
     ratio_ax.set_xlim(left_edge, right_edge)
     ratio_ax.set_ylim(bottom=ratio_ylim[0], top=ratio_ylim[1])
     if normalize:

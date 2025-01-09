@@ -22,9 +22,7 @@ def splitHistogram(histogram, axis_options=None, allow_missing=False, return_lab
     sum_axes_names = [a for a, y in axis_options.items() if y == Mode.Sum]
 
     split_axes = [histogram.axes[a] for a, y in axis_options.items() if y == Mode.Split]
-    print(split_axes)
     val_axes = {a: y for a, y in axis_options.items() if not isinstance(y, Mode)}
-    print(val_axes)
     first = {**val_axes, **{x: sum for x in sum_axes_names}}
     h = h[first]
     if not split_axes:

@@ -23,21 +23,28 @@ Postprocessing:
   #     axis_options:
   #       variation: central
   #       1: Split
+
   - name: Ratio
     action: RatioPlot
     histogram_names:
       - HT
     scale: log
+    ratio_ylim: [0,1]
+    ratio_hlines: [0.5,0.95]
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+    ratio_type: efficiency
+
   
     numerator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       title_format: HLT HT
+      style_set:
+        - style:
+            color: blue
+            plot_type: step
       axis_options:
         variation: central
         1: 1
-
-      
   
     denominator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
@@ -45,3 +52,7 @@ Postprocessing:
       axis_options:
         variation: central
         1: Sum
+      style_set:
+        - style:
+            color: black
+            plot_type: step

@@ -209,13 +209,16 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
     histogram_names: list[str]
     numerator: SectorGroupSpec
     denominator: SectorGroupSpec
-    # groupby: SectorGroupSpec
     style_set: str | StyleSet
     output_name: str
     scale: Literal["log", "linear"] = "linear"
     axis_options: dict[str, Mode | str | int] | None = None
     normalize: bool = False
     plot_configuration: PlotConfiguration | None = None
+    ratio_ylim: tuple[float, float] = (0, 2)
+    ratio_hlines: list[float] = pyd.Field(default_factory=lambda: [1.0])
+    ratio_height: float = 3.0
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
 
     def getExe(self, results):
         gnums = createSectorGroups(results, self.numerator)
@@ -243,7 +246,11 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                         ),
                         self.style_set,
                         normalize=self.normalize,
+                        ratio_ylim=self.ratio_ylim,
+                        ratio_type=self.ratio_type,
                         scale=self.scale,
+                        ratio_hlines=self.ratio_hlines,
+                        ratio_height=self.ratio_height,
                         plot_configuration=self.plot_configuration,
                     )
                 )

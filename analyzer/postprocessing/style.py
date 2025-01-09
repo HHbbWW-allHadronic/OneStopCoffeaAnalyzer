@@ -5,6 +5,7 @@ import matplotlib as mpl
 from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
 from pydantic import BaseModel, Field
+from pydantic import AfterValidator, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,8 @@ class Style(BaseModel):
 
 
 class StyleRule(BaseModel):
-    sector_spec: SectorSpec
     style: Style
+    sector_spec: SectorSpec | None = None
 
 
 cms_colors_6 = [
@@ -71,9 +72,18 @@ cms_colors_10 = [
 class StyleSet(BaseModel):
     styles: list[StyleRule] = Field(default_factory=list)
 
-    def getStyle(self, sector_params):
+    @model_validator(mode="before")
+    @classmethod
+    def flattenStyle(cls, data):
+        if isinstance(data, list):
+            return {"styles": data}
+        return data
+
+    def getStyle(self, sector_params, other_data=None):
         for style_rule in self.styles:
-            if style_rule.sector_spec.passes(sector_params):
+            if style_rule.sector_spec is None:
+                return style_rule.style
+            elif style_rule.sector_spec.passes(sector_params):
                 logger.debug(
                     f"Found matching style rule for {sector_params.dataset.name}"
                 )

@@ -4,6 +4,7 @@ import itertools as it
 import string
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
+from .style import StyleSet, Style
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams
@@ -48,6 +49,7 @@ class SectorGroupSpec(BaseModel):
     axis_options: dict[str | int, Mode | str | int] | None = None
     cat_remap: dict[tuple[str, int | str], str] | None = None
     title_format: str = "{title}"
+    style_set: StyleSet | None = None
 
     @field_validator("axis_options", mode="after")
     @classmethod
@@ -68,6 +70,7 @@ class PackagedHist(BaseModel):
     title: str
     sector_parameters: SectorParams
     axis_parameters: dict[str, Any] | None = None
+    style: Style | None = None
 
     @property
     def dim(self):
@@ -88,6 +91,7 @@ class SectorGroup:
     sectors: list[SectorResult]
     axis_options: dict[str, Mode] | None = None
     title_format: str = "{title}"
+    style_set: StyleSet | None = None
 
     cat_remap: dict[tuple[str, int | str], str] | None = None
 
@@ -106,7 +110,6 @@ class SectorGroup:
 
     def __getHistTitle(self, hist, sector, cat_values=None):
         cat_values = cat_values or {}
-        print(cat_values)
         l = copy.deepcopy(cat_values)
         if self.cat_remap:
             for k, v in self.cat_remap.items():
@@ -120,12 +123,16 @@ class SectorGroup:
     def histograms(self, hist_name):
         everything = []
         for sector in self.sectors:
-            print(self.axis_options)
             hists, labels = splitHistogram(
                 sector.result.histograms[hist_name].histogram,
                 self.axis_options or None,
                 return_labels=True,
             )
+            style = None
+            if self.style_set:
+                style = self.style_set.getStyle(sector.sector_params)
+
+
             if isinstance(hists, dict):
                 for c, h in hists.items():
                     everything.append(
@@ -134,6 +141,7 @@ class SectorGroup:
                             title=self.__getHistTitle(h, sector, dict(zip(labels, c))),
                             sector_parameters=sector.sector_params,
                             axis_options=self.axis_options,
+                            style=style,
                         )
                     )
             else:
@@ -143,6 +151,7 @@ class SectorGroup:
                         title=self.__getHistTitle(hists, sector),
                         sector_parameters=sector.sector_params,
                         axis_options=self.axis_options,
+                        style=style,
                     )
                 )
 
@@ -161,6 +170,7 @@ def createSectorGroups(sectors, spec):
             axis_options=spec.axis_options,
             title_format=spec.title_format,
             cat_remap=spec.cat_remap,
+            style_set=spec.style_set,
         )
         for params, sectors in grouped
     ]
