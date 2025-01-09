@@ -1,12 +1,13 @@
+import copy
 import functools as ft
 import itertools as it
-import copy
 import string
 from dataclasses import dataclass, field
 from typing import Any, ClassVar
-from pydantic import BaseModel, Field, field_validator, AfterValidator
 
 from analyzer.core.results import SectorResult
+from analyzer.core.specifiers import SectorParams
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from .split_histogram import Mode, splitHistogram
 
@@ -46,7 +47,7 @@ class SectorGroupSpec(BaseModel):
     fields: list[str]
     axis_options: dict[str | int, Mode | str | int] | None = None
     cat_remap: dict[tuple[str, int | str], str] | None = None
-    label_format: str = "{title}"
+    title_format: str = "{title}"
 
     @field_validator("axis_options", mode="after")
     @classmethod
@@ -56,6 +57,29 @@ class SectorGroupSpec(BaseModel):
                 value[k] = Mode[value[k]]
         return value
 
+    @field_validator("cat_remap", mode="before")
+    @classmethod
+    def transformCatRemap(cls, value):
+        return {(k1, k2): v for k2, v in inner for k1, inner in value.items()}
+
+
+class PackagedHist(BaseModel):
+    histogram: Any
+    title: str
+    sector_parameters: SectorParams
+    axis_parameters: dict[str, Any] | None = None
+
+    @property
+    def dim(self):
+        return len(self.histogram.axes)
+
+    @property
+    def all_parameters(self):
+        return {**self.parameters, **(self.all_parameters or {})}
+
+    def compatible(self, other):
+        return self.histogram.axes == other.histogram.axes
+
 
 @dataclass
 class SectorGroup:
@@ -63,9 +87,13 @@ class SectorGroup:
     parameters: dict[Any, Any]
     sectors: list[SectorResult]
     axis_options: dict[str, Mode] | None = None
-    label_format: str = "{title}"
+    title_format: str = "{title}"
 
     cat_remap: dict[tuple[str, int | str], str] | None = None
+
+    @property
+    def all_parameters(self):
+        return {**self.parameters, **(self.axis_options or {})}
 
     def compatible(self, other):
         return self.parameters == other.parameters
@@ -84,25 +112,39 @@ class SectorGroup:
             for k, v in self.cat_remap.items():
                 if k in l:
                     l[k] = v
-        
-        return self.label_format.format(
+
+        return self.title_format.format(
             title=sector.sector_params.dataset.title, **cat_values
         )
 
     def histograms(self, hist_name):
-        everything = {}
+        everything = []
         for sector in self.sectors:
             print(self.axis_options)
             hists, labels = splitHistogram(
                 sector.result.histograms[hist_name].histogram,
-                self.axis_options,
+                self.axis_options or None,
                 return_labels=True,
             )
             if isinstance(hists, dict):
                 for c, h in hists.items():
-                    everything[self.__getHistTitle(h, sector, dict(zip(labels, c)))] = h
+                    everything.append(
+                        PackagedHist(
+                            histogram=h,
+                            title=self.__getHistTitle(h, sector, dict(zip(labels, c))),
+                            sector_parameters=sector.sector_params,
+                            axis_options=self.axis_options,
+                        )
+                    )
             else:
-                everything[self.__getHistTitle(hists, sector)] = hists
+                everything.append(
+                    PackagedHist(
+                        histogram=hists,
+                        title=self.__getHistTitle(hists, sector),
+                        sector_parameters=sector.sector_params,
+                        axis_options=self.axis_options,
+                    )
+                )
 
         return everything
 
@@ -117,7 +159,7 @@ def createSectorGroups(sectors, spec):
             parameters=params,
             sectors=sectors,
             axis_options=spec.axis_options,
-            label_format=spec.label_format,
+            title_format=spec.title_format,
             cat_remap=spec.cat_remap,
         )
         for params, sectors in grouped

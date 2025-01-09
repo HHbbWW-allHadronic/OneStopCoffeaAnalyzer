@@ -6,9 +6,9 @@ from .common import PlotConfiguration
 def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration=None):
     if plot_configuration is None:
         plot_configuration = PlotConfiguration()
-    lumis = set(str(x.sector_params.dataset.lumi) for x in sectors)
-    energies = set(str(x.sector_params.dataset.era.energy) for x in sectors)
-    era = set(str(x.sector_params.dataset.era.name) for x in sectors)
+    lumis = set(str(x.dataset.lumi) for x in sectors)
+    energies = set(str(x.dataset.era.energy) for x in sectors)
+    era = set(str(x.dataset.era.name) for x in sectors)
     era_text = f"{'/'.join(era)}"
     lumi_text = (
         plot_configuration.lumi_text

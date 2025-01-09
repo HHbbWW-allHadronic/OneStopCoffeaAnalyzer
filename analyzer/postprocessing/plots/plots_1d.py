@@ -1,13 +1,14 @@
+import numpy as np
+
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
-import numpy as np
 from analyzer.postprocessing.style import Styler
-from .mplstyles import loadStyles
 
 from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
+from .mplstyles import loadStyles
 from .utils import addAxesToHist, saveFig
 
 
@@ -23,10 +24,9 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
 
 
 def plotOne(
-    histogram,
+    packaged_hists,
     group_params,
-    sectors,
-    output_name,
+    output_path,
     style_set,
     scale="linear",
     normalize=False,
@@ -34,16 +34,14 @@ def plotOne(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    loadStyles()
-    mpl.use("Agg")
     fig, ax = plt.subplots()
-    for sector in sectors:
-        p = sector.sector_params
-        style = styler.getStyle(p)
-        h = sector.histograms[histogram].get()
+    for packaged_hist in packaged_hists:
+        title = packaged_hist.title
+        h = packaged_hist.histogram
+        style = styler.getStyle(packaged_hist.sector_parameters)
         h.plot1d(
             ax=ax,
-            label=sector.sector_params.dataset.title,
+            label=title,
             density=normalize,
             yerr=True,
             flow="none",
@@ -53,15 +51,16 @@ def plotOne(
 
     labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
     labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)
-    addCMSBits(ax, sectors, plot_configuration=plot_configuration)
+    addCMSBits(
+        ax,
+        [x.sector_parameters for x in packaged_hists],
+        plot_configuration=plot_configuration,
+    )
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
-
-    # mplhep.yscale_legend(ax, soft_fail=True)
     mplhep.ylow(ax)
-    o = doFormatting(output_name, group_params, histogram_name=histogram)
-    saveFig(fig, o, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)
 
 
@@ -178,56 +177,54 @@ def plotStrCat(*args, table_mode=False, **kwargs):
 
 
 def plotRatio(
-    histogram,
-    group_params,
-    numerators,
     denominator,
-    output_name,
+    numerators,
+    output_path,
     style_set,
     normalize=False,
     middle=1,
     ratio_ylim=(0, 2),
+    scale="linear",
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    loadStyles()
-    mpl.use("Agg")
+
     fig, ax = plt.subplots()
-    den = denominator.histograms[histogram].get()
     ratio_ax = addAxesToHist(ax, size=1.5, pad=0.3)
-    p = denominator.sector_params
-    style = styler.getStyle(p)
-    den.plot1d(
+
+    den_hist = denominator.histogram
+    style = styler.getStyle(denominator.sector_parameters)
+    den_hist.plot1d(
         ax=ax,
-        label=denominator.sector_params.dataset.title,
+        label=denominator.title,
         density=normalize,
         histtype=style.plottype,
         yerr=True,
         **style.get(),
     )
-    x_values = den.axes[0].centers
-    left_edge = den.axes.edges[0][0]
-    right_edge = den.axes.edges[-1][-1]
+
+    x_values = den_hist.axes[0].centers
+    left_edge = den_hist.axes.edges[0][0]
+    right_edge = den_hist.axes.edges[-1][-1]
 
     all_ratios, all_uncertainties = [], []
-    for sector in numerators:
-        p = sector.sector_params
-        s = styler.getStyle(sector.sector_params)
-        h = sector.histograms[histogram].get()
-        n, d = h.values(), den.values()
-        ratio, unc = getRatioAndUnc(n, d)
 
+    for num in numerators:
+        title = num.title
+        h = num.histogram
+        sp = num.sector_parameters
+        s = styler.getStyle(num.sector_parameters)
+        n, d = h.values(), den_hist.values()
+        ratio, unc = getRatioAndUnc(n, d)
         if normalize:
             with np.errstate(divide="ignore", invalid="ignore"):
                 ratio = (n / np.sum(n)) / (d / np.sum(d))
-
         all_ratios.append(ratio)
         all_uncertainties.append(unc)
-
         h.plot1d(
             ax=ax,
-            label=sector.sector_params.dataset.title,
+            label=title,
             density=normalize,
             yerr=True,
             histtype=s.plottype,
@@ -236,9 +233,7 @@ def plotRatio(
 
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
-
-        s = styler.getStyle(denominator.sector_params)
-        all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
+        all_opts = {**style.get("errorbar"), **dict(linestyle="none")}
         ratio_ax.errorbar(
             x_values,
             ratio,
@@ -257,16 +252,22 @@ def plotRatio(
     else:
         y_label = None
 
-    labelAxis(ax, "y", den.axes, label=y_label)
+    labelAxis(ax, "y", den_hist.axes, label=y_label)
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
-    labelAxis(ratio_ax, "x", den.axes)
-    addCMSBits(ax, (denominator,), plot_configuration=plot_configuration)
+
+    labelAxis(ratio_ax, "x", den_hist.axes)
+    addCMSBits(
+        ax,
+        [denominator.sector_parameters, *(x.sector_parameters for x in numerators)],
+        plot_configuration=plot_configuration,
+    )
+
     ratio_ax.set_ylabel("Ratio", loc="center")
     ax.tick_params(axis="x", which="both", labelbottom=False)
     mplhep.sort_legend(ax=ax)
-    # mplhep.yscale_legend(ax, soft_fail=True)
-    o = doFormatting(output_name, group_params, histogram_name=histogram)
+    ax.set_yscale(scale)
+    ax.set_yscale(scale)
     fig.tight_layout()
-    saveFig(fig, o, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)

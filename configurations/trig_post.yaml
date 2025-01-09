@@ -12,11 +12,36 @@ PostDefaults:
         - 'data_singlemuon*'
 
 Postprocessing:
-  - name: Plots
-    action: Histogram1D
+  # - name: Plots
+  #   action: Histogram1D
+  #   histogram_names:
+  #     - HT
+  #   scale: log
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}/{variation}"
+  #   grouping:
+  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
+  #     axis_options:
+  #       variation: central
+  #       1: Split
+  - name: Ratio
+    action: RatioPlot
     histogram_names:
       - HT
     scale: log
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
-    groupby: ["dataset.era.name", "region_name"]
-    
+  
+    numerator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      title_format: HLT HT
+      axis_options:
+        variation: central
+        1: 1
+
+      
+  
+    denominator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      title_format: Mu50
+      axis_options:
+        variation: central
+        1: Sum

@@ -9,8 +9,13 @@ class Mode(str, enum.Enum):
     Sum = "Sum"
 
 
-def splitHistogram(histogram, axis_options, allow_missing=False, return_labels=False):
+def splitHistogram(histogram, axis_options=None, allow_missing=False, return_labels=False):
     h = copy.deepcopy(histogram)
+    if not axis_options:
+        if return_labels:
+            return h, []
+        else:
+            return h
     if allow_missing:
         axis_options = {x: y for x, y in axis_options if x in histogram.axes}
 
