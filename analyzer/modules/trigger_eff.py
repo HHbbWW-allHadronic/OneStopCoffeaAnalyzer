@@ -18,8 +18,6 @@ def trigger_eff_objects(columns, params):
     jets = columns.get("Jet")
     fat_jets = columns.get("FatJet")
 
-    fat_jets = fat_jets[(fat_jets.pt > 30) & (abs(fat_jets.eta) < 2.4)]
-
     el = columns.get("Electron")
     mu = columns.get("Muon")
     good_electrons = el[
@@ -36,6 +34,10 @@ def trigger_eff_objects(columns, params):
     near_muon = good_jets.nearest(good_muons, threshold=0.4)
     good_jets = good_jets[ak.is_none(near_muon, axis=1)]
 
+    good_fatjets = fat_jets[(fat_jets.pt > 30) & (abs(fat_jets.eta) < 2.4)]
+    fatnear_muon = good_fatjets.nearest(good_muons, threshold=0.4)
+    good_fatjets = good_fatjets[ak.is_none(fatnear_muon, axis=1)]
+
     bwps = getBTagWP(params)
     logger.debug(f"B-tagging workign points are:\n {bwps}")
     loose_b, med_b, tight_b = makeCutSet(
@@ -45,6 +47,7 @@ def trigger_eff_objects(columns, params):
     )
 
     columns.add("good_jets", good_jets, shape_dependent=True)
+    columns.add("good_fatjets", good_fatjets)
     columns.add("good_electrons", good_electrons)
     columns.add("good_muons", good_muons)
     columns.add("loose_bs", loose_b)
@@ -66,7 +69,6 @@ def iso_muon(events, params, selector):
 def trig_eff_selection(events, params, selector):
     one_muon = ak.num(events.good_muons) == 1
     no_electron = ak.num(events.good_electrons) == 0
-
     selector.add("one_muon", one_muon)
     selector.add("no_electron", no_electron)
 
@@ -79,4 +81,17 @@ def pass_HT_category(events, params, categories):
         name="PassHT",
         axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHT"),
         values=events.HLT[ht_trigger_name],
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def pass_SingleJet_category(events, params, categories):
+    era_info = params.dataset.era
+    jet_trigger_name = era_info.trigger_names["AK8SingleJet"]
+    categories.add(
+        name="PassAK8Jet",
+        axis=hist.axis.Integer(
+            0, 2, underflow=False, overflow=False, name="PassAK8Jet"
+        ),
+        values=events.HLT[jet_trigger_name],
     )

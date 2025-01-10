@@ -16,6 +16,15 @@ def njets(events, params, analyzer):
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
+def topfatjet_ht(events, params, analyzer):
+    analyzer.H(
+        f"HT",
+        makeAxis(120, 0, 3000, "HT", unit="GeV"),
+        events.HT,
+        description="Sum of $p_T$ of good AK4 jets.",
+    )
+
+@MODULE_REPO.register(ModuleType.Histogram)
 def goodjet_ht(events, params, analyzer):
     analyzer.H(
         f"HT",
