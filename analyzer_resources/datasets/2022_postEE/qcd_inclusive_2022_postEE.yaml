@@ -1,7 +1,7 @@
 - name: qcd_inclusive_2022_postEE
   title: QCD
   sample_type: MC
-  era: 2023_postEE
+  era: 2022_postEE
   samples:
     - name: QCD_PT-1000to1400_TuneCP5_13p6TeV_pythia8
       n_events: 8134126
