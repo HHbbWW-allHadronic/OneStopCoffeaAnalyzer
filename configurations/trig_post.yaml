@@ -24,6 +24,7 @@ Postprocessing:
     action: RatioPlot
     histogram_names: [HT]
     scale: log
+    ratio_height: 3
     ratio_ylim: [0,1]
     ratio_hlines: [0.5,0.95]
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"

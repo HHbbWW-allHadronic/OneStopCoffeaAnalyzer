@@ -2,7 +2,7 @@
 
 application_root="/srv"
 application_data="$application_root/.application_data"
-container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2024.8.1-py3.10"
+container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux8:2025.1.0-py3.10"
 env_extras="lpcqueue"
 virtual_env_path="$application_data/venv"
 
@@ -62,12 +62,14 @@ function create_venv(){
 
     python3 -m pip install pip  --upgrade
     python3 -m pip install setuptools pip wheel --upgrade
+
     printf "Installing project\n"
     if [[ -z $env_extras ]]; then
         python3 -m pip install -U -e . 
     else
         python3 -m pip install -U -e ".[$env_extras]" 
     fi
+    python3 -m pip install htcondor==24.2.1
 
     # pip3 install ipython --upgrade
     python3 -m ipykernel install --name "$env_name" --prefix "$application_data/local/"
@@ -121,6 +123,7 @@ function rcmode(){
     export IPYTHONDIR=$application_data/local/ipython
     export MPLCONFIGDIR=$application_data/local/mpl
     export MPLBACKEND="Agg"
+    export CONDOR_CONFIG=${LPC_CONDOR_CONFIG}
     #export LD_LIBRARY_PATH=/opt/conda/lib/:$LD_LIBRARY_PATH
 
     #export POETRY_HOME=/srv/.local/poetry
@@ -181,6 +184,8 @@ function startup_with_container(){
         if [[ $(hostname) =~ "fnal" ]]; then
             apptainer_flags="$apptainer_flags --bind /uscmst1b_scratch"
             apptainer_flags="$apptainer_flags --bind /cvmfs"
+            apptainer_flags="$apptainer_flags --bind /uscms/homes/"
+            apptainer_flags="$apptainer_flags --bind /storage"
             apptainer_flags="$apptainer_flags --bind /cvmfs/grid.cern.ch/etc/grid-security:/etc/grid-security"
             apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_CONFIG}"
             apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig"

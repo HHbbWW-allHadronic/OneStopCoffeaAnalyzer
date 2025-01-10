@@ -24,6 +24,9 @@ def quicklookSample(result):
         "region_hists": {
             x: list(y.base_result.histograms) for x, y in result.results.items()
         },
+        "region_cutflow": {
+            x: list(y.base_result.selection_flow.cutflow) for x, y in result.results.items()
+        },
     }
     print(data)
 

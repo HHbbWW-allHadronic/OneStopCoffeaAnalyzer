@@ -83,7 +83,6 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
             uid: task.file_set.slice(files=slice(0, 1)) for uid, task in tasks.items()
         }
 
-
     to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
 
     if not to_prep:
@@ -96,7 +95,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
         skip_bad_files=True,
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
-        allow_empty_datasets=True
+        allow_empty_datasets=True,
     )
     new_filesets = {
         uid: (
@@ -366,8 +365,8 @@ def setupForCondor(
             output=extra_compressed,
             archive_type="gztar",
         )
-    if x509_path:
-        transfer_input_files.append(x509_path)
+    # if x509_path:
+    #     transfer_input_files.append(x509_path)
 
     return transfer_input_files
 

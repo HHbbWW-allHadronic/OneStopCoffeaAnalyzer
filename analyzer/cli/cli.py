@@ -168,7 +168,7 @@ def addSubparserQuicklookFile(subparsers):
     subparser = subparsers.add_parser(
         "quicklook", help="Quick information about a result."
     )
-    subparser.add_argument("input", nargs=1, type=Path, help="Input files path.")
+    subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
     subparser.add_argument(
         "-r", "--region-name", default=None, type=str, help="Region name"
     )

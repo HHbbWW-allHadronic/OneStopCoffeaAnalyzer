@@ -15,18 +15,31 @@ Postprocessing:
     action: Histogram1D
     histogram_names:
       - HT
+      # - fatjet_pt_1
+      - pt_1
+      - pt_2
+      - pt_3
+      - eta_1
+      - eta_2
+      - eta_3
+      - phi_1
+      - phi_2
+      - phi_3
+      - m13_m
+      - m14_m
+      - m24_m
     scale: log
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
     grouping:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      axis_options: {variation: central }
+      # axis_options: {variation: central }
 
-  - name: makedoc
-    action: DocRender
-    output: "postprocessing/doc.tex"
-    template: image_grid.tex
-    data:
-      images:
-        - path: postprocessing/plots/2018/Signal312/HT.pdf
-        - path: postprocessing/plots/2018/Signal312_HT/HT.pdf
-        - path: postprocessing/plots/2018/Signal312_SingleJet/HT.pdf
+  # - name: makedoc
+  #   action: DocRender
+  #   output: "postprocessing/doc.tex"
+  #   template: image_grid.tex
+  #   data:
+  #     images:
+  #       - path: postprocessing/plots/2018/Signal312/HT.pdf
+  #       - path: postprocessing/plots/2018/Signal312_HT/HT.pdf
+  #       - path: postprocessing/plots/2018/Signal312_SingleJet/HT.pdf

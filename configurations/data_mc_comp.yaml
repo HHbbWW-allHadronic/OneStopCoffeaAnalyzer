@@ -5,18 +5,18 @@ samples:
   data_JetHT_2017: [Control]
   data_JetHT_2016pre: [Control]
   data_JetHT_2016post: [Control]
-
+  
   data_JetHT_2022pre: [Control]
   data_JetHT_2022post: [Control]
   
   data_JetHT_2023pre: [Control]
   data_JetHT_2023post: [Control]
-
+  
   qcd_inclusive_2018: [Control]
   qcd_inclusive_2017: [Control]
   qcd_inclusive_2016_preVFP: [Control]
   qcd_inclusive_2016_postVFP: [Control]
-
+  
   qcd_inclusive_2022_preEE: [Control]
   qcd_inclusive_2022_postEE: [Control]
   qcd_inclusive_2023_preBPix: [Control]
@@ -31,7 +31,7 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 10000
+    step_size: 500000
     catch_exceptions: True
 
   condor:
@@ -75,9 +75,6 @@ common_items:
     common_objects: &common_objects
       - name: core_objects
 
-    common_corrections: &common_corrections
-      - name: testJetCorrection
-
     common_preselection: &common_preselection 
       - name: golden_lumi_filter
         sample_spec:
@@ -102,7 +99,7 @@ common_items:
 regions:
   - name: Control
     objects: *common_objects
-    corrections: *common_corrections
+    # corrections: *common_corrections
     preselection:
       - <<: *common_preselection
       - name: signal_hlt

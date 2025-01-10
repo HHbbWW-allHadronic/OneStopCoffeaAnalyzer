@@ -16,7 +16,7 @@ def core_objects(columns, params):
     # If all the columns are already present, ie a skim, don't bother running the module anything
 
 
-    jets = columns.get("TestCorrJet")
+    jets = columns.get("Jet")
     fat_jets = columns.get("FatJet")
 
     good_jets = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
