@@ -96,7 +96,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
         skip_bad_files=True,
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
-        # allow_empty_datasets=True
+        allow_empty_datasets=True
     )
     new_filesets = {
         uid: (
