@@ -13,7 +13,7 @@ analyzer = 'analyzer.cli:main'
 python = "^3.9"
 hist = "^2.6.3"
 matplotlib = "^3.7"
-coffea = {version="^2024", extras=["dask"]} 
+coffea = {version="^2025", extras=["dask"]} 
 jupyter = "*"
 pyyaml = "^6.0"
 lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "main"}
