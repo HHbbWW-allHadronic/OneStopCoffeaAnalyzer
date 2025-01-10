@@ -8,7 +8,7 @@ samples:
 
   data_JetHT_2022pre: [Control]
   data_JetHT_2022post: [Control]
-
+  
   data_JetHT_2023pre: [Control]
   data_JetHT_2023post: [Control]
 
@@ -20,7 +20,7 @@ samples:
   qcd_inclusive_2022_preEE: [Control]
   qcd_inclusive_2022_postEE: [Control]
   qcd_inclusive_2023_preBPix: [Control]
-  qcd_inclusive_2013_postBPix: [Control]
+  qcd_inclusive_2023_postBPix: [Control]
 
 
 
@@ -31,7 +31,7 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 1000000
+    step_size: 10000
     catch_exceptions: True
 
   condor:
@@ -86,7 +86,7 @@ common_items:
     common_weights: &common_weights
       - name: L1_prefiring_sf
         sample_spec:
-          eras: ["2016", "2017", "2018"]
+          era: ["2016", "2017", "2018"]
           sample_type: MC
         config:
           variations: All

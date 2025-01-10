@@ -1,77 +1,32 @@
 PostDefaults:
   style_set: "default.yaml"
-
   plot_configuration:
     cms_text: "Preliminary"
     image_type: ".pdf"
     cms_text_color: Black
-
   to_process:
     sample_spec:
       name:
-        - 'data_JetHT-*'
-        - 'qcd_*'
+        - 'QCD*'
+        - 'data*'
 
 Postprocessing:
   - name: Plots
     action: Histogram1D
     histogram_names:
-      - h_njet
-      - m13_m
       - HT
-      - pt_1
-      - pt_2
+    scale: log
     output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
-    groupby: ["dataset.era.name", "region_name"]
+    grouping:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      axis_options: {variation: central }
 
-  - name: Ratio
-    action: RatioPlot
-    histogram_names:
-      - h_njet
-      - m13_m
-      - HT
-      - pt_1
-      - pt_2
-
-    denominator:
-      sample_spec:
-        name:
-          - 'data*'
-    numerator:
-      sample_spec:
-        name:
-          - 'qcd*'
-          
-
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
-
-    groupby: ["dataset.era.name", "region_name"]
-
-  - name: Ratio
-    action: RatioPlot
-    histogram_names:
-      - h_njet
-      - m13_m
-      - HT
-      - pt_1
-      - pt_2
-
-    denominator:
-      sample_spec:
-        name:
-          - 'data*'
-      axis:
-        variation: central
-    numerator:
-      sample_spec:
-        name:
-          - 'data*'
-        variation: SPLIT
-
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
-
-    groupby: ["dataset.era.name", "region_name"]
-
-
-    data2018, {variation=central}
-    
+  - name: makedoc
+    action: DocRender
+    output: "postprocessing/doc.tex"
+    template: image_grid.tex
+    data:
+      images:
+        - path: postprocessing/plots/2018/Signal312/HT.pdf
+        - path: postprocessing/plots/2018/Signal312_HT/HT.pdf
+        - path: postprocessing/plots/2018/Signal312_SingleJet/HT.pdf

@@ -14,6 +14,7 @@ class Config:
     DASK_CONFIG_PATH = str(Path(CONFIG_PATH) / "dask_config.yaml")
     STATIC_PATH = str(Path(APPLICATION_RESOURCES) / "static")
     STYLE_PATH = str(Path(APPLICATION_RESOURCES) / "styles")
+    TEMPLATE_PATH = str(Path(APPLICATION_RESOURCES) / "templates")
 
     PRETTY_MODE = True
 

@@ -8,6 +8,11 @@ samples:
   data_singlemuon_2016pre: [MuonEff]
   data_singlemuon_2016post: [MuonEff]
 
+  data_muon_2022pre: [MuonEff]
+  data_muon_2022post: [MuonEff]
+  data_muon_2023pre: [MuonEff]
+  data_muon_2023post: [MuonEff]
+
 
 
 executors:
@@ -20,7 +25,7 @@ executors:
   imm:
     executor_type: immediate
     step_size: 100000
-    catch_exceptions: False
+    catch_exceptions: true
 
   condor:
     executor_type: condor
@@ -62,7 +67,7 @@ regions:
     weights: 
       - name: L1_prefiring_sf
         sample_spec:
-          eras: ["2016", "2017", "2018"]
+          era: ["2016", "2017", "2018"]
           sample_type: MC
         config:
           variations: All

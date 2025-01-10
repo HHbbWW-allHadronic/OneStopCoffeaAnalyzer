@@ -3,7 +3,8 @@ import functools as ft
 import itertools as it
 import logging
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Any
+from .tex import renderTemplate
 
 import yaml
 
@@ -255,3 +256,16 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                     )
                 )
         return ret
+
+
+@registerPostprocessor
+class DocRender(BasePostprocessor, pyd.BaseModel):
+    template: str
+    data: Any
+    output: str
+
+    def getExe(self, results):
+        return [ft.partial(renderTemplate, self.template, self.output, self.data)]
+
+    def init(self):
+        pass

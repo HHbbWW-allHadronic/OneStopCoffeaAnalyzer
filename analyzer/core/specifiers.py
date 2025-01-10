@@ -71,7 +71,7 @@ class SampleSpec(BaseModel):
             fnmatch(dataset_params.name, x) for x in self.name
         )
         passes_era = not self.era or any(
-            fnmatch(dataset_params.era, x) for x in self.era
+            fnmatch(dataset_params.era.name, x) for x in self.era
         )
         passes_sample_type = not self.sample_type or (
             dataset_params.sample_type == self.sample_type

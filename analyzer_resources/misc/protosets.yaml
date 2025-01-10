@@ -38,14 +38,14 @@
   
 - name: qcd_inclusive_2022_preEE
   title: QCD
-  era: '2023_preEE'
+  era: '2022_preEE'
   sample_type: MC
   filter_regex: 'PT-(\d+to\d+|3200)_'
   cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM'
 
 - name: qcd_inclusive_2022_postEE
   title: QCD
-  era: '2023_postEE'
+  era: '2022_postEE'
   sample_type: MC
   filter_regex: 'PT-(\d+to\d+|3200)_'
   cms_regex: '/QCD_PT-*0_TuneCP5_13p6TeV_pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM'
@@ -79,6 +79,38 @@
   sample_field: 2
   era: '2018'
   cms_regex: '/SingleMuon/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: data_muon_2023pre
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2023_preBPix'
+  cms_regex: '/Muon0/Run2023C-22Sep2023_v*-v*/NANOAOD'
+
+- name: data_muon_2023post
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2023_postBPix'
+  cms_regex: '/Muon0/Run2023D-22Sep2023_v*-v*/NANOAOD'
+
+- name: data_muon_2022pre
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2022_preEE'
+  filter_regex: 'Run2022[CD]'
+  cms_regex: '/Muon/Run2022*-22Sep2023-v*/NANOAOD'
+
+- name: data_muon_2022post
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2022_postEE'
+  filter_regex: 'Run2022[EFG]'
+  cms_regex: '/Muon/Run2022*-22Sep2023-v*/NANOAOD'
+
+
 
 - name: data_JetHT_2016post
   title: Data
