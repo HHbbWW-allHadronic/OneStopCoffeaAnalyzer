@@ -22,6 +22,12 @@
     SingleMuon: Mu50
     IsoMuon: IsoMu24
 
+  trigger_plateaus:
+    HT: 1200
+    AK8SingleJetPt:
+      pt: 500
+      msoftdrop: 0
+
 
   btag_scale_factors:
     path: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2017_UL/btagging.json.gz

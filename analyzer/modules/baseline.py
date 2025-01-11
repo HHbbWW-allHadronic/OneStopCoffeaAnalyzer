@@ -21,7 +21,24 @@ def hlt_HT(events, params, selector):
 def hlt_single_jet(events, params, selector):
     era_info = params.dataset.era
     ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
-    selector.add(f" HLT_AK8", events.HLT[ak8_trigger_name])
+    selector.add(f"HLT_AK8", events.HLT[ak8_trigger_name])
+
+@MODULE_REPO.register(ModuleType.Selection)
+def ht_plateau(events, params, selector):
+    era_info = params.dataset.era
+    ht_plateau = era_info.trigger_plateaus["HT"]
+    ht = events.HT
+    selector.add(f"HT_Plateau", ht>ht_plateau)
+
+@MODULE_REPO.register(ModuleType.Selection)
+def softdrop_plateau(events, params, selector):
+    era_info = params.dataset.era
+    ak8_sd = era_info.trigger_plateaus["AK8SingleJetPt"]["msoftdrop"]
+
+    filled_fatjets = ak.pad_none(good_jets, 1, axis=1)
+    top_ak8_pt = events.filled_fatjets
+    passes = ak.fill_none(filled_jets[:, 0].msoftdrop > ak8_sd, False)
+    selector.add(f"SD_Plateau", passes)
 
 
 
@@ -89,3 +106,4 @@ def partial_cr_selection(events, params, selector):
     """
     loose_b = events.loose_bs
     selector.add("0looseb", (ak.num(loose_b) == 0))
+

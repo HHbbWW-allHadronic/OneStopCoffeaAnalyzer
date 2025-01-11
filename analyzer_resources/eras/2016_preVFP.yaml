@@ -28,3 +28,9 @@
     IsoMuon: IsoMu24
     SingleMuon: Mu50
 
+  trigger_plateaus:
+    HT: 1050
+    AK8SingleJetPt:
+      pt: 500
+      msoftdrop: 0
+
