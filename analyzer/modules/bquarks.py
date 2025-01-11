@@ -20,7 +20,7 @@ def b_quark_kinematics(events, params, histogram_builder, working_point="M"):
         CommonAxes.b_axis,
         ak.num(bjets.pt),
     )
-    for i in range(0, 4):
+    for i in range(0, 2):
         mask = ak.num(bjets, axis=1) > i
         histogram_builder.H(
             f"{working_point}_b_{i}_pt",

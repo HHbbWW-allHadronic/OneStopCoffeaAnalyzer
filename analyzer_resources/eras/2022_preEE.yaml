@@ -26,3 +26,6 @@
     SingleMuon: Mu50
     IsoMuon: IsoMu24
 
+  # trigger_full_efficiency:
+  #   HT: 1200
+  #   AK8SingleJetPt: 520

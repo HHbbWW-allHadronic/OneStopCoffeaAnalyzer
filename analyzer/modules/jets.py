@@ -16,13 +16,23 @@ def njets(events, params, analyzer):
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
-def topfatjet_ht(events, params, analyzer):
-    analyzer.H(
-        f"HT",
-        makeAxis(120, 0, 3000, "HT", unit="GeV"),
-        events.HT,
-        description="Sum of $p_T$ of good AK4 jets.",
+def topfatjet_plots(events, params, analyzer):
+    analyzer.h(
+        f"ak8_pt",
+        makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
+        events.good_fatjets[0].pt,
+        description="pt of the leading ak8 jet",
     )
+
+    analyzer.H(
+        f"ak8_pt_vs_sdmass",
+        makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
+        makeAxis(100, 0, 1000, "$m_{\\textrm{SD}}$", unit="GeV"),
+        events.good_fatjets[0].pt,
+        events.good_fatjets[0].msoftdrop,
+        description="2D plot of pt and softdrop mass",
+    )
+
 
 @MODULE_REPO.register(ModuleType.Histogram)
 def goodjet_ht(events, params, analyzer):
@@ -31,6 +41,19 @@ def goodjet_ht(events, params, analyzer):
         makeAxis(120, 0, 3000, "HT", unit="GeV"),
         events.HT,
         description="Sum of $p_T$ of good AK4 jets.",
+    )
+
+@MODULE_REPO.register(ModuleType.Histogram)
+def trifecta_plot(events, params, analyzer):
+    analyzer.H(
+        f"ht_ak8_pt_vs_sdmass",
+        makeAxis(120, 0, 3000, "HT", unit="GeV"),
+        makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
+        makeAxis(100, 0, 1000, "$m_{\\textrm{SD}}$", unit="GeV"),
+        events.HT,
+        events.good_fatjets[0].pt,
+        events.good_fatjets[0].msoftdrop,
+        description="3D plot of ht and ak8 pt and softdrop mass",
     )
 
 

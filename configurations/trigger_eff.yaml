@@ -3,15 +3,15 @@ name: Complete
 # Samples and in which regions they should be processed
 samples:
   # testmuondata: All
-  data_singlemuon_2018: [MuonEff]
-  data_singlemuon_2017: [MuonEff]
-  data_singlemuon_2016pre: [MuonEff]
-  data_singlemuon_2016post: [MuonEff]
+  data_singlemuon_2018: All
+  data_singlemuon_2017: All
+  data_singlemuon_2016pre: All
+  data_singlemuon_2016post: All
 
-  data_muon_2022pre: [MuonEff]
-  data_muon_2022post: [MuonEff]
-  data_muon_2023pre: [MuonEff]
-  data_muon_2023post: [MuonEff]
+  data_muon_2022pre: All
+  data_muon_2022post: All
+  data_muon_2023pre: All
+  data_muon_2023post: All
 
 
 
@@ -45,25 +45,20 @@ file_config:
   use_replicas: True
 
 regions:
-  - name: MuonEff
+  - name: HTEff
     objects:
       - name: trigger_eff_objects
-
     preselection:
       - name: golden_lumi_filter
         sample_spec:
           sample_type: Data
       - name: iso_muon
-
     selection: 
-      - name: trig_eff_selection
-
+      - name: ht_trig_eff_selection
     categories:
       - name: pass_HT_category
-
     histograms:
       - name: goodjet_ht
-
     weights: 
       - name: L1_prefiring_sf
         sample_spec:
@@ -79,3 +74,35 @@ regions:
       - name: pileup_sf
         sample_spec:
           sample_type: MC
+
+  - name: SingleJetEff
+    objects:
+      - name: trigger_eff_objects
+    preselection:
+      - name: golden_lumi_filter
+        sample_spec:
+          sample_type: Data
+      - name: iso_muon
+    selection: 
+      - name: singlejet_trig_eff_selection
+    categories:
+      - name: pass_SingleJet_category
+      - name: pass_HT_category
+    histograms:
+      - name: goodjet_ht
+      - name: topfatjet_plots
+      - name: trifecta_plot
+    weights: 
+      - name: L1_prefiring_sf
+        sample_spec:
+          era: ["2016", "2017", "2018"]
+          sample_type: MC
+        config:
+          variations: All
+      - name: sign_gen_weight
+        sample_spec:
+          sample_type: MC
+      - name: pileup_sf
+        sample_spec:
+          sample_type: MC
+
