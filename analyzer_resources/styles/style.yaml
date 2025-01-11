@@ -1,6 +1,6 @@
 styles:
   - sector_spec:
-      sample_name: 'data*'
+      sample_name: 'Data*'
     style:
       plottype: errorbar
       color: black

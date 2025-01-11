@@ -33,8 +33,6 @@ class ShapeVariationId:
     shape_variation: str
 
 
-    
-
 class SectorParams(pyd.BaseModel):
     dataset: DatasetParams
     region_name: str
@@ -52,8 +50,8 @@ class SubSectorParams(pyd.BaseModel):
 class SampleSpec(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
-    name: list[str]| str | None = None
-    era: list[str]| str | None = None
+    name: list[str] | str | None = None
+    era: list[str] | str | None = None
     sample_type: SampleType | None = None
 
     @field_validator("name", "era")
@@ -64,7 +62,6 @@ class SampleSpec(BaseModel):
         if not isinstance(val, list):
             return [val]
         return val
-
 
     def passes(self, dataset_params, return_specificity=False, **kwargs):
         passes_names = not self.name or any(
@@ -96,7 +93,7 @@ class SampleSpec(BaseModel):
 
 class SectorSpec(BaseModel):
     sample_spec: SampleSpec | None = None
-    region_name: list[str]| str | None = None
+    region_name: list[str] | str | None = None
 
     @field_validator("region_name")
     @classmethod
@@ -112,13 +109,11 @@ class SectorSpec(BaseModel):
             sector_params.dataset, return_specificity=return_specificity
         )
         passes_region = not self.region_name or any(
-            fnmatch(sector_params.region["region_name"], x) for x in self.region_name
+            fnmatch(sector_params.region_name, x) for x in self.region_name
         )
-        passes = bool(passes_sample) and passes_region
+        passes = passes_sample and passes_region
         if return_specificity:
-            exact_region = any(
-                sector_params.region["region_name"] == x for x in self.region_name
-            )
+            exact_region = any(sector_params.region_name == x for x in self.region_name)
             return (
                 80 * exact_region
                 + 50 * (not exact_region and passes_region)

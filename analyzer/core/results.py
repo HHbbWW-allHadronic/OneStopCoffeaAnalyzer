@@ -2,6 +2,7 @@ import logging
 from typing import Any
 
 from collections import defaultdict
+from rich.progress import track
 import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.datasets import (
@@ -210,7 +211,12 @@ def loadResults(obj):
 
 def loadSampleResultFromPaths(paths):
     results = []
-    for p in paths:
+    for p in track(
+        paths,
+        total=len(paths),
+        description="Loading Files",
+        disable=not CONFIG.PRETTY_MODE,
+    ):
         with open(p, "rb") as f:
             data = pkl.load(f)
             r = loadResults(data)

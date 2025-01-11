@@ -9,20 +9,44 @@ PostDefaults:
       name:
         - 'data_*muon*'
 
-Postprocessing:
-  - name: Plots
-    action: Histogram1D
-    histogram_names:
-      - HT
-    scale: log
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}/{variation}"
-    grouping:
-      fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      axis_options: {variation: central, 1: Split }
+catalog_path: "postprocessing/catalog.json"
 
-  - name: Ratio
+Postprocessing:
+  - name: RatioHT
     action: RatioPlot
     histogram_names: [HT]
+    match_fields: ["dataset.era.name", "region_name", "dataset.name"]
+    scale: log
+    ratio_height: 3
+    ratio_ylim: [0,1]
+    ratio_hlines: [0.5,0.95]
+    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+    ratio_type: efficiency
+    to_process:
+      region_name: HTEff
+    numerator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      title_format: "{dataset.era.trigger_names.HT}"
+      style_set:
+        - style:
+            color: blue
+            plot_type: step
+      axis_options: {variation: central, PassHT: 1 }
+    denominator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      title_format: "{dataset.era.trigger_names.IsoMuon}"
+      axis_options: {variation: central, PassHT: Sum }
+      style_set:
+        - style:
+            color: black
+            plot_type: step
+
+  - name: RatioAK8
+    action: RatioPlot
+    histogram_names: [ak8_pt]
+    to_process:
+      region_name: SingleJetEff
+    match_fields: ["dataset.era.name", "region_name", "dataset.name"]
     scale: log
     ratio_height: 3
     ratio_ylim: [0,1]
@@ -31,16 +55,16 @@ Postprocessing:
     ratio_type: efficiency
     numerator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      title_format: HLT HT
+      title_format: "{dataset.era.trigger_names.AK8SingleJetPt}"
       style_set:
         - style:
             color: blue
             plot_type: step
-      axis_options: {variation: central, 1: 1 }
+      axis_options: {variation: central, PassHT: Sum, PassAK8Jet: 1}
     denominator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      title_format: Mu50
-      axis_options: {variation: central, 1: Sum }
+      title_format: "{dataset.era.trigger_names.IsoMuon}"
+      axis_options: {variation: central, PassHT: Sum, PassAK8Jet: Sum }
       style_set:
         - style:
             color: black

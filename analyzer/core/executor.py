@@ -79,6 +79,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
     this_step_size = next(iter(step_sizes))
     to_prep = {uid: task.file_set.justUnchunked() for uid, task in tasks.items()}
     if test_mode:
+        scheduler = "single-threaded"
         to_prep = {
             uid: task.file_set.slice(files=slice(0, 1)) for uid, task in tasks.items()
         }
@@ -162,8 +163,9 @@ class DaskExecutor(Executor):
                 all_events[k] = (events, report)
             except Exception as e:
                 logger.warn(
-                    f"An exception occurred while preprocessing task {k}."
-                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
+                    f"An exception occurred while preprocessing task {k}.\n"
+                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                    f"{e}"
                 )
                 pass
         for k, task in tasks.items():
@@ -194,7 +196,8 @@ class DaskExecutor(Executor):
                 except Exception as e:
                     logger.warn(
                         f"An exception occurred while processing task {k}."
-                        "This task will be skipped for the remainder of the analyzer, and the result will need to be patched later."
+                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                        f"{e}"
                     )
                     computed_results[k] = None
             else:

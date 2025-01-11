@@ -7,7 +7,7 @@ samples:
   data_singlemuon_2017: All
   data_singlemuon_2016pre: All
   data_singlemuon_2016post: All
-
+  
   data_muon_2022pre: All
   data_muon_2022post: All
   data_muon_2023pre: All
@@ -25,7 +25,7 @@ executors:
   imm:
     executor_type: immediate
     step_size: 100000
-    catch_exceptions: true
+    catch_exceptions: false
 
   condor:
     executor_type: condor
@@ -41,7 +41,7 @@ executors:
 
 
 file_config:
-  location_priority_regex: [".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
 regions:

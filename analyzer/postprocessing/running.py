@@ -26,32 +26,12 @@ from .registry import loadPostprocessors, registerPostprocessor
 from .split_histogram import Mode
 from .style import Style, StyleSet
 from .grouping import createSectorGroups
-import analyzer.postprocessing.processors
+from .processors import postprocess_catalog, PostProcessorType
 
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 
 
-def runPostprocessors(config, input_files, parallel=8):
-    loadStyles()
-    print("Loading Postprocessors")
-    loaded = loadPostprocessors(config)
-    print("Loading Samples")
-    sample_results = loadSampleResultFromPaths(input_files)
-    dataset_results = makeDatasetResults(sample_results)
-    print("Ready to Process ")
-    sector_results = list(
-        it.chain.from_iterable(r.sector_results for r in dataset_results.values())
-    )
-
-
-    tasks = []
-
-    for processor in loaded:
-        processor.init()
-        tasks += processor.getExe(sector_results)
-
-
-    
+def run(tasks, parallel):
     with Progress() as progress:
         task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
         if not parallel:
@@ -63,3 +43,35 @@ def runPostprocessors(config, input_files, parallel=8):
                 results = [executor.submit(f) for f in tasks]
                 for i in cf.as_completed(results):
                     progress.advance(task_id)
+
+
+def runPostprocessors(config, input_files, parallel=8):
+    loadStyles()
+    print("Loading Postprocessors")
+    loaded, catalog = loadPostprocessors(config)
+    print("Loading Samples")
+    sample_results = loadSampleResultFromPaths(input_files)
+    dataset_results = makeDatasetResults(sample_results)
+    print("Ready to Process ")
+    sector_results = list(
+        it.chain.from_iterable(r.sector_results for r in dataset_results.values())
+    )
+
+    tasks, items = [], []
+    acc_tasks = []
+    for processor in loaded:
+        processor.init()
+        t, i = processor.getExe(sector_results)
+        if processor.postprocessor_type == PostProcessorType.Normal:
+            tasks += t
+            items += i
+        elif processor.postprocessor_type == PostProcessorType.Accumulator:
+            acc_tasks += t
+            items += i
+    if tasks:
+        run(tasks, parallel)
+    if acc_tasks:
+        run(acc_tasks, parallel)
+
+    with open(catalog, "wb") as f:
+        f.write(postprocess_catalog.dump_json(items, indent=2))

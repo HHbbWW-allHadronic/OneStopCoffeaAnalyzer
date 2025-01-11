@@ -3,11 +3,11 @@ import functools as ft
 import itertools as it
 import string
 from dataclasses import dataclass, field
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Annotated
 from .style import StyleSet, Style
 
 from analyzer.core.results import SectorResult
-from analyzer.core.specifiers import SectorParams
+from analyzer.core.specifiers import SectorParams, SectorSpec
 from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from .split_histogram import Mode, splitHistogram
@@ -23,15 +23,18 @@ def getNested(d, s):
     return ret
 
 
-def doFormatting(s, data, **kwargs):
+def doFormatting(s, data=None, **kwargs):
     parsed = string.Formatter().parse(s)
-    d = data
+    d = data or {}
     s = ""
-    all_data = {**data, **kwargs}
+    all_data = {**d, **kwargs}
     for x in parsed:
         s += x[0]
         if x[1] is not None:
-            s += all_data[x[1]]
+            if x[1] in all_data:
+                s += all_data[x[1]]
+            else:
+                s += getNested(all_data, x[1])
     return s
 
 
@@ -46,6 +49,7 @@ def groupBy(data, fields):
 
 class SectorGroupSpec(BaseModel):
     fields: list[str]
+    to_process: SectorSpec | None = None
     axis_options: dict[str | int, Mode | str | int] | None = None
     cat_remap: dict[tuple[str, int | str], str] | None = None
     title_format: str = "{title}"
@@ -84,16 +88,9 @@ class PackagedHist(BaseModel):
         return self.histogram.axes == other.histogram.axes
 
 
-@dataclass
-class SectorGroup:
-    separator: ClassVar[str] = " "
+class SectorGroupParameters(BaseModel):
     parameters: dict[Any, Any]
-    sectors: list[SectorResult]
-    axis_options: dict[str, Mode] | None = None
-    title_format: str = "{title}"
-    style_set: StyleSet | None = None
-
-    cat_remap: dict[tuple[str, int | str], str] | None = None
+    axis_options: dict[str, Mode | str | int] | None = None
 
     @property
     def all_parameters(self):
@@ -101,6 +98,18 @@ class SectorGroup:
 
     def compatible(self, other):
         return self.parameters == other.parameters
+
+
+def groupsMatch(group1, group2, fields):
+    return all(group1.all_parameters[f] == group2.all_parameters[f] for f in fields)
+
+
+class SectorGroup(SectorGroupParameters):
+    separator: ClassVar[str] = " "
+    sectors: Annotated[list[SectorResult], Field(repr=False)]
+    title_format: Annotated[str, Field(repr=False)] = "{title}"
+    style_set: Annotated[StyleSet | None, Field(repr=False)] = None
+    cat_remap: dict[tuple[str, int | str], str] | None = None
 
     def __len__(self):
         return len(self.sectors)
@@ -115,9 +124,10 @@ class SectorGroup:
             for k, v in self.cat_remap.items():
                 if k in l:
                     l[k] = v
-
-        return self.title_format.format(
-            title=sector.sector_params.dataset.title, **cat_values
+        return doFormatting(
+            self.title_format,
+            **sector.sector_params.model_dump(),
+            title=sector.sector_params.dataset.title,
         )
 
     def histograms(self, hist_name):
@@ -131,7 +141,6 @@ class SectorGroup:
             style = None
             if self.style_set:
                 style = self.style_set.getStyle(sector.sector_params)
-
 
             if isinstance(hists, dict):
                 for c, h in hists.items():
@@ -157,11 +166,14 @@ class SectorGroup:
 
         return everything
 
-    def __str__(self):
-        return self.dict(exclude=["sectors"])
+    def __rich_repr__(self):
+        yield "parameters", self.parameters
+        yield "axis_options", self.axis_options
 
 
 def createSectorGroups(sectors, spec):
+    if spec.to_process is not None:
+        sectors = [x for x in sectors if spec.to_process.passes(x.sector_params)]
     grouped = groupBy(sectors, spec.fields)
     return [
         SectorGroup(

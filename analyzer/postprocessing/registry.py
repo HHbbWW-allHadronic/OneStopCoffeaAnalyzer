@@ -16,10 +16,11 @@ def loadPostprocessors(file_path, root="Postprocessing", defaults_root="PostDefa
     data = d[root]
     default = d.get(defaults_root,{})
     actions = []
+    catalog_path = d["catalog_path"]
     for post_action in data:
         final=deepMerge(copy.deepcopy(default),post_action)
         actions.append(REGISTRY[post_action["action"]](**final))
-    return actions
+    return actions, catalog_path
         
 
 

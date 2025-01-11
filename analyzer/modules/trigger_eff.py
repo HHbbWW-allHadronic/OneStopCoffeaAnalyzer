@@ -1,5 +1,6 @@
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
+from rich import print
 import hist
 
 from .utils.btag_points import getBTagWP
@@ -16,7 +17,6 @@ def trigger_eff_objects(columns, params):
     # If all the columns are already present, ie a skim, don't bother running the module anything
 
     jets = columns.get("Jet")
-    fat_jets = columns.get("FatJet")
 
     el = columns.get("Electron")
     mu = columns.get("Muon")
@@ -34,7 +34,17 @@ def trigger_eff_objects(columns, params):
     near_muon = good_jets.nearest(good_muons, threshold=0.4)
     good_jets = good_jets[ak.is_none(near_muon, axis=1)]
 
-    good_fatjets = fat_jets[(fat_jets.pt > 170) & (abs(fat_jets.eta) < 2.4)]
+        
+
+    fat_jets = columns.get("FatJet")
+    good_fj_mask = (fat_jets.pt > 175) & (abs(fat_jets.eta) < 2.4) 
+
+    era_info = params.dataset.era
+    jet_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
+    if "TrimMass" in jet_trigger_name or "SoftDrop" in jet_trigger_name:
+        good_fj_mask = good_fj_mask & (fat_jets.msoftdrop > 50)
+
+    good_fatjets = fat_jets[good_fj_mask]
     fatnear_muon = good_fatjets.nearest(good_muons, threshold=0.4)
     good_fatjets = good_fatjets[ak.is_none(fatnear_muon, axis=1)]
 
@@ -72,13 +82,14 @@ def ht_trig_eff_selection(events, params, selector):
     selector.add("one_muon", one_muon)
     selector.add("no_electron", no_electron)
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def singlejet_trig_eff_selection(events, params, selector):
     one_muon = ak.num(events.good_muons) == 1
     no_electron = ak.num(events.good_electrons) == 0
     selector.add("one_muon", one_muon)
     selector.add("no_electron", no_electron)
-    selector.add("greater_one_fatjet", ak.num(events.good_fatjets > 0))
+    selector.add("greater_one_fatjet", ak.num(events.good_fatjets) > 0)
 
 
 @MODULE_REPO.register(ModuleType.Categorization)
@@ -95,7 +106,7 @@ def pass_HT_category(events, params, categories):
 @MODULE_REPO.register(ModuleType.Categorization)
 def pass_SingleJet_category(events, params, categories):
     era_info = params.dataset.era
-    jet_trigger_name = era_info.trigger_names["AK8SingleJet"]
+    jet_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     categories.add(
         name="PassAK8Jet",
         axis=hist.axis.Integer(

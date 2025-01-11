@@ -1,9 +1,11 @@
 import abc
+from enum import Enum, auto
+from rich import print
 import functools as ft
 import itertools as it
 import logging
 from pathlib import Path
-from typing import Literal, Any
+from typing import Literal, Any, ClassVar
 from .tex import renderTemplate
 
 import yaml
@@ -13,7 +15,14 @@ from analyzer.configuration import CONFIG
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 from analyzer.core.specifiers import SectorSpec
 
-from .grouping import SectorGroupSpec, createSectorGroups, doFormatting
+from .grouping import (
+    SectorGroupSpec,
+    createSectorGroups,
+    doFormatting,
+    SectorGroup,
+    SectorGroupParameters,
+    groupsMatch,
+)
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
 from .plots.plots_2d import plot2D
@@ -25,7 +34,24 @@ logger = logging.getLogger(__name__)
 StyleLike = Style | str
 
 
+class PostprocessCatalogueEntry(pyd.BaseModel):
+    processor_name: str
+    path: str
+    sector_group: SectorGroupParameters
+
+
+postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
+
+
+class PostProcessorType(Enum):
+    Normal = auto()
+    Accumulator= auto()
+
+
 class BasePostprocessor(abc.ABC):
+    postprocessor_type: ClassVar[PostProcessorType] = PostProcessorType.Normal
+    name: str
+
     @abc.abstractmethod
     def getExe(self, results):
         pass
@@ -53,62 +79,33 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
         r = createSectorGroups(sectors, self.grouping)
         ret = []
+        items = []
         for histogram in self.histogram_names:
             for sector_group in r:
+                output = doFormatting(
+                    self.output_name,
+                    sector_group.all_parameters,
+                    histogram_name=histogram,
+                )
                 ret.append(
                     ft.partial(
                         plotOne,
                         sector_group.histograms(histogram),
                         sector_group.all_parameters,
-                        doFormatting(
-                            self.output_name,
-                            sector_group.all_parameters,
-                            histogram_name=histogram,
-                        ),
+                        output,
                         scale=self.scale,
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=self.plot_configuration,
                     )
                 )
-        return ret
 
-
-@registerPostprocessor
-class TriggerEff(BasePostprocessor, pyd.BaseModel):
-    histogram_names: list[str]
-    to_process: SectorSpec
-    style_set: str | StyleSet
-    trigger_axis: str
-    groupby: SectorGroupSpec
-    output_name: str
-    scale: Literal["log", "linear"] = "linear"
-
-    axis_options: dict[str, Mode | str | int] | None = None
-    normalize: bool = False
-
-    plot_configuration: PlotConfiguration | None = None
-
-    def getExe(self, results):
-        sectors = [x for x in results if self.to_process.passes(x.sector_params)]
-        r = createSectorGroups(sectors, *self.groupby)
-        ret = []
-        for histogram in self.histogram_names:
-            for sector_group in r:
-                ret.append(
-                    ft.partial(
-                        plotOne,
-                        histogram,
-                        sector_group.parameters,
-                        sector_group.sectors,
-                        self.output_name,
-                        scale=self.scale,
-                        style_set=self.style_set,
-                        normalize=self.normalize,
-                        plot_configuration=self.plot_configuration,
+                items.append(
+                    PostprocessCatalogueEntry(
+                        processor_name=self.name, path=output, sector_group=sector_group
                     )
                 )
-        return ret
+        return ret, items
 
 
 @registerPostprocessor
@@ -122,6 +119,7 @@ class ExportHists(BasePostprocessor, pyd.BaseModel):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
         r = createSectorGroups(sectors, *self.groupby)
         ret = []
+        items = []
         for histogram in self.histogram_names:
             for sector_group in r:
                 ret.append(
@@ -133,7 +131,7 @@ class ExportHists(BasePostprocessor, pyd.BaseModel):
                         self.output_name,
                     )
                 )
-        return ret
+        return ret, items
 
 
 @registerPostprocessor
@@ -210,8 +208,10 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
     histogram_names: list[str]
     numerator: SectorGroupSpec
     denominator: SectorGroupSpec
+    to_process: SectorSpec
     style_set: str | StyleSet
     output_name: str
+    match_fields: list[str]
     scale: Literal["log", "linear"] = "linear"
     axis_options: dict[str, Mode | str | int] | None = None
     normalize: bool = False
@@ -222,29 +222,38 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
 
     def getExe(self, results):
+        results = [x for x in results if self.to_process.passes(x.sector_params)]
         gnums = createSectorGroups(results, self.numerator)
         gdens = createSectorGroups(results, self.denominator)
-        ret = []
+        ret, items = [], []
         for histogram in self.histogram_names:
             for den_group in gdens:
                 try:
-                    num_group = next(x for x in gnums if den_group.compatible(x))
+                    num_group = list(
+                        x for x in gnums if groupsMatch(den_group, x, self.match_fields)
+                    )
+                    if len(num_group) != 1:
+                        raise KeyError(f"Too many groups")
+                    num_group = next(iter(num_group))
                 except StopIteration:
-                    raise KeyError(f"Could not find group {group}")
+                    raise KeyError(f"Could not find group")
+
+                # print(
+                #     f"Denominator group\n{den_group}\n matched with numerator group\n{num_group}"
+                # )
 
                 dh = den_group.histograms(histogram)
                 if len(dh) != 1:
                     raise RuntimeError
+                output = doFormatting(
+                    self.output_name, den_group.all_parameters, histogram_name=histogram
+                )
                 ret.append(
                     ft.partial(
                         plotRatio,
                         dh[0],
                         num_group.histograms(histogram),
-                        doFormatting(
-                            self.output_name,
-                            den_group.all_parameters,
-                            histogram_name=histogram,
-                        ),
+                        output,
                         self.style_set,
                         normalize=self.normalize,
                         ratio_ylim=self.ratio_ylim,
@@ -255,11 +264,17 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                         plot_configuration=self.plot_configuration,
                     )
                 )
-        return ret
+                items.append(
+                    PostprocessCatalogueEntry(
+                        processor_name=self.name, path=output, sector_group=den_group
+                    )
+                )
+        return ret, items
 
 
 @registerPostprocessor
 class DocRender(BasePostprocessor, pyd.BaseModel):
+    postprocessor_type: ClassVar[PostProcessorType] = PostProcessorType.Accumulator
     template: str
     data: Any
     output: str

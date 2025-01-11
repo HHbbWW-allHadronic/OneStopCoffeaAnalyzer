@@ -84,6 +84,7 @@ class RegionAnalyzer(BaseModel):
             )
 
         def resolveModules(l, t):
+
             ret = [
                 mod
                 for mod in l
