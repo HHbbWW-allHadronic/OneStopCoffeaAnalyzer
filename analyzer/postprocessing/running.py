@@ -61,17 +61,18 @@ def runPostprocessors(config, input_files, parallel=8):
     acc_tasks = []
     for processor in loaded:
         processor.init()
-        t, i = processor.getExe(sector_results)
         if processor.postprocessor_type == PostProcessorType.Normal:
+            t, i = processor.getExe(sector_results)
             tasks += t
             items += i
         elif processor.postprocessor_type == PostProcessorType.Accumulator:
+            t = processor.getExe(sector_results)
             acc_tasks += t
-            items += i
     if tasks:
         run(tasks, parallel)
     if acc_tasks:
         run(acc_tasks, parallel)
 
-    with open(catalog, "wb") as f:
-        f.write(postprocess_catalog.dump_json(items, indent=2))
+    if tasks:
+        with open(catalog, "wb") as f:
+            f.write(postprocess_catalog.dump_json(items, indent=2))

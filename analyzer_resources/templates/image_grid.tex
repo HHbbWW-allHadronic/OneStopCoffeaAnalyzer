@@ -2,11 +2,15 @@
 
 \BLOCK{block body}
 
-\BLOCK{for image in images}
-\includegraphics[width=0.5\textwidth]{\VAR{image.path}}
-\BLOCK{if loop.index is divisibleby(4)}
+\BLOCK{for group in groups}
+\BLOCK{set params=group.params}
+\BLOCK{set items=group['items']}
+\section{\VAR{params.region_name}}
 
-\BLOCK{endif}
+
+\BLOCK{for item in items}
+\includegraphics[width=0.48\textwidth]{\VAR{item.path}}
+\BLOCK{endfor}
 \BLOCK{endfor}
 
 \BLOCK{endblock}

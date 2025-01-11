@@ -14,6 +14,8 @@ from .split_histogram import Mode, splitHistogram
 
 
 def getNested(d, s):
+    if s in d:
+        return d[s]
     parts = s.split(".")
 
     def getK(di, p):
@@ -32,15 +34,15 @@ def doFormatting(s, data=None, **kwargs):
         s += x[0]
         if x[1] is not None:
             if x[1] in all_data:
-                s += all_data[x[1]]
+                s += str(all_data[x[1]])
             else:
-                s += getNested(all_data, x[1])
+                s += str(getNested(all_data, x[1]))
     return s
 
 
-def groupBy(data, fields):
+def groupBy(data, fields, data_acquire=lambda x: x):
     def k(v):
-        return tuple([getNested(v.params_dict, x) for x in fields])
+        return tuple([getNested(data_acquire(v), x) for x in fields])
 
     grouped = it.groupby(sorted(data, key=k), k)
     ret = [(dict(zip(fields, x)), list(y)) for x, y in grouped]
@@ -174,7 +176,7 @@ class SectorGroup(SectorGroupParameters):
 def createSectorGroups(sectors, spec):
     if spec.to_process is not None:
         sectors = [x for x in sectors if spec.to_process.passes(x.sector_params)]
-    grouped = groupBy(sectors, spec.fields)
+    grouped = groupBy(sectors, spec.fields, data_acquire=lambda x: x.params_dict)
     return [
         SectorGroup(
             parameters=params,

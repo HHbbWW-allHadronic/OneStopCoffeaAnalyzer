@@ -1,4 +1,5 @@
 import mplhep
+from rich import print
 
 from .common import PlotConfiguration
 
@@ -38,7 +39,7 @@ def labelAxis(ax, which, axes, label=None, label_complete=None):
             label = axes[idx].name
             if this_unit:
                 label += f" [{this_unit}]"
-        getattr(ax, f"set_{which}label")(label)
+        getattr(ax, f"set_{which}label")(label.replace("textrm", "text"))
     else:
         label = label or "Events"
         units = [getattr(x, "unit", None) for x in axes]
@@ -46,4 +47,4 @@ def labelAxis(ax, which, axes, label=None, label_complete=None):
         unit_format = "*".join(units)
         if unit_format:
             label += f" / {unit_format}"
-        getattr(ax, f"set_{which}label")(label)
+        getattr(ax, f"set_{which}label")(label.replace("textrm", "text"))

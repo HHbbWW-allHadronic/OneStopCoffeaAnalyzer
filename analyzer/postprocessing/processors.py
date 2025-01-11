@@ -13,7 +13,7 @@ import yaml
 import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
-from analyzer.core.specifiers import SectorSpec
+from analyzer.core.specifiers import SectorSpec, SectorParams
 
 from .grouping import (
     SectorGroupSpec,
@@ -22,6 +22,7 @@ from .grouping import (
     SectorGroup,
     SectorGroupParameters,
     groupsMatch,
+    groupBy,
 )
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
@@ -38,6 +39,7 @@ class PostprocessCatalogueEntry(pyd.BaseModel):
     processor_name: str
     path: str
     sector_group: SectorGroupParameters
+    sector_params: list[SectorParams]
 
 
 postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
@@ -45,7 +47,7 @@ postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
 
 class PostProcessorType(Enum):
     Normal = auto()
-    Accumulator= auto()
+    Accumulator = auto()
 
 
 class BasePostprocessor(abc.ABC):
@@ -102,7 +104,10 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
 
                 items.append(
                     PostprocessCatalogueEntry(
-                        processor_name=self.name, path=output, sector_group=sector_group
+                        processor_name=self.name,
+                        path=output,
+                        sector_group=sector_group,
+                        sector_params=[x.sector_params for x in sector_group.sectors],
                     )
                 )
         return ret, items
@@ -140,8 +145,7 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
     histogram_names: list[str]
     to_process: SectorSpec
     style_set: str | StyleSet
-
-    groupby: list[str] = ["dataset.era.name", "region.region_name"]
+    grouping: SectorGroupSpec
     output_name: str = "{histogram_name}"
 
     axis_options: dict[str, Mode | str | int] | None = None
@@ -153,24 +157,37 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
-        r = createSectorGroups(sectors, *self.groupby)
+        r = createSectorGroups(sectors, self.grouping)
         ret = []
+        items = []
         for histogram in self.histogram_names:
             for sector_group in r:
+                output = doFormatting(
+                    self.output_name,
+                    sector_group.all_parameters,
+                    histogram_name=histogram,
+                )
                 ret.append(
                     ft.partial(
                         plot2D,
-                        histogram,
-                        sector_group.parameters,
-                        sector_group.sectors[0],
-                        self.output_name,
+                        sector_group.histograms(histogram)[0],
+                        sector_group.all_parameters,
+                        output,
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=self.plot_configuration,
                         color_scale=self.color_scale,
                     )
                 )
-        return ret
+                items.append(
+                    PostprocessCatalogueEntry(
+                        processor_name=self.name,
+                        path=output,
+                        sector_group=sector_group,
+                        sector_params=[x.sector_params for x in sector_group.sectors],
+                    )
+                )
+        return ret,items
 
 
 @registerPostprocessor
@@ -266,21 +283,51 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                 )
                 items.append(
                     PostprocessCatalogueEntry(
-                        processor_name=self.name, path=output, sector_group=den_group
+                        processor_name=self.name,
+                        path=output,
+                        sector_group=den_group,
+                        sector_params=[
+                            x.sector_params
+                            for x in [*den_group.sectors, *num_group.sectors]
+                        ],
                     )
                 )
         return ret, items
+
+
+def filterCatalog(catalog, fields):
+    return groupBy(
+        catalog,
+        fields,
+        data_acquire=lambda x: x.sector_group.all_parameters,
+    )
 
 
 @registerPostprocessor
 class DocRender(BasePostprocessor, pyd.BaseModel):
     postprocessor_type: ClassVar[PostProcessorType] = PostProcessorType.Accumulator
     template: str
-    data: Any
+    catalog_paths: list[str]
+    doc_level_group: list[str]
+    internal_group: list[str]
     output: str
 
     def getExe(self, results):
-        return [ft.partial(renderTemplate, self.template, self.output, self.data)]
+        catalog = []
+        for path_name in self.catalog_paths:
+            for path in Path(".").glob(path_name):
+                with open(path, "r") as f:
+                    catalog += postprocess_catalog.validate_json(f.read())
+        ret = []
+        for k, top_level in filterCatalog(catalog, self.doc_level_group):
+            data = {"doc_level_parameters": k, "groups": []}
+            for i, group_level in filterCatalog(top_level, self.internal_group):
+                data["groups"].append(
+                    {"params": i, "items": [x.model_dump() for x in group_level]}
+                )
+            output = doFormatting(self.output, k)
+            ret.append(ft.partial(renderTemplate, self.template, output, data))
+        return ret
 
     def init(self):
         pass
