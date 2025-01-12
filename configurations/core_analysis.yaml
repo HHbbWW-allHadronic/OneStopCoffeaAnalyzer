@@ -2,15 +2,16 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
-  data_JetHT_2018: [Control]
-  data_JetHT_2017: [Control]
-  data_JetHT_2016pre: [Control]
-  data_JetHT_2016post: [Control]
 
   qcd_inclusive_2018: All
   qcd_inclusive_2017: All
   qcd_inclusive_2016_preVFP: All
   qcd_inclusive_2016_postVFP: All
+  
+  qcd_inclusive_2022_preEE: All
+  qcd_inclusive_2022_postEE: All
+  qcd_inclusive_2023_preBPix: All
+  qcd_inclusive_2023_postBPix: All
 
   signal_312_2000_1900: All
   signal_312_1500_1400: All
@@ -140,40 +141,3 @@ regions:
     histograms: *common_signal
     weights: *common_weights
 
-  - name: Signal312_SingleJet
-    forbid_data: true
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: hlt_single_jet
-    selection: 
-      - name: general_selection
-      - name: partial_signal312_selection
-    histograms: *common_signal
-    weights: *common_weights
-
-  - name: Signal312_HT
-    forbid_data: true
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: hlt_HT
-    selection: 
-      - name: general_selection
-      - name: partial_signal312_selection
-    histograms: *common_signal
-    weights: *common_weights
-
-  - name: Control
-    objects: *common_objects
-    corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: signal_hlt
-    selection: 
-      - name: general_selection
-      - name: partial_cr_selection
-    histograms: *common_signal
-    weights: *common_weights
