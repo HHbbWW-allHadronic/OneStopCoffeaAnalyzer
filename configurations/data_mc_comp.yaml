@@ -29,8 +29,8 @@ executors:
     max_workers: 4
   imm:
     executor_type: immediate
-    step_size: 500000
-    catch_exceptions: True
+    step_size: 100000
+    catch_exceptions: false
 
   condor:
     executor_type: condor
@@ -45,6 +45,7 @@ executors:
     chunk_size: 400000
     extra_files:
         - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
+        - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
 
 
 file_config:
@@ -105,6 +106,8 @@ regions:
       - <<: *common_preselection
       - name: signal_hlt
     selection: 
+      - name: ht_plateau
+      - name: softdrop_plateau
       - name: general_selection
       - name: partial_cr_selection
     histograms: *common_signal
