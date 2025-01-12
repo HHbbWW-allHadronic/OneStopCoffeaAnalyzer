@@ -1,3 +1,4 @@
+# PYTHON_ARGCOMPLETE_OK
 import argparse
 import logging
 import sys
@@ -226,6 +227,7 @@ def addGeneralArguments(parser):
 
 
 def runCli():
+    import argcomplete
 
     parser = argparse.ArgumentParser(prog="SingleStopAnalyzer")
     addGeneralArguments(parser)
@@ -240,7 +242,7 @@ def runCli():
     addSubparserPost(subparsers)
     addSubparserQuickDataset(subparsers)
 
-    # argcomplete.autocomplete(parser)
+    argcomplete.autocomplete(parser)
 
     args = parser.parse_args()
 

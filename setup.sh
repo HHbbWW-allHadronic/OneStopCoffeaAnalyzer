@@ -138,6 +138,7 @@ function rcmode(){
     fi
     activate_venv 
 
+    eval "$(register-python-argcomplete analyzer)"
     PS1="${R}[APPTAINER\$( [[ ! -z \${VIRTUAL_ENV} ]] && echo "/\${VIRTUAL_ENV##*/}")]${M}[\t]${W}\u@${C}\h:${G}[\w]> ${NONE}"
     unset PROMPT_COMMAND
 
@@ -161,6 +162,7 @@ function rcmode(){
     IFS=$'\n' read -rd '' -a split_welcome_message <<<"$welcome_message"
     mkdir -p .private
     box_out "${split_welcome_message[@]}"
+    # alias analyzer="python3 -m /srv/analyzer"
 }
 
 

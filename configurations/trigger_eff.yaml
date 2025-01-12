@@ -3,15 +3,15 @@ name: Complete
 # Samples and in which regions they should be processed
 samples:
   # testmuondata: All
-  data_singlemuon_2018: All
+  # data_singlemuon_2018: All
   data_singlemuon_2017: All
-  data_singlemuon_2016pre: All
-  data_singlemuon_2016post: All
-  
-  data_muon_2022pre: All
-  data_muon_2022post: All
-  data_muon_2023pre: All
-  data_muon_2023post: All
+  # data_singlemuon_2016pre: All
+  # data_singlemuon_2016post: All
+  # 
+  # data_muon_2022pre: All
+  # data_muon_2022post: All
+  # data_muon_2023pre: All
+  # data_muon_2023post: All
 
 
 

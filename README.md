@@ -6,11 +6,11 @@ This repository contains a python package designed to allow the definition and e
 This includes
 - Definitions of all used dataset
 - Region definitions
-- Descriptions of histograms and other analysis artifacts
-- Handling of MC weights
-- Handling of systematics
+- Descriptions of histograms and other analysis artifacts.
+- Handling of MC weights.
+- Handling of systematics, both for scale and shape.
 - Automatic scale-out with dask and condor
-- Postprocessing utilities for creating plots and more
+- Postprocessing utilities for creating plots, scale factors, and more
 
 
 ## Installation
@@ -46,10 +46,10 @@ This may take some time as we find all locations for the files in our datasets.
 You can run the complete analysis in a single command:
 
 ``` shell
-analyzer run-analysis configurations/single_stop_complete.yaml -o results/my_results_file.pkl -t local
+python3 -m analyzer run configurations/<YOUR_CONFIG>.yaml -o results/my_results_file.pkl -e <EXECUTOR_CHOICE>
 ```
-This will run the analysis defined by the configuration file `single_stop_complete.yaml` using a local executor.
-Of course, this will be very slow, since the complete analysis is processing billions of events.  
+This will run the analysis defined by the configuration file `<YOUR_CONFIG>.yaml` using the chosen executor
+Of course, this will be very slow, since the complete analysis is processing billions of events.
 You can speed things up by specifying a distributed computation system.
 To run on condor, using 100 workers, each with 4GB you can run
 
