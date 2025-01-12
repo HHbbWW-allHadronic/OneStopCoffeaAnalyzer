@@ -229,12 +229,14 @@ def makeDatasetResults(sample_results):
     grouped = it.groupby(sorted(sample_results.values, key=key), key=key)
 
 
-def makeDatasetResults(sample_results, drop_samples=None):
+def makeDatasetResults(
+    sample_results, drop_samples=None, drop_sample_fn=lambda x: False
+):
     drop_samples = drop_samples or []
     scaled_sample_results = defaultdict(list)
     for result in sample_results.values():
-        if result.sample_id in drop_samples:
-            logger.warn(f'Not including sample "{sample_id}"')
+        if result.sample_id in drop_samples or drop_sample_fn(result.sample_id):
+            logger.warn(f'Not including sample "{result.sample_id}"')
             continue
         if result.processed_events > 0:
             scaled_sample_results[result.sample_id.dataset_name].append(

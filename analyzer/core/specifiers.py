@@ -1,9 +1,12 @@
 import logging
+from rich import print
+from enum import Enum
 from fnmatch import fnmatch
+import re
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator, TypeAdapter
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +29,38 @@ class SubSectorId:
         else:
             return value
 
+
+class PatternMode(str, Enum):
+    REGEX = "REGEX"
+    GLOB = "GLOB"
+
+
+class Pattern(pyd.BaseModel):
+    mode: PatternMode = PatternMode.GLOB
+    pattern: str
+
+    def match(self, string, *args, **kwargs):
+        if self.mode == PatternMode.REGEX:
+            ret = re.match(self.pattern, string, *args, **kwargs)
+        else:
+            ret = fnmatch(string, self.pattern)
+        return ret
+
+    @pyd.model_validator(mode="before")
+    @classmethod
+    def convertString(cls, data):
+        if isinstance(data, str):
+            if data.startswith("re:"):
+                return {"mode": "REGEX", "pattern": data.removeprefix("re:")}
+            elif data.startswith("glob:"):
+                return {"mode": "GLOB", "pattern": data.removeprefix("glob:")}
+            else:
+                return {"mode": "GLOB", "pattern": data}
+        else:
+            return data
+
+
+PatternList = TypeAdapter(list[Pattern])
 
 @pyd.dataclasses.dataclass(frozen=True)
 class ShapeVariationId:
@@ -50,8 +85,8 @@ class SubSectorParams(pyd.BaseModel):
 class SampleSpec(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
-    name: list[str] | str | None = None
-    era: list[str] | str | None = None
+    name: list[Pattern] | Pattern | None = None
+    era: list[Pattern] | Pattern | None = None
     sample_type: SampleType | None = None
 
     @field_validator("name", "era")
@@ -65,10 +100,10 @@ class SampleSpec(BaseModel):
 
     def passes(self, dataset_params, return_specificity=False, **kwargs):
         passes_names = not self.name or any(
-            fnmatch(dataset_params.name, x) for x in self.name
+            x.match(dataset_params.name) for x in self.name
         )
         passes_era = not self.era or any(
-            fnmatch(dataset_params.era.name, x) for x in self.era
+            x.match(dataset_params.era.name) for x in self.era
         )
         passes_sample_type = not self.sample_type or (
             dataset_params.sample_type == self.sample_type
@@ -93,7 +128,7 @@ class SampleSpec(BaseModel):
 
 class SectorSpec(BaseModel):
     sample_spec: SampleSpec | None = None
-    region_name: list[str] | str | None = None
+    region_name: list[Pattern] | Pattern | None = None
 
     @field_validator("region_name")
     @classmethod
@@ -109,7 +144,7 @@ class SectorSpec(BaseModel):
             sector_params.dataset, return_specificity=return_specificity
         )
         passes_region = not self.region_name or any(
-            fnmatch(sector_params.region_name, x) for x in self.region_name
+            x.match(sector_params.region_name) for x in self.region_name
         )
         passes = passes_sample and passes_region
         if return_specificity:

@@ -48,10 +48,20 @@ def run(tasks, parallel):
 def runPostprocessors(config, input_files, parallel=8):
     loadStyles()
     print("Loading Postprocessors")
-    loaded, catalog = loadPostprocessors(config)
+    loaded, catalog, drops = loadPostprocessors(config)
     print("Loading Samples")
     sample_results = loadSampleResultFromPaths(input_files)
-    dataset_results = makeDatasetResults(sample_results)
+
+    print(drops)
+
+    def dropSampleFunction(sid):
+        if not drops:
+            return False
+        return any(pattern.match(sid.sample_name) for pattern in drops)
+
+    dataset_results = makeDatasetResults(
+        sample_results, drop_sample_fn=dropSampleFunction
+    )
     print("Ready to Process ")
     sector_results = list(
         it.chain.from_iterable(r.sector_results for r in dataset_results.values())

@@ -1,6 +1,6 @@
 styles:
   - sector_spec:
-      sample_name: 'Data*'
+      sample_name: 'data*'
     style:
       plottype: errorbar
       color: black
@@ -8,7 +8,7 @@ styles:
       marker: 'o'
 
   - sector_spec:
-      sample_name: 'QCD*'
+      sample_name: 'qcd*'
     style:
       plottype: step
       color: blue

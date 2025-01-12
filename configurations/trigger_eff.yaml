@@ -1,4 +1,4 @@
-# The name of analysis to be run
+#Pattern The name of analysis to be run
 name: Complete
 # Samples and in which regions they should be processed
 samples:

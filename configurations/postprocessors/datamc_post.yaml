@@ -1,5 +1,5 @@
 PostDefaults:
-  style_set: "default.yaml"
+  style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
     image_type: ".pdf"
@@ -7,17 +7,24 @@ PostDefaults:
   to_process:
     sample_spec:
       name:
-        - 'QCD*'
-        - 'Data*'
+        - 'qcd*'
+        - 'data*'
 
-catalog_path: "postprocessing/catalog.json"
+catalog_path: "postprocessing/data_mc/catalog.json"
+drop_sample_patterns:
+  - "*50to80*"
+  - "*80to120*"
+  - "*120to170*"
+  - "*170to300*"
+  - "*50to100*"
+  - "*100to200*"
+  - "*200to300*"
 
 Postprocessing:
   # - name: Plots
   #   action: Histogram1D
   #   histogram_names:
   #     - HT
-  #     # - fatjet_pt_1
   #     - pt_1
   #     - pt_2
   #     - pt_3
@@ -31,7 +38,7 @@ Postprocessing:
   #     - m14_m
   #     - m24_m
   #   scale: log
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{histogram_name}"
+  #   output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/{histogram_name}"
   #   grouping:
   #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
   #     axis_options: {variation: "central" }
@@ -40,35 +47,32 @@ Postprocessing:
     action: RatioPlot
     scale: log
     match_fields: ["dataset.era.name", "region_name"]
-    to_process:
-      region_name: 'Signal*'
     histogram_names:
       - HT
-      # - fatjet_pt_1
-      # - pt_1
-      # - pt_2
-      # - pt_3
-      # - eta_1
-      # - eta_2
-      # - eta_3
-      # - phi_1
-      # - phi_2
-      # - phi_3
-      # - m13_m
-      # - m14_m
-      # - m24_m
+      - pt_1
+      - pt_2
+      - pt_3
+      - eta_1
+      - eta_2
+      - eta_3
+      - phi_1
+      - phi_2
+      - phi_3
+      - m13_m
+      - m14_m
+      - m24_m
     ratio_ylim: [0,2]
     ratio_hlines: [1.0]
-    output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
+    output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
     numerator:
       to_process:
-        sample_name: QCD*
+        sample_name: qcd*
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options: {variation: central}
     denominator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       to_process:
-        sample_name: Data*
+        sample_name: data*
       axis_options: {variation: central}
 
 
