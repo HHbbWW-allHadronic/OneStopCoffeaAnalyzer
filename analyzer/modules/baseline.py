@@ -35,9 +35,8 @@ def softdrop_plateau(events, params, selector):
     era_info = params.dataset.era
     ak8_sd = era_info.trigger_plateaus["AK8SingleJetPt"]["msoftdrop"]
 
-    filled_fatjets = ak.pad_none(good_jets, 1, axis=1)
-    top_ak8_pt = events.filled_fatjets
-    passes = ak.fill_none(filled_jets[:, 0].msoftdrop > ak8_sd, False)
+    filled_fatjets = ak.pad_none(events.good_fatjets, 1, axis=1)
+    passes = ak.fill_none(filled_fatjets[:, 0].msoftdrop > ak8_sd, False)
     selector.add(f"SD_Plateau", passes)
 
 

@@ -10,25 +10,23 @@ logger = logging.getLogger(__name__)
 
 
 class Era(BaseModel):
-    name: str = Field(alias=AliasChoices("era_name","name"))
+    name: str = Field(alias=AliasChoices("era_name", "name"))
     energy: float
     lumi: float
     golden_json: str
 
-    trigger_names: dict[str,str] = Field(default_factory=dict)
-    sections: dict[str,dict[str,Any]] = Field(default_factory=dict)
+    trigger_names: dict[str, str] = Field(default_factory=dict)
+    trigger_plateaus: dict[str, float | dict[str, float]] = Field(default_factory=dict)
+    sections: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     pileup_scale_factors: dict[str, str]
     btag_scale_factors: dict[str, str]
     jet_pileup_id: dict[str, Any] | None = None
     jet_veto_maps: dict[str, Any] | None = None
 
-
     @property
     def params(self):
         return self.model_dump(by_alias=True)
-    
-    
 
 
 @dataclasses.dataclass
