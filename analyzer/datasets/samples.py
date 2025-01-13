@@ -8,6 +8,7 @@ import logging
 from functools import cached_property
 from pathlib import Path
 from typing import Any, List
+from analyzer.utils.progress import progbar
 
 import pydantic as pyd
 import yaml
@@ -191,10 +192,11 @@ class Sample(BaseModel):
         t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
         flat = dict(t)
         if len(flat) != len(self.files):
-            raise RuntimeError(f"Possible missing files for {self._parent_dataset.name} - {self.name}."
-                               f"The number of files in the replica cache is {len(flat)}."
-                               f"The number of files in the dateset is {len(self.files)}."
-                               )
+            raise RuntimeError(
+                f"Possible missing files for {self._parent_dataset.name} - {self.name}."
+                f"The number of files in the replica cache is {len(flat)}."
+                f"The number of files in the dateset is {len(self.files)}."
+            )
         for f in self.files:
             cms_loc = f.cmsLocation()
             for l, p in flat[cms_loc].items():
@@ -355,22 +357,25 @@ class DatasetRepo:
         sample = dataset.getSample(sample_id.sample_name)
         return sample
 
+    def __loadOne(self, data):
+        for d in progbar(data, "Reading Sets"):
+            s = Dataset(**d)
+            if s.name in self.datasets:
+                raise KeyError(
+                    f"Dataset name '{s.name}' is already use. Please use a different name for this dataset."
+                )
+            self.datasets[s.name] = s
+
     def load(self, directory, use_replicas=True):
         directory = Path(directory)
         files = list(directory.rglob("*.yaml"))
         file_contents = {}
-        for f in files:
+        for f in progbar(files, title="Reading File"):
             with open(f, "r") as fo:
                 data = yaml.safe_load(fo)
                 if not data:
                     continue
-                for d in data:
-                    s = Dataset(**d)
-                    if s.name in self.datasets:
-                        raise KeyError(
-                            f"Dataset name '{s.name}' is already use. Please use a different name for this dataset."
-                        )
-                    self.datasets[s.name] = s
+                self.__loadOne(data)
 
         if use_replicas:
             self.useReplicaCache()

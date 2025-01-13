@@ -17,6 +17,7 @@ from analyzer.core.specifiers import SectorSpec
 from rich.progress import Progress
 import concurrent.futures as cf
 import matplotlib as mpl
+from .plots.mplstyles import loadStyles
 
 
 from .plots.export_hist import exportHist
@@ -31,6 +32,11 @@ from .processors import postprocess_catalog, PostProcessorType
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 
 
+def initProcess():
+    mpl.use("Agg")
+    loadStyles()
+
+
 def run(tasks, parallel):
     with Progress() as progress:
         task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
@@ -39,7 +45,9 @@ def run(tasks, parallel):
                 f()
                 progress.advance(task_id)
         else:
-            with cf.ProcessPoolExecutor(max_workers=parallel) as executor:
+            with cf.ProcessPoolExecutor(
+                max_workers=parallel, initializer=initProcess
+            ) as executor:
                 results = [executor.submit(f) for f in tasks]
                 for i in cf.as_completed(results):
                     progress.advance(task_id)
@@ -51,8 +59,6 @@ def runPostprocessors(config, input_files, parallel=8):
     loaded, catalog, drops = loadPostprocessors(config)
     print("Loading Samples")
     sample_results = loadSampleResultFromPaths(input_files)
-
-    print(drops)
 
     def dropSampleFunction(sid):
         if not drops:

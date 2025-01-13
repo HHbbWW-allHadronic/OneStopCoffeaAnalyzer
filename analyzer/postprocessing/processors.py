@@ -37,10 +37,10 @@ StyleLike = Style | str
 
 class PostprocessCatalogueEntry(pyd.BaseModel):
     processor_name: str
+    identifier: str
     path: str
     sector_group: SectorGroupParameters
     sector_params: list[SectorParams]
-
 
 postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
 
@@ -105,6 +105,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                 items.append(
                     PostprocessCatalogueEntry(
                         processor_name=self.name,
+                        identifier=histogram,
                         path=output,
                         sector_group=sector_group,
                         sector_params=[x.sector_params for x in sector_group.sectors],
@@ -182,6 +183,7 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
                 items.append(
                     PostprocessCatalogueEntry(
                         processor_name=self.name,
+                        identifier=histogram,
                         path=output,
                         sector_group=sector_group,
                         sector_params=[x.sector_params for x in sector_group.sectors],
@@ -284,6 +286,7 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                 items.append(
                     PostprocessCatalogueEntry(
                         processor_name=self.name,
+                        identifier=histogram,
                         path=output,
                         sector_group=den_group,
                         sector_params=[

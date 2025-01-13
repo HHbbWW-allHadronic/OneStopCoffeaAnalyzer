@@ -48,7 +48,6 @@ def groupBy(data, fields, data_acquire=lambda x: x):
     ret = [(dict(zip(fields, x)), list(y)) for x, y in grouped]
     return ret
 
-
 class SectorGroupSpec(BaseModel):
     fields: list[str]
     to_process: SectorSpec | None = None

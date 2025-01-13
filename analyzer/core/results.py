@@ -13,6 +13,7 @@ from analyzer.datasets import (
 )
 import pickle as pkl
 from analyzer.utils.structure_tools import accumulate
+from analyzer.utils.progress import progbar, spinner
 
 import analyzer.datasets as ad
 import analyzer.core.selection as ans
@@ -126,6 +127,7 @@ class SampleResult(pyd.BaseModel):
             )
         else:
             scale = self.params.n_events / self.file_set_processed.events
+        scale *= self.params.n_events / self.file_set_processed.events
         return self.scaled(scale)
 
 
@@ -214,6 +216,7 @@ def loadSampleResultFromPaths(paths):
     for p in track(
         paths,
         total=len(paths),
+        transient=True,
         description="Loading Files",
         disable=not CONFIG.PRETTY_MODE,
     ):
@@ -221,7 +224,8 @@ def loadSampleResultFromPaths(paths):
             data = pkl.load(f)
             r = loadResults(data)
             results.append(r)
-    return accumulate(results)
+    with spinner("Accumulating results"):
+        return accumulate(results)
 
 
 def makeDatasetResults(sample_results):
@@ -261,7 +265,7 @@ def checkResult(paths):
     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
         table.add_column(x)
 
-    for result in results:
+    for result in progbar(results, title="Analyzing results"):
         sample_id = result.params.sample_id
         exp = result.params.n_events
         val = result.processed_events
