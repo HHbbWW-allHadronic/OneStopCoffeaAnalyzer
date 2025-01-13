@@ -9,8 +9,15 @@
 
 
 \BLOCK{for item in items}
-\includegraphics[width=0.48\textwidth]{\VAR{item.path}}
+\includegraphics[width=0.45\textwidth]{\VAR{item.path}}
+\BLOCK{if loop.index is divisibleby(2)}
+
+\BLOCK{endif}
+\BLOCK{if loop.index is divisibleby(4)}
+\newpage
+\BLOCK{endif}
 \BLOCK{endfor}
+
 \BLOCK{endfor}
 
 \BLOCK{endblock}
