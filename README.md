@@ -76,8 +76,3 @@ The post-processor will automatically handle things like scaling of MC histogram
 Like the main analysis, post-processing is configuration driven. 
 The configuraiton yaml defines what histograms and other graphs should be produced, how they should be saved, etc. 
 
-
-# Configuration In Depth
-
-# Writing new Modules
-
