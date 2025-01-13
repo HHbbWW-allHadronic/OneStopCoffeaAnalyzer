@@ -22,68 +22,65 @@ drop_sample_patterns:
   - "*200to300*"
 
 Postprocessing:
-  # - name: Plots
-  #   action: Histogram1D
-  #   histogram_names:
-  #     - HT
-  #     - pt_1
-  #     - pt_2
-  #     - pt_3
-  #     - eta_1
-  #     - eta_2
-  #     - eta_3
-  #     - phi_1
-  #     - phi_2
-  #     - phi_3
-  #     - m13_m
-  #     - m14_m
-  #     - m24_m
-  #   scale: log
-  #   output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/{histogram_name}"
-  #   grouping:
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: "central" }
+  - name: Plots
+    action: Histogram1D
+    histogram_names:
+      - HT
+      - pt_1
+      - pt_2
+      - pt_3
+      - eta_1
+      - eta_2
+      - eta_3
+      - phi_1
+      - phi_2
+      - phi_3
+      - m13_m
+      - m14_m
+      - m24_m
+    scale: log
+    output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
+    grouping:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      axis_options: {variation: "central" }
+  
+  - name: Ratio
+    action: RatioPlot
+    scale: log
+    match_fields: ["dataset.era.name", "region_name"]
+    histogram_names:
+      - HT
+      - pt_1
+      - pt_2
+      - pt_3
+      - eta_1
+      - eta_2
+      - eta_3
+      - phi_1
+      - phi_2
+      - phi_3
+      - m13_m
+      - m14_m
+      - m24_m
+    ratio_ylim: [0,2]
+    ratio_hlines: [1.0]
+    output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio/{histogram_name}"
+    numerator:
+      to_process:
+        sample_name: qcd*
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      axis_options: {variation: central}
+    denominator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      to_process:
+        sample_name: data*
+      axis_options: {variation: central}
 
-  # - name: Ratio
-  #   action: RatioPlot
-  #   scale: log
-  #   match_fields: ["dataset.era.name", "region_name"]
-  #   histogram_names:
-  #     - HT
-  #     - pt_1
-  #     # - pt_2
-  #     # - pt_3
-  #     # - eta_1
-  #     # - eta_2
-  #     # - eta_3
-  #     # - phi_1
-  #     # - phi_2
-  #     # - phi_3
-  #     # - m13_m
-  #     # - m14_m
-  #     # - m24_m
-  #   ratio_ylim: [0,2]
-  #   ratio_hlines: [1.0]
-  #   #output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
-  #   output_name: "postprocessing/data_mc/{dataset.era.name}_{region_name}_ratio_{histogram_name}"
-  #   numerator:
-  #     to_process:
-  #       sample_name: qcd*
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central}
-  #   denominator:
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     to_process:
-  #       sample_name: data*
-  #     axis_options: {variation: central}
 
-
-  - name: Doc
-    action: DocRender
-    catalog_paths: [postprocessing/data_mc/catalog.json]
-    template: image_grid.tex
-    doc_level_group: ["dataset.era.name"]
-    internal_group: ["region_name"]
-    output: 'postprocessing/{dataset.era.name}.tex'
-    filter_catalog:
-      - 
+  # - name: Doc
+  #   action: DocRender
+  #   catalog_paths: [postprocessing/data_mc/catalog.json]
+  #   template: image_grid.tex
+  #   doc_level_group: ["sector_group.parameters.dataset.era.name"]
+  #   internal_group: ["sector_group.parameters.region_name"]
+  #   output: 'postprocessing/{sector_group.parameters.dataset.era.name}.tex'

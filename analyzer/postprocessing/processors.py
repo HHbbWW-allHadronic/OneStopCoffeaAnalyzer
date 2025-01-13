@@ -302,7 +302,7 @@ def filterCatalog(catalog, fields):
     return groupBy(
         catalog,
         fields,
-        data_acquire=lambda x: x.sector_group.all_parameters,
+        data_acquire=lambda x: x.model_dump()
     )
 
 

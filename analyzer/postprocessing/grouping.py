@@ -2,6 +2,7 @@ import copy
 import functools as ft
 import itertools as it
 import string
+from rich import print
 from dataclasses import dataclass, field
 from typing import Any, ClassVar, Annotated
 from .style import StyleSet, Style
@@ -16,12 +17,12 @@ from .split_histogram import Mode, splitHistogram
 def getNested(d, s):
     if s in d:
         return d[s]
-    parts = s.split(".")
-
-    def getK(di, p):
-        return di[p]
-
-    ret = ft.reduce(getK, parts, d)
+    parts = s.split(".", 1)
+    try:
+        ret = ft.reduce(getNested, parts, d)
+    except KeyError as e:
+        raise KeyError(str(s))
+    # output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
     return ret
 
 
@@ -47,6 +48,7 @@ def groupBy(data, fields, data_acquire=lambda x: x):
     grouped = it.groupby(sorted(data, key=k), k)
     ret = [(dict(zip(fields, x)), list(y)) for x, y in grouped]
     return ret
+
 
 class SectorGroupSpec(BaseModel):
     fields: list[str]

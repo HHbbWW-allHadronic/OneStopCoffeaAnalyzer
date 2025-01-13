@@ -25,18 +25,6 @@ Postprocessing:
     plot_configuration:
       cms_text_color: White
 
-  - name: ""
-    action: Histogram2D
-    histogram_names: ["ak8_pt_vs_sdmass"]
-    output_name: "postprocessing/trigger_eff/plots/{dataset.era.name}/{region_name}/{histogram_name}_{PassAK8Jet}"
-    to_process:
-      region_name: SingleJetEff
-    grouping:
-      fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      title_format: "{dataset.era.trigger_names.HT}"
-      axis_options: {variation: central, PassHT: Sum, PassAK8Jet: Sum }
-    plot_configuration:
-      cms_text_color: White
 
 
   - name: RatioHT
@@ -96,13 +84,3 @@ Postprocessing:
         - style:
             color: black
             plot_type: step
-
-    
-
-  # - name: Doc
-  #   action: DocRender
-  #   catalog_paths: [postprocessing/catalog.json]
-  #   template: image_grid.tex
-  #   doc_level_group: ["dataset.era.name"]
-  #   internal_group: ["region_name"]
-  #   output: 'postprocessing/{dataset.era.name}.tex'
