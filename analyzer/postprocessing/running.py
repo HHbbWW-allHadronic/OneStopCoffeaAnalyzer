@@ -86,9 +86,11 @@ def runPostprocessors(config, input_files, parallel=8):
             acc_tasks += t
     if tasks:
         run(tasks, parallel)
-    if acc_tasks:
-        run(acc_tasks, parallel)
 
     if tasks:
         with open(catalog, "wb") as f:
             f.write(postprocess_catalog.dump_json(items, indent=2))
+
+    if acc_tasks:
+        run(acc_tasks, parallel)
+
