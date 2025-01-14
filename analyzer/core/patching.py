@@ -1,6 +1,5 @@
-from analyzer.datasets import FileSet, DatasetRepo
+from analyzer.datasets import FileSet
 
-from rich import print
 from analyzer.core.results import SampleResult
 from analyzer.core.executor import AnalysisTask
 from analyzer.core.analyzer import Analyzer
@@ -17,7 +16,8 @@ except ImportError as e:
 def getMissingFileset(target: FileSet, prepped: FileSet, processed: FileSet):
     failed_to_process = prepped - processed
     failed_to_prep = target.withoutFiles(prepped.justChunked())
-    return (failed_to_process + failed_to_prep)
+    return failed_to_process + failed_to_prep
+
 
 def getSamplePatch(sample_result: SampleResult, dataset_repo):
 

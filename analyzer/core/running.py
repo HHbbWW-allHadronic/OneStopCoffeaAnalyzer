@@ -2,7 +2,6 @@ import contextlib
 import pickle as pkl
 from pathlib import Path
 
-from analyzer.configuration import CONFIG
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import getSubSectors, loadDescription
@@ -58,6 +57,8 @@ def saveResults(results, output, save_separate=False):
 
 
 def runFromPath(path, output, executor_name, save_separate=False, test_mode=False):
+    import analyzer.modules
+
     output = Path(output)
     description = loadDescription(path)
 

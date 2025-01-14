@@ -30,7 +30,7 @@ class SampleFile(BaseModel):
     def setFile(self, location, url):
         if self.cmsLocation() != extractCmsLocation(url):
             raise ValueError(
-                f"Url '{url}' does not have the same correct cms-location \"{self.cmsLocation()}\" != \"{extractCmsLocation(url)}\""
+                f'Url \'{url}\' does not have the same correct cms-location "{self.cmsLocation()}" != "{extractCmsLocation(url)}"'
             )
         self.paths[location] = url
 

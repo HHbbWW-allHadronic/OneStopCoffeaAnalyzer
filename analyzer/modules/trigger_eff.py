@@ -1,6 +1,5 @@
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
-from rich import print
 import hist
 
 from .utils.btag_points import getBTagWP
@@ -103,6 +102,7 @@ def pass_HT_category(events, params, categories):
         axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHT"),
         values=events.HLT[ht_trigger_name],
     )
+
 
 @MODULE_REPO.register(ModuleType.Categorization)
 def pass_SingleJet_category(events, params, categories):

@@ -1,5 +1,6 @@
-# Introduction
 
+
+# Introduction
 
 This the repository for the single-stop analyzer, used by the UMN-CMS group's single-stop analysis group.
 This repository contains a python package designed to allow the definition and execution the single-stop analysis.
@@ -13,7 +14,7 @@ This includes
 - Postprocessing utilities for creating plots, scale factors, and more
 
 
-## Installation
+# Installation
 
 To begin, clone the repository to your desired location 
 
@@ -23,7 +24,7 @@ git clone git@github.com:UMN-CMS/SingleStopCoffea.git
 
 Then follow the instructions to get set up.
 
-### On a system with CVMFS
+## On a system with CVMFS
 
 If you have access to CVMFS, the easiest way to get started is to simple run 
 
@@ -33,8 +34,8 @@ source setup.sh
 
 This will run a setup script that will create a complete environment, and use this same environment is used on worker nodes.
 
-If this is the first time you have run the analyzer, you will also to populate the replica cache using
-
+If this is the first time you have run the analyzer, you will also to populate the replica cache using.
+This will query rucio to find the physical location of files based on the path names.
 ``` shell
 analyzer generate-replicas
 ```
@@ -62,17 +63,23 @@ While developing, you may instead want to use a different configuration
 analyzer run-analysis configurations/my_personal_configuration.yaml -o results/my_results_file.pkl -t local
 ```
 
-We will discuss much more about configuration in <Configuration in Depth>.
 
 # Inspecting and Processing Results
 
 Processing is done using the `post-processor` subcommand.
 
 ``` shell
-analyzer post-process configuration/single_stop_post.yaml
+analyzer post-process configuration/<YOUR_CONFIGURATION>.yaml
 ```
 
 The post-processor will automatically handle things like scaling of MC histograms. 
 Like the main analysis, post-processing is configuration driven. 
 The configuraiton yaml defines what histograms and other graphs should be produced, how they should be saved, etc. 
 
+
+# Configuration In Depth
+
+Configuration files are yaml files that describe what you want to run. 
+The general format 
+
+(call-process-region (point-min) (point-max) "pandoc")

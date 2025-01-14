@@ -247,8 +247,6 @@ def plotRatio(
     for l in ratio_hlines:
         ratio_ax.axhline(l, color="black", linestyle="dashed", linewidth=1.0)
 
-
-
     ratio_ax.set_xlim(left_edge, right_edge)
     ratio_ax.set_ylim(bottom=ratio_ylim[0], top=ratio_ylim[1])
     if normalize:

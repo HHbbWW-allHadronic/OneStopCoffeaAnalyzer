@@ -2,7 +2,6 @@ import copy
 import itertools as it
 from collections import defaultdict
 from typing import Any
-from rich import print
 
 
 import awkward as ak

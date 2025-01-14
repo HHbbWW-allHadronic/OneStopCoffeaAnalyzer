@@ -5,7 +5,7 @@ class Config:
     FILE_ROOTS = [("store", "store"), "store", "applocal"]
     APPLICATION_DATA = "/srv/.application_data"
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
-    #APPLICATION_RESOURCES = "/srv/analyzer_resources"
+    # APPLICATION_RESOURCES = "/srv/analyzer_resources"
     APPLICATION_RESOURCES = "analyzer_resources"
 
     DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
@@ -17,7 +17,6 @@ class Config:
     TEMPLATE_PATH = str(Path(APPLICATION_RESOURCES) / "templates")
 
     PRETTY_MODE = True
-
 
 
 CONFIG = Config()

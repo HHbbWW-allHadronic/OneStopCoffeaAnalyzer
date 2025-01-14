@@ -5,7 +5,6 @@ import yaml
 from analyzer.configuration import CONFIG
 
 
-
 def setup_logging(
     default_level=None,
 ):

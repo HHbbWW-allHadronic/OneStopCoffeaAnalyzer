@@ -15,12 +15,12 @@ if CONFIG.PRETTY_MODE:
 
 logger = logging.getLogger("analyzer.core")
 
+
 class SelectionFlow(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     cutflow: list[tuple[str, Scalar]]
     one_cut: list[tuple[str, Scalar]]
     n_minus_one: list[tuple[str, Scalar]]
-
 
     @property
     def total_events(self):
@@ -47,12 +47,12 @@ class SelectionFlow(BaseModel):
         def dropDup(flow):
             seen = set()
             return [x for x in flow if not (x[0] in seen or seen.add(x[0]))]
+
         return SelectionFlow(
             cutflow=dropDup(self.cutflow + child.cutflow),
             one_cut=self.one_cut + child.one_cut,
             n_minus_one=self.n_minus_one + child.n_minus_one,
         )
-
 
 
 @dataclass
@@ -78,11 +78,10 @@ class SelectionSet:
         if self.parent_selection is not None:
             ret += self.parent_selection.select_from.allNames()
         return ret
-    
+
     def addMask(self, name, mask):
         if name not in self.allNames():
             self.selection.add(name, mask)
-
 
     def inclusiveMask(self):
         names = self.selection.names
@@ -127,6 +126,7 @@ class Selection:
 
     def __eq__(self, other):
         return self.select_from == other.select_from and self.names == other.names
+
 
 class Selector:
     def __init__(self, selection, selection_set):

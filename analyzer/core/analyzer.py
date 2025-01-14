@@ -1,7 +1,6 @@
 import itertools as it
 import logging
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
 from collections.abc import Sequence
 
 
@@ -19,8 +18,6 @@ if CONFIG.PRETTY_MODE:
     pass
 
 logger = logging.getLogger(__name__)
-
-
 
 
 @dataclass

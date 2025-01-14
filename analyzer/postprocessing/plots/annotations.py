@@ -1,5 +1,4 @@
 import mplhep
-from rich import print
 
 from .common import PlotConfiguration
 
@@ -20,13 +19,11 @@ def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration
     text = plot_configuration.cms_text
     if extra_text is not None:
         text += "\n" + extra_text
-    a,b,c=mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)
+    a, b, c = mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)
     if text_color is not None:
         a.set(color=plot_configuration.cms_text_color)
         b.set(color=plot_configuration.cms_text_color)
         c.set(color=plot_configuration.cms_text_color)
-        
-
 
 
 def labelAxis(ax, which, axes, label=None, label_complete=None):

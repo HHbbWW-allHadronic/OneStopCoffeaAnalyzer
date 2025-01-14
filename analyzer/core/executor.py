@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import abc
 import copy
-import itertools as it
 import logging
 import os
 import shutil
 import uuid
 from pathlib import Path
-from typing import Annotated, Any, ClassVar, Literal
+from typing import Annotated, Any, Literal
 
 import yaml
 
@@ -167,7 +166,6 @@ class DaskExecutor(Executor):
                     f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
                     f"{e}"
                 )
-                pass
         for k, task in tasks.items():
             if k in all_events:
                 r = task.analyzer.run(all_events[k][0], task.sample_params)

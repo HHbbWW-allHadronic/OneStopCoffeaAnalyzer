@@ -3,11 +3,11 @@ import pickle
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
 
+
 @MODULE_REPO.register(ModuleType.Histogram)
 def NN_mass_reco(
     events, params, analyzer, model_path=None, scaler_path=None, model_name=""
 ):
-
 
     from coffea.ml_tools.torch_wrapper import torch_wrapper
     import numpy as np
@@ -17,7 +17,7 @@ def NN_mass_reco(
     class jetAssignmentNN(torch_wrapper):
         def prepare_awkward(self, events, scalerFile, _fake):
 
-            with open(scalerFile, 'rb') as f:
+            with open(scalerFile, "rb") as f:
                 scaler = pickle.load(f)
 
             jets = events.good_jets
@@ -71,8 +71,6 @@ def NN_mass_reco(
             )
             imap_scaled = (imap_concat - scaler.mean_) / scaler.scale_
             return (), {"x": ak.values_astype(imap_scaled, "float32")}
-
-
 
     if model_path is None or scaler_path is None:
         raise ValueError("NN Mass Reco Requires a model path and scaler path")

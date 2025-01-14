@@ -1,10 +1,8 @@
 import numpy as np
-from rich import print
 import matplotlib
 import matplotlib.pyplot as plt
 from analyzer.postprocessing.style import Styler
 
-from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig, fixBadLabels

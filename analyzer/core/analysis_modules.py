@@ -87,7 +87,6 @@ class ModuleRepo:
     def getFunction(self, type, name):
         return self.modules[type][name]._function
 
-
     def get(self, type, name, configuration=None):
         config = configuration or {}
         return ConfiguredAnalyzerModule(module=self.modules[type][name], config=config)

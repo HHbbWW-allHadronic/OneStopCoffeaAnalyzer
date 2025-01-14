@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 import jinja2
 from analyzer.configuration import CONFIG
@@ -17,9 +16,11 @@ latex_jinja_env = jinja2.Environment(
     loader=jinja2.FileSystemLoader(CONFIG.TEMPLATE_PATH),
 )
 
+
 def chunks(lst, n):
     for i in range(0, len(lst), n):
         yield lst[i : i + n]
+
 
 def renderTemplate(template_path, outpath, data):
     template = latex_jinja_env.get_template(template_path)
@@ -28,5 +29,3 @@ def renderTemplate(template_path, outpath, data):
     outpath.parent.mkdir(exist_ok=True, parents=True)
     with open(outpath, "w") as f:
         f.write(rendered)
-
-

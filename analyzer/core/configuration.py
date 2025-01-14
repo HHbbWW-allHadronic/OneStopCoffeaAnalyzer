@@ -1,6 +1,6 @@
 import enum
 from collections import defaultdict
-from typing import Any, ClassVar, Optional, Union
+from typing import Any, ClassVar
 
 import yaml
 

@@ -3,7 +3,6 @@ from pathlib import Path
 import mplhep
 
 
-
 def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=True):
     new_ax = mplhep.append_axes(ax, size, pad, position, extend)
     current_axes = getattr(ax, f"{position}_axes", [])
@@ -25,4 +24,4 @@ def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
 
 def fixBadLabels(h):
     for x in h.axes:
-        x.label=x.label.replace("textrm", "text")
+        x.label = x.label.replace("textrm", "text")

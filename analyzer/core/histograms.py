@@ -199,7 +199,9 @@ class Histogrammer:
                 variations=variations,
                 no_scale=no_scale,
             )
-            ret = HistogramCollection.create(spec, self.categories, delayed=self.delayed)
+            ret = HistogramCollection.create(
+                spec, self.categories, delayed=self.delayed
+            )
             self.storage[name] = ret
         else:
             ret = self.storage[name]

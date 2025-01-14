@@ -1,25 +1,21 @@
 import abc
 from enum import Enum, auto
-from rich import print
 import functools as ft
-import itertools as it
 import logging
 from pathlib import Path
-from typing import Literal, Any, ClassVar
+from typing import Literal, ClassVar
 from .tex import renderTemplate
 
 import yaml
 
 import pydantic as pyd
 from analyzer.configuration import CONFIG
-from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
 from analyzer.core.specifiers import SectorSpec, SectorParams
 
 from .grouping import (
     SectorGroupSpec,
     createSectorGroups,
     doFormatting,
-    SectorGroup,
     SectorGroupParameters,
     groupsMatch,
     groupBy,
@@ -27,7 +23,7 @@ from .grouping import (
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
 from .plots.plots_2d import plot2D
-from .registry import loadPostprocessors, registerPostprocessor
+from .registry import registerPostprocessor
 from .split_histogram import Mode
 from .style import Style, StyleSet
 
@@ -41,6 +37,7 @@ class PostprocessCatalogueEntry(pyd.BaseModel):
     path: str
     sector_group: SectorGroupParameters
     sector_params: list[SectorParams]
+
 
 postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
 
@@ -189,7 +186,7 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
                         sector_params=[x.sector_params for x in sector_group.sectors],
                     )
                 )
-        return ret,items
+        return ret, items
 
 
 @registerPostprocessor
@@ -299,11 +296,7 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
 
 
 def filterCatalog(catalog, fields):
-    return groupBy(
-        catalog,
-        fields,
-        data_acquire=lambda x: x.model_dump()
-    )
+    return groupBy(catalog, fields, data_acquire=lambda x: x.model_dump())
 
 
 @registerPostprocessor

@@ -1,4 +1,3 @@
-import sys
 from . import renderTemplate
 from pathlib import Path
 

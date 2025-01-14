@@ -50,7 +50,6 @@ class Columns:
             return self.get(item)
         return getattr(self.events, item)
 
-
     def __iter__(self):
         return iter(self.events.fields)
 

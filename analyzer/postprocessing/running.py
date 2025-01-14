@@ -1,32 +1,15 @@
-from analyzer.logging import setup_logging
 from .plots.mplstyles import loadStyles
-import mplhep as hep
-import functools as ft
 import itertools as it
-import logging
 from rich import print
-from pathlib import Path
-from typing import Literal
 
-import yaml
-
-import pydantic as pyd
-from analyzer.configuration import CONFIG
-
-from analyzer.core.specifiers import SectorSpec
 from rich.progress import Progress
 import concurrent.futures as cf
 import matplotlib as mpl
 from .plots.mplstyles import loadStyles
+from analyzer.utils.progress import progbar
 
 
-from .plots.export_hist import exportHist
-from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
-from .plots.plots_2d import plot2D
-from .registry import loadPostprocessors, registerPostprocessor
-from .split_histogram import Mode
-from .style import Style, StyleSet
-from .grouping import createSectorGroups
+from .registry import loadPostprocessors
 from .processors import postprocess_catalog, PostProcessorType
 
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
@@ -75,7 +58,7 @@ def runPostprocessors(config, input_files, parallel=8):
 
     tasks, items = [], []
     acc_tasks = []
-    for processor in loaded:
+    for processor in progbar(loaded):
         processor.init()
         if processor.postprocessor_type == PostProcessorType.Normal:
             t, i = processor.getExe(sector_results)
@@ -93,4 +76,3 @@ def runPostprocessors(config, input_files, parallel=8):
 
     if acc_tasks:
         run(acc_tasks, parallel)
-

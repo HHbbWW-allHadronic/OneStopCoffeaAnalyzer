@@ -1,12 +1,17 @@
 import logging
-from rich import print
 from enum import Enum
 from fnmatch import fnmatch
 import re
 
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator, TypeAdapter
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    field_validator,
+    model_validator,
+    TypeAdapter,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +66,7 @@ class Pattern(pyd.BaseModel):
 
 
 PatternList = TypeAdapter(list[Pattern])
+
 
 @pyd.dataclasses.dataclass(frozen=True)
 class ShapeVariationId:

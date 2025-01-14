@@ -5,7 +5,7 @@ import matplotlib as mpl
 from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
 from pydantic import BaseModel, Field
-from pydantic import AfterValidator, field_validator, model_validator
+from pydantic import model_validator
 
 logger = logging.getLogger(__name__)
 

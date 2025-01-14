@@ -1,6 +1,7 @@
 from dataclasses import fields
 from pydantic import BaseModel
 
+
 class Style(BaseModel):
     color: str | None
     alpha: float | None
@@ -14,4 +15,3 @@ class Style(BaseModel):
 
     def __getitem__(self, key):
         return getattr(self, key)
-

@@ -9,15 +9,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-import requests
 import yaml
 
 from analyzer.configuration import CONFIG
-#from auth_get_sso_cookie import cern_sso
+
+# from auth_get_sso_cookie import cern_sso
 from pydantic import BaseModel, TypeAdapter, model_validator
 from rich import print
 from rich.progress import track
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 
 
 class MyDumper(yaml.Dumper):

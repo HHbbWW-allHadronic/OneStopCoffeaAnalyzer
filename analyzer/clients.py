@@ -81,7 +81,7 @@ def createLPCCondorCluster(
         )
         transfer_input_files.append(extra_compressed)
         temp = Path(temporary_path)
-        extra_files_path = temp / "extra_files/" 
+        extra_files_path = temp / "extra_files/"
         extra_files_path.mkdir(exist_ok=True, parents=True)
         for i in extra_files:
             src = Path(i)
@@ -94,7 +94,6 @@ def createLPCCondorCluster(
             output=extra_compressed,
             archive_type="gztar",
         )
-
 
     # transfer_input_files = [
     #    str(base / "setup.sh"),

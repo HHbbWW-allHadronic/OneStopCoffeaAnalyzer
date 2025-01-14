@@ -1,15 +1,4 @@
-import functools as ft
-import itertools as it
-import logging
-from pathlib import Path
-from typing import Literal
-
-import yaml
-
-import pydantic as pyd
-from analyzer.configuration import CONFIG
-from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
-from analyzer.core.specifiers import SectorSpec
+from analyzer.core.results import loadSampleResultFromPaths
 from rich import print
 
 
@@ -25,7 +14,8 @@ def quicklookSample(result):
             x: list(y.base_result.histograms) for x, y in result.results.items()
         },
         "region_cutflow": {
-            x: list(y.base_result.selection_flow.cutflow) for x, y in result.results.items()
+            x: list(y.base_result.selection_flow.cutflow)
+            for x, y in result.results.items()
         },
     }
     print(data)

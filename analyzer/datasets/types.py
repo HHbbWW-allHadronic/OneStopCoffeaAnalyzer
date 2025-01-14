@@ -8,6 +8,7 @@ from analyzer.configuration import CONFIG
 if CONFIG.PRETTY_MODE:
     pass
 
+
 @dataclass
 class UprootFileSpec:
     object_path: str

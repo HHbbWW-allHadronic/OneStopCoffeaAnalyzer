@@ -11,11 +11,13 @@ def signal_hlt(events, params, selector):
         f"HLT_HT | HLT_AK8", events.HLT[ht_trigger_name] | events.HLT[ak8_trigger_name]
     )
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def hlt_HT(events, params, selector):
     era_info = params.dataset.era
     ht_trigger_name = era_info.trigger_names["HT"]
     selector.add(f"HLT_HT", events.HLT[ht_trigger_name])
+
 
 @MODULE_REPO.register(ModuleType.Selection)
 def hlt_single_jet(events, params, selector):
@@ -23,12 +25,14 @@ def hlt_single_jet(events, params, selector):
     ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     selector.add(f"HLT_AK8", events.HLT[ak8_trigger_name])
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def ht_plateau(events, params, selector):
     era_info = params.dataset.era
     ht_plateau = era_info.trigger_plateaus["HT"]
     ht = events.HT
-    selector.add(f"HT_Plateau", ht>ht_plateau)
+    selector.add(f"HT_Plateau", ht > ht_plateau)
+
 
 @MODULE_REPO.register(ModuleType.Selection)
 def softdrop_plateau(events, params, selector):
@@ -38,7 +42,6 @@ def softdrop_plateau(events, params, selector):
     filled_fatjets = ak.pad_none(events.good_fatjets, 1, axis=1)
     passes = ak.fill_none(filled_fatjets[:, 0].msoftdrop > ak8_sd, False)
     selector.add(f"SD_Plateau", passes)
-
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -105,4 +108,3 @@ def partial_cr_selection(events, params, selector):
     """
     loose_b = events.loose_bs
     selector.add("0looseb", (ak.num(loose_b) == 0))
-

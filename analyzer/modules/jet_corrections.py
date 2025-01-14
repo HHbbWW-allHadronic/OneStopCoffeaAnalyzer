@@ -128,8 +128,8 @@ def applyJetCorrections(columns):
 @MODULE_REPO.register(ModuleType.Producer)
 def testJetCorrection(columns, params):
     j = columns.Jet
-    columns.add("TestCorrJet", j)#), {"up" : j, "down" : j})
-    return 
+    columns.add("TestCorrJet", j)  # ), {"up" : j, "down" : j})
+    return
     fields = j.fields
     ret = {}
 
@@ -146,7 +146,7 @@ def testJetCorrection(columns, params):
         depth_limit=1,
         parameters=params,
         with_name=flat.layout.parameters["__record__"],
-        behavior=j.behavior
+        behavior=j.behavior,
     )
 
     for x in ["Up", "Down"]:
@@ -160,7 +160,7 @@ def testJetCorrection(columns, params):
             depth_limit=1,
             parameters=params,
             with_name=flat.layout.parameters["__record__"],
-            behavior=j.behavior
+            behavior=j.behavior,
         )
         ret[x] = out
 
