@@ -128,7 +128,7 @@ def jet_combo_kinematics(events, params, analyzer):
         mtitle = 4 if j - i == 4 else 3
         analyzer.H(
             rf"m{i+1}{j}_m",
-            makeAxis(120, 0, 3000, f"$m_{{{mtitle}}}$", unit="GeV"),
+            makeAxis(300, 0, 3000, f"$m_{{{mtitle}}}$", unit="GeV"),
             jets.mass,
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
