@@ -10,6 +10,64 @@ PostDefaults:
         - 'qcd*'
         - 'data*'
 
+all_oned: &all_oned
+  - h_njet
+  - HT
+  - pt_1
+  - eta_1
+  - phi_1
+  - pt_ht_ratio_0
+  - pt_2
+  - eta_2
+  - phi_2
+  - pt_ht_ratio_1
+  - pt_3
+  - eta_3
+  - phi_3
+  - pt_ht_ratio_2
+  - pt_4
+  - eta_4
+  - phi_4
+  - pt_ht_ratio_3
+  - m14_pt
+  - m14_eta
+  - m14_m
+  - m13_pt
+  - m13_eta
+  - m13_m
+  - m24_pt
+  - m24_eta
+  - m24_m
+  - L_bjet_pt
+  - L_nb
+  - L_b_0_pt
+  - L_b_1_pt
+  - L_bb_eta
+  - L_bb_phi
+  - L_bdr
+  - L_b_m
+  - L_b_pt
+  - M_bjet_pt
+  - M_nb
+  - M_b_0_pt
+  - M_b_1_pt
+  - M_bb_eta
+  - M_bb_phi
+  - M_bdr
+  - M_b_m
+  - M_b_pt
+  - T_bjet_pt
+  - T_nb
+  - T_b_0_pt
+  - T_b_1_pt
+  - T_bb_eta
+  - T_bb_phi
+  - T_bdr
+  - T_b_m
+  - T_b_pt
+
+
+
 catalog_path: "postprocessing/data_mc/catalog.json"
 drop_sample_patterns:
   - "*50to80*"
@@ -22,65 +80,63 @@ drop_sample_patterns:
   - "*200to300*"
 
 Postprocessing:
-  # - name: Plots
-  #   action: Histogram1D
-  #   histogram_names:
-  #     - HT
-  #     - pt_1
-  #     - pt_2
-  #     - pt_3
-  #     - eta_1
-  #     - eta_2
-  #     - eta_3
-  #     - phi_1
-  #     - phi_2
-  #     - phi_3
-  #     - m13_m
-  #     - m14_m
-  #     - m24_m
-  #   scale: log
-  #   output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
-  #   grouping:
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: "central" }
-  
   - name: Ratio
     action: RatioPlot
     scale: log
     match_fields: ["dataset.era.name", "region_name"]
-    histogram_names:
-      - HT
-      - pt_1
-      - pt_2
-      - pt_3
-      - eta_1
-      - eta_2
-      - eta_3
-      - phi_1
-      - phi_2
-      - phi_3
-      - m13_m
-      - m14_m
-      - m24_m
+    histogram_names: *all_oned
+      
     ratio_ylim: [0,2]
     ratio_hlines: [1.0]
     output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio/{histogram_name}"
-    numerator:
+    denominator:
       to_process:
         sample_name: qcd*
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options: {variation: central}
-    denominator:
+    numerator:
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       to_process:
         sample_name: data*
       axis_options: {variation: central}
+    normalize: true
+
+  - name: DataRatio2022
+    action: RatioPlot
+    scale: log
+    match_fields: ["region_name"]
+    histogram_names: *all_oned
+      
+    ratio_ylim: [0,2]
+    ratio_hlines: [1.0]
+    output_name: "postprocessing/data_mc/plots/datadata/{region_name}/ratio/{histogram_name}"
+    numerator:
+      title_format: "{dataset.era.name}"
+      to_process:
+        sample_name: 'data*202*'
+      fields: [  'region_name']
+      axis_options: {variation: central}
+      style_set: 
+        - style: {}
+    denominator:
+      fields: [ 'region_name']
+      title_format: "{dataset.era.name}"
+      to_process:
+        sample_name: 'data*2022*pre*'
+      axis_options: {variation: central}
+      style_set: 
+        - style:
+            color: orange
+    normalize: true
+    plot_configuration:
+      lumi_text: ""
 
 
-  - name: Doc
-    action: DocRender
-    catalog_paths: [postprocessing/data_mc/catalog.json]
-    template: image_grid.tex
-    doc_level_group: ["sector_group.parameters.dataset.era.name"]
-    internal_group: ["sector_group.parameters.region_name"]
-    output: 'postprocessing/{sector_group.parameters.dataset.era.name}.tex'
+
+  # - name: Doc
+  #   action: DocRender
+  #   catalog_paths: [postprocessing/data_mc/catalog.json]
+  #   template: image_grid.tex
+  #   doc_level_group: ["sector_group.parameters.dataset.era.name"]
+  #   internal_group: ["sector_group.parameters.region_name"]
+  #   output: 'postprocessing/{sector_group.parameters.dataset.era.name}.tex'
