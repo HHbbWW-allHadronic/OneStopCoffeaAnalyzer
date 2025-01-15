@@ -3,6 +3,7 @@ import argparse
 import logging
 import sys
 from pathlib import Path
+
 from analyzer.logging import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -61,6 +62,36 @@ def addSubparserQuickDataset(subparsers):
     )
     subparser.add_argument("-l", "--limit-regex")
     subparser.set_defaults(func=handleQuickDataset)
+
+
+def handleStoreResults(args):
+    from analyzer.tools.save_results import storeResults
+
+    storeResults(args.input, f"{args.prefix}_{args.output_name}")
+
+
+def addSubParserStoreResults(subparsers):
+    """Update an existing results file with missing info"""
+    import os
+    import datetime
+
+    subparser = subparsers.add_parser("store-results", help="store results")
+    subparser.add_argument("-o", "--output-name")
+    subparser.add_argument(
+        "--eos-path",
+        type=str,
+        required=False,
+        default=f"/store/user/{os.getlogin()}/single_stop/results/",
+    )
+    subparser.add_argument(
+        "--prefix",
+        type=str,
+        required=False,
+        default=datetime.datetime.now().strftime("%Y-%m-%d")
+
+    )
+    subparser.add_argument("input")
+    subparser.set_defaults(func=handleStoreResults)
 
 
 def handleSamples(args):
@@ -244,6 +275,7 @@ def runCli():
     addSubparserQuicklookFile(subparsers)
     addSubparserPost(subparsers)
     addSubparserQuickDataset(subparsers)
+    addSubParserStoreResults(subparsers)
 
     argcomplete.autocomplete(parser)
 
