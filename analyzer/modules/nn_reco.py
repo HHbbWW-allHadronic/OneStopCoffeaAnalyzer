@@ -97,7 +97,7 @@ def NN_mass_reco(
         f"{model_name}_m14_vs_mChiUncomp",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 500, 3000, r"$m_{3 (NN)}$", unit="GeV"),
+            makeAxis(120, 500, 3000, f"$m_{{3 (NN, {model_name} )}}$", unit="GeV"),
         ],
         [m14, mChiUncomp],
     )
@@ -105,7 +105,7 @@ def NN_mass_reco(
         f"{model_name}_m14_vs_mChiUncompRatio",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 0.15, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
+            makeAxis(120, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
         ],
         [m14, mChiUncomp / m14],
     )
@@ -129,7 +129,7 @@ def NN_mass_reco(
         f"{model_name}_m14_vs_mChiComp",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 0.15, 3000, r"$m_{3 (NN)}$", unit="GeV"),
+            makeAxis(120, 0.15, 3000, f"$m_{{3 (NN, {model_name})}}$", unit="GeV"),
         ],
         [m14, mChiComp],
     )
@@ -137,7 +137,7 @@ def NN_mass_reco(
         f"{model_name}_m14_vs_mChiCompRatio",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 0.15, 1, r"$m_{3 (NN)} / m_{14}$", unit="GeV"),
+            makeAxis(120, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
         ],
         [m14, mChiComp / m14],
     )
