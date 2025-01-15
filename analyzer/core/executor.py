@@ -216,7 +216,7 @@ class DaskExecutor(Executor):
                 result_complete_callback(k, final_result)
             all_results[k] = final_result
 
-        return final_result
+        return all_results
 
 
 class LocalDaskExecutor(DaskExecutor):
@@ -307,7 +307,7 @@ class ImmediateExecutor(Executor):
                 if not self.catch_exceptions:
                     raise
 
-        return final_result
+        return final_results
 
 
 def setupForCondor(
