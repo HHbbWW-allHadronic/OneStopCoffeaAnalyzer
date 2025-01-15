@@ -127,7 +127,6 @@ class SampleResult(pyd.BaseModel):
             )
         else:
             scale = self.params.n_events / self.file_set_processed.events
-        scale *= self.params.n_events / self.file_set_processed.events
         return self.scaled(scale)
 
 
