@@ -36,6 +36,7 @@ except ImportError as e:
     LPCQUEUE_AVAILABLE = False
 
 NanoAODSchema.warn_missing_crossrefs = False
+
 logger = logging.getLogger(__name__)
 
 
@@ -66,7 +67,7 @@ class Executor(abc.ABC, BaseModel):
         pass
 
     @abc.abstractmethod
-    def run(self, tasks: dict[Any, AnalysisTask]):
+    def run(self, tasks: dict[Any, AnalysisTask], result_complete_callback=None):
         pass
 
 
@@ -134,7 +135,7 @@ class DaskExecutor(Executor):
             tasks, default_step_size=self.step_size, test_mode=self.test_mode
         )
 
-    def run(self, tasks):
+    def run(self, tasks, result_complete_callback=None):
         ret = {}
         all_events = {}
         file_sets = self._preprocess(tasks)
@@ -170,13 +171,6 @@ class DaskExecutor(Executor):
             if k in all_events:
                 r = task.analyzer.run(all_events[k][0], task.sample_params)
                 r = core_results.subsector_adapter.dump_python(r)
-                # opt = dask.optimize(r)
-                # d= opt[0]["Signal312"]["base_result"]["histograms"]["HT"]["histogram"].dask
-                # print(d)
-                # print(len(d.get_all_dependencies()))
-                # import sys
-                # sys.exit()
-
                 ret[k] = {
                     "result": r,
                     "report": all_events[k][1],
@@ -184,43 +178,43 @@ class DaskExecutor(Executor):
             else:
                 ret[k] = None
 
-        computed_results = {}
+        all_results = {}
+
         for k, v in ret.items():
+            computed = None
             if v is not None:
                 try:
-                    logger.info(f"Attempting to computing {k}")
-                    result = dask.compute(v)[0]
-                    computed_results[k] = result
+                    logger.info(f"Attempting to compute {k}")
+                    computed = dask.compute(v)[0]
                 except Exception as e:
                     logger.warn(
                         f"An exception occurred while processing task {k}."
                         f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
                         f"{e}"
                     )
-                    computed_results[k] = None
             else:
                 logger.info(f"Nothing to compute for {k}")
-                computed_results[k] = None
-
-        final_result = {}
-        for k, v in computed_results.items():
-            if v is not None:
-                processed = file_sets[k].justProcessed(v["report"])
-                final_result[k] = core_results.SampleResult(
+            if computed is not None:
+                processed = file_sets[k].justProcessed(computed["report"])
+                final_result = core_results.SampleResult(
                     sample_id=tasks[k].sample_id,
                     file_set_ran=file_sets[k],
                     file_set_processed=processed,
                     params=tasks[k].sample_params,
-                    results=v["result"],
+                    results=computed["result"],
                 )
             else:
-                final_result[k] = core_results.SampleResult(
+                logger.info(f"Computed result was none for {k}, treating as failure")
+                final_result = core_results.SampleResult(
                     sample_id=tasks[k].sample_id,
                     file_set_ran=file_sets[k],
                     file_set_processed=file_sets[k].asEmpty(),
                     params=tasks[k].sample_params,
                     results={},
                 )
+            if result_complete_callback is not None:
+                result_complete_callback(k, final_result)
+            all_results[k] = final_result
 
         return final_result
 
@@ -239,7 +233,6 @@ class LocalDaskExecutor(DaskExecutor):
             scheduler_kwargs={"host": self.schedd_address},
         )
         self._client = Client(self._cluster)
-        super().setup()
 
 
 class ImmediateExecutor(Executor):
@@ -287,26 +280,32 @@ class ImmediateExecutor(Executor):
                         processed.dropChunk(extractCmsLocation(fname), [start, end])
         return ret, fs, processed
 
-    def run(self, tasks):
+    def run(self, tasks, result_complete_callback=None):
+
+        logger.info(f"Starting run with immediate executor")
         ret = {}
+
+        final_results = {}
         for k, task in tasks.items():
             try:
-                ret[k] = self.__run_task(k, task)
+                logger.info(f"Running task {k}")
+                result, fs, processed = self.__run_task(k, task)
+                if result is not None:
+                    r = core_results.SampleResult(
+                        sample_id=tasks[k].sample_id,
+                        file_set_ran=fs,
+                        file_set_processed=processed,
+                        params=tasks[k].sample_params,
+                        results=result,
+                    )
+                    if result_complete_callback is not None:
+                        result_complete_callback(k, r)
+                    else:
+                        final_result[k] = r
             except Exception as e:
                 logger.warn(f"An exception occurred while running {k}.\n {e}")
                 if not self.catch_exceptions:
                     raise
-
-        final_result = {}
-        for k, (result, fs, processed) in ret.items():
-            if result is not None:
-                final_result[k] = core_results.SampleResult(
-                    sample_id=tasks[k].sample_id,
-                    file_set_ran=fs,
-                    file_set_processed=processed,
-                    params=tasks[k].sample_params,
-                    results=result,
-                )
 
         return final_result
 
@@ -430,7 +429,7 @@ class CondorExecutor(Executor):
             ret.append({"input_path": str(fpath), "input_name": str(fname)})
         return ret
 
-    def run(self, tasks):
+    def run(self, tasks, result_complete_callback=None):
         # import htcondor
         # import classad
         import datetime

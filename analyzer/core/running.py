@@ -10,6 +10,10 @@ from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
 from analyzer.datasets import DatasetRepo, EraRepo
 from rich import print
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
@@ -56,6 +60,16 @@ def saveResults(results, output, save_separate=False):
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 
 
+def makeSaveCallback(output):
+    def inner(key, result):
+        output.mkdir(exist_ok=True, parents=True)
+        output_file = output / f"{key}.pkl"
+        logger.info(f"Saving key {key} to \"{output_file}\"")
+        with openNoOverwrite(output_file, "wb") as f:
+            pkl.dump({key: result.model_dump()}, f)
+    return inner
+
+
 def runFromPath(path, output, executor_name, save_separate=False, test_mode=False):
     import analyzer.modules
 
@@ -84,9 +98,12 @@ def runFromPath(path, output, executor_name, save_separate=False, test_mode=Fals
     if hasattr(executor, "output_dir") and executor.output_dir is None:
         executor.output_dir = str(output)
 
-    results = executor.run(tasks)
-
-    saveResults(results, output, save_separate=save_separate)
+    if save_separate:
+        callback = makeSaveCallback(output)
+        results = executor.run(tasks, result_complete_callback=callback)
+    else:
+        results = executor.run(tasks)
+        saveResults(results, output)
 
 
 def runPackagedTask(packaged_task, output=None, output_dir=None, save_separate=False):
@@ -145,5 +162,9 @@ def patchFromPath(
             p.file_set.file_retrieval_kwargs = {}
     tasks = {task.sample_id: task for task in patches}
 
-    results = executor.run(tasks)
-    saveResults(results, output, save_separate=save_separate)
+    if save_separate:
+        callback = makeSaveCallback(output)
+        results = executor.run(tasks, result_complete_callback=callback)
+    else:
+        results = executor.run(tasks)
+        saveResults(results, output)
