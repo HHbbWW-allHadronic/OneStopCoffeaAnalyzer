@@ -28,7 +28,7 @@ def topfatjet_plots(events, params, analyzer):
         f"ak8_pt_vs_sdmass",
         [
             makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
-            makeAxis(30, 0, 300, "$m_{\\textrm{SD}}$", unit="GeV"),
+            makeAxis(30, 0, 300, "$m_{\\text{SD}}$", unit="GeV"),
         ],
         [events.good_fatjets[:, 0].pt, events.good_fatjets[:, 0].msoftdrop],
         description="2D plot of pt and softdrop mass",
@@ -52,7 +52,7 @@ def trifecta_plot(events, params, analyzer):
         [
             makeAxis(120, 0, 3000, "HT", unit="GeV"),
             makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
-            makeAxis(30, 0, 300, "$m_{\\textrm{SD}}$", unit="GeV"),
+            makeAxis(30, 0, 300, "$m_{\\text{SD}}$", unit="GeV"),
         ],
         [events.HT, events.good_fatjets[:, 0].pt, events.good_fatjets[:, 0].msoftdrop],
         description="3D plot of ht and ak8 pt and softdrop mass",
@@ -101,10 +101,14 @@ def jet_combo_kinematics(events, params, analyzer):
     """Kinematic information about combinations of jets, such as the naive chargino reconstruction algorithms."""
 
     gj = events.good_jets
-    jet_combos = [(0, 4), (0, 3), (1, 4)]
+    jet_combos = [
+        ((0, 4), "4"),
+        ((0, 3), "3,\\text{compressed}"),
+        ((1, 4), "3,\\text{uncompressed"),
+    ]
     co = lambda x: it.combinations(x, 2)
     masses = {}
-    for i, j in jet_combos:
+    for (i, j), title in jet_combos:
         jets = gj[:, i:j].sum()
         masses[(i, j)] = jets.mass
         analyzer.H(
@@ -125,15 +129,25 @@ def jet_combo_kinematics(events, params, analyzer):
             jets.eta,
             description=rf"$\eta$ of the sum of jets {i+1} to {j}",
         )
+
         mtitle = 4 if j - i == 4 else 3
         analyzer.H(
             rf"m{i+1}{j}_m",
-            makeAxis(300, 0, 3000, f"$m_{{{mtitle}}}$", unit="GeV"),
+            makeAxis(300, 0, 3000, f"$m_{{{title}}}$", unit="GeV"),
             jets.mass,
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
 
-    for p1, p2 in [((0, 3), (0, 4)), ((1, 4), (0, 4))]:
+    for (p1,title1), (p2,title2) in [
+        (
+            ((0, 3), "3,\\text{compressed}"),
+            ((0, 4), "4"),
+        ),
+        (
+            ((1, 4), "3,\\text{uncompressed"),
+            ((0, 4), "4"),
+        ),
+    ]:
         p1_1, p1_2 = p1
         p2_1, p2_2 = p2
         mtitle1 = 3
@@ -141,8 +155,8 @@ def jet_combo_kinematics(events, params, analyzer):
         analyzer.H(
             f"m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [
-                makeAxis(30, 0, 3000, rf"$m_{{{mtitle2}}}$", unit="GeV"),
-                makeAxis(30, 0, 3000, rf"$m_{{{mtitle1}}}$", unit="GeV"),
+                makeAxis(30, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
+                makeAxis(30, 0, 3000, rf"$m_{{{title1}}}$", unit="GeV"),
             ],
             [masses[p2], masses[p1]],
         )
@@ -150,12 +164,12 @@ def jet_combo_kinematics(events, params, analyzer):
         analyzer.H(
             f"ratio_m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [
-                makeAxis(30, 0, 3000, rf"$m_{{{mtitle2}}}$", unit="GeV"),
+                makeAxis(30, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
                 makeAxis(
                     30,
                     0,
                     1,
-                    rf"$\frac{{m_{{ {mtitle1} }} }}{{ m_{{ {mtitle2} }} }}$",
+                    rf"$\frac{{m_{{ {title1} }} }}{{ m_{{ {title2} }} }}$",
                 ),
             ],
             [masses[p2], masses[p1] / masses[p2]],
