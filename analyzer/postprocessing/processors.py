@@ -259,6 +259,8 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
                 # )
 
                 dh = den_group.histograms(histogram)
+                if not dh:
+                    continue
                 if len(dh) != 1:
                     raise RuntimeError
                 output = doFormatting(

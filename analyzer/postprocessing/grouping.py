@@ -2,14 +2,14 @@ import copy
 import functools as ft
 import itertools as it
 import string
-from typing import Any, ClassVar, Annotated
-from .style import StyleSet, Style
+from typing import Annotated, Any, ClassVar
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams, SectorSpec
 from pydantic import BaseModel, Field, field_validator
 
 from .split_histogram import Mode, splitHistogram
+from .style import Style, StyleSet
 
 
 def getNested(d, s):
@@ -134,8 +134,11 @@ class SectorGroup(SectorGroupParameters):
     def histograms(self, hist_name):
         everything = []
         for sector in self.sectors:
+            h = sector.result.histograms[hist_name].histogram
+            if h.empty():
+                continue
             hists, labels = splitHistogram(
-                sector.result.histograms[hist_name].histogram,
+                h,
                 self.axis_options or None,
                 return_labels=True,
             )
