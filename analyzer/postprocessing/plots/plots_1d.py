@@ -235,7 +235,7 @@ def plotRatio(
 
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
-        all_opts = {**style.get("errorbar"), **dict(linestyle="none")}
+        all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
         ratio_ax.errorbar(
             x_values,
             ratio,
