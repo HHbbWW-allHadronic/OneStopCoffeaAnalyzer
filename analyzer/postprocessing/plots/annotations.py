@@ -3,19 +3,28 @@ import mplhep
 from .common import PlotConfiguration
 
 
-def addCMSBits(ax, sectors, extra_text=None, text_color=None, plot_configuration=None):
+def addCMSBits(
+    ax,
+    sectors,
+    extra_text=None,
+    text_color=None,
+    plot_configuration=None,
+):
     if plot_configuration is None:
         plot_configuration = PlotConfiguration()
-    lumis = set(str(x.dataset.lumi) for x in sectors)
-    energies = set(str(x.dataset.era.energy) for x in sectors)
-    era = set(str(x.dataset.era.name) for x in sectors)
-    era_text = f"{'/'.join(era)}"
-    lumi_text = (
-        plot_configuration.lumi_text
-        or f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
-    )
+    info_text = plot_configuration.lumi_text
+    if info_text is None:
+        lumis = set(str(x.dataset.lumi) for x in sectors)
+        energies = set(str(x.dataset.era.energy) for x in sectors)
+        era = set(str(x.dataset.era.name) for x in sectors)
+        era_text = f"{'/'.join(era)}"
+        lumi_text = (
+            plot_configuration.lumi_text
+            or f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
+        )
+        info_text = era_text + ", " + lumi_text
+    mplhep.cms.lumitext(text=info_text, ax=ax)
 
-    mplhep.cms.lumitext(text=era_text + ", " + lumi_text, ax=ax)
     text = plot_configuration.cms_text
     if extra_text is not None:
         text += "\n" + extra_text
