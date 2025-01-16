@@ -85,6 +85,8 @@
   sample_type: Data
   sample_field: 2
   era: '2023_preBPix'
+  filter_regex: 'Muon[01]'
+  append_name_field: 1
   cms_regex: '/Muon*/Run2023C-22Sep2023_v*-v*/NANOAOD'
 
 - name: data_muon_2023post
@@ -92,6 +94,8 @@
   sample_type: Data
   sample_field: 2
   era: '2023_postBPix'
+  filter_regex: 'Muon[01]'
+  append_name_field: 1
   cms_regex: '/Muon*/Run2023D-22Sep2023_v*-v*/NANOAOD'
 
 - name: data_muon_2022pre
