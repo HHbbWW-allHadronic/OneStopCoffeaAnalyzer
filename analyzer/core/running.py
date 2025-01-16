@@ -1,4 +1,5 @@
 import contextlib
+import logging
 import pickle as pkl
 from pathlib import Path
 
@@ -10,8 +11,6 @@ from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
 from analyzer.datasets import DatasetRepo, EraRepo
 from rich import print
-import logging
-
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +63,10 @@ def makeSaveCallback(output):
     def inner(key, result):
         output.mkdir(exist_ok=True, parents=True)
         output_file = output / f"{key}.pkl"
-        logger.info(f"Saving key {key} to \"{output_file}\"")
+        logger.info(f'Saving key {key} to "{output_file}"')
         with openNoOverwrite(output_file, "wb") as f:
             pkl.dump({key: result.model_dump()}, f)
+
     return inner
 
 
@@ -147,20 +147,33 @@ def patchFromPath(
     if output in inputs:
         raise RuntimeError()
     description = loadDescription(description_path)
-    executor = description.executors[executor_name]
-    executor.setup()
-    if hasattr(executor, "output_dir") and executor.output_dir is None:
-        executor.output_dir = str(output)
+    # executor = description.executors[executor_name]
+    # executor.setup()
+    # if hasattr(executor, "output_dir") and executor.output_dir is None:
+    #     executor.output_dir = str(output)
 
     dataset_repo = DatasetRepo.getConfig()
+    era_repo = EraRepo.getConfig()
     sample_results = loadSampleResultFromPaths(inputs)
     patches = [getSamplePatch(s, dataset_repo) for s in sample_results.values()]
     patches = [p for p in patches if not p.file_set.empty]
+
     for p in patches:
         p.analyzer.ensureFunction(MODULE_REPO)
         if ignore_ret_prefs:
             p.file_set.file_retrieval_kwargs = {}
     tasks = {task.sample_id: task for task in patches}
+
+    subsectors = getSubSectors(description, dataset_repo, era_repo)
+    unknown_sample_tasks = makeTasks(
+        {x: y for x, y in subsectors.items() if x not in sample_results},
+        dataset_repo,
+        era_repo,
+        description.file_config.model_dump(),
+    )
+    unknown_sample_tasks = {task.sample_id: task for task in unknown_sample_tasks}
+
+    tasks.update(unknown_sample_tasks)
 
     if save_separate:
         callback = makeSaveCallback(output)
