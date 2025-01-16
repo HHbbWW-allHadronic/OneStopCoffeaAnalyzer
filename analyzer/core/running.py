@@ -147,10 +147,10 @@ def patchFromPath(
     if output in inputs:
         raise RuntimeError()
     description = loadDescription(description_path)
-    # executor = description.executors[executor_name]
-    # executor.setup()
-    # if hasattr(executor, "output_dir") and executor.output_dir is None:
-    #     executor.output_dir = str(output)
+    executor = description.executors[executor_name]
+    executor.setup()
+    if hasattr(executor, "output_dir") and executor.output_dir is None:
+        executor.output_dir = str(output)
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()

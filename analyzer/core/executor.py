@@ -72,7 +72,9 @@ class Executor(abc.ABC, BaseModel):
 
 
 def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False):
-    step_sizes = set(x.file_set.step_size for x in tasks.values())
+    step_sizes = set(
+        x.file_set.step_size for x in tasks.values() if x.file_set.step_size is not None
+    )
     if len(step_sizes) != 1:
         raise RuntimeError()
 
@@ -110,7 +112,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
             uid: f.slice(chunks=slice(0, 1)) for uid, f in new_filesets.items()
         }
     for v in new_filesets.values():
-        v.step_size = default_step_size
+        v.step_size = v.step_size or default_step_size
 
     return new_filesets
 
