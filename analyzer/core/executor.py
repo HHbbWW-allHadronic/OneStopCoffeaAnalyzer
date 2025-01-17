@@ -162,7 +162,6 @@ class DaskExecutor(Executor):
                     schemaclass=NanoAODSchema,
                     uproot_options=dict(
                         allow_read_errors_with_report=True,
-                        timeout=30,
                     ),
                     known_base_form=maybe_base_form,
                 ).events()
