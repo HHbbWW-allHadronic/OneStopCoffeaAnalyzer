@@ -161,7 +161,10 @@ def patchFromPath(
     for p in patches:
         p.analyzer.ensureFunction(MODULE_REPO)
         if ignore_ret_prefs:
-            p.file_set.file_retrieval_kwargs = {}
+            p.file_set.file_retrieval_kwargs = {
+                "location_priority_regex": [".*(T0|T1|T2).*", ".*"]
+            }
+    use_replicas: bool = True
     tasks = {task.sample_id: task for task in patches}
 
     subsectors = getSubSectors(description, dataset_repo, era_repo)
