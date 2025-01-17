@@ -49,7 +49,7 @@ executors:
 
 
 file_config:
-  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
