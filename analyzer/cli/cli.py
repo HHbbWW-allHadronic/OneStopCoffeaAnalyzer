@@ -33,13 +33,20 @@ def addSubparserGenerateReplicaCache(subparsers):
 def handleCheckResults(args):
     from analyzer.core.results import checkResult
 
-    checkResult(args.input)
+    checkResult(args.input, configuration=args.configuration)
 
 
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser("check-results", help="Check results")
     subparser.add_argument("input", nargs="+", type=Path, help="Input data paths.")
+    subparser.add_argument(
+        "-c",
+        "--configuration",
+        type=str,
+        default=None,
+        help="Optionally provide a configuration to check for completely omitted samples",
+    )
     subparser.set_defaults(func=handleCheckResults)
 
 
@@ -87,8 +94,7 @@ def addSubParserStoreResults(subparsers):
         "--prefix",
         type=str,
         required=False,
-        default=datetime.datetime.now().strftime("%Y-%m-%d")
-
+        default=datetime.datetime.now().strftime("%Y-%m-%d"),
     )
     subparser.add_argument("input")
     subparser.set_defaults(func=handleStoreResults)

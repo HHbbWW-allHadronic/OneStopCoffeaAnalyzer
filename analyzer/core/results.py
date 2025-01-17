@@ -251,20 +251,32 @@ def makeDatasetResults(
     }
 
 
-def checkResult(paths):
+def checkResult(paths, configuration=None):
     from rich.console import Console
     from rich.style import Style
     from rich.table import Table
 
     console = Console()
 
-    results = list(loadSampleResultFromPaths(paths).values())
+    loaded = loadSampleResultFromPaths(paths)
+    results = list(loaded.values())
+
+    if configuration:
+        from analyzer.datasets import DatasetRepo, EraRepo
+        from analyzer.core.configuration import getSubSectors, loadDescription
+
+        description = loadDescription(configuration)
+        dataset_repo = DatasetRepo.getConfig()
+        config_samples = set(
+            x.sample_id for n in description.samples for x in dataset_repo[n]
+        )
+        missing_samples = sorted(list(config_samples - set(loaded)))
 
     table = Table(title="Missing Events")
     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
         table.add_column(x)
 
-    for result in progbar(results, title="Analyzing results"):
+    for result in results:
         sample_id = result.params.sample_id
         exp = result.params.n_events
         val = result.processed_events
@@ -281,4 +293,14 @@ def checkResult(paths):
             style=Style(color="green" if done else "red"),
         )
         # print(f"{sample_id} is missing {diff} events")
+    if configuration:
+        for sample_id in missing_samples:
+            table.add_row(
+                sample_id.dataset_name,
+                sample_id.sample_name,
+                "Missing",
+                "Missing",
+                "Missing",
+                style=Style(color="red"),
+            )
     console.print(table)
