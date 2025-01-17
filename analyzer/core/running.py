@@ -175,12 +175,12 @@ def patchFromPath(
         description.file_config.model_dump(),
     )
     unknown_sample_tasks = {task.sample_id: task for task in unknown_sample_tasks}
-
-    tasks.update(unknown_sample_tasks)
+    final_tasks = unknown_sample_tasks
+    final_tasks.update(tasks)
 
     if save_separate:
         callback = makeSaveCallback(output)
-        results = executor.run(tasks, result_complete_callback=callback)
+        results = executor.run(final_tasks, result_complete_callback=callback)
     else:
-        results = executor.run(tasks)
+        results = executor.run(final_tasks)
         saveResults(results, output)
