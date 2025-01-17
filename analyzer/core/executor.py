@@ -73,9 +73,12 @@ class Executor(abc.ABC, BaseModel):
 
 def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False):
     step_sizes = set(
+        x.file_set.step_size for x in tasks.values()
+    )
+    step_sizes_not_none = set(
         x.file_set.step_size for x in tasks.values() if x.file_set.step_size is not None
     )
-    if len(step_sizes) != 1:
+    if len(step_sizes_not_none) > 1:
         raise RuntimeError()
 
     this_step_size = next(iter(step_sizes))
@@ -94,7 +97,7 @@ def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False)
     logger.info("Preprocessing %d samples", len(to_prep))
     out, all_items = dst.preprocess(
         to_prep,
-        save_form=False,
+        save_form=True,
         skip_bad_files=True,
         step_size=this_step_size or default_step_size,
         scheduler=scheduler,
@@ -125,6 +128,7 @@ class DaskExecutor(Executor):
     min_workers: int | None = 1
     adapt: bool = True
     step_size: int | None = 100000
+    map_mode: bool = False
 
     def setup(self):
         if self.adapt:
@@ -171,7 +175,12 @@ class DaskExecutor(Executor):
                 )
         for k, task in tasks.items():
             if k in all_events:
-                r = task.analyzer.run(all_events[k][0], task.sample_params)
+                if self.map_mode:
+                    r = all_events[k][0].map_partitions(
+                        task.analyzer.run, task.sample_params
+                    )
+                else:
+                    r = task.analyzer.run(all_events[k][0], task.sample_params)
                 r = core_results.subsector_adapter.dump_python(r)
                 ret[k] = {
                     "result": r,
