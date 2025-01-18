@@ -38,6 +38,7 @@ class BaseResult(pyd.BaseModel):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
+
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
         return BaseResult(
@@ -47,6 +48,9 @@ class BaseResult(pyd.BaseModel):
         )
 
     def scaled(self, scale):
+        """
+        Scale all data. Currently selection flow is left unscaled.
+        """
         return BaseResult(
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
@@ -63,7 +67,7 @@ class SubSectorResult(pyd.BaseModel):
         We simply sum the histograms and cutflow data.
         """
         if self.region != other.region:
-            raise RuntimeError("Different Regions")
+            raise RuntimeError("Cannot add different regions together.")
         return SubSectorResult(
             region=self.region, base_result=self.base_result + other.base_result
         )
@@ -88,6 +92,7 @@ class SampleResult(pyd.BaseModel):
         return self.file_set_processed.events
 
     def __add__(self, other):
+        # Compute the overlap of the two results, this must be empty
         fs = self.file_set_processed.intersect(other.file_set_processed)
         if not fs.empty:
             error = (
@@ -96,6 +101,7 @@ class SampleResult(pyd.BaseModel):
             )
             raise RuntimeError(error)
 
+        # We can only add results if the parameters are the same
         if self.params != other.params:
             raise RuntimeError(
                 f"Error: Attempting to merge incomaptible analysis results"
@@ -119,6 +125,10 @@ class SampleResult(pyd.BaseModel):
         )
 
     def scaleToPhysical(self):
+        """
+        Scale MC results to the correct value based on their lumi and cross section
+        All results are scaled to remove effect of missing files/failed chunks.
+        """
         if self.params.dataset.sample_type == SampleType.MC:
             scale = (
                 self.params.dataset.lumi
@@ -152,9 +162,11 @@ class DatasetResult(pyd.BaseModel):
 
     @staticmethod
     def fromSampleResult(sample_results):
+        # All samples must belong fo the same dataset
         if not len(set(x.sample_id.dataset_name for x in sample_results)) == 1:
             raise RuntimeError()
 
+        # Dataset is created by adding sample results
         return DatasetResult(
             dataset_params=sample_results[0].params.dataset,
             results=accumulate(
@@ -169,25 +181,6 @@ class DatasetResult(pyd.BaseModel):
             ),
         )
 
-    def scaled(self, scale):
-        return DatasetReult(
-            dataset_params=self.dataset_params,
-            region_results={k: v.scaled(scale) for k, v in results.items()},
-            file_set_ran=self.file_set_ran,
-            file_set_processed=self.file_set_processed,
-        )
-
-    def __add__(self, other):
-        if self.dataset_params != other.dataset_params:
-            raise RuntimeError(
-                f"Error: Attempting to merge incomaptible results. The two results have different parameters."
-            )
-        return SectorResult(
-            dataset_params=self.dataset_params,
-            results=accumulate([self.result, other.results]),
-            file_set_ran=self.file_set_ran + other.file_set_ran,
-            file_set_processed=self.file_set_processed + other.file_set_processed,
-        )
 
     @property
     def sector_results(self):
@@ -227,9 +220,6 @@ def loadSampleResultFromPaths(paths):
         return accumulate(results)
 
 
-def makeDatasetResults(sample_results):
-    key = lambda x: x.sample_id.dataset_name
-    grouped = it.groupby(sorted(sample_results.values, key=key), key=key)
 
 
 def makeDatasetResults(
@@ -237,6 +227,7 @@ def makeDatasetResults(
 ):
     drop_samples = drop_samples or []
     scaled_sample_results = defaultdict(list)
+    # Make datasets results by grouping samples for each dataset
     for result in sample_results.values():
         if result.sample_id in drop_samples or drop_sample_fn(result.sample_id):
             logger.warn(f'Not including sample "{result.sample_id}"')
@@ -262,6 +253,7 @@ def checkResult(paths, configuration=None):
     results = list(loaded.values())
 
     if configuration:
+        # If a configuration is provided we also check for completely missing samples
         from analyzer.datasets import DatasetRepo, EraRepo
         from analyzer.core.configuration import getSubSectors, loadDescription
 

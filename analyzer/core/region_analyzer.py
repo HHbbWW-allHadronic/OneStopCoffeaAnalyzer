@@ -26,9 +26,13 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class Category:
+    """
+    Category axis to be added to histograms
+    """
     name: str
     axis: Any
     values: Any
+    # Current unused
     distinct_values: set[int | str | float] | None = None
 
 
@@ -55,6 +59,9 @@ class RegionAnalyzer(BaseModel):
     weights: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
 
     def ensureFunction(self, module_repo):
+        """
+        Ensure that all analyzermodules have a function implementation stored.
+        """
         todo = [
             self.preselection,
             self.corrections,
@@ -84,7 +91,10 @@ class RegionAnalyzer(BaseModel):
             )
 
         def resolveModules(l, t):
-
+            """
+            Use the module specification and module repo to generate configured modules.
+            Additionally, lists of configurations are converted in to separately configured modules
+            """
             ret = [
                 mod
                 for mod in l
@@ -137,12 +147,15 @@ class RegionAnalyzer(BaseModel):
     def runPreselection(self, events, params, selection_set=None):
         params = self.getSectorParams(params)
 
+        # If selection is not provided (ie running outside of analyzer)
+        # we need to create one
         if selection_set is None:
             selection_set = SelectionSet()
         selection = Selection(select_from=selection_set)
 
         selector = Selector(selection, selection_set)
         for module in self.preselection:
+            # Each module adds new masks to the selection
             module(events, params, selector)
         return selection
 
@@ -174,10 +187,12 @@ class RegionAnalyzer(BaseModel):
     def runPostSelection(self, columns, params, histogram_storage):
         params = self.getSectorParams(params)
         active_shape = columns.syst
+        # Different behaviour for dask 
         if columns.delayed:
             size = None
         else:
             size = ak.num(columns.events, axis=0)
+        # Scale systematics are included only on the nominal branch
         weighter = Weighter(size=size, ignore_systematics=active_shape is not None)
 
         categorizer = Categorizer()

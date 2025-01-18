@@ -20,7 +20,6 @@ def getNested(d, s):
         ret = ft.reduce(getNested, parts, d)
     except KeyError as e:
         raise KeyError(str(s))
-    # output_name: "postprocessing/data_mc/plots/{dataset.era.name}/{region_name}/ratio_{histogram_name}"
     return ret
 
 

@@ -2,7 +2,7 @@ import logging
 from enum import Enum
 from fnmatch import fnmatch
 import re
-
+from analyzer.utils.querying import Pattern, PatternList
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
 from pydantic import (
@@ -33,39 +33,6 @@ class SubSectorId:
             return {"region_name": a, "sample_id": b}
         else:
             return value
-
-
-class PatternMode(str, Enum):
-    REGEX = "REGEX"
-    GLOB = "GLOB"
-
-
-class Pattern(pyd.BaseModel):
-    mode: PatternMode = PatternMode.GLOB
-    pattern: str
-
-    def match(self, string, *args, **kwargs):
-        if self.mode == PatternMode.REGEX:
-            ret = re.match(self.pattern, string, *args, **kwargs)
-        else:
-            ret = fnmatch(string, self.pattern)
-        return ret
-
-    @pyd.model_validator(mode="before")
-    @classmethod
-    def convertString(cls, data):
-        if isinstance(data, str):
-            if data.startswith("re:"):
-                return {"mode": "REGEX", "pattern": data.removeprefix("re:")}
-            elif data.startswith("glob:"):
-                return {"mode": "GLOB", "pattern": data.removeprefix("glob:")}
-            else:
-                return {"mode": "GLOB", "pattern": data}
-        else:
-            return data
-
-
-PatternList = TypeAdapter(list[Pattern])
 
 
 @pyd.dataclasses.dataclass(frozen=True)

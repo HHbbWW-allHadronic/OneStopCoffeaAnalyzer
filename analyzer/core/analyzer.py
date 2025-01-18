@@ -14,14 +14,15 @@ from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
 from analyzer.core.histograms import Hist
 
-if CONFIG.PRETTY_MODE:
-    pass
-
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class Analyzer:
+    """
+    Contains a list of RegionAnalyzers, which are run in a way to limit duplicated processing.
+    """
+
     region_analyzers: list[RegionAnalyzer]
 
     def _runBranch(
@@ -34,9 +35,13 @@ class Analyzer:
         histogram_storage: dict[str, Hist],
         cutflow_storage: dict[str, SelectionFlow],
         variation=None,
-    ):
+    ) -> dict[tuple[str, str], results.SubSectorResult]:
+        """
+        Run a "Branch" for a given shape variation
+        """
         logger.info(f"Running analysis branch for variation {variation}")
         selection_set = SelectionSet(parent_selection=preselection)
+        # Set columns to use variation
         columns = columns.withSyst(variation)
         for ra in region_analyzers:
             ra.runObjects(columns, params)
@@ -45,13 +50,17 @@ class Analyzer:
             hs = histogram_storage[ra.region_name]
             selection = ra.runSelection(columns, params, selection_set)
             if variation is None:
+                # Only save cutflow if we are on the nominal path
                 cutflow_storage[ra.region_name] = selection.getSelectionFlow()
 
             mask = selection.getMask()
+            # Only apply mask if there is something to mask
             if mask is not None:
                 new_cols = columns.withEvents(columns.events[mask])
             else:
                 new_cols = columns
+            # Once the final selection has been performed for a region
+            # we can run the remainder of the analyzer
             res = ra.runPostSelection(new_cols, params, hs)
             ret[(ra.region_name, variation)] = res
         return ret
@@ -59,19 +68,25 @@ class Analyzer:
     def _runPreselectionGroup(
         self, events, params, region_analyzers, preselection, preselection_set
     ):
-
+        # Each region has its own histograms
         histogram_storage = {ra.region_name: {} for ra in region_analyzers}
+        # Each region has its own cutflow
         cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
         mask = preselection.getMask()
         if mask is not None:
             events = events[mask]
+        # Events are wrapped to allow for dyanamic selection of columns
+        # based on the active shape systematic
         columns = Columns(events)
         for ra in region_analyzers:
+            # Generate corrections, at this point the analyzer will have
+            # branches corresponding to shape variations
             ra.runCorrections(events, params, columns)
 
         branches = [None] + columns.allShapes()
         logger.info(f"Known variations are {branches}")
         ret = {}
+        # Run over each shape variation in the analysis
         for variation in branches:
             logger.info(f'Running branch for variation "{variation}"')
             res = self._runBranch(
@@ -88,7 +103,7 @@ class Analyzer:
 
         ret = {
             ra.region_name: results.SubSectorResult(
-                region=ra.model_dump(),
+                region=ra,
                 base_result=results.BaseResult(
                     histograms=histogram_storage[ra.region_name],
                     other_data={},
@@ -106,15 +121,18 @@ class Analyzer:
         preselection_set = SelectionSet()
         region_preselections = []
         for analyzer in self.region_analyzers:
+            # Get the analyzer and the preselection for each region
             region_preselections.append(
                 (analyzer, analyzer.runPreselection(events, params, preselection_set))
             )
         k = lambda x: x[1].names
 
+        # Group regions that share the same preselection.
         presel_regions = it.groupby(sorted(region_preselections, key=k), key=k)
         presel_regions = {x: list(y) for x, y in presel_regions}
         ret = {}
         for presels, items in presel_regions.items():
+            # Separately run each collection of regions sharing a preselection
             logger.info(
                 f'Running over preselection region "{presels}" containing "{len(items)}" regions.'
             )
