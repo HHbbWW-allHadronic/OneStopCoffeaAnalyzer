@@ -5,14 +5,6 @@ from analyzer.core.executor import AnalysisTask
 from analyzer.core.analyzer import Analyzer
 
 
-try:
-    pass
-
-    LPCQUEUE_AVAILABLE = True
-except ImportError as e:
-    LPCQUEUE_AVAILABLE = False
-
-
 def getMissingFileset(target: FileSet, prepped: FileSet, processed: FileSet):
     failed_to_process = prepped - processed
     failed_to_prep = target.withoutFiles(prepped.justChunked())
