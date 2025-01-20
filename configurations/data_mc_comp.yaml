@@ -110,5 +110,10 @@ regions:
       - name: softdrop_plateau
       - name: general_selection
       - name: partial_cr_selection
+    categories:
+      - name: hlt_ht_trigger_category
+      - name: hlt_singlejet_trigger_category
+      - name: offline_singlejet_category
+      - name: offline_ht_category
     histograms: *common_signal
     weights: *common_weights
