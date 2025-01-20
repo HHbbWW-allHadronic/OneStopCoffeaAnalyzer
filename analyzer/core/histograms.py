@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 def transformToFill(fill_data, per_event_value, mask=None):
+    """
+    Perform transformations to bring fill data to correct shape
+    """
     if mask is None:
         if fill_data.ndim == 2:
             if ak.sum(ak.is_none(fill_data, axis=-1)) > 0:
@@ -147,6 +150,16 @@ class HistogramCollection(BaseModel):
                 fill_data,
                 real_weight,
                 variation_val=weight_variation,
+                mask=mask,
+            )
+
+        if active_shape_systematic is None:
+            fillHistogram(
+                self.histogram,
+                cat_values,
+                fill_data,
+                None,
+                variation_val="unweighted",
                 mask=mask,
             )
 
