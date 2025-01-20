@@ -2,7 +2,6 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
-
   signal_312_2000_1900: [Signal312, Control, Control_Cut]
   signal_312_1500_1400: [Signal312, Control, Control_Cut]
   signal_312_1200_400: [Signal312, Control, Control_Cut]
@@ -89,7 +88,7 @@ executors:
 execution_config:
 
 file_config:
-  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
