@@ -44,6 +44,63 @@ def softdrop_plateau(events, params, selector):
     selector.add(f"SD_Plateau", passes)
 
 
+@MODULE_REPO.register(ModuleType.Categorization)
+def offline_singlejet_category(events, params, categories):
+    era_info = params.dataset.era
+    ak8_sd = era_info.trigger_plateaus["AK8SingleJetPt"]["msoftdrop"]
+    ak8_pt = era_info.trigger_plateaus["AK8SingleJetPt"]["pt"]
+
+    filled_fatjets = ak.pad_none(events.good_fatjets, 1, axis=1)
+
+    first_fjet = filled_fatjets[:, 0]
+    passes = ak.fill_none(
+        (first_fjet.msoftdrop > ak8_sd) & (first_fjet.pt > ak8_pt), False
+    )
+    categories.add(
+        name=f"PassOfflineSingleJet",
+        axis=hist.axis.Integer(
+            0, 2, underflow=False, overflow=False, name="PassOfflineSingleJet"
+        ),
+        values=passes,
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def offline_ht_category(events, params, categories):
+    era_info = params.dataset.era
+    ht_plateau = era_info.trigger_plateaus["HT"]
+    ht = events.HT
+    categories.add(
+        name=f"PassOfflineHT",
+        axis=hist.axis.Integer(
+            0, 2, underflow=False, overflow=False, name="PassOfflineHT"
+        ),
+        values=ht > ht_plateau,
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def hlt_ht_trigger_category(events, params, categories):
+    era_info = params.dataset.era
+    ht_trigger_name = era_info.trigger_names["HT"]
+    categories.add(
+        name=f"PassHLTHT",
+        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHLTHT"),
+        values=events.HLT[ht_trigger_name],
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def hlt_singlejet_trigger_category(events, params, categories):
+    era_info = params.dataset.era
+    ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
+    categories.add(
+        name=f"PassHLTHT",
+        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHLTHT"),
+        values=events.HLT[ak8_trigger_name],
+    )
+
+
 @MODULE_REPO.register(ModuleType.Selection)
 def single_muon(events, params, selector):
     era_info = params.dataset.era
