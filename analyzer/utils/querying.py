@@ -52,6 +52,7 @@ class Pattern(BaseModel):
             return data
 
 
+PatternList = TypeAdapter(list[Pattern])
 QueryPattern = TypeAliasType("QueryPattern", Pattern | dict[str, "QueryPattern"])
 QueryPatternAdapter = TypeAdapter(QueryPattern)
 
