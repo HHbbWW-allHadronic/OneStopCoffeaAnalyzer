@@ -175,12 +175,6 @@ def jet_combo_kinematics(events, params, analyzer):
             [masses[p2], masses[p1] / masses[p2]],
         )
 
-    analyzer.H(
-        f"phi_vs_eta",
-        [makeAxis(50, -5, 5, f"$\eta$"), makeAxis(50, -5, 5, f"$\phi$")],
-        [gj.eta, gj.phi],
-        description=rf"$\eta$ vs $\phi$ of jet ",
-    )
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
