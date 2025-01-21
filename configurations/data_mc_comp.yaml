@@ -27,6 +27,7 @@ executors:
     executor_type: dask_local
     step_size: 100000
     max_workers: 4
+    adapt: false
   imm:
     executor_type: immediate
     step_size: 100000
@@ -106,8 +107,8 @@ regions:
       - <<: *common_preselection
       - name: signal_hlt
     selection: 
-      - name: ht_plateau
-      - name: softdrop_plateau
+      # - name: ht_plateau
+      # - name: softdrop_plateau
       - name: general_selection
       - name: partial_cr_selection
     categories:
