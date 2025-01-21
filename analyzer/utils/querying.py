@@ -26,15 +26,15 @@ class Pattern(BaseModel):
     mode: PatternMode = PatternMode.GLOB
     pattern: str | int | float
 
-    def match(self, string, *args, **kwargs):
+    def match(self, data, *args, **kwargs):
         if isinstance(self.pattern, str):
             if self.mode == PatternMode.REGEX:
-                ret = re.match(self.pattern, string, *args, **kwargs)
+                ret = re.match(self.pattern, str(data), *args, **kwargs)
             else:
-                ret = fnmatch(string, self.pattern)
+                ret = fnmatch(str(data), self.pattern)
             return ret
         else:
-            return self.pattern == string
+            return self.pattern == datastring
 
     @model_validator(mode="before")
     @classmethod
