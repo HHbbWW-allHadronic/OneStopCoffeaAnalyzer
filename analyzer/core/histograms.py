@@ -1,9 +1,12 @@
 import logging
+import numpy as np
+from rich import print
 import operator as op
 from typing import Any
 
 import awkward as ak
 import hist
+import numpy as np
 import hist.dask as dah
 from pydantic import BaseModel, ConfigDict
 
@@ -18,20 +21,24 @@ def transformToFill(fill_data, per_event_value, mask=None):
     """
     if mask is None:
         if fill_data.ndim == 2:
-            if ak.sum(ak.is_none(fill_data, axis=-1)) > 0:
-                fill_data = ak.fill_none(fill_data, 0.0)
-            return ak.flatten(fill_data * (per_event_value))
+            fill_data = ak.ones_like(fill_data, dtype=np.int32)
+            fill_data = ak.fill_none(fill_data, 0)
+            r = ak.flatten(fill_data * per_event_value)
+            return r
         else:
             return per_event_value
 
     if mask.ndim == 1 and not (fill_data is None) and fill_data.ndim == 2:
-        if ak.sum(ak.is_none(fill_data, axis=-1)) > 0:
-            fill_data = ak.fill_none(fill_data, 0.0)
-        return ak.flatten(fill_data * (per_event_value[mask]))
+        fill_data = ak.ones_like(fill_data, dtype=np.int32)
+        fill_data = ak.fill_none(fill_data, 0)
+        return ak.flatten(fill_data * per_event_value[mask])
+
     elif mask.ndim == 2:
-        return (ak.flatten((ak.ones_like(mask) * per_event_value)[mask]),)
+        return ak.flatten((ak.ones_like(mask) * per_event_value)[mask])
+
     else:
         return per_event_value[mask]
+
 
 
 def maybeFlatten(data):
@@ -113,7 +120,7 @@ class HistogramCollection(BaseModel):
         if not isinstance(fill_data, (list, tuple)):
             fill_data = [fill_data]
 
-        represenative = fill_data[0]
+        representative = fill_data[0]
         if active_shape_systematic is not None:
             weight_variations = []
             central_name = active_shape_systematic
@@ -127,11 +134,12 @@ class HistogramCollection(BaseModel):
         central_weight = weight_repo.weight(modifier=None)
 
         if central_weight is not None:
-            central_weight = transformToFill(represenative, central_weight, mask)
+            central_weight = transformToFill(representative, central_weight, mask)
 
         cat_values = [
-            transformToFill(represenative, x.values, mask) for x in categories
+            transformToFill(representative, x.values, mask) for x in categories
         ]
+
         fillHistogram(
             self.histogram,
             cat_values,
@@ -143,7 +151,7 @@ class HistogramCollection(BaseModel):
         for weight_variation in weight_variations:
             logger.debug(f'Filling histogram with variation "{weight_variation}"')
             w = weight_repo.weight(modifier=weight_variation)
-            real_weight = transformToFill(represenative, w, mask)
+            real_weight = transformToFill(representative, w, mask)
             fillHistogram(
                 self.histogram,
                 cat_values,
