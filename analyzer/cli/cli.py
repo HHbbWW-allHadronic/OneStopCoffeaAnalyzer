@@ -323,6 +323,7 @@ def runCli():
     addSubparserPost(subparsers)
     addSubparserQuickDataset(subparsers)
     addSubParserStoreResults(subparsers)
+    addSubparserSummaryTable(subparsers)
 
     argcomplete.autocomplete(parser)
 
