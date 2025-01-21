@@ -1,5 +1,6 @@
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
+import hist
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -95,8 +96,10 @@ def hlt_singlejet_trigger_category(events, params, categories):
     era_info = params.dataset.era
     ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     categories.add(
-        name=f"PassHLTHT",
-        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHLTHT"),
+        name=f"PassHLTSingleJet",
+        axis=hist.axis.Integer(
+            0, 2, underflow=False, overflow=False, name="PassHLTSingleJet"
+        ),
         values=events.HLT[ak8_trigger_name],
     )
 
