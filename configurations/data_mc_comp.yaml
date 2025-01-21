@@ -41,16 +41,16 @@ executors:
     executor_type: dask_condor
     max_workers: 150
     min_workers: 80
-    worker_memory: 2GB
+    worker_memory: 2.5GB
     worker_timeout: 7200
-    chunk_size: 400000
+    chunk_size: 1000000
     extra_files:
         - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
         - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
 
 
 file_config:
-  location_priority_regex: [".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
@@ -60,11 +60,12 @@ common_items:
       - name: goodjet_ht
       - name: jet_kinematics
       - name: jet_combo_kinematics
-      - name: b_quark_kinematics
-        config:
-          - working_point: L
-          - working_point: M
-          - working_point: T
+      - name: topfatjet_plots
+      # - name: b_quark_kinematics
+      #   config:
+      #     - working_point: L
+          # - working_point: M
+          # - working_point: T
       - name: NN_mass_reco
         config:
           - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
