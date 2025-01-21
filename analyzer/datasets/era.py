@@ -36,6 +36,9 @@ class EraRepo:
     def __getitem__(self, key):
         return self.eras[key]
 
+    def __iter__(self):
+        return iter(self.eras)
+
     def load(self, directory):
         logger.info(f"Loading eras from {directory}")
         directory = Path(directory)
