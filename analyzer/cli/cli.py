@@ -5,6 +5,7 @@ import sys
 from pathlib import Path
 
 from analyzer.logging import setup_logging
+from rich import inspect, print
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,46 @@ def addSubparserSampleReport(subparsers):
         "samples", help="Get information on available samples"
     )
     subparser.set_defaults(func=handleSamples)
+
+
+def handleSummaryTable(args):
+    from analyzer.tools.summary_table import (
+        createEraTable,
+        makeTableFromDict,
+        texTable,
+    )
+    from analyzer.datasets import DatasetRepo, EraRepo
+
+    inspect(args)
+    print(args.fields)
+
+    query = {x: "*" for x in args.fields}
+    format_opts = {"TT": "\\texttt{{{}}}", "RM": "\\textrm{{{}}}"}
+
+    era_repo = EraRepo.getConfig()
+    r = createEraTable(
+        era_repo,
+        query,
+    )
+    t = makeTableFromDict(r)
+    print(args.extra_format)
+    format_funcs = {
+        i: lambda x: format_opts[k].format(x) for i, k in args.extra_format or []
+    }
+    print(texTable(t, col_format_funcs=format_funcs))
+
+
+def addSubparserSummaryTable(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("summary-table", help="Get summary table")
+    subparser.add_argument("-f", "--fields", type=str, nargs="+")
+
+    def formatPair(arg):
+        sp = arg.split(",")
+        return (int(sp[0]), str(sp[1]))
+
+    subparser.add_argument("-e", "--extra-format", type=formatPair, nargs="*")
+    subparser.set_defaults(func=handleSummaryTable)
 
 
 def handleRunPackaged(args):
