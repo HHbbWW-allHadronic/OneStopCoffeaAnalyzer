@@ -17,11 +17,14 @@ def njets(events, params, analyzer):
 
 @MODULE_REPO.register(ModuleType.Histogram)
 def topfatjet_plots(events, params, analyzer):
+    mask = ak.num(events.good_fatjets, axis=1) > 0
+    top_fj = events.good_fatjets[mask][:, 0]
     analyzer.H(
         f"ak8_pt",
         makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
-        events.good_fatjets[:, 0].pt,
+        top_fj.pt,
         description="pt of the leading ak8 jet",
+        mask=mask,
     )
 
     analyzer.H(
@@ -30,8 +33,9 @@ def topfatjet_plots(events, params, analyzer):
             makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
             makeAxis(30, 0, 300, "$m_{\\text{SD}}$", unit="GeV"),
         ],
-        [events.good_fatjets[:, 0].pt, events.good_fatjets[:, 0].msoftdrop],
+        [top_fj.pt, top_fj.msoftdrop],
         description="2D plot of pt and softdrop mass",
+        mask=mask,
     )
 
 
@@ -138,7 +142,7 @@ def jet_combo_kinematics(events, params, analyzer):
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
 
-    for (p1,title1), (p2,title2) in [
+    for (p1, title1), (p2, title2) in [
         (
             ((0, 3), "3,\\text{compressed}"),
             ((0, 4), "4"),
@@ -174,7 +178,6 @@ def jet_combo_kinematics(events, params, analyzer):
             ],
             [masses[p2], masses[p1] / masses[p2]],
         )
-
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
