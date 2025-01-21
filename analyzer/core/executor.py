@@ -188,8 +188,6 @@ class DaskExecutor(Executor):
             else:
                 ret[k] = None
 
-        all_results = {}
-
         for k, v in ret.items():
             computed = None
             if v is not None:
@@ -224,9 +222,6 @@ class DaskExecutor(Executor):
                 )
             if result_complete_callback is not None:
                 result_complete_callback(k, final_result)
-            all_results[k] = final_result
-
-        return all_results
 
 
 class LocalDaskExecutor(DaskExecutor):

@@ -184,7 +184,6 @@ def handleRun(args):
         args.input,
         args.output,
         args.executor,
-        args.save_separate,
         test_mode=args.test_mode,
     )
 
@@ -270,7 +269,6 @@ def handlePatch(args):
         args.output,
         args.executor,
         args.description,
-        args.save_separate,
         args.ignore_ret_prefs,
     )
 

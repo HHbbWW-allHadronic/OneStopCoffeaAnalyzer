@@ -44,7 +44,7 @@ def openNoOverwrite(file_name, *args, **kwargs):
     handle.close()
 
 
-def saveResults(results, output, save_separate=False):
+def saveResults(results, output,save_separate=True):
     if not results:
         return
     output = Path(output)
@@ -70,7 +70,7 @@ def makeSaveCallback(output):
     return inner
 
 
-def runFromPath(path, output, executor_name, save_separate=False, test_mode=False):
+def runFromPath(path, output, executor_name, test_mode=False):
     import analyzer.modules
 
     output = Path(output)
@@ -98,15 +98,11 @@ def runFromPath(path, output, executor_name, save_separate=False, test_mode=Fals
     if hasattr(executor, "output_dir") and executor.output_dir is None:
         executor.output_dir = str(output)
 
-    if save_separate:
-        callback = makeSaveCallback(output)
-        results = executor.run(tasks, result_complete_callback=callback)
-    else:
-        results = executor.run(tasks)
-        saveResults(results, output)
+    callback = makeSaveCallback(output)
+    results = executor.run(tasks, result_complete_callback=callback)
 
 
-def runPackagedTask(packaged_task, output=None, output_dir=None, save_separate=False):
+def runPackagedTask(packaged_task, output=None, output_dir=None):
     import analyzer.modules
 
     if output_dir is None:
@@ -124,12 +120,12 @@ def runPackagedTask(packaged_task, output=None, output_dir=None, save_separate=F
     task.analyzer.ensureFunction(MODULE_REPO)
 
     results = executor.run({task.sample_id: task})
-    saveResults(results, output_dir / output, save_separate=save_separate)
+    saveResults(results, output_dir / output, save_separate=True)
 
 
-def mergeResults(paths, output_path, save_separate=False):
+def mergeResults(paths, output_path):
     result = loadSampleResultFromPaths(paths)
-    saveResults(results, output, save_separate=save_separate)
+    saveResults(results, output, save_separate=True)
 
 
 def patchFromPath(
@@ -137,7 +133,6 @@ def patchFromPath(
     output,
     executor_name,
     description_path,
-    save_separate=False,
     ignore_ret_prefs=False,
 ):
     import analyzer.modules
@@ -178,9 +173,5 @@ def patchFromPath(
     final_tasks = unknown_sample_tasks
     final_tasks.update(tasks)
 
-    if save_separate:
-        callback = makeSaveCallback(output)
-        results = executor.run(final_tasks, result_complete_callback=callback)
-    else:
-        results = executor.run(final_tasks)
-        saveResults(results, output)
+    callback = makeSaveCallback(output)
+    results = executor.run(final_tasks, result_complete_callback=callback)
