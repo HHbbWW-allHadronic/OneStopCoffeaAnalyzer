@@ -2,39 +2,39 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
-  signal_312_2000_1900: [Signal312, Control, Control_Cut]
-  signal_312_1500_1400: [Signal312, Control, Control_Cut]
-  signal_312_1200_400: [Signal312, Control, Control_Cut]
-  signal_312_1200_600: [Signal312, Control, Control_Cut]
-  signal_312_1200_1100: [Signal312, Control, Control_Cut]
-  signal_312_1300_1200: [Signal312, Control, Control_Cut]
-  signal_312_1400_400: [Signal312, Control, Control_Cut]
-  signal_312_1400_1300: [Signal312, Control, Control_Cut]
-  signal_312_1500_400: [Signal312, Control, Control_Cut]
-  signal_312_1500_600: [Signal312, Control, Control_Cut]
-  signal_312_1500_900: [Signal312, Control, Control_Cut]
-  signal_312_1500_1400: [Signal312, Control, Control_Cut]
-  signal_312_2000_400: [Signal312, Control, Control_Cut]
-  signal_312_1300_400: [Signal312, Control, Control_Cut]
-  signal_312_1300_600: [Signal312, Control, Control_Cut]
-  signal_312_2000_900: [Signal312, Control, Control_Cut]
-  signal_312_2000_1900: [Signal312, Control, Control_Cut]
-  signal_312_1000_700: [Signal312, Control, Control_Cut]
-  signal_312_1000_800: [Signal312, Control, Control_Cut]
-  signal_312_1200_700: [Signal312, Control, Control_Cut]
-  signal_312_1200_800: [Signal312, Control, Control_Cut]
-  signal_312_1500_100: [Signal312, Control, Control_Cut]
-  signal_312_1500_1000: [Signal312, Control, Control_Cut]
-  signal_312_1500_1200: [Signal312, Control, Control_Cut]
-  signal_312_1500_1300: [Signal312, Control, Control_Cut]
-  signal_312_1500_1350: [Signal312, Control, Control_Cut]
-  signal_312_1500_1450: [Signal312, Control, Control_Cut]
-  signal_312_2000_1200: [Signal312, Control, Control_Cut]
-  signal_312_2000_1600: [Signal312, Control, Control_Cut]
-  signal_312_2000_1700: [Signal312, Control, Control_Cut]
-  signal_312_1000_400: [Signal312, Control, Control_Cut]
-  signal_312_1000_600: [Signal312, Control, Control_Cut]
-  signal_312_1000_900: [Signal312, Control, Control_Cut]
+  signal_312_2000_1900: [Signal312, Control]
+  signal_312_1500_1400: [Signal312, Control]
+  signal_312_1200_400: [Signal312, Control]
+  signal_312_1200_600: [Signal312, Control]
+  signal_312_1200_1100: [Signal312, Control]
+  signal_312_1300_1200: [Signal312, Control]
+  signal_312_1400_400: [Signal312, Control]
+  signal_312_1400_1300: [Signal312, Control]
+  signal_312_1500_400: [Signal312, Control]
+  signal_312_1500_600: [Signal312, Control]
+  signal_312_1500_900: [Signal312, Control]
+  signal_312_1500_1400: [Signal312, Control]
+  signal_312_2000_400: [Signal312, Control]
+  signal_312_1300_400: [Signal312, Control]
+  signal_312_1300_600: [Signal312, Control]
+  signal_312_2000_900: [Signal312, Control]
+  signal_312_2000_1900: [Signal312, Control]
+  signal_312_1000_700: [Signal312, Control]
+  signal_312_1000_800: [Signal312, Control]
+  signal_312_1200_700: [Signal312, Control]
+  signal_312_1200_800: [Signal312, Control]
+  signal_312_1500_100: [Signal312, Control]
+  signal_312_1500_1000: [Signal312, Control]
+  signal_312_1500_1200: [Signal312, Control]
+  signal_312_1500_1300: [Signal312, Control]
+  signal_312_1500_1350: [Signal312, Control]
+  signal_312_1500_1450: [Signal312, Control]
+  signal_312_2000_1200: [Signal312, Control]
+  signal_312_2000_1600: [Signal312, Control]
+  signal_312_2000_1700: [Signal312, Control]
+  signal_312_1000_400: [Signal312, Control]
+  signal_312_1000_600: [Signal312, Control]
+  signal_312_1000_900: [Signal312, Control]
   
   qcd_inclusive_2018: All
   qcd_inclusive_2017: All
@@ -46,16 +46,16 @@ samples:
   qcd_inclusive_2023_preBPix: All
   qcd_inclusive_2023_postBPix: All
   
-  data_JetHT_2018: [Control, Control_Cut]
-  data_JetHT_2017: [Control, Control_Cut]
-  data_JetHT_2016pre: [Control, Control_Cut]
-  data_JetHT_2016post: [Control, Control_Cut]
+  data_JetHT_2018: [Control]
+  data_JetHT_2017: [Control]
+  data_JetHT_2016pre: [Control]
+  data_JetHT_2016post: [Control]
   
   
-  data_JetHT_2022pre: [Control, Control_Cut]
-  data_JetHT_2022post: [Control, Control_Cut]
-  data_JetHT_2023pre: [Control, Control_Cut]
-  data_JetHT_2023post: [Control, Control_Cut]
+  data_JetHT_2022pre: [Control]
+  data_JetHT_2022post: [Control]
+  data_JetHT_2023pre: [Control]
+  data_JetHT_2023post: [Control]
 
 
 executors:
@@ -174,20 +174,6 @@ regions:
       - <<: *common_preselection
       - name: signal_hlt
     selection: 
-      - name: general_selection
-      - name: partial_cr_selection
-    histograms: *common_signal
-    weights: *common_weights
-
-  - name: Control_Cut
-    objects: *common_objects
-    # corrections: *common_corrections
-    preselection:
-      - <<: *common_preselection
-      - name: signal_hlt
-    selection: 
-      - name: ht_plateau
-      - name: softdrop_plateau
       - name: general_selection
       - name: partial_cr_selection
     histograms: *common_signal
