@@ -40,8 +40,9 @@ def runPostprocessors(config, input_files, parallel=8):
     loadStyles()
     print("Loading Postprocessors")
     loaded, catalog, drops = loadPostprocessors(config)
+    all_needed_hists = [y for x in loaded for y in x.getNeededHistograms()]
     print("Loading Samples")
-    sample_results = loadSampleResultFromPaths(input_files)
+    sample_results = loadSampleResultFromPaths(input_files, include=all_needed_hists)
 
     def dropSampleFunction(sid):
         if not drops:

@@ -55,6 +55,9 @@ class BasePostprocessor(abc.ABC):
     def getExe(self, results):
         pass
 
+    def getNeededHistograms(self):
+        return []
+
     def init(self):
         config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
         with open(config_path, "r") as f:
@@ -73,6 +76,9 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     plot_configuration: PlotConfiguration | None = None
+
+    def getNeededHistograms(self):
+        return self.histogram_names
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
@@ -118,6 +124,9 @@ class ExportHists(BasePostprocessor, pyd.BaseModel):
     groupby: SectorGroupSpec
     output_name: str
 
+    def getNeededHistograms(self):
+        return self.histogram_names
+
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
         r = createSectorGroups(sectors, *self.groupby)
@@ -152,6 +161,9 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
     color_scale: Literal["log", "linear"] = "linear"
 
     plot_configuration: PlotConfiguration | None = None
+
+    def getNeededHistograms(self):
+        return self.histogram_names
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
@@ -236,6 +248,9 @@ class RatioPlot(BasePostprocessor, pyd.BaseModel):
     ratio_hlines: list[float] = pyd.Field(default_factory=lambda: [1.0])
     ratio_height: float = 1.5
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
+
+    def getNeededHistograms(self):
+        return self.histogram_names
 
     def getExe(self, results):
         results = [x for x in results if self.to_process.passes(x.sector_params)]
