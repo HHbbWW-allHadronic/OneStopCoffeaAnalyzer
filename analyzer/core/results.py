@@ -34,6 +34,9 @@ class BaseResult(pyd.BaseModel):
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     selection_flow: ans.SelectionFlow | None = None
 
+    def includeOnly(self, histograms):
+        self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
+
     def __add__(self, other: "SubSectorResult"):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
@@ -46,6 +49,18 @@ class BaseResult(pyd.BaseModel):
             other_data=new_other,
             selection_flow=self.selection_flow + other.selection_flow,
         )
+
+    def __iadd__(self, other: "SubSectorResult"):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+
+        new_hists = accumulate([self.histograms, other.histograms])
+        new_other = accumulate([self.other_data, other.other_data])
+        self.histograms = new_hists
+        self.other_data = new_other
+        self.selection_flow = self.selection_flow + other.selection_flow
+        return self
 
     def scaled(self, scale):
         """
@@ -72,6 +87,18 @@ class SubSectorResult(pyd.BaseModel):
             region=self.region, base_result=self.base_result + other.base_result
         )
 
+    def __iadd__(self, other: "SubSectorResult"):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        if self.region != other.region:
+            raise RuntimeError("Cannot add different regions together.")
+        self.base_result += other.base_result
+        return self
+
+    def includeOnly(self, histograms):
+        self.base_result.includeOnly(histograms)
+
     def scaled(self, scale):
         return SubSectorResult(
             region=self.region, base_result=self.base_result.scaled(scale)
@@ -91,7 +118,11 @@ class SampleResult(pyd.BaseModel):
     def processed_events(self):
         return self.file_set_processed.events
 
-    def __add__(self, other):
+    def includeOnly(self, histograms):
+        for r in self.results.values():
+            r.includeOnly(histograms)
+
+    def compatible(self, other):
         # Compute the overlap of the two results, this must be empty
         fs = self.file_set_processed.intersect(other.file_set_processed)
         if not fs.empty:
@@ -107,6 +138,9 @@ class SampleResult(pyd.BaseModel):
                 f"Error: Attempting to merge incomaptible analysis results"
             )
 
+    def __add__(self, other):
+        self.compatible(other)
+
         return SampleResult(
             sample_id=self.sample_id,
             params=self.params,
@@ -114,6 +148,13 @@ class SampleResult(pyd.BaseModel):
             file_set_processed=self.file_set_processed + other.file_set_processed,
             results=accumulate([self.results, other.results]),
         )
+
+    def __iadd__(self, other):
+        self.compatible(other)
+        self.file_set_ran += other.file_set_ran
+        self.file_set_processed += other.file_set_processed
+        self.results = accumulate([self.results, other.results])
+        return self
 
     def scaled(self, scale):
         return SampleResult(
@@ -181,7 +222,6 @@ class DatasetResult(pyd.BaseModel):
             ),
         )
 
-
     @property
     def sector_results(self):
         return [
@@ -203,8 +243,9 @@ def loadResults(obj):
     return results_adapter.validate_python(obj)
 
 
-def loadSampleResultFromPaths(paths):
+def loadSampleResultFromPaths(paths, include=None):
     results = []
+    ret = {}
     for p in track(
         paths,
         total=len(paths),
@@ -215,11 +256,16 @@ def loadSampleResultFromPaths(paths):
         with open(p, "rb") as f:
             data = pkl.load(f)
             r = loadResults(data)
-            results.append(r)
-    with spinner("Accumulating results"):
-        return accumulate(results)
+            for k in list(r.keys()):
+                if include is not None:
+                    r[k].includeOnly(include)
+                if k not in ret:
+                    ret[k] = r[k]
+                else:
+                    ret[k] += r[k]
+                del r[k]
 
-
+    return ret
 
 
 def makeDatasetResults(
@@ -249,7 +295,7 @@ def checkResult(paths, configuration=None):
 
     console = Console()
 
-    loaded = loadSampleResultFromPaths(paths)
+    loaded = loadSampleResultFromPaths(paths, include=[])
     results = list(loaded.values())
 
     if configuration:

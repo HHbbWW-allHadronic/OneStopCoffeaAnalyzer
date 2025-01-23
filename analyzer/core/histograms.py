@@ -40,7 +40,6 @@ def transformToFill(fill_data, per_event_value, mask=None):
         return per_event_value[mask]
 
 
-
 def maybeFlatten(data):
     if data.ndim == 2:
         return ak.flatten(data)
@@ -93,6 +92,16 @@ class HistogramCollection(BaseModel):
             spec=self.spec,
             histogram=self.histogram + other.histogram,
         )
+
+    def __iadd__(self, other):
+        if self.spec != other.spec:
+            logger.error(
+                "Cannot add two incompatible histograms specs. Hist1:\n"
+                f"{self.spec}\nHist2:\n{other.spec}"
+            )
+            raise ValueError(f"Cannot add two incomatible histograms")
+        self.histogram += other.histogram
+        return self
 
     def get(self, variation=None):
         has_variations = "variation" in map(op.attrgetter("name"), self.histogram.axes)

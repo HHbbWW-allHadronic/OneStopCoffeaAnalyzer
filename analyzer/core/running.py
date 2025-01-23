@@ -149,7 +149,7 @@ def patchFromPath(
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
-    sample_results = loadSampleResultFromPaths(inputs)
+    sample_results = loadSampleResultFromPaths(inputs, include=[])
     patches = [getSamplePatch(s, dataset_repo) for s in sample_results.values()]
     patches = [p for p in patches if not p.file_set.empty]
 
