@@ -59,7 +59,7 @@ class SectorGroupSpec(BaseModel):
     @classmethod
     def coerceMode(cls, value):
         for k in list(value.keys()):
-            if value[k] in ("Sum", "Split"):
+            if value[k] in ("Sum", "Split", "Or"):
                 value[k] = Mode[value[k]]
         return value
 
