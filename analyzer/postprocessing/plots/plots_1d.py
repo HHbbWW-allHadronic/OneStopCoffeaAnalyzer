@@ -1,4 +1,5 @@
 import numpy as np
+from rich import print
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,7 +10,7 @@ from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .mplstyles import loadStyles
-from .utils import addAxesToHist, saveFig
+from .utils import addAxesToHist, saveFig, fixBadLabels
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
@@ -196,6 +197,10 @@ def plotRatio(
     ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
+
+
+    fixBadLabels(den_hist)
+
     style = denominator.style or styler.getStyle(denominator.sector_parameters)
     den_hist.plot1d(
         ax=ax,
@@ -215,8 +220,10 @@ def plotRatio(
     for num in numerators:
         title = num.title
         h = num.histogram
+        fixBadLabels(h)
         sp = num.sector_parameters
         s = num.style or styler.getStyle(num.sector_parameters)
+
         n, d = h.values(), den_hist.values()
         ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
         if normalize:
@@ -272,4 +279,3 @@ def plotRatio(
     ax.set_yscale(scale)
     fig.tight_layout()
     saveFig(fig, output_path, extension=plot_configuration.image_type)
-    plt.close(fig)

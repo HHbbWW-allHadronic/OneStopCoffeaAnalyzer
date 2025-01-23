@@ -25,3 +25,6 @@ def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
 def fixBadLabels(h):
     for x in h.axes:
         x.label = x.label.replace("textrm", "text")
+        x.label = x.label.replace(
+            "m_{3,\\text{uncompressed}$", "m_{3,\\text{uncompressed}}$"
+        )
