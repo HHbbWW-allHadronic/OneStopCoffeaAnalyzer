@@ -7,8 +7,8 @@ distributed:
   nanny:
     environ:
       MALLOC_TRIM_THRESHOLD_: 0
-  scheduler:
-    worker-saturation: 0.5
+  # scheduler:
+  #   worker-saturation: 0.5
 
 adaptive:
   wait-count: 20
@@ -20,7 +20,7 @@ jobqueue:
     cores: 1                     # Total number of cores per job
     memory: 2.5GB                # Total amount of memory per job
     processes: 1                 # Number of Python processes per job
-    threads: 1
+    threads: 2
 
     interface: null             # Network interface to use like eth0 or ib0
     death-timeout: 120           # Number of seconds to wait if a worker can not find a scheduler

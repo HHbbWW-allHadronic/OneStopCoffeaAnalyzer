@@ -75,5 +75,5 @@ loggers:
     propagate: false
 
 root:
-  level: WARN
-  handlers: [warn_console]
+  level: DEBUG
+  handlers: [warn_console, debug_file_handler]
