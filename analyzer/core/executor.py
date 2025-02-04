@@ -56,6 +56,50 @@ class PackagedTask(BaseModel):
     task: AnalysisTask
 
 
+def runOneTask(task, default_chunk_size=100000):
+    task.file_set.step_size = task.file_set.step_size or default_chunk_size
+    to_prep = {task.sample_id: task.file_set.toCoffeaDataset()}
+    file_set_prepped, all_items = dst.preprocess(
+        to_prep,
+        save_form=True,
+        skip_bad_files=True,
+        step_size=task.file_set.step_size,
+        scheduler=scheduler,
+        allow_empty_datasets=True,
+    )
+    if out:
+        file_set_prepped = out[task.sample_id].justChunked()
+    else:
+        file_set_prepped = task.file_set.justChunked()
+
+    cds = file_set_prepped.toCoffeaDataset()
+    if task.file_set.form is not None:
+        maybe_base_form = ak.forms.from_json(decompress_form(fs.form))
+    else:
+        maybe_base_form = None
+    events, report = NanoEventsFactory.from_root(
+        cds["files"],
+        schemaclass=NanoAODSchema,
+        uproot_options=dict(
+            allow_read_errors_with_report=True,
+        ),
+        known_base_form=maybe_base_form,
+    ).events()
+    r = task.analyzer.run(events, task.sample_params)
+    r = core_results.subsector_adapter.dump_python(r)
+    ready_to_compute = {"result": r, "report": report}
+    computed = dask.compute(ready_to_compute)
+    processed = file_set_prepped.justProcessed(computed["report"])
+    final_result = core_results.SampleResult(
+        sample_id=task.sample_id,
+        file_set_ran=file_set_prepped,
+        file_set_processed=processed,
+        params=tasks.sample_params,
+        results=computed["result"],
+    )
+    return final_result
+
+
 def giveIdToTasks(tasks: AnalysisTask):
     return {str(uuid.uuid4()): task for task in tasks}
 
@@ -235,103 +279,20 @@ class DaskExecutor(Executor):
     def run(self, tasks, result_complete_callback=None):
         with ThreadPoolExecutor(max_workers=8) as tp:
             futures = [
-                tp.submit(
-                    lambda k, v: (k, self.runLinear({k: v}, result_complete_callback)),
-                    k,
-                    v,
-                )
-                for k, v in tasks.items()
+                tp.submit(runOneTask, v, default_step_size=self.step_size)
+                for v in tasks.values()
             ]
-            del tasks
             for future in concurrent.futures.as_completed(futures):
-                k, v = future.result()
-                logger.info(f"Completed task {k}")
-
-    def runLinear(self, tasks, result_complete_callback=None):
-        ret = {}
-        all_events = {}
-        file_sets = self._preprocess(tasks)
-
-        for k, t in tasks.items():
-            logger.info(f"Processing task {k}")
-            fs = file_sets[k]
-            cds = fs.toCoffeaDataset()
-
-            if fs.form is not None:
-                maybe_base_form = ak.forms.from_json(decompress_form(fs.form))
-            else:
-                maybe_base_form = None
-
-            try:
-                events, report = NanoEventsFactory.from_root(
-                    cds["files"],
-                    schemaclass=NanoAODSchema,
-                    uproot_options=dict(
-                        allow_read_errors_with_report=True,
-                    ),
-                    known_base_form=maybe_base_form,
-                ).events()
-                all_events[k] = (events, report)
-            except Exception as e:
-                logger.warn(
-                    f"An exception occurred while preprocessing task {k}.\n"
-                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                    f"{e}"
-                )
-        for k, task in tasks.items():
-            if k in all_events:
-                r = task.analyzer.run(all_events[k][0], task.sample_params)
-                r = core_results.subsector_adapter.dump_python(r)
-                ret[k] = {
-                    "result": r,
-                    "report": all_events[k][1],
-                }
-            else:
-                ret[k] = None
-
-        for k, v in ret.items():
-            computed = None
-            if v is not None:
-                computed = dask.compute(v)
-            else:
-                logger.info(f"Nothing to compute for {k}")
-            try:
-                computed = computed[0]
-                if computed is not None:
-                    processed = file_sets[k].justProcessed(computed["report"])
-                    final_result = core_results.SampleResult(
-                        sample_id=tasks[k].sample_id,
-                        file_set_ran=file_sets[k],
-                        file_set_processed=processed,
-                        params=tasks[k].sample_params,
-                        results=computed["result"],
+                try:
+                    result = future.result()
+                    result_complete_callback(result.sample_id, result)
+                except Exception as e:
+                    raise e
+                    logger.warn(
+                        f"An exception occurred while processing task."
+                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                        f"{e}"
                     )
-                else:
-                    logger.info(
-                        f"Computed result was none for {k}, treating as failure"
-                    )
-                    final_result = core_results.SampleResult(
-                        sample_id=tasks[k].sample_id,
-                        file_set_ran=file_sets[k],
-                        file_set_processed=file_sets[k].asEmpty(),
-                        params=tasks[k].sample_params,
-                        results={},
-                    )
-                if result_complete_callback is not None:
-                    result_complete_callback(k, final_result)
-
-                del tasks[k]
-                del file_sets[k]
-                del computed
-                del final_result
-
-            except Exception as e:
-                raise e
-                logger.warn(
-                    f"An exception occurred while processing task {k}."
-                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                    f"{e}"
-                )
 
 
 class LocalDaskExecutor(DaskExecutor):
