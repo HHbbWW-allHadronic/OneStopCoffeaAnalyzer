@@ -116,11 +116,12 @@ class SampleId:
     @pyd.model_validator(mode="before")
     @classmethod
     def isStr(self, value):
-        if len(value.args) == 1:
-            value = value.args[0]
+        if isinstance(value,str):
             a, b, *rest = value.split("___")
-            r= {"dataset_name": a, "sample_name": b}
-            return r
+            return {"dataset_name": a, "sample_name": b}
+        elif len(value.args) == 1:
+            a, b, *rest = value.args[0].split("___")
+            return {"dataset_name": a, "sample_name": b}
         else:
             return value
 
