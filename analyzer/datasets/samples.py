@@ -101,7 +101,7 @@ class SampleId:
     sample_name: str
 
     def __str__(self):
-        return self.dataset_name + "__" + self.sample_name
+        return self.serialize()
 
     def __lt__(self, other):
         return (self.dataset_name, self.sample_name) < (
@@ -116,9 +116,11 @@ class SampleId:
     @pyd.model_validator(mode="before")
     @classmethod
     def isStr(self, value):
-        if isinstance(value, str):
+        if len(value.args) == 1:
+            value = value.args[0]
             a, b, *rest = value.split("___")
-            return {"dataset_name": a, "sample_name": b}
+            r= {"dataset_name": a, "sample_name": b}
+            return r
         else:
             return value
 
