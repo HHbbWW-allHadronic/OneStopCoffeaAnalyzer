@@ -6,7 +6,7 @@ from pathlib import Path
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import getSubSectors, loadDescription
-from analyzer.core.executor import AnalysisTask
+from analyzer.core.executor import AnalysisTask, visualize
 from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
 from analyzer.datasets import DatasetRepo, EraRepo
@@ -175,3 +175,21 @@ def patchFromPath(
 
     callback = makeSaveCallback(output)
     results = executor.run(final_tasks, result_complete_callback=callback)
+
+
+def visualizeSampleExecution(path, sample_name, output):
+    import analyzer.modules
+
+    description = loadDescription(path)
+    dataset_repo = DatasetRepo.getConfig()
+    era_repo = EraRepo.getConfig()
+    subsectors = getSubSectors(description, dataset_repo, era_repo)
+
+    for k, v in subsectors.items():
+        print(f"{k} => {[x.region_name for x in v]}")
+
+    tasks = makeTasks(
+        subsectors, dataset_repo, era_repo, description.file_config.model_dump()
+    )
+    task = next(iter(task for task in tasks if task.sample_id == sample_name))
+    visualize(task, output)
