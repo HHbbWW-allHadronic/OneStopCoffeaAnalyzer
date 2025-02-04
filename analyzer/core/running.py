@@ -44,7 +44,7 @@ def openNoOverwrite(file_name, *args, **kwargs):
     handle.close()
 
 
-def saveResults(results, output,save_separate=True):
+def saveResults(results, output, save_separate=True):
     if not results:
         return
     output = Path(output)

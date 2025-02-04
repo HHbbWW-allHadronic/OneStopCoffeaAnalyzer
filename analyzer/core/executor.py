@@ -224,6 +224,7 @@ class DaskExecutor(Executor):
     adapt: bool = True
     step_size: int | None = 100000
     map_mode: bool = False
+    use_threads: bool = False
 
     def setup(self):
         if self.adapt:
@@ -236,7 +237,7 @@ class DaskExecutor(Executor):
             tasks, default_step_size=self.step_size, test_mode=self.test_mode
         )
 
-    def _run(self, tasks, result_complete_callback=None):
+    def runStandard(self, tasks, result_complete_callback=None):
         ret = {}
         all_events = {}
         file_sets = self._preprocess(tasks)
@@ -326,10 +327,10 @@ class DaskExecutor(Executor):
                         f"{e}"
                     )
 
-    def run(self, tasks, result_complete_callback=None):
+    def runThreaded(self, tasks, result_complete_callback=None):
         with ThreadPoolExecutor(max_workers=8) as tp:
             futures = [
-                tp.submit(runOneTask, v, default_step_size=self.step_size)
+                tp.submit(runOneTaskDask, v, default_step_size=self.step_size)
                 for v in tasks.values()
             ]
             for future in concurrent.futures.as_completed(futures):
@@ -337,12 +338,17 @@ class DaskExecutor(Executor):
                     result = future.result()
                     result_complete_callback(result.sample_id, result)
                 except Exception as e:
-                    raise e
                     logger.warn(
                         f"An exception occurred while processing task."
                         f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
                         f"{e}"
                     )
+
+    def run(self, *args, **kwargs):
+        if self.use_threads:
+            self.runThreaded(*args, **kwargs)
+        else:
+            self.runStandard(*args, **kwargs)
 
 
 class LocalDaskExecutor(DaskExecutor):

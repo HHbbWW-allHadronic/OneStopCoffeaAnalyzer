@@ -85,7 +85,7 @@ class RegionAnalyzer(BaseModel):
         dataset_params = sample_params.dataset
         dataset_params.populateEra(era_repo)
         if region_desc.forbid_data and dataset_params.sample_type == "Data":
-            raise AnalysisConfigurationError(
+            raise RuntimeError(
                 f"Region '{region_desc.name}' is marked with 'forbid_data'"
                 f"but is recieving Data sample '{sample.name}'"
             )

@@ -22,10 +22,6 @@ import analyzer.core.histograms as anh
 import analyzer.core.specifiers as spec
 
 
-if CONFIG.PRETTY_MODE:
-    pass
-
-
 logger = logging.getLogger(__name__)
 
 
