@@ -106,6 +106,7 @@ def visualize(
 
 
 def runOneTaskDask(task, default_step_size=100000):
+    logger.info(f"Running task {task.sample_id}")
     task.file_set.step_size = task.file_set.step_size or default_step_size
     to_prep = {task.sample_id: task.file_set.justUnchunked().toCoffeaDataset()}
     out, all_items = dst.preprocess(
@@ -336,6 +337,7 @@ class DaskExecutor(Executor):
             for future in concurrent.futures.as_completed(futures):
                 try:
                     result = future.result()
+                    logger.info(f"Successfully got result for {result.sample_id}")
                     result_complete_callback(result.sample_id, result)
                 except Exception as e:
                     logger.warn(
