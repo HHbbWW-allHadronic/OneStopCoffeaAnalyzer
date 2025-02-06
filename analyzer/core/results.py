@@ -1,26 +1,20 @@
+import copy
 import logging
+import pickle as pkl
+from collections import defaultdict
 from typing import Any
 
-from collections import defaultdict
-from rich.progress import track
+import analyzer.core.histograms as anh
+import analyzer.core.region_analyzer as anr
+import analyzer.core.selection as ans
+import analyzer.core.specifiers as spec
+import analyzer.datasets as ad
 import pydantic as pyd
 from analyzer.configuration import CONFIG
-from analyzer.datasets import (
-    SampleParams,
-    FileSet,
-    DatasetParams,
-    SampleType,
-)
-import pickle as pkl
-from analyzer.utils.structure_tools import accumulate
+from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.progress import progbar, spinner
-
-import analyzer.datasets as ad
-import analyzer.core.selection as ans
-import analyzer.core.region_analyzer as anr
-import analyzer.core.histograms as anh
-import analyzer.core.specifiers as spec
-
+from analyzer.utils.structure_tools import accumulate
+from rich.progress import track
 
 logger = logging.getLogger(__name__)
 
@@ -265,7 +259,10 @@ def loadSampleResultFromPaths(paths, include=None):
 
 
 def makeDatasetResults(
-    sample_results, drop_samples=None, drop_sample_fn=lambda x: False
+    sample_results,
+    drop_samples=None,
+    drop_sample_fn=lambda x: False,
+    include_samples_as_datasets=False,
 ):
     drop_samples = drop_samples or []
     scaled_sample_results = defaultdict(list)
@@ -278,10 +275,23 @@ def makeDatasetResults(
             scaled_sample_results[result.sample_id.dataset_name].append(
                 result.scaleToPhysical()
             )
-
-    return {
-        x: DatasetResult.fromSampleResult(y) for x, y in scaled_sample_results.items()
-    }
+    if not include_samples_as_datasets:
+        return {
+            x: DatasetResult.fromSampleResult(y)
+            for x, y in scaled_sample_results.items()
+        }
+    else:
+        ret = {}
+        for x, y in scaled_sample_results.items():
+            ret[x] = DatasetResult.fromSampleResult(y)
+            for s in y:
+                ds = DatasetResult.fromSampleResult([s])
+                ds.dataset_params = copy.deepcopy(ds.dataset_params)
+                ds.dataset_params.name = str(s.sample_id)
+                ds.dataset_params.title = str(s.sample_id.sample_name)
+                ret[s.sample_id] = ds
+                print(s.sample_id)
+        return ret
 
 
 def checkResult(paths, configuration=None):
