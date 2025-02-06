@@ -1,0 +1,9 @@
+styles:
+  - sector_spec:
+      sample_name: 'qcd*'
+    style:
+      yerr: False
+      plottype: step
+      legend: True
+      y_min: 1
+      legend_font: 10
