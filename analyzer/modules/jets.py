@@ -99,6 +99,34 @@ def jet_kinematics(events, params, analyzer):
             description=rf"Ratio of jet {i} $p_T$ to event HT",
         )
 
+@MODULE_REPO.register(ModuleType.Histogram)
+def jet_kinematics_detailed(events, params, analyzer):
+    """Basic information about individual jets"""
+
+    gj = events.good_jets
+    for i in range(0, 4):
+        mask = ak.num(gj, axis=1) > i
+        masked_jets = gj[mask]
+
+        analyzer.H(
+            rf"pt_{i+1}",
+            makeAxis(300, 0, 3000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+            gj[:, i].pt,
+            description=f"$p_T$ of jet {i+1} ",
+        )
+        analyzer.H(
+            f"eta_{i+1}",
+            makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
+            gj[:, i].eta,
+            description=f"$\eta$ of jet {i+1}",
+        )
+        analyzer.H(
+            f"phi_{i+1}",
+            makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
+            gj[:, i].phi,
+            description=f"$\phi$ of jet {i+1}",
+        )
+
 
 @MODULE_REPO.register(ModuleType.Histogram)
 def jet_combo_kinematics(events, params, analyzer):
