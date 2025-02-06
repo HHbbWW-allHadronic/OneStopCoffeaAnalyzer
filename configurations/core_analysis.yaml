@@ -77,7 +77,7 @@ executors:
     executor_type: dask_condor
     max_workers: 200
     min_workers: 20
-    use_threads: True
+    use_threads: true
     worker_memory: 2GB
     worker_timeout: 7200
     chunk_size: 400000
@@ -102,7 +102,6 @@ common_items:
       - name: jet_combo_kinematics
       - name: b_quark_kinematics
         config:
-          - working_point: L
           - working_point: M
           - working_point: T
       - name: NN_mass_reco
