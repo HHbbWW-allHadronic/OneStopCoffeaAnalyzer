@@ -7,6 +7,7 @@ import gc
 import logging
 import os
 import shutil
+import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -125,7 +126,7 @@ def runOneTaskDask(task, default_step_size=100000):
 
     cds = file_set_prepped.toCoffeaDataset()
     if task.file_set.form is not None:
-        maybe_base_form = ak.forms.from_json(decompress_form(fs.form))
+        maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
     else:
         maybe_base_form = None
     events, report = NanoEventsFactory.from_root(
@@ -339,12 +340,16 @@ class DaskExecutor(Executor):
                     result = future.result()
                     logger.info(f"Successfully got result for {result.sample_id}")
                     result_complete_callback(result.sample_id, result)
+                    del result
                 except Exception as e:
                     logger.warn(
                         f"An exception occurred while processing task."
                         f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
                         f"{e}"
                     )
+                    logger.warn(traceback.format_exc())
+                del future
+                gc.collect()
 
     def run(self, *args, **kwargs):
         if self.use_threads:
