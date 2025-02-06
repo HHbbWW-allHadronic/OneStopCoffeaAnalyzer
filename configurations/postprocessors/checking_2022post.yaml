@@ -1,0 +1,48 @@
+PostDefaults:
+  style_set: "small_style.yaml"
+  plot_configuration:
+    cms_text: "Preliminary"
+    image_type: ".pdf"
+    cms_text_color: Black
+  to_process:
+    sample_spec:
+      name:
+        - 'qcd*'
+
+all_oned: &all_oned
+  - pt_1
+
+catalog_path: "postprocessing/catalog.json"
+use_samples_as_datasets: true
+
+drop_sample_patterns:
+  - "*50to80*"
+  - "*80to120*"
+  - "*120to170*"
+  # - "*170to300*"
+
+Postprocessing:
+  - name: plot1d
+    action: Histogram1D
+    histogram_names: *all_oned
+    to_process:
+      sample_name: '*2022_postEE*'
+    scale: log
+    grouping: 
+      fields: []
+      axis_options:
+        variation: central
+        PassHLTHT: Sum
+        PassHLTSingleJet: Sum
+        PassOfflineSingleJet: Sum
+        PassOfflineHT: Sum
+    output_name: "postprocessing/2022/{histogram_name}"
+
+
+  # - name: Doc
+  #   action: DocRender
+  #   catalog_paths: [postprocessing/data_mc/catalog.json]
+  #   template: image_grid.tex
+  #   doc_level_group: ["sector_group.parameters.dataset.era.name"]
+  #   internal_group: ["sector_group.parameters.region_name"]
+  #   output: 'postprocessing/{sector_group.parameters.dataset.era.name}.tex'
