@@ -1,18 +1,15 @@
-from .plots.mplstyles import loadStyles
-import itertools as it
-from rich import print
-
-from rich.progress import Progress
 import concurrent.futures as cf
+import itertools as it
+
 import matplotlib as mpl
-from .plots.mplstyles import loadStyles
-from analyzer.utils.progress import progbar
-
-
-from .registry import loadPostprocessors
-from .processors import postprocess_catalog, PostProcessorType
-
 from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
+from analyzer.utils.progress import progbar
+from rich import print
+from rich.progress import Progress
+
+from .plots.mplstyles import loadStyles
+from .processors import PostProcessorType, postprocess_catalog
+from .registry import loadPostprocessors
 
 
 def initProcess():
@@ -33,13 +30,18 @@ def run(tasks, parallel):
             ) as executor:
                 results = [executor.submit(f) for f in tasks]
                 for i in cf.as_completed(results):
+                    try:
+                        i.result()
+                    except Exception as e:
+                        raise
+                        print(f"Exception occurred {e}")
                     progress.advance(task_id)
 
 
 def runPostprocessors(config, input_files, parallel=8):
     loadStyles()
     print("Loading Postprocessors")
-    loaded, catalog, drops = loadPostprocessors(config)
+    loaded, catalog, drops, use_samples_as_datasets = loadPostprocessors(config)
     all_needed_hists = [y for x in loaded for y in x.getNeededHistograms()]
     print("Loading Samples")
     sample_results = loadSampleResultFromPaths(input_files, include=all_needed_hists)
@@ -50,7 +52,9 @@ def runPostprocessors(config, input_files, parallel=8):
         return any(pattern.match(sid.sample_name) for pattern in drops)
 
     dataset_results = makeDatasetResults(
-        sample_results, drop_sample_fn=dropSampleFunction
+        sample_results,
+        drop_sample_fn=dropSampleFunction,
+        include_samples_as_datasets=use_samples_as_datasets,
     )
     print("Ready to Process ")
     sector_results = list(
@@ -71,7 +75,7 @@ def runPostprocessors(config, input_files, parallel=8):
     if tasks:
         run(tasks, parallel)
 
-    if tasks:
+    if tasks and catalog:
         with open(catalog, "wb") as f:
             f.write(postprocess_catalog.dump_json(items, indent=2))
 

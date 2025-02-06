@@ -1,16 +1,16 @@
 import numpy as np
-from rich import print
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 from analyzer.postprocessing.style import Styler
+from rich import print
 
 from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .mplstyles import loadStyles
-from .utils import addAxesToHist, saveFig, fixBadLabels
+from .utils import addAxesToHist, fixBadLabels, saveFig
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
@@ -39,12 +39,13 @@ def plotOne(
     for packaged_hist in packaged_hists:
         title = packaged_hist.title
         h = packaged_hist.histogram
+        fixBadLabels(h)
         style = styler.getStyle(packaged_hist.sector_parameters)
         h.plot1d(
             ax=ax,
             label=title,
             density=normalize,
-            yerr=True,
+            yerr=style.yerr,
             flow="none",
             histtype=style.plottype,
             **style.get(),
@@ -57,10 +58,17 @@ def plotOne(
         [x.sector_parameters for x in packaged_hists],
         plot_configuration=plot_configuration,
     )
-    ax.legend(loc="upper right")
-    mplhep.sort_legend(ax=ax)
+    if style.legend:
+        legend_kwargs = {}
+        if style.legend_font:
+            legend_kwargs["fontsize"] = style.legend_font
+        ax.legend(loc="upper right", **legend_kwargs)
+        mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
-    mplhep.ylow(ax)
+    if style.y_min:
+        ax.set_ylim(bottom=style.y_min)
+
+    # mplhep.ylow(ax)
     saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)
 
@@ -197,7 +205,6 @@ def plotRatio(
     ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
-
 
     fixBadLabels(den_hist)
 

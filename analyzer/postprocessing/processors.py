@@ -59,7 +59,7 @@ class BasePostprocessor(abc.ABC):
         return []
 
     def init(self):
-        config_path = Path(CONFIG.STYLE_PATH) / "style.yaml"
+        config_path = Path(CONFIG.STYLE_PATH) / self.style_set
         with open(config_path, "r") as f:
             d = yaml.safe_load(f)
         self.style_set = StyleSet(**d)
@@ -87,15 +87,19 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
         items = []
         for histogram in self.histogram_names:
             for sector_group in r:
+                hists = sector_group.histograms(histogram)
+                if not hists:
+                    continue
                 output = doFormatting(
                     self.output_name,
                     sector_group.all_parameters,
                     histogram_name=histogram,
                 )
+
                 ret.append(
                     ft.partial(
                         plotOne,
-                        sector_group.histograms(histogram),
+                        hists,
                         sector_group.all_parameters,
                         output,
                         scale=self.scale,
@@ -121,7 +125,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
 class ExportHists(BasePostprocessor, pyd.BaseModel):
     histogram_names: list[str]
     to_process: SectorSpec
-    groupby: SectorGroupSpec
+    grouping: SectorGroupSpec
     output_name: str
 
     def getNeededHistograms(self):
@@ -129,21 +133,31 @@ class ExportHists(BasePostprocessor, pyd.BaseModel):
 
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
-        r = createSectorGroups(sectors, *self.groupby)
+        r = createSectorGroups(sectors, self.grouping)
         ret = []
         items = []
         for histogram in self.histogram_names:
             for sector_group in r:
+                hists = sector_group.histograms(histogram)
+                output = doFormatting(
+                    self.output_name,
+                    sector_group.all_parameters,
+                    histogram_name=histogram,
+                )
+                if not hists:
+                    continue
                 ret.append(
                     ft.partial(
                         exportHist,
-                        histogram,
-                        sector_group.parameters,
-                        sector_group.sectors,
-                        self.output_name,
+                        hists[0],
+                        sector_group.all_parameters,
+                        output,
                     )
                 )
         return ret, items
+
+    def init(self):
+        return 
 
 
 @registerPostprocessor

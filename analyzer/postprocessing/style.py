@@ -1,11 +1,10 @@
 import logging
 
-import matplotlib.typing as mplt
 import matplotlib as mpl
+import matplotlib.typing as mplt
 from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
-from pydantic import BaseModel, Field
-from pydantic import model_validator
+from pydantic import BaseModel, Field, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +23,10 @@ class Style(BaseModel):
     line_width: float | None = None
     markersize: float | None = 5
     marker: str | None = "o"
+    yerr: bool = True
+    y_min: float | None = None
+    legend: bool = True
+    legend_font: int | None = None 
 
     def get(self, plottype=None, prepend=None):
         if plottype is None:
