@@ -11,16 +11,16 @@ distributed:
   scheduler:
     events-log-length: 0
     worker-saturation: 1.0
-  admin:
-    log-length: 0
-  diagnostics:
-    computations:
-      max-history: 0
+  # admin:
+  #   log-length: 0
+  # diagnostics:
+  #   computations:
+  #     max-history: 0
 
-optimization:
-  fuse:
-    ave-width: 10000
-    delayed: True
+# optimization:
+#   fuse:
+#     ave-width: 10000
+#     delayed: True
 
 adaptive:
   wait-count: 20
