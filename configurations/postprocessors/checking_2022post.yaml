@@ -1,5 +1,5 @@
 PostDefaults:
-  style_set: "small_style.yaml"
+  style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
     image_type: ".pdf"
@@ -7,37 +7,98 @@ PostDefaults:
   to_process:
     sample_spec:
       name:
+        - 'data*'
         - 'qcd*'
-
-all_oned: &all_oned
-  - pt_1
-
-catalog_path: "postprocessing/catalog.json"
-use_samples_as_datasets: true
 
 drop_sample_patterns:
   - "*50to80*"
   - "*80to120*"
   - "*120to170*"
-  # - "*170to300*"
+  - "*170to300*"
+
+  - "*50to100*"
+  - "*100to200*"
+  - "*200to300*"
+
+all_oned: &all_oned
+  - h_njet
+  - HT
+  - pt_1
+  - eta_1
+  - phi_1
+  - pt_2
+  - eta_2
+  - phi_2
+  - pt_3
+  - eta_3
+  - phi_3
+  - pt_4
+  - eta_4
+  - phi_4
+  - m14_pt
+  - m14_eta
+  - m14_m
+  - m13_pt
+  - m13_eta
+  - m13_m
+  - m24_pt
+  - m24_eta
+  - m24_m
+  - uncomp_0p67_mChiUncomp
+  - uncomp_0p67_mChiComp
+  - comp_0p67_mChiUncomp
+  - comp_0p67_mChiComp
+
+catalog_path: "postprocessing/catalog.json"
+# use_samples_as_datasets: true
 
 Postprocessing:
-  - name: plot1d
-    action: Histogram1D
-    histogram_names: *all_oned
-    to_process:
-      sample_name: '*2022_postEE*'
+  # - name: plot1d
+  #   action: Histogram1D
+  #   histogram_names: *all_oned
+  #   to_process:
+  #     sample_name: '*2022_postEE*'
+  #   scale: log
+  #   grouping: 
+  #     fields: []
+  #     axis_options:
+  #       variation: central
+  #       PassHLTHT: Sum
+  #       PassHLTSingleJet: Sum
+  #       PassOfflineSingleJet: Sum
+  #       PassOfflineHT: Sum
+  #   output_name: "postprocessing/2022/{histogram_name}"
+
+  - name: Ratio
+    action: RatioPlot
     scale: log
-    grouping: 
-      fields: []
+    match_fields: ["dataset.era.name", "region_name"]
+    histogram_names: *all_oned
+      
+    ratio_ylim: [0,2]
+    ratio_hlines: [1.0]
+    output_name: "postprocessing/{histogram_name}"
+    denominator:
+      to_process:
+        sample_name: qcd*
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options:
         variation: central
         PassHLTHT: Sum
         PassHLTSingleJet: Sum
-        PassOfflineSingleJet: Sum
-        PassOfflineHT: Sum
-    output_name: "postprocessing/2022/{histogram_name}"
-
+        PassOfflineSingleJet: 1
+        PassOfflineHT: 1
+    numerator:
+      fields: ['dataset.name', 'dataset.era.name', 'region_name']
+      to_process:
+        sample_name: data*
+      axis_options:
+        variation: central
+        PassHLTHT: Sum
+        PassHLTSingleJet: Sum
+        PassOfflineSingleJet: 1
+        PassOfflineHT: 1
+    normalize: true
 
   # - name: Doc
   #   action: DocRender
