@@ -67,8 +67,8 @@ def plotOne(
     ax.set_yscale(scale)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
-
-    # mplhep.ylow(ax)
+    else:
+        mplhep.ylow(ax)
     saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)
 
