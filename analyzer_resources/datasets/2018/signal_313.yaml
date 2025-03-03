@@ -1,0 +1,142 @@
+- name: signal_313_1000_400 
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 270
+  other_data: 
+    stop_mass: 1000
+    chargino_mass: 400
+    coupling: "313"
+  title: "$m_{\\tilde{t}} = 1000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_400.root
+
+- name: signal_313_1000_600
+  sample_type: MC
+  era: '2018'
+  x_sec: 270
+  other_data: 
+    stop_mass: 1000
+    chargino_mass: 600
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_600.root
+
+- name: signal_313_1000_900
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 270
+  other_data: 
+    stop_mass: 1000
+    chargino_mass: 900
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_900.root
+
+- name: signal_313_1500_400
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 38
+  other_data: 
+    stop_mass: 1500
+    chargino_mass: 400
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_400.root
+
+- name: signal_313_1500_600
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 38
+  other_data: 
+    stop_mass: 1500
+    chargino_mass: 600
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_600.root
+
+- name: signal_313_1500_900
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 38
+  other_data: 
+    stop_mass: 1500
+    chargino_mass: 900
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_900.root
+
+- name: signal_313_1500_1400
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 38
+  other_data: 
+    stop_mass: 1500
+    chargino_mass: 1400
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_1400.root
+
+- name: signal_313_2000_400
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 7.6
+  other_data: 
+    stop_mass: 2000
+    chargino_mass: 400
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_400.root
+
+- name: signal_313_2000_600
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  other_data: 
+    stop_mass: 2000
+    chargino_mass: 600
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_600.root
+
+- name: signal_313_2000_900
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 7.6
+  other_data: 
+    stop_mass: 2000
+    chargino_mass: 900
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_900.root
+
+- name: signal_313_2000_1400
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 7.6
+  other_data: 
+    stop_mass: 2000
+    chargino_mass: 1400
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_1400.root
+
+- name: signal_313_2000_1900
+  sample_type: MC
+  era: '2018'
+  n_events: 10000
+  x_sec: 7.6
+  other_data: 
+    stop_mass: 2000
+    chargino_mass: 1900
+    coupling: "313"
+  files: 
+    - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_1900.root
