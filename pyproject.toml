@@ -11,15 +11,12 @@ analyzer = 'analyzer.cli:main'
 
 [tool.poetry.dependencies]
 python = "^3.9"
-hist = "^2.6.3"
+hist = "^2"
 matplotlib = "^3.7"
 coffea = {version="^2025", extras=["dask"]} 
 jupyter = "*"
 pyyaml = "^6.0"
 lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "main"}
-gpytorch  = {version = ">=1.11", optional=true}
-pyro-ppl = "*"
-numexpr = ">=2.8.4"
 argcomplete='^3.4.0'
 
 [tool.poetry.extras]
