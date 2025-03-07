@@ -8,6 +8,7 @@ PostDefaults:
     sample_spec:
       name:
         - 'qcd*'
+        - 'signal*'
         # - 'data*'
 
 all_oned: &all_oned

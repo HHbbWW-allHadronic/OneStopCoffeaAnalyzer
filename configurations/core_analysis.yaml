@@ -56,6 +56,30 @@ samples:
   signal_312_1000_400: [Signal312, Control]
   signal_312_1000_600: [Signal312, Control]
   signal_312_1000_900: [Signal312, Control]
+
+  signal_313_1000_400: [Signal313, Control] 
+  signal_313_1000_600: [Signal313, Control]
+  signal_313_1000_900: [Signal313, Control]
+  signal_313_1500_400: [Signal313, Control]
+  signal_313_1500_600: [Signal313, Control]
+  signal_313_1500_900: [Signal313, Control]
+  signal_313_1500_1400: [Signal313, Control]
+  signal_313_2000_400: [Signal313, Control]
+  signal_313_2000_600: [Signal313, Control]
+  signal_313_2000_900: [Signal313, Control]
+  signal_313_2000_1400: [Signal313, Control]
+  signal_313_2000_1900: [Signal313, Control]
+
+
+  # signal_312_900_800: [Signal312, Control]
+  # signal_312_900_700: [Signal312, Control]
+  # signal_312_900_600: [Signal312, Control]
+  # signal_312_900_400: [Signal312, Control]
+  # 
+  # signal_312_800_700: [Signal312, Control]
+  # signal_312_800_600: [Signal312, Control]
+  # signal_312_800_400: [Signal312, Control]
+
   
 
 
