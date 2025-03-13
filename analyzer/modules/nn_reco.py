@@ -78,44 +78,44 @@ def NN_mass_reco(
     model = jetAssignmentNN(model_path)
     outputs = model(events, scaler_path, events.events)[:, 0]
     m14 = jets[:, 0:4].sum().mass
-    mChiUncomp = (
-        jets[ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]].sum().mass
-    )
-
-    analyzer.H(
-        f"{model_name}_mChiUncomp",
-        makeAxis(
-            120,
-            500,
-            3000,
-            rf"mChiUncomp",
-            unit="GeV",
-        ),
-        mChiUncomp,
-    )
-    analyzer.H(
-        f"{model_name}_m14_vs_mChiUncomp",
-        [
-            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 500, 3000, f"$m_{{3 (NN, {model_name} )}}$", unit="GeV"),
-        ],
-        [m14, mChiUncomp],
-    )
-    analyzer.H(
-        f"{model_name}_m14_vs_mChiUncompRatio",
-        [
-            makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(120, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
-        ],
-        [m14, mChiUncomp / m14],
-    )
+    # mChiUncomp = (
+    #     jets[ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]].sum().mass
+    # )
+    # 
+    # analyzer.H(
+    #     f"{model_name}_mChiUncomp",
+    #     makeAxis(
+    #         120,
+    #         500,
+    #         3000,
+    #         rf"mChiUncomp",
+    #         unit="GeV",
+    #     ),
+    #     mChiUncomp,
+    # )
+    # analyzer.H(
+    #     f"{model_name}_m14_vs_mChiUncomp",
+    #     [
+    #         makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+    #         makeAxis(120, 500, 3000, f"$m_{{3 (NN, {model_name} )}}$", unit="GeV"),
+    #     ],
+    #     [m14, mChiUncomp],
+    # )
+    # analyzer.H(
+    #     f"{model_name}_m14_vs_mChiUncompRatio",
+    #     [
+    #         makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
+    #         makeAxis(120, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
+    #     ],
+    #     [m14, mChiUncomp / m14],
+    # )
 
     mChiComp = (
         jets[ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]].sum().mass
     )
 
     analyzer.H(
-        f"{model_name}_mChiComp",
+        f"{model_name}_mChi",
         makeAxis(
             120,
             0,
@@ -126,7 +126,7 @@ def NN_mass_reco(
         mChiComp,
     )
     analyzer.H(
-        f"{model_name}_m14_vs_mChiComp",
+        f"{model_name}_m14_vs_mChi",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
             makeAxis(120, 0.15, 3000, f"$m_{{3 (NN, {model_name})}}$", unit="GeV"),
@@ -134,7 +134,7 @@ def NN_mass_reco(
         [m14, mChiComp],
     )
     analyzer.H(
-        f"{model_name}_m14_vs_mChiCompRatio",
+        f"{model_name}_m14_vs_mChiRatio",
         [
             makeAxis(120, 500, 3000, r"$m_{14}$", unit="GeV"),
             makeAxis(120, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
