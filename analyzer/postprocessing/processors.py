@@ -59,10 +59,12 @@ class BasePostprocessor(abc.ABC):
         return []
 
     def init(self):
-        config_path = Path(CONFIG.STYLE_PATH) / self.style_set
-        with open(config_path, "r") as f:
-            d = yaml.safe_load(f)
-        self.style_set = StyleSet(**d)
+        if isinstance(self.style_set, str):
+            print("Loading style set")
+            config_path = Path(CONFIG.STYLE_PATH) / self.style_set
+            with open(config_path, "r") as f:
+                d = yaml.safe_load(f)
+            self.style_set = StyleSet(**d)
 
 
 @registerPostprocessor
@@ -87,6 +89,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
         items = []
         for histogram in self.histogram_names:
             for sector_group in r:
+                pc = self.plot_configuration.makeFormatted(sector_group.all_parameters)
                 hists = sector_group.histograms(histogram)
                 if not hists:
                     continue
@@ -105,7 +108,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                         scale=self.scale,
                         style_set=self.style_set,
                         normalize=self.normalize,
-                        plot_configuration=self.plot_configuration,
+                        plot_configuration=pc,
                     )
                 )
 
@@ -157,7 +160,7 @@ class ExportHists(BasePostprocessor, pyd.BaseModel):
         return ret, items
 
     def init(self):
-        return 
+        return
 
 
 @registerPostprocessor
@@ -219,30 +222,51 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
 class PlotCutflow(BasePostprocessor, pyd.BaseModel):
     to_process: SectorSpec
     style_set: str | StyleSet
-    groupby: SectorGroupSpec
+    grouping: SectorGroupSpec
     output_name: str
+    plot_types: list[str] = ["cutflow", "one_cut", "n_minus_one"]
+
     normalize: bool = False
     table_mode: bool = False
     plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
+        print(self.style_set)
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
-        r = createSectorGroups(sectors, *self.groupby)
-        ret = []
+        r = createSectorGroups(sectors, self.grouping)
+        ret, items = [], []
+
         for sector_group in r:
-            ret.append(
-                ft.partial(
-                    plotStrCat,
-                    sector_group.parameters,
-                    sector_group.sectors,
+            for pt in self.plot_types:
+                pc = self.plot_configuration.makeFormatted(sector_group.all_parameters)
+                output = doFormatting(
                     self.output_name,
-                    self.style_set,
-                    table_mode=self.table_mode,
-                    normalize=self.normalize,
-                    plot_configuration=self.plot_configuration,
+                    sector_group.all_parameters,
+                    histogram_name=pt,
                 )
-            )
-        return ret
+                ret.append(
+                    ft.partial(
+                        plotStrCat,
+                        pt,
+                        sector_group.parameters,
+                        sector_group.sectors,
+                        output,
+                        self.style_set,
+                        table_mode=self.table_mode,
+                        normalize=self.normalize,
+                        plot_configuration=pc,
+                    )
+                )
+                items.append(
+                    PostprocessCatalogueEntry(
+                        processor_name=self.name,
+                        identifier=str(sector_group),
+                        path=output,
+                        sector_group=sector_group,
+                        sector_params=[x.sector_params for x in sector_group.sectors],
+                    )
+                )
+        return ret, items
 
 
 @registerPostprocessor

@@ -86,7 +86,7 @@ def __plotStrCatOne(
     getter,
     group_params,
     sectors,
-    output_name,
+    output_path,
     style_set,
     ax_name=None,
     normalize=False,
@@ -94,6 +94,7 @@ def __plotStrCatOne(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
+    print(style_set)
     loadStyles()
     mpl.use("Agg")
 
@@ -101,6 +102,7 @@ def __plotStrCatOne(
     for sector in sectors:
         p = sector.sector_params
         style = styler.getStyle(p)
+        print(style)
         h = makeStrHist(getter(sector), ax_name=ax_name)
         h.plot1d(
             ax=ax,
@@ -113,15 +115,17 @@ def __plotStrCatOne(
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     ax.tick_params(axis="x", rotation=90)
-    addCMSBits(ax, sectors, plot_configuration=plot_configuration)
+    addCMSBits(
+        ax,
+        [x.sector_params for x in sectors],
+        plot_configuration=plot_configuration,
+    )
     # mplhep.yscale_legend(ax, soft_fail=True)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     # mplhep.yscale_legend(ax, soft_fail=True)
-
-    o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
     fig.tight_layout()
-    saveFig(fig, o, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)
 
 
@@ -169,7 +173,7 @@ def __plotStrCatAsTable(
     plt.close(fig)
 
 
-def plotStrCat(*args, table_mode=False, **kwargs):
+def plotStrCat(plot_type, *args, table_mode=False, **kwargs):
     def makeGetter(n):
         def inner(sec):
             return getattr(sec.result.selection_flow, n)
@@ -181,8 +185,7 @@ def plotStrCat(*args, table_mode=False, **kwargs):
     else:
         f = __plotStrCatOne
 
-    for x in ["cutflow", "one_cut", "n_minus_one"]:
-        f(makeGetter(x), *args, ax_name=x, **kwargs)
+    f(makeGetter(plot_type), *args, ax_name=plot_type, **kwargs)
 
 
 def plotRatio(

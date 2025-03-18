@@ -31,6 +31,8 @@ def deepMerge(a: dict[Any, Any], b: dict[Any, Any], path=[], overwrite=True):
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
                 deepMerge(a[key], b[key], path + [str(key)])
+            else:
+                a[key] = b[key]
             # elif a[key] != b[key]:
             #     raise Exception('Conflict at ' + '.'.join(path + [str(key)]))
         else:

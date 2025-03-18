@@ -105,6 +105,11 @@ def groupsMatch(group1, group2, fields):
 
 
 class SectorGroup(SectorGroupParameters):
+    """
+    A collection of sectors (Region,Datasets pairs), which are treated as a unit for certain processors purposes.
+    Different processors may use this construction differently
+    
+    """
     separator: ClassVar[str] = " "
     sectors: Annotated[list[SectorResult], Field(repr=False)]
     title_format: Annotated[str, Field(repr=False)] = "{title}"
@@ -130,7 +135,17 @@ class SectorGroup(SectorGroupParameters):
             title=sector.sector_params.dataset.title,
         )
 
+    def getSectorStyle(self,sector):
+        if self.style_set:
+            style = self.style_set.getStyle(sector.sector_params)
+        else:
+            return None
+
     def histograms(self, hist_name):
+        """
+        Get all the histograms corresponding to the given name.
+        Returns a list of PackagedHist
+        """
         everything = []
         for sector in self.sectors:
             h = sector.result.histograms[hist_name].histogram
@@ -178,7 +193,7 @@ def createSectorGroups(sectors, spec):
     if spec.to_process is not None:
         sectors = [x for x in sectors if spec.to_process.passes(x.sector_params)]
     grouped = groupBy(sectors, spec.fields, data_acquire=lambda x: x.params_dict)
-    return [
+    ret= [
         SectorGroup(
             parameters=params,
             sectors=sectors,
@@ -189,3 +204,5 @@ def createSectorGroups(sectors, spec):
         )
         for params, sectors in grouped
     ]
+    print(ret)
+    return ret

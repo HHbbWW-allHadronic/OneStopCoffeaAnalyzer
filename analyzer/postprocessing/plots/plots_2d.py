@@ -33,8 +33,6 @@ def plot2D(
         art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
         art = h.plot2d(ax=ax)
-    ax = art.pcolormesh.axes
-    fig = ax.get_figure()
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     sp = packaged_hist.sector_parameters

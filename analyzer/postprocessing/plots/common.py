@@ -1,5 +1,7 @@
 import pydantic as pyd
+import copy
 from typing import Optional
+from ..grouping import doFormatting
 
 
 class PlotConfiguration(pyd.BaseModel):
@@ -16,3 +18,14 @@ class PlotConfiguration(pyd.BaseModel):
     y_label: Optional[str] = None
 
     image_type: Optional[str] = None
+
+
+    def makeFormatted(self, params):
+        ret = copy.deepcopy(self)
+        if ret.extra_text:
+            ret.extra_text = doFormatting(ret.extra_text, params)
+        if ret.cms_text:
+            ret.cms_text = doFormatting(ret.cms_text, params)
+        return ret
+
+
