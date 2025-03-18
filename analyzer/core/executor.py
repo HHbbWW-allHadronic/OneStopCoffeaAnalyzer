@@ -227,6 +227,7 @@ class DaskExecutor(Executor):
     step_size: int | None = 100000
     map_mode: bool = False
     use_threads: bool = False
+    parallel_submission: int = 4
 
     def setup(self):
         if self.adapt:
@@ -281,7 +282,7 @@ class DaskExecutor(Executor):
             else:
                 ret[k] = None
 
-        with ThreadPoolExecutor(max_workers=4) as tp:
+        with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
             futures = []
             for k, v in ret.items():
                 computed = None
@@ -330,7 +331,7 @@ class DaskExecutor(Executor):
                     )
 
     def runThreaded(self, tasks, result_complete_callback=None):
-        with ThreadPoolExecutor(max_workers=8) as tp:
+        with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
             futures = [
                 tp.submit(runOneTaskDask, v, default_step_size=self.step_size)
                 for v in tasks.values()
