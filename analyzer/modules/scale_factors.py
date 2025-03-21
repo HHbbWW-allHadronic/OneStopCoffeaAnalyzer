@@ -15,7 +15,9 @@ logger = logging.getLogger(__name__)
 
 
 @MODULE_REPO.register(ModuleType.Weight)
-def btagging_sf(events, params, weight_manager, variations=None, working_points=None):
+def btagging_wp_sf(
+    events, params, weight_manager, variations=None, working_points=None
+):
 
     bwps = getBTagWP(profile)
     WP_ORDER = ("L", "M", "T")
@@ -126,3 +128,35 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
     up = events.L1PreFiringWeight["Up"]
     down = events.L1PreFiringWeight["Dn"]
     weight_manager.add(f"L1_prefire", nom, {"inclusive": (up, down)})
+
+
+
+def jesToBTag(variation):
+    if 
+    
+
+@MODULE_REPO.register(ModuleType.Weight)
+def btagging_shape_sf(
+    events, params, weight_manager, variations=None, working_points=None
+):
+    current_syst = events.getSystName()
+
+    bwps = getBTagWP(profile)
+    jets = events.Jet
+    corrs = correctionlib.CorrectionSet.from_file(profile.btag_scale_factors)
+
+    sf_eval = correctionlib_wrapper(corrs["deepJet_shape"])
+    central_perjet = sf_eval(
+        "central", jets.hadronFlavour, abs(jets.eta), jets.pt, jets.btagDeepFlavB
+    )
+
+    if current_syst.starts_with("JES"):
+        
+        
+
+    central = ak.prod(central_perjet, axis=1)
+
+    weight_manager.add(
+        f"btag_shape_sf",
+        central,
+    )
