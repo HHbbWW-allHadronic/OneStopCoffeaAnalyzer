@@ -42,3 +42,12 @@
   pileup_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2017_UL/puWeights.json.gz
     name: Collisions17_UltraLegacy_goldenJSON
+
+  jet_corrections:
+    files:
+      ak4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/jet_jerc.json.gz
+      ak8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/fatjet_jerc.json.gz
+    jec:
+      mc_base_name: Summer19UL17_V5_MC
+    jer:
+      mc_base_name: Summer20UL17_JRV3_MC

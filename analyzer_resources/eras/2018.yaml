@@ -24,12 +24,10 @@
       pt: 500
       msoftdrop: 50
 
-
   golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions18/13TeV/Legacy_2018/Cert_314472-325175_13TeV_Legacy2018_Collisions18_JSON.txt
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2018_UL/btagging.json.gz
-
 
   pileup_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2018_UL/puWeights.json.gz
@@ -39,9 +37,14 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/jmar.json.gz
     working_points: {L: 4, M: 6, T: 7}
     name: PUJetID_eff
-
     
   jet_veto_maps: null
 
-
-
+  jet_corrections:
+    files:
+      ak4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/jet_jerc.json.gz
+      ak8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/fatjet_jerc.json.gz
+    jec:
+      mc_base_name: Summer19UL18_V5_MC
+    jer:
+      mc_base_name: Summer20UL18_JRV3_MC

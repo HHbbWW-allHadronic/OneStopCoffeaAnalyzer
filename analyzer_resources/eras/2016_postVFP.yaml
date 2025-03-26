@@ -29,3 +29,12 @@
     AK8SingleJetPt:
       pt: 500
       msoftdrop: 0
+
+  jet_corrections:
+    files:
+      ak4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/jet_jerc.json.gz
+      ak8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/fatjet_jerc.json.gz
+    jec:
+      mc_base_name: Summer19UL16_V7_MC
+    jer:
+      mc_base_name: Summer20UL16_JRV3_MC
