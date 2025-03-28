@@ -47,7 +47,7 @@
     files:
       ak4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/jet_jerc.json.gz
       ak8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/fatjet_jerc.json.gz
-    jec:
+    jec_names:
       mc_base_name: Summer19UL17_V5_MC
-    jer:
+    jer_names:
       mc_base_name: Summer20UL17_JRV3_MC
