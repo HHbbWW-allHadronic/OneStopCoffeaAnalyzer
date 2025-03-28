@@ -9,12 +9,12 @@ from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 import correctionlib.schemav2 as cs
 
 
-def addRaw(jets, event_rho, isMC=True):
-    # if isMC:
-    #     jets["pt_gen"] = ak.values_astype(
-    #         ak.fill_none(jets.matched_gen.pt, 0), np.float32
-    #     )
-    return jets
+# def addRaw(jets, event_rho, isMC=True):
+#     # if isMC:
+#     #     jets["pt_gen"] = ak.values_astype(
+#     #         ak.fill_none(jets.matched_gen.pt, 0), np.float32
+#     #     )
+#     return jets
 
 
 def getCorrKey(base_tag, lvl, algo):
@@ -22,23 +22,6 @@ def getCorrKey(base_tag, lvl, algo):
 
 
 # https://gitlab.cern.ch/cms-nanoAOD/jsonpog-integration/-/blob/master/examples/jercExample.py
-# https://github.com/PocketCoffea/PocketCoffea/blob/main/pocket_coffea/lib/jets.py
-def jetsJEC(jets, base_tag, lvl, algo, corrections_path):
-    cset = correctionlib.CorrectionSet.from_file(corrections_path)
-    corr_key = getCorrKey(base_tag, lvl, algo)
-    corr = correctionlib_wrapper(cset.compound[corr_key])
-
-    jets["pt_raw"] = (1 - jets.rawFactor) * jets.pt
-    jets["mass_raw"] = (1 - jets.rawFactor) * jets.mass
-    jets["event_rho"] = ak.broadcast_arrays(event_rho, jets.pt)[0]
-
-    factor = corr.evaluate(jets["area"], jets["eta"], jets["pt_raw"], jets["rho"])
-    corrected = ak.copy(jets)
-    corrected["rho"] = jets["rho"]
-    corrected["pt"] = jets["pt_raw"] * factor
-    corrected["mass"] = jets["mass_raw"] * factor
-
-    return corrected
 
 
 def getJerKeys(jer_name, jet_type):
@@ -117,12 +100,47 @@ def applyJetVetoMap(events):
     pass
 
 
+def getRho(events, path):
+    if isinstance(path, str):
+        return events[path]
+    else:
+        return events[*path]
+
+
+def getKey(base, systematic, jet_type):
+    return "_".join([base, systematic, jet_type])
+
+
 @MODULE_REPO.register(ModuleType.Producer)
-def applyJetCorrections(columns):
-    nominal_corrected = makeNominalCorrection(events.Jets)
-    columns["corrected_jets"] = nominal_corrected
-    columns["corrected_jets"] = ("jec_up", jec_up)
-    columns["corrected_jets"] = ("jec_down", jec_down)
+def correctedJets(columns, params, jet_type="AK4", systematics=None):
+    if systematics:
+        raise RuntimeError("Must have at least one systematic")
+    jec_params = params.dataset.era.jet_corrections
+    corrections_path = jec_params.files[jet_type]
+    cset = correctionlib.CorrectionSet.from_file(corrections_path)
+    base_key = jec_params.jec_names[params.dataset.sample_type]
+
+    jet_type = jec_params.jet_names[jet_type]
+
+    jets = events.jets
+    pt_raw = (1 - jets.rawFactor) * jets.pt
+    mass_raw = (1 - jets.rawFactor) * jets.mass
+    rho = jets.rho
+    systs = {}
+    for systematic in systematics:
+        k = getKey(base_key, systematic, jet_type)
+        corr = correctionlib_wrapper(cset.compound[k])
+        # event_rho = getRho(events, jec_params.rho_name)
+        factor = corr.evaluate(jets.area, jets.era, pt_raw, jets.rho)
+        for shift_name, shift in [("Up", 1), ("Down", -1)]:
+            corrected = ak.copy(jets)
+            corrected["rho"] = rho
+            corrected["pt"] = pt_raw * factor
+            corrected["mass"] = mass_raw * factor
+
+            systs[(f"{systematic}_{shift_name}")] = corrected
+
+    columns.add("corrected_jets", ak.copy(jets), systs)
 
 
 @MODULE_REPO.register(ModuleType.Producer)

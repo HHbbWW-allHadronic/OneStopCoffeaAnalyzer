@@ -9,6 +9,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class JetCorrectionInfo(BaseModel):
+    files: dict[str, str]
+    jec_names: dict[str, str]
+    jer_names: dict[str, str]
+    jet_names: dict[str,str]
+
+
 class Era(BaseModel):
     name: str = Field(alias=AliasChoices("era_name", "name"))
     energy: float
@@ -23,6 +30,7 @@ class Era(BaseModel):
     btag_scale_factors: dict[str, str]
     jet_pileup_id: dict[str, Any] | None = None
     jet_veto_maps: dict[str, Any] | None = None
+    jet_corrections: JetCorrectionInfo | None = None
 
     @property
     def params(self):
