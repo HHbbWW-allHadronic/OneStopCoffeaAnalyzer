@@ -8,6 +8,9 @@ import pydantic as pyd
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 import correctionlib.schemav2 as cs
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 # def addRaw(jets, event_rho, isMC=True):
 #     # if isMC:
@@ -104,7 +107,7 @@ def getRho(events, path):
     if isinstance(path, str):
         return events[path]
     else:
-        return events[*path]
+        return events[path]
 
 
 def getKey(base, systematic, jet_type):
@@ -113,75 +116,89 @@ def getKey(base, systematic, jet_type):
 
 @MODULE_REPO.register(ModuleType.Producer)
 def correctedJets(columns, params, jet_type="AK4", systematics=None):
-    if systematics:
-        raise RuntimeError("Must have at least one systematic")
+    systematics = systematics or []
+    # if not systematics:
+    #     raise RuntimeError("Must have at least one systematic")
     jec_params = params.dataset.era.jet_corrections
+
     corrections_path = jec_params.files[jet_type]
     cset = correctionlib.CorrectionSet.from_file(corrections_path)
-    base_key = jec_params.jec_names[params.dataset.sample_type]
 
+    base_key = jec_params.jec[params.dataset.sample_type]
     jet_type = jec_params.jet_names[jet_type]
 
-    jets = events.jets
+    jets = columns.Jet
     pt_raw = (1 - jets.rawFactor) * jets.pt
     mass_raw = (1 - jets.rawFactor) * jets.mass
     rho = jets.rho
     systs = {}
     for systematic in systematics:
         k = getKey(base_key, systematic, jet_type)
-        corr = correctionlib_wrapper(cset.compound[k])
+        logger.info(f"Getting jet correction key {k}")
+        corr = cset[k]
         # event_rho = getRho(events, jec_params.rho_name)
-        factor = corr.evaluate(jets.area, jets.era, pt_raw, jets.rho)
+        factor = corr.evaluate(jets.eta, pt_raw)
         for shift_name, shift in [("Up", 1), ("Down", -1)]:
-            corrected = ak.copy(jets)
-            corrected["rho"] = rho
-            corrected["pt"] = pt_raw * factor
-            corrected["mass"] = mass_raw * factor
+            # corrected = ak.copy(jets)
 
-            systs[(f"{systematic}_{shift_name}")] = corrected
+            # fields = {field: jets[field] for field in jets.fields}
+            fields["rho"] = rho
+            fields["pt"] = pt_raw * factor
+            fields["mass"] = mass_raw * factor
+            # syst = ak.zip(
+            #     fields,
+            #     depth_limit=1,
+            #     parameters=params,
+            #     with_name=flat.layout.parameters["__record__"],
+            #     behavior=jets.behavior,
+            # )
 
-    columns.add("corrected_jets", ak.copy(jets), systs)
+            systematic_name = f"{systematic}_{shift_name}"
+            logger.info(f"Adding jet systematic {systematic_name}")
+            systs[systematic_name] = syst
+
+    columns.add("CorrectedJet", jets, systs)
 
 
-@MODULE_REPO.register(ModuleType.Producer)
-def testJetCorrection(columns, params):
-    j = columns.Jet
-    columns.add("TestCorrJet", j)  # ), {"up" : j, "down" : j})
-    return
-    fields = j.fields
-    ret = {}
-
-    flat = ak.flatten(j)
-
-    nom = {field: j[field] for field in fields}
-    params = copy.copy(j.layout.parameters)
-    v = j * 3
-    for f in v.fields:
-        nom[f] = v[f]
-
-    nom = ak.zip(
-        nom,
-        depth_limit=1,
-        parameters=params,
-        with_name=flat.layout.parameters["__record__"],
-        behavior=j.behavior,
-    )
-
-    for x in ["Up", "Down"]:
-        out = {field: j[field] for field in fields}
-        params = copy.copy(j.layout.parameters)
-        v = j * 3
-        for f in v.fields:
-            out[f] = v[f]
-        out = ak.zip(
-            out,
-            depth_limit=1,
-            parameters=params,
-            with_name=flat.layout.parameters["__record__"],
-            behavior=j.behavior,
-        )
-        ret[x] = out
-
-    print(nom)
-    print(nom.E)
-    columns.add("TestCorrJet", nom, ret)
+# @MODULE_REPO.register(ModuleType.Producer)
+# def testJetCorrection(columns, params):
+#     j = columns.Jet
+#     columns.add("TestCorrJet", j)  # ), {"up" : j, "down" : j})
+#     return
+#     fields = j.fields
+#     ret = {}
+#
+#     flat = ak.flatten(j)
+#
+#     nom = {field: j[field] for field in fields}
+#     params = copy.copy(j.layout.parameters)
+#     v = j * 3
+#     for f in v.fields:
+#         nom[f] = v[f]
+#
+#     nom = ak.zip(
+#         nom,
+#         depth_limit=1,
+#         parameters=params,
+#         with_name=flat.layout.parameters["__record__"],
+#         behavior=j.behavior,
+#     )
+#
+#     for x in ["Up", "Down"]:
+#         out = {field: j[field] for field in fields}
+#         params = copy.copy(j.layout.parameters)
+#         v = j * 3
+#         for f in v.fields:
+#             out[f] = v[f]
+#         out = ak.zip(
+#             out,
+#             depth_limit=1,
+#             parameters=params,
+#             with_name=flat.layout.parameters["__record__"],
+#             behavior=j.behavior,
+#         )
+#         ret[x] = out
+#
+#     print(nom)
+#     print(nom.E)
+#     columns.add("TestCorrJet", nom, ret)
