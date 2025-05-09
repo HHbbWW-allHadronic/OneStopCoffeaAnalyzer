@@ -59,7 +59,7 @@ class SectorGroupSpec(BaseModel):
     @classmethod
     def coerceMode(cls, value):
         for k in list(value.keys()):
-            if value[k] in ("Sum", "Split", "Or"):
+            if value[k] in ("Sum", "Split", "Or", "Rebin2"):
                 value[k] = Mode[value[k]]
         return value
 
@@ -204,5 +204,4 @@ def createSectorGroups(sectors, spec):
         )
         for params, sectors in grouped
     ]
-    print(ret)
     return ret

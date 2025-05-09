@@ -11,6 +11,7 @@ class Mode(str, enum.Enum):
     Split = "Split"
     Sum = "Sum"
     Or = "Or"
+    Rebin2 = "Rebin2"
 
 
 def splitHistogram(
@@ -32,7 +33,7 @@ def splitHistogram(
             raise RuntimeError(f"Can only use Or on boolean axes")
     new_h = None
     if or_axes:
-        for x in it.product(*[[0,1]]*len(or_axes)):
+        for x in it.product(*[[0, 1]] * len(or_axes)):
             if not any(x):
                 continue
             if new_h is None:
@@ -42,8 +43,13 @@ def splitHistogram(
         h = new_h
 
     sum_axes_names = [a for a, y in axis_options.items() if y == Mode.Sum]
+    rebin2_axes_names = [a for a, y in axis_options.items() if y == Mode.Rebin2]
     val_axes = {a: y for a, y in axis_options.items() if not isinstance(y, Mode)}
-    first = {**val_axes, **{x: sum for x in sum_axes_names}}
+    first = {
+        **val_axes,
+        **{x: sum for x in sum_axes_names},
+        **{x: hist.rebin(2) for x in rebin2_axes_names},
+    }
     h = h[first]
 
     split_axes = [h.axes[a] for a, y in axis_options.items() if y == Mode.Split]
