@@ -231,7 +231,6 @@ class PlotCutflow(BasePostprocessor, pyd.BaseModel):
     plot_configuration: PlotConfiguration | None = None
 
     def getExe(self, results):
-        print(self.style_set)
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
         r = createSectorGroups(sectors, self.grouping)
         ret, items = [], []
