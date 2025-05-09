@@ -77,10 +77,19 @@ def NN_mass_reco(
     jets = events.good_jets
     model = jetAssignmentNN(model_path)
     outputs = model(events, scaler_path, events.events)[:, 0]
-    m14 = jets[:, 0:4].sum().mass
-    mChiComp = (
-        jets[ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]].sum().mass
+    # m14 = jets[:, 0:4].sum().mass
+    top_3_idx = ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]
+    mChiComp = jets[top_3_idx].sum()
+    top_3_excl_mask = (
+        (ak.local_index(jets, axis=1) != top_3_idx[:, 0])
+        & (ak.local_index(jets, axis=1) != top_3_idx[:, 1])
+        & (ak.local_index(jets, axis=1) != top_3_idx[:, 2])
     )
+    stop_b = jets[top_3_excl_mask][:, 0]  # Highest remaining pT
+    m14 = stop_b + mChiComp
+
+    chi_m = mChiComp.mass
+    stop_m = m14.mass
 
     analyzer.H(
         f"{model_name}_mChi",
@@ -88,10 +97,21 @@ def NN_mass_reco(
             150,
             0,
             3000,
-            rf"mChiComp",
+            rf"mChi",
             unit="GeV",
         ),
-        mChiComp,
+        chi_m,
+    )
+    analyzer.H(
+        f"{model_name}_mStop",
+        makeAxis(
+            150,
+            0,
+            3000,
+            rf"mStop",
+            unit="GeV",
+        ),
+        stop_m,
     )
     analyzer.H(
         f"{model_name}_m14_vs_mChi",
@@ -99,13 +119,15 @@ def NN_mass_reco(
             makeAxis(125, 500, 3000, r"$m_{14}$", unit="GeV"),
             makeAxis(125, 0.15, 3000, f"$m_{{3 (NN, {model_name})}}$", unit="GeV"),
         ],
-        [m14, mChiComp],
+        [stop_m, chi_m],
     )
     analyzer.H(
         f"{model_name}_m14_vs_mChiRatio",
         [
             makeAxis(125, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(125, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"),
+            makeAxis(
+                125, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"
+            ),
         ],
-        [m14, mChiComp / m14],
+        [stop_m, chi_m / stop_m],
     )
