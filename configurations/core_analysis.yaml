@@ -2,83 +2,82 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
-  qcd_inclusive_2018: All
-  qcd_inclusive_2017: All
-  qcd_inclusive_2016_preVFP: All
-  qcd_inclusive_2016_postVFP: All
-  
-  qcd_inclusive_2022_preEE: All
-  qcd_inclusive_2022_postEE: All
-  qcd_inclusive_2023_preBPix: All
-  qcd_inclusive_2023_postBPix: All
-  
-  data_JetHT_2018: [Control]
-  data_JetHT_2017: [Control]
-  data_JetHT_2016pre: [Control]
-  data_JetHT_2016post: [Control]
-  
-  
-  data_JetHT_2022pre: [Control]
-  data_JetHT_2022post: [Control]
-  data_JetHT_2023pre: [Control]
-  data_JetHT_2023post: [Control]
-  
-  signal_312_2000_1900: [Signal312, Control]
-  signal_312_1500_1400: [Signal312, Control]
-  signal_312_1200_400: [Signal312, Control]
-  signal_312_1200_600: [Signal312, Control]
-  signal_312_1200_1100: [Signal312, Control]
-  signal_312_1300_1200: [Signal312, Control]
-  signal_312_1400_400: [Signal312, Control]
-  signal_312_1400_1300: [Signal312, Control]
-  signal_312_1500_400: [Signal312, Control]
-  signal_312_1500_600: [Signal312, Control]
-  signal_312_1500_900: [Signal312, Control]
-  signal_312_1500_1400: [Signal312, Control]
-  signal_312_2000_400: [Signal312, Control]
-  signal_312_1300_400: [Signal312, Control]
-  signal_312_1300_600: [Signal312, Control]
-  signal_312_2000_900: [Signal312, Control]
-  signal_312_2000_1900: [Signal312, Control]
-  signal_312_1000_700: [Signal312, Control]
-  signal_312_1000_800: [Signal312, Control]
-  signal_312_1200_700: [Signal312, Control]
-  signal_312_1200_800: [Signal312, Control]
-  signal_312_1500_100: [Signal312, Control]
-  signal_312_1500_1000: [Signal312, Control]
-  signal_312_1500_1200: [Signal312, Control]
-  signal_312_1500_1300: [Signal312, Control]
-  signal_312_1500_1350: [Signal312, Control]
-  signal_312_1500_1450: [Signal312, Control]
-  signal_312_2000_1200: [Signal312, Control]
-  signal_312_2000_1600: [Signal312, Control]
-  signal_312_2000_1700: [Signal312, Control]
-  signal_312_1000_400: [Signal312, Control]
-  signal_312_1000_600: [Signal312, Control]
-  signal_312_1000_900: [Signal312, Control]
-
-  signal_313_1000_400: [Signal313, Control] 
-  signal_313_1000_600: [Signal313, Control]
-  signal_313_1000_900: [Signal313, Control]
-  signal_313_1500_400: [Signal313, Control]
-  signal_313_1500_600: [Signal313, Control]
-  signal_313_1500_900: [Signal313, Control]
-  signal_313_1500_1400: [Signal313, Control]
-  signal_313_2000_400: [Signal313, Control]
-  signal_313_2000_600: [Signal313, Control]
-  signal_313_2000_900: [Signal313, Control]
-  signal_313_2000_1400: [Signal313, Control]
-  signal_313_2000_1900: [Signal313, Control]
-
-
-  # signal_312_900_800: [Signal312, Control]
-  # signal_312_900_700: [Signal312, Control]
-  # signal_312_900_600: [Signal312, Control]
-  # signal_312_900_400: [Signal312, Control]
+  # qcd_inclusive_2018: [Control, Signal313, Signal312]
+  # qcd_inclusive_2017: [Control, Signal313, Signal312]
+  # qcd_inclusive_2016_preVFP: [Control, Signal313, Signal312]
+  # qcd_inclusive_2016_postVFP: [Control, Signal313, Signal312]
   # 
-  # signal_312_800_700: [Signal312, Control]
-  # signal_312_800_600: [Signal312, Control]
-  # signal_312_800_400: [Signal312, Control]
+  # qcd_inclusive_2022_preEE: [Control, Signal313, Signal312]
+  # qcd_inclusive_2022_postEE: [Control, Signal313, Signal312]
+  # qcd_inclusive_2023_preBPix: [Control, Signal313, Signal312]
+  # qcd_inclusive_2023_postBPix: [Control, Signal313, Signal312]
+  # 
+  # data_JetHT_2018: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2017: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2016pre: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2016post: [Control,BlindedSignal313, BlindedSignal312]
+  # 
+  # 
+  # data_JetHT_2022pre: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2022post: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2023pre: [Control,BlindedSignal313, BlindedSignal312]
+  # data_JetHT_2023post: [Control,BlindedSignal313, BlindedSignal312]
+  
+  signal_312_1200_400: [Signal312]
+  signal_312_2000_1900: [Signal312 ]
+  signal_312_1500_1400: [Signal312]
+  signal_312_1200_600: [Signal312]
+  signal_312_1200_1100: [Signal312]
+  signal_312_1300_1200: [Signal312]
+  signal_312_1400_400: [Signal312]
+  signal_312_1400_1300: [Signal312]
+  signal_312_1500_400: [Signal312]
+  signal_312_1500_600: [Signal312]
+  signal_312_1500_900: [Signal312]
+  signal_312_1500_1400: [Signal312]
+  signal_312_2000_400: [Signal312]
+  signal_312_1300_400: [Signal312]
+  signal_312_1300_600: [Signal312]
+  signal_312_2000_900: [Signal312]
+  signal_312_2000_1900: [Signal312]
+  signal_312_1000_700: [Signal312]
+  signal_312_1000_800: [Signal312]
+  signal_312_1200_700: [Signal312]
+  signal_312_1200_800: [Signal312]
+  signal_312_1500_100: [Signal312]
+  signal_312_1500_1000: [Signal312]
+  signal_312_1500_1200: [Signal312]
+  signal_312_1500_1300: [Signal312]
+  signal_312_1500_1350: [Signal312]
+  signal_312_1500_1450: [Signal312]
+  signal_312_2000_1200: [Signal312]
+  signal_312_2000_1600: [Signal312]
+  signal_312_2000_1700: [Signal312]
+  signal_312_1000_400: [Signal312]
+  signal_312_1000_600: [Signal312]
+  signal_312_1000_900: [Signal312]
+  signal_312_900_800: [Signal312]
+  signal_312_900_700: [Signal312]
+  signal_312_900_600: [Signal312]
+  signal_312_900_400: [Signal312]
+  signal_312_800_700: [Signal312]
+  signal_312_800_600: [Signal312]
+  signal_312_800_400: [Signal312]
+  
+  signal_313_1000_400: [Signal313] 
+  signal_313_1000_600: [Signal313]
+  signal_313_1000_900: [Signal313]
+  signal_313_1500_400: [Signal313]
+  signal_313_1500_600: [Signal313]
+  signal_313_1500_900: [Signal313]
+  signal_313_1500_1400: [Signal313]
+  signal_313_2000_400: [Signal313]
+  signal_313_2000_600: [Signal313]
+  signal_313_2000_900: [Signal313]
+  signal_313_2000_1400: [Signal313]
+  signal_313_2000_1900: [Signal313]
+
+
 
   
 
@@ -102,6 +101,7 @@ executors:
     max_workers: 200
     min_workers: 20
     use_threads: true
+    parallel_submission: 3
     worker_memory: 2GB
     worker_timeout: 7200
     chunk_size: 400000
@@ -114,7 +114,8 @@ executors:
 execution_config:
 
 file_config:
-  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  # location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
 # You can use yaml anchors to reduce the amount of duplication in the configuration file
@@ -140,8 +141,8 @@ common_items:
     common_objects: &common_objects
       - name: core_objects
 
-    common_corrections: &common_corrections
-      - name: testJetCorrection
+    # common_corrections: &common_corrections
+    #   - name: testJetCorrection
 
     common_preselection: &common_preselection 
       - name: golden_lumi_filter
@@ -167,7 +168,7 @@ common_items:
 
 regions:
   - name: Signal312
-    forbid_data: true
+    # forbid_data: true
     objects: *common_objects
     # corrections: *common_corrections
     preselection:
@@ -180,7 +181,7 @@ regions:
     weights: *common_weights
 
   - name: Signal313
-    forbid_data: true
+    # forbid_data: true
     objects: *common_objects
     # corrections: *common_corrections
     preselection:
@@ -202,4 +203,32 @@ regions:
       - name: general_selection
       - name: partial_cr_selection
     histograms: *common_signal
+    weights: *common_weights
+
+  - name: BlindedSignal313
+    objects: *common_objects
+    # corrections: *common_corrections
+    preselection:
+      - <<: *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal313_selection
+    histograms: 
+      - name: njets
+      - name: goodjet_ht
+    weights: *common_weights
+
+  - name: BlindedSignal312
+    objects: *common_objects
+    # corrections: *common_corrections
+    preselection:
+      - <<: *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal312_selection
+    histograms: 
+      - name: njets
+      - name: goodjet_ht
     weights: *common_weights
