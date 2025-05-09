@@ -2,22 +2,24 @@ PostDefaults:
   style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: ".pdf"
+    image_type: ".png"
     cms_text_color: Black
   to_process:
     sample_spec:
       name:
         - 'qcd*'
+        - 'data*'
         - 'signal*'
         # - 'data*'
 
 all_oned: &all_oned
-  - uncomp_0p67_mChiUncomp
-  - uncomp_0p67_mChiComp
-  - comp_0p67_mChiUncomp
-  - comp_0p67_mChiComp
-  - m14_m
-  # - h_njet
+  # - uncomp_0p67_mChi
+  # - comp_0p67_mChi
+  # - uncomp_0p67_mStop
+  # - comp_0p67_mStop
+  # - m14_m
+  # - m13_m
+  - h_njet
   # - HT
   # - pt_1
   # - eta_1
@@ -39,7 +41,6 @@ all_oned: &all_oned
   # - m14_eta
   # - m13_pt
   # - m13_eta
-  # - m13_m
   # - m24_pt
   # - m24_eta
   # - m24_m
@@ -74,58 +75,58 @@ drop_sample_patterns:
   - "*200to300*"
 
 Postprocessing:
-  # - name: Simple 1D Plots
-  #   action: Histogram1D
-  #   histogram_names: *all_oned
+  # - name: Cutflow
+  #   action: PlotCutflow
   #   to_process:
   #     sample_name: '*'
-  #     region_name: Signal312
+  #     region_name: '*'
   #   grouping: 
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
+  #     fields: ['dataset.era.name', 'region_name']
   #     axis_options: {variation: central}
-  #   output_name: "postprocessing/plots/{dataset.name}/{region_name}/{histogram_name}"
+  # 
+  #   style_set:
+  #     - style:
+  #         plot_type: step
+  # 
+  #   output_name: "postprocessing/plots/cutflow_{region_name}_{histogram_name}"
+  # 
+  - name: Simple 1D Plots
+    action: Histogram1D
+    histogram_names: *all_oned
+    to_process:
+      sample_name: '*'
+      region_name: '*'
+    plot_configuration:
+      cms_text: "Preliminary\n{region_name}"
+    grouping: 
+      fields: ['dataset.era.name', 'dataset.name', 'region_name']
+      axis_options: {variation: central}
+    output_name: "postprocessing/plots/{dataset.name}/{region_name}_{histogram_name}"
   # 
   # - name: Simple 2D Plots
   #   action: Histogram2D
   #   histogram_names:
-  #     - uncomp_0p67_mChiUncomp
-  #     - uncomp_0p67_m14_vs_mChiUncomp
-  #     - uncomp_0p67_m14_vs_mChiUncompRatio
-  #     - uncomp_0p67_mChiComp
-  #     - uncomp_0p67_m14_vs_mChiComp
-  #     - uncomp_0p67_m14_vs_mChiCompRatio
-  #     - comp_0p67_mChiUncomp
-  #     - comp_0p67_m14_vs_mChiUncomp
-  #     - comp_0p67_m14_vs_mChiUncompRatio
-  #     - comp_0p67_mChiComp
-  #     - comp_0p67_m14_vs_mChiComp
-  #     - comp_0p67_m14_vs_mChiCompRatio
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
   #   to_process:
   #     sample_name: '*'
-  #     region_name: Signal312
+  #     region_name: '*'
   #   grouping: 
   #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
   #     axis_options: {variation: central}
-  #   output_name: "postprocessing/plots/{dataset.name}/{region_name}/{histogram_name}"
-
+  #   output_name: "postprocessing/plots/{dataset.name}/{region_name}_{histogram_name}"
+  #   plot_configuration:
+  #     cms_text_color: white
+  # # 
   - name: Export
     action: ExportHists
     histogram_names:
-      - uncomp_0p67_mChiUncomp
-      - uncomp_0p67_m14_vs_mChiUncomp
-      - uncomp_0p67_m14_vs_mChiUncompRatio
-      - uncomp_0p67_mChiComp
-      - uncomp_0p67_m14_vs_mChiComp
-      - uncomp_0p67_m14_vs_mChiCompRatio
-      - comp_0p67_mChiUncomp
-      - comp_0p67_m14_vs_mChiUncomp
-      - comp_0p67_m14_vs_mChiUncompRatio
-      - comp_0p67_mChiComp
-      - comp_0p67_m14_vs_mChiComp
-      - comp_0p67_m14_vs_mChiCompRatio
+      # - uncomp_0p67_m14_vs_mChiRatio
+      # - comp_0p67_m14_vs_mChiRatio
+      - h_njet
     to_process:
       sample_name: '*'
-      region_name: Signal312
+      region_name: '*'
     grouping: 
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options: {variation: central}
