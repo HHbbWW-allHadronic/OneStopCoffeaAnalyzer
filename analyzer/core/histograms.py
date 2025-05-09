@@ -132,6 +132,9 @@ class HistogramCollection(BaseModel):
         representative = fill_data[0]
         if active_shape_systematic is not None:
             weight_variations = []
+            # logger.info(
+            #     f"Filling histogram with active shape systematic: {active_shape_systematic}"
+            # )
             central_name = active_shape_systematic
         else:
             central_name = "central"
@@ -233,8 +236,10 @@ class Histogrammer:
                 spec, self.categories, delayed=self.delayed
             )
             self.storage[name] = ret
+            logger.info(f"Creating new histogram {name}")
         else:
             ret = self.storage[name]
+            logger.info(f"Using existing histogram {name}")
 
         if self.active_shape_systematic is not None:
             shape_sys = "__".join(self.active_shape_systematic)

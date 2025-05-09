@@ -145,6 +145,7 @@ class RegionAnalyzer(BaseModel):
         return SubSectorParams(sample=sample_params, region_name=self.region_name)
 
     def runPreselection(self, events, params, selection_set=None):
+        logger.info(f"Running preselection")
         params = self.getSectorParams(params)
 
         # If selection is not provided (ie running outside of analyzer)
@@ -160,6 +161,7 @@ class RegionAnalyzer(BaseModel):
         return selection
 
     def runSelection(self, columns, params, selection_set=None):
+        logger.info(f"Running Selection")
         params = self.getSectorParams(params)
         if selection_set is None:
             selection_set = SelectionSet()
@@ -171,6 +173,7 @@ class RegionAnalyzer(BaseModel):
         return selection
 
     def runCorrections(self, events, params, columns=None):
+        logger.info(f"Running Corrections")
         params = self.getSectorParams(params)
         if columns is None:
             columns = Columns(events)
@@ -179,6 +182,7 @@ class RegionAnalyzer(BaseModel):
         return columns
 
     def runObjects(self, columns, params):
+        logger.info(f"Running objects")
         params = self.getSectorParams(params)
         for module in self.objects:
             module(columns, params)
@@ -187,6 +191,7 @@ class RegionAnalyzer(BaseModel):
     def runPostSelection(self, columns, params, histogram_storage):
         params = self.getSectorParams(params)
         active_shape = columns.syst
+        logger.info(f"Running post selection with active shape systematic {active_shape}")
         # Different behaviour for dask 
         if columns.delayed:
             size = None

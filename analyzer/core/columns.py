@@ -83,7 +83,7 @@ class Columns:
 
         cname = col.getColumnName(syst)
         if cname not in self.events.fields:
-            logger.debug("Adding column to events: %s", cname)
+            logger.debug(f"Adding column to events: {cname}")
             self.events[cname] = value
 
     def add(self, name, nominal_value, variations=None, shape_dependent=False):
