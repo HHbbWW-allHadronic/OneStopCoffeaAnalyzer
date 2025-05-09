@@ -272,6 +272,7 @@ class DaskExecutor(Executor):
                     f"{e}"
                 )
         for k, task in tasks.items():
+            print(k)
             if k in all_events:
                 r = task.analyzer.run(all_events[k][0], task.sample_params)
                 r = core_results.subsector_adapter.dump_python(r)
@@ -285,15 +286,16 @@ class DaskExecutor(Executor):
         with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
             futures = []
             for k, v in ret.items():
+                print(k)
                 computed = None
                 if v is not None:
-                    futures.append(tp.submit(lambda x: (k, dask.compute(x)), v))
+                    futures.append(tp.submit(lambda x, k=k, v=v: (k, dask.compute(x)), v))
                 else:
                     logger.info(f"Nothing to compute for {k}")
-            del ret
             for future in concurrent.futures.as_completed(futures):
                 try:
                     k, computed = future.result()
+                    print(k)
                     computed = computed[0]
                     if computed is not None:
                         processed = file_sets[k].justProcessed(computed["report"])
@@ -318,10 +320,6 @@ class DaskExecutor(Executor):
                     if result_complete_callback is not None:
                         result_complete_callback(k, final_result)
 
-                    del tasks[k]
-                    del file_sets[k]
-                    del computed
-                    del final_result
                 except Exception as e:
                     raise e
                     logger.warn(
@@ -349,7 +347,6 @@ class DaskExecutor(Executor):
                         f"{e}"
                     )
                     logger.warn(traceback.format_exc())
-                del future
                 gc.collect()
 
     def run(self, *args, **kwargs):

@@ -38,6 +38,10 @@ from dataclasses import dataclass, field
 from typing import Callable, Any
 from pydantic import BaseModel, Field
 import inspect
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 class ModuleType(str, enum.Enum):
@@ -55,6 +59,7 @@ class AnalyzerModule(BaseModel):
     _function: Callable | None = None
 
     def __call__(self, events, analyzer, *args, **kwargs):
+        logger.info(f"Running analyzer module: {self.name}")
         return self._function(events, analyzer, *args, **kwargs)
 
     def __eq__(self, other):
@@ -69,6 +74,7 @@ class ConfiguredAnalyzerModule(BaseModel):
     config: dict[str, Any] = Field(default_factory=dict)
 
     def __call__(self, *args, **kwargs):
+
         return self.module(*args, **kwargs, **self.config)
 
     def __eq__(self, other):
