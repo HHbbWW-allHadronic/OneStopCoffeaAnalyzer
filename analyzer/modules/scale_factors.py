@@ -131,9 +131,6 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
 
 
 
-def jesToBTag(variation):
-    if 
-    
 
 @MODULE_REPO.register(ModuleType.Weight)
 def btagging_shape_sf(
@@ -151,8 +148,7 @@ def btagging_shape_sf(
     )
 
     if current_syst.starts_with("JES"):
-        
-        
+        pass
 
     central = ak.prod(central_perjet, axis=1)
 

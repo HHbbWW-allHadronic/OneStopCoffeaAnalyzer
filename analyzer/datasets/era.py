@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 class JetCorrectionInfo(BaseModel):
     files: dict[str, str]
-    jec_names: dict[str, str]
-    jer_names: dict[str, str]
+    jec: dict[str, str]
+    jer: dict[str, str]
     jet_names: dict[str,str]
 
 

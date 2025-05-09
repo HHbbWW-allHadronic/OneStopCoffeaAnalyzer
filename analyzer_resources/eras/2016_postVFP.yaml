@@ -31,9 +31,11 @@
       msoftdrop: 0
 
   jet_corrections:
+    jet_names:
+      AK4: AK4PFchs
     files:
-      ak4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/jet_jerc.json.gz
-      ak8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/fatjet_jerc.json.gz
+      AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/jet_jerc.json.gz
+      AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016postVFP_UL/fatjet_jerc.json.gz
     jec:
       mc_base_name: Summer19UL16_V7_MC
     jer:

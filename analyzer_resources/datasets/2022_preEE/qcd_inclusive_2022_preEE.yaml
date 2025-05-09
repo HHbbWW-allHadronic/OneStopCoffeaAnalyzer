@@ -37,6 +37,7 @@
         - root://cmsxrootd.fnal.gov//store/mc/Run3Summer22NanoAODv12/QCD_PT-1000to1400_TuneCP5_13p6TeV_pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/30000/c3e2e01a-8eba-43d2-a22a-e71a44c803ca.root
         - root://cmsxrootd.fnal.gov//store/mc/Run3Summer22NanoAODv12/QCD_PT-1000to1400_TuneCP5_13p6TeV_pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/40000/d3b73ee7-a8cf-4168-a36f-4c61318b6dfe.root
         - root://cmsxrootd.fnal.gov//store/mc/Run3Summer22NanoAODv12/QCD_PT-1000to1400_TuneCP5_13p6TeV_pythia8/NANOAODSIM/130X_mcRun3_2022_realistic_v5-v2/2550000/a3497315-24a6-4804-9711-8cc8b5549b7f.root
+
     - name: QCD_PT-120to170_TuneCP5_13p6TeV_pythia8
       n_events: 1418925
       cms_dataset_regex: /QCD_PT-120to170_TuneCP5_13p6TeV_pythia8/Run3Summer22NanoAODv12-130X_mcRun3_2022_realistic_v5-v2/NANOAODSIM
