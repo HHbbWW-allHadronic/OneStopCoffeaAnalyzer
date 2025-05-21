@@ -8,7 +8,7 @@ PostDefaults:
     sample_spec:
       name:
         - 'qcd*'
-        - 'data*'
+        # - 'data*'
         - 'signal*'
         # - 'data*'
 
@@ -20,8 +20,8 @@ all_oned: &all_oned
   # - m14_m
   # - m13_m
   - h_njet
-  # - HT
-  # - pt_1
+  - HT
+  - pt_1
   # - eta_1
   # - phi_1
   # - pt_ht_ratio_0
@@ -94,14 +94,21 @@ Postprocessing:
     action: Histogram1D
     histogram_names: *all_oned
     to_process:
-      sample_name: '*'
       region_name: '*'
+      sample_spec:
+        name:
+            - 'qcd*'
+            - 'signal_312_1500_1400'
+            - 'signal_312_1500_900'
+            - 'signal_312_1200_400'
+    scale: log
     plot_configuration:
       cms_text: "Preliminary\n{region_name}"
+
     grouping: 
-      fields: ['dataset.era.name', 'dataset.name', 'region_name']
+      fields: ['dataset.era.name', 'region_name']
       axis_options: {variation: central}
-    output_name: "postprocessing/plots/{dataset.name}/{region_name}_{histogram_name}"
+    output_name: "postprocessing/plots/{region_name}_{histogram_name}"
   # 
   # - name: Simple 2D Plots
   #   action: Histogram2D
@@ -118,16 +125,16 @@ Postprocessing:
   #   plot_configuration:
   #     cms_text_color: white
   # # 
-  - name: Export
-    action: ExportHists
-    histogram_names:
-      # - uncomp_0p67_m14_vs_mChiRatio
-      # - comp_0p67_m14_vs_mChiRatio
-      - h_njet
-    to_process:
-      sample_name: '*'
-      region_name: '*'
-    grouping: 
-      fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      axis_options: {variation: central}
-    output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pkl"
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     # - uncomp_0p67_m14_vs_mChiRatio
+  #     # - comp_0p67_m14_vs_mChiRatio
+  #     - h_njet
+  #   to_process:
+  #     sample_name: '*'
+  #     region_name: '*'
+  #   grouping: 
+  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
+  #     axis_options: {variation: central}
+  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pkl"

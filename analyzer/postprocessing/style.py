@@ -18,7 +18,7 @@ class Style(BaseModel):
     capstyle: mplt.CapStyleType | None = None
     joinstyle: mplt.JoinStyleType | None = None
     fill: bool | None = None
-    fill_opacity: float | None = None
+    alpha: float | None = None
     fill_hatching: str | None = None
     line_width: float | None = None
     markersize: float | None = 5
@@ -26,14 +26,14 @@ class Style(BaseModel):
     yerr: bool = True
     y_min: float | None = None
     legend: bool = True
-    legend_font: int | None = None 
+    legend_font: int | None = None
 
     def get(self, plottype=None, prepend=None):
         if plottype is None:
             plottype = self.plottype
         mapping = dict(
             step=("color",),
-            fill=("color",),
+            fill=("color", "alpha"),
             band=("color",),
             errorbar=("color", "markersize", "marker"),
         )
