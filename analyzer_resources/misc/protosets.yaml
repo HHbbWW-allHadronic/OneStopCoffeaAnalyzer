@@ -103,8 +103,8 @@
   sample_type: Data
   sample_field: 2
   era: '2022_preEE'
-  filter_regex: 'Run2022[CD]'
-  cms_regex: '/Muon/Run2022*-22Sep2023-v*/NANOAOD'
+  filter_regex: '(SingleMuon|Muon).*Run2022[BCD]'
+  cms_regex: '/*Muon/Run2022*-22Sep2023-v*/NANOAOD'
 
 - name: data_muon_2022post
   title: Data

@@ -2,12 +2,13 @@ PostDefaults:
   style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: ".png"
+    image_type: ".pdf"
     cms_text_color: Black
   to_process:
     sample_spec:
       name:
         - 'qcd*'
+        - 'T*'
         # - 'data*'
         - 'signal*'
         # - 'data*'
@@ -25,7 +26,7 @@ all_oned: &all_oned
   # - eta_1
   # - phi_1
   # - pt_ht_ratio_0
-  # - pt_2
+  - pt_2
   # - eta_2
   # - phi_2
   # - pt_ht_ratio_1
@@ -64,15 +65,15 @@ all_oned: &all_oned
   # - T_b_pt
 
 
-drop_sample_patterns:
-  - "*50to80*"
-  - "*80to120*"
-  - "*120to170*"
-  - "*170to300*"
+drop_sample_patterns: []
+  # - "*50to80*"
+  # - "*80to120*"
+  # - "*120to170*"
+  # - "*170to300*"
 
-  - "*50to100*"
-  - "*100to200*"
-  - "*200to300*"
+  # - "*50to100*"
+  # - "*100to200*"
+  # - "*200to300*"
 
 Postprocessing:
   # - name: Cutflow
@@ -94,13 +95,13 @@ Postprocessing:
     action: Histogram1D
     histogram_names: *all_oned
     to_process:
-      region_name: '*'
+      region_name: 'Signal312'
       sample_spec:
         name:
             - 'qcd*'
-            - 'signal_312_1500_1400'
-            - 'signal_312_1500_900'
             - 'signal_312_1200_400'
+            - 'signal_312_1500_900'
+            - 'signal_312_2000_1900'
     scale: log
     plot_configuration:
       cms_text: "Preliminary\n{region_name}"
