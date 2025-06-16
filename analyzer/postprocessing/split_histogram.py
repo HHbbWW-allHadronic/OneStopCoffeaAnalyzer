@@ -12,11 +12,19 @@ class Mode(str, enum.Enum):
     Sum = "Sum"
     Or = "Or"
     Rebin2 = "Rebin2"
+    Rebin3 = "Rebin3"
+    Rebin4 = "Rebin4"
 
 
 def splitHistogram(
     histogram, axis_options=None, allow_missing=False, return_labels=False
 ):
+    if "REST" in axis_options:
+        other_axes = [x.name for x in histogram.axes if x.name not in axis_options]
+        axis_options = {x: axis_options["REST"] for x in other_axes} | {
+            x: y for x, y in axis_options.items() if x != "REST"
+        }
+
     h = copy.deepcopy(histogram)
     if not axis_options:
         if return_labels:
@@ -43,12 +51,17 @@ def splitHistogram(
         h = new_h
 
     sum_axes_names = [a for a, y in axis_options.items() if y == Mode.Sum]
-    rebin2_axes_names = [a for a, y in axis_options.items() if y == Mode.Rebin2]
     val_axes = {a: y for a, y in axis_options.items() if not isinstance(y, Mode)}
+    rebin2_axes_names = [a for a, y in axis_options.items() if y == Mode.Rebin2]
+    rebin3_axes_names = [a for a, y in axis_options.items() if y == Mode.Rebin3]
+    rebin4_axes_names = [a for a, y in axis_options.items() if y == Mode.Rebin4]
+
     first = {
         **val_axes,
         **{x: sum for x in sum_axes_names},
         **{x: hist.rebin(2) for x in rebin2_axes_names},
+        **{x: hist.rebin(3) for x in rebin3_axes_names},
+        **{x: hist.rebin(4) for x in rebin4_axes_names},
     }
     h = h[first]
 
