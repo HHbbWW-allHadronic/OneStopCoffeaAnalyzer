@@ -2,87 +2,82 @@
 name: Complete
 # Samples and in which regions they should be processed
 samples:
-  tt_to_hadronic_2018: [Signal313, Signal312]
+  # tt_to_hadronic_2018: [Signal313, Signal312]
   # testsignal1: All
-  # qcd_inclusive_2018: [Control, Signal313, Signal312]
-  # qcd_inclusive_2017: [Control, Signal313, Signal312]
-  # qcd_inclusive_2016_preVFP: [Control, Signal313, Signal312]
-  # qcd_inclusive_2016_postVFP: [Control, Signal313, Signal312]
-  # 
-  # qcd_inclusive_2022_preEE: [Control, Signal313, Signal312]
-  # qcd_inclusive_2022_postEE: [Control, Signal313, Signal312]
-  # qcd_inclusive_2023_preBPix: [Control, Signal313, Signal312]
-  # qcd_inclusive_2023_postBPix: [Control, Signal313, Signal312]
-  # 
-  # data_JetHT_2018: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2017: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2016pre: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2016post: [Control,BlindedSignal313, BlindedSignal312]
-  # 
-  # 
-  # data_JetHT_2022pre: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2022post: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2023pre: [Control,BlindedSignal313, BlindedSignal312]
-  # data_JetHT_2023post: [Control,BlindedSignal313, BlindedSignal312]
+  qcd_inclusive_2018: [Control, Signal313, Signal312]
+  qcd_inclusive_2017: [Control, Signal313, Signal312]
+  qcd_inclusive_2016_preVFP: [Control, Signal313, Signal312]
+  qcd_inclusive_2016_postVFP: [Control, Signal313, Signal312]
   
-  # signal_312_1200_400: [Signal312]
-  # signal_312_2000_1900: [Signal312 ]
-  # signal_312_1500_1400: [Signal312]
-  # signal_312_1200_600: [Signal312]
-  # signal_312_1200_1100: [Signal312]
-  # signal_312_1300_1200: [Signal312]
-  # signal_312_1400_400: [Signal312]
-  # signal_312_1400_1300: [Signal312]
-  # signal_312_1500_400: [Signal312]
-  # signal_312_1500_600: [Signal312]
-  # signal_312_1500_900: [Signal312]
-  # signal_312_1500_1400: [Signal312]
-  # signal_312_2000_400: [Signal312]
-  # signal_312_1300_400: [Signal312]
-  # signal_312_1300_600: [Signal312]
-  # signal_312_2000_900: [Signal312]
-  # signal_312_2000_1900: [Signal312]
-  # signal_312_1000_700: [Signal312]
-  # signal_312_1000_800: [Signal312]
-  # signal_312_1200_700: [Signal312]
-  # signal_312_1200_800: [Signal312]
-  # signal_312_1500_100: [Signal312]
-  # signal_312_1500_1000: [Signal312]
-  # signal_312_1500_1200: [Signal312]
-  # signal_312_1500_1300: [Signal312]
-  # signal_312_1500_1350: [Signal312]
-  # signal_312_1500_1450: [Signal312]
-  # signal_312_2000_1200: [Signal312]
-  # signal_312_2000_1600: [Signal312]
-  # signal_312_2000_1700: [Signal312]
-  # signal_312_1000_400: [Signal312]
-  # signal_312_1000_600: [Signal312]
-  # signal_312_1000_900: [Signal312]
-  # signal_312_900_800: [Signal312]
-  # signal_312_900_700: [Signal312]
-  # signal_312_900_600: [Signal312]
-  # signal_312_900_400: [Signal312]
-  # signal_312_800_700: [Signal312]
-  # signal_312_800_600: [Signal312]
-  # signal_312_800_400: [Signal312]
+  qcd_inclusive_2022_preEE: [Control, Signal313, Signal312]
+  qcd_inclusive_2022_postEE: [Control, Signal313, Signal312]
+  qcd_inclusive_2023_preBPix: [Control, Signal313, Signal312]
+  qcd_inclusive_2023_postBPix: [Control, Signal313, Signal312]
   # 
-  # signal_313_1000_400: [Signal313] 
-  # signal_313_1000_600: [Signal313]
-  # signal_313_1000_900: [Signal313]
-  # signal_313_1500_400: [Signal313]
-  # signal_313_1500_600: [Signal313]
-  # signal_313_1500_900: [Signal313]
-  # signal_313_1500_1400: [Signal313]
-  # signal_313_2000_400: [Signal313]
-  # signal_313_2000_600: [Signal313]
-  # signal_313_2000_900: [Signal313]
-  # signal_313_2000_1400: [Signal313]
-  # signal_313_2000_1900: [Signal313]
-
-
-
+  data_JetHT_2018: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2017: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2016pre: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2016post: [Control,BlindedSignal313, BlindedSignal312]
   
-
+  
+  data_JetHT_2022pre: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2022post: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2023pre: [Control,BlindedSignal313, BlindedSignal312]
+  data_JetHT_2023post: [Control,BlindedSignal313, BlindedSignal312]
+  
+  signal_312_1200_400: [Signal312]
+  signal_312_2000_1900: [Signal312 ]
+  signal_312_1500_1400: [Signal312]
+  signal_312_1200_600: [Signal312]
+  signal_312_1200_1100: [Signal312]
+  signal_312_1300_1200: [Signal312]
+  signal_312_1400_400: [Signal312]
+  signal_312_1400_1300: [Signal312]
+  signal_312_1500_400: [Signal312]
+  signal_312_1500_600: [Signal312]
+  signal_312_1500_900: [Signal312]
+  signal_312_1500_1400: [Signal312]
+  signal_312_2000_400: [Signal312]
+  signal_312_1300_400: [Signal312]
+  signal_312_1300_600: [Signal312]
+  signal_312_2000_900: [Signal312]
+  signal_312_2000_1900: [Signal312]
+  signal_312_1000_700: [Signal312]
+  signal_312_1000_800: [Signal312]
+  signal_312_1200_700: [Signal312]
+  signal_312_1200_800: [Signal312]
+  signal_312_1500_100: [Signal312]
+  signal_312_1500_1000: [Signal312]
+  signal_312_1500_1200: [Signal312]
+  signal_312_1500_1300: [Signal312]
+  signal_312_1500_1350: [Signal312]
+  signal_312_1500_1450: [Signal312]
+  signal_312_2000_1200: [Signal312]
+  signal_312_2000_1600: [Signal312]
+  signal_312_2000_1700: [Signal312]
+  signal_312_1000_400: [Signal312]
+  signal_312_1000_600: [Signal312]
+  signal_312_1000_900: [Signal312]
+  signal_312_900_800: [Signal312]
+  signal_312_900_700: [Signal312]
+  signal_312_900_600: [Signal312]
+  signal_312_900_400: [Signal312]
+  signal_312_800_700: [Signal312]
+  signal_312_800_600: [Signal312]
+  signal_312_800_400: [Signal312]
+  
+  signal_313_1000_400: [Signal313] 
+  signal_313_1000_600: [Signal313]
+  signal_313_1000_900: [Signal313]
+  signal_313_1500_400: [Signal313]
+  signal_313_1500_600: [Signal313]
+  signal_313_1500_900: [Signal313]
+  signal_313_1500_1400: [Signal313]
+  signal_313_2000_400: [Signal313]
+  signal_313_2000_600: [Signal313]
+  signal_313_2000_900: [Signal313]
+  signal_313_2000_1400: [Signal313]
+  signal_313_2000_1900: [Signal313]
 
 executors:
   local:
@@ -103,7 +98,7 @@ executors:
     max_workers: 200
     min_workers: 20
     use_threads: true
-    parallel_submission: 3
+    parallel_submission: 8
     worker_memory: 2GB
     worker_timeout: 7200
     chunk_size: 400000
@@ -125,11 +120,11 @@ common_items:
       - name: njets
       - name: goodjet_ht
       - name: jet_kinematics
-      - name: jet_combo_kinematics
-      - name: b_quark_kinematics
-        config:
-          - working_point: M
-          - working_point: T
+      # - name: jet_combo_kinematics
+      # - name: b_quark_kinematics
+      #   config:
+      #     - working_point: M
+      #     - working_point: T
       - name: NN_mass_reco
         config:
           - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
