@@ -94,7 +94,7 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_mChi",
         makeAxis(
-            150,
+            200,
             0,
             3000,
             rf"mChi",
@@ -105,7 +105,7 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_mStop",
         makeAxis(
-            150,
+            200,
             0,
             3000,
             rf"mStop",
@@ -116,17 +116,17 @@ def NN_mass_reco(
     analyzer.H(
         f"{model_name}_m14_vs_mChi",
         [
-            makeAxis(125, 500, 3000, r"$m_{14}$", unit="GeV"),
-            makeAxis(125, 0.15, 3000, f"$m_{{3 (NN, {model_name})}}$", unit="GeV"),
+            makeAxis(200, 0, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(200, 0, 3000, f"$m_{{3 (NN, {model_name})}}$", unit="GeV"),
         ],
         [stop_m, chi_m],
     )
     analyzer.H(
         f"{model_name}_m14_vs_mChiRatio",
         [
-            makeAxis(125, 500, 3000, r"$m_{14}$", unit="GeV"),
+            makeAxis(200, 0, 3000, r"$m_{14}$", unit="GeV"),
             makeAxis(
-                125, 0.15, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"
+                200, 0, 1, f"$m_{{3 (NN, {model_name})}} / m_{{14}}$", unit="GeV"
             ),
         ],
         [stop_m, chi_m / stop_m],
