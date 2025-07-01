@@ -1,5 +1,6 @@
 import enum
 from collections import defaultdict
+import re
 from typing import Any, ClassVar
 
 import yaml
@@ -104,10 +105,15 @@ def getSubSectors(description, dataset_repo, era_repo):
     s_pairs = []
     ret = defaultdict(list)
     for dataset_name, regions in description.samples.items():
-        if isinstance(regions, str) and regions == "All":
-            regions = [r.name for r in description.regions]
-        for r in regions:
-            s_pairs.append((dataset_name, r))
+        if any(x in dataset_name for x in [".", "*"]):
+            todo = [(x, regions) for x in dataset_repo if re.match(dataset_name, x)]
+        else:
+            todo = [(dataset_name, regions)]
+        for dataset_name, regions in todo:
+            if isinstance(regions, str) and regions == "All":
+                regions = [r.name for r in description.regions]
+            for r in regions:
+                s_pairs.append((dataset_name, r))
     for dataset_name, region_name in s_pairs:
         logger.debug(
             f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"'
