@@ -340,9 +340,6 @@ class Dataset(BaseModel):
 class DatasetRepo:
     datasets: dict[str, Dataset] = dataclasses.field(default_factory=dict)
 
-    def __getitem__(self, key):
-        return self.datasets[key]
-
     def __contains__(self, key):
         return key in self.datasets
 
