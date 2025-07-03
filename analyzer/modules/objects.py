@@ -29,7 +29,7 @@ def core_objects(columns, params):
     good_fatjets = fat_jets[(fat_jets.pt > 150) & (abs(fat_jets.eta) < 2.4)]
 
     bwps = getBTagWP(params)
-    logger.debug(f"B-tagging workign points are:\n {bwps}")
+    logger.info(f"B-tagging workign points are:\n {bwps}")
     good_jets = columns.good_jets
 
     loose_b, med_b, tight_b = makeCutSet(
