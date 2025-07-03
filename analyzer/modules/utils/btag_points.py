@@ -13,7 +13,7 @@ def getBTagCset(path):
 
 
 def getBTagWP(params):
-    era_info = params.sector.dataset.era
+    era_info = params.dataset.era
     cset = getBTagCset(era_info.btag_scale_factors["file"])
     ret = {p: cset["deepJet_wp_values"].evaluate(p) for p in ("L", "M", "T")}
     return ret
