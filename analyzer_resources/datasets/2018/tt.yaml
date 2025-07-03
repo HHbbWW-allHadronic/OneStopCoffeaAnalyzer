@@ -5,7 +5,7 @@
   samples:
     - name: TTToHadronic_TuneCP5_13TeV-powheg-pythia8
       cms_dataset_regex: /TTToHadronic_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
-      x_sec: 380.1326
+      x_sec: 380132.6
       n_events: 334206000
       files: 
           - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAODv9/TTToHadronic_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v16_L1v1-v1/270000/0A0C246F-D01B-6F4D-85E6-3A75C27C5197.root
