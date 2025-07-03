@@ -187,7 +187,7 @@ class SectorGroup(SectorGroupParameters):
                 )
 
         if self.add_together:
-            return [
+            ret = [
                 PackagedHist(
                     histogram=ft.reduce(op.add, (x.histogram for x in everything)),
                     title="+".join(x.title for x in everything),
@@ -196,8 +196,9 @@ class SectorGroup(SectorGroupParameters):
                     style=everything[0].style,
                 )
             ]
-
-        return everything
+            return ret
+        else:
+            return everything
 
     def __rich_repr__(self):
         yield "parameters", self.parameters
