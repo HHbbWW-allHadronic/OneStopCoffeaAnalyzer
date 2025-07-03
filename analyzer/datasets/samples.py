@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 import dataclasses
 import enum
 from rich.progress import track
@@ -116,7 +117,7 @@ class SampleId:
     @pyd.model_validator(mode="before")
     @classmethod
     def isStr(self, value):
-        if isinstance(value,str):
+        if isinstance(value, str):
             a, b, *rest = value.split("___")
             return {"dataset_name": a, "sample_name": b}
         elif len(value.args) == 1:
@@ -351,6 +352,12 @@ class DatasetRepo:
             return self.datasets[key.dataset_name][key.sample_name]
         else:
             return self.datasets[key]
+
+    def getRegex(self, pattern):
+        if any(x in pattern for x in [".", "+"]):
+            return [self[x] for x in self.datasets if re.match(pattern, x)]
+        else:
+            return [self[pattern]]
 
     def getSample(self, sample_id):
         dataset = self[sample_id.dataset_name]

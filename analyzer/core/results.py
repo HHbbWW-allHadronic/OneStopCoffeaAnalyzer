@@ -312,7 +312,10 @@ def checkResult(paths, configuration=None):
         description = loadDescription(configuration)
         dataset_repo = DatasetRepo.getConfig()
         config_samples = set(
-            x.sample_id for n in description.samples for x in dataset_repo[n]
+            s.sample_id
+            for n in description.samples
+            for x in dataset_repo.getRegex(n)
+            for s in x.samples
         )
         missing_samples = sorted(list(config_samples - set(loaded)))
 
