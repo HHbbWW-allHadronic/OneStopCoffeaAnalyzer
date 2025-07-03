@@ -39,7 +39,7 @@ def plot2D(
     addCMSBits(
         ax,
         [sp],
-        extra_text=f"{sp.region_name}\n{sp.dataset.title}",
+        extra_text=f"{sp.region_name}\n{packaged_hist.title}",
         text_color="white",
         plot_configuration=plot_configuration,
     )
