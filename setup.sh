@@ -189,14 +189,16 @@ function startup_with_container(){
             apptainer_flags="$apptainer_flags --bind /uscms/homes/"
             apptainer_flags="$apptainer_flags --bind /storage"
             apptainer_flags="$apptainer_flags --bind /cvmfs/grid.cern.ch/etc/grid-security:/etc/grid-security"
-            apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_CONFIG}"
-            apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig"
-            apptainer_flags="$apptainer_flags --bind .cmslpc-local-conf:${LPC_CONDOR_LOCAL}"
-            cat <<EOF > .cmslpc-local-conf
+            if [[ ! $(hostname) =~ "gpu" ]]; then
+                apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_CONFIG}"
+                apptainer_flags="$apptainer_flags --bind ${LPC_CONDOR_LOCAL}:${LPC_CONDOR_LOCAL}.orig"
+                apptainer_flags="$apptainer_flags --bind .cmslpc-local-conf:${LPC_CONDOR_LOCAL}"
+                cat <<EOF > .cmslpc-local-conf
 #!/bin/bash
 python3 ${LPC_CONDOR_LOCAL}.orig | grep -v "LOCAL_CONFIG_FILE"
 EOF
-            chmod u+x .cmslpc-local-conf
+                chmod u+x .cmslpc-local-conf
+            fi
         fi
         if [[ $(hostname) =~ "umn" ]]; then
             apptainer_flags="$apptainer_flags --bind /local/cms/user/"
