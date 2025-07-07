@@ -1,4 +1,4 @@
-- name: signal_312_1000_400 
+- name: signal_2018_312_1000_400 
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -10,7 +10,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_400.root
 
-- name: signal_312_1000_600
+- name: signal_2018_312_1000_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -22,7 +22,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_600.root
 
-- name: signal_312_1000_900
+- name: signal_2018_312_1000_900
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 900\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -34,7 +34,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_900.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_900.root
 
-- name: signal_312_1200_400
+- name: signal_2018_312_1200_400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1200\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -46,7 +46,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_400.root
 
-- name: signal_312_1200_600
+- name: signal_2018_312_1200_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1200\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -58,7 +58,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_600.root
 
-- name: signal_312_1200_1100
+- name: signal_2018_312_1200_1100
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1200\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1100\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -70,7 +70,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_1100.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1200_1100.root
 
-- name: signal_312_1300_400
+- name: signal_2018_312_1300_400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1300\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -82,7 +82,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_400.root
 
-- name: signal_312_1300_600
+- name: signal_2018_312_1300_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1300\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -94,7 +94,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_600.root
 
-- name: signal_312_1300_1200
+- name: signal_2018_312_1300_1200
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1400\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1200\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -106,7 +106,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_1200.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1300_1200.root
 
-- name: signal_312_1400_400
+- name: signal_2018_312_1400_400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1400\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -118,7 +118,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_400.root
 
-- name: signal_312_1400_600
+- name: signal_2018_312_1400_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1400\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -130,7 +130,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_600.root
 
-- name: signal_312_1400_1300
+- name: signal_2018_312_1400_1300
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1400\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1300\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -142,7 +142,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_1300.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1400_1300.root
 
-- name: signal_312_1500_400
+- name: signal_2018_312_1500_400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -154,7 +154,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_400.root
 
-- name: signal_312_1500_400_mg
+- name: signal_2018_312_1500_400_mg
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   era: '2018'
@@ -165,7 +165,7 @@
   files: 
     - root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_400.root
 
-- name: signal_312_1500_600
+- name: signal_2018_312_1500_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -177,7 +177,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
 
-- name: signal_312_1500_900
+- name: signal_2018_312_1500_900
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 900\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -189,7 +189,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_900.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_900.root
 
-- name: signal_312_1500_1400
+- name: signal_2018_312_1500_1400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -201,7 +201,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_1400.root
 
-- name: signal_312_1500_1400_mg
+- name: signal_2018_312_1500_1400_mg
   sample_type: MC
   title: "$m_{\\tilde{t}} = 1500\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -212,7 +212,7 @@
   files: 
     - root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_1400.root
 
-- name: signal_312_2000_400
+- name: signal_2018_312_2000_400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 2000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -224,7 +224,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_400.root
 
-- name: signal_312_2000_600
+- name: signal_2018_312_2000_600
   sample_type: MC
   title: "$m_{\\tilde{t}} = 2000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -236,7 +236,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_600.root
 
-- name: signal_312_2000_900
+- name: signal_2018_312_2000_900
   sample_type: MC
   title: "$m_{\\tilde{t}} = 2000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 900\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -248,7 +248,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_900.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_900.root
 
-- name: signal_312_2000_1400
+- name: signal_2018_312_2000_1400
   sample_type: MC
   title: "$m_{\\tilde{t}} = 2000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -260,7 +260,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1400.root
 
-- name: signal_312_2000_1900
+- name: signal_2018_312_2000_1900
   sample_type: MC
   title: "$m_{\\tilde{t}} = 2000\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 1900\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -272,7 +272,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1900.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-2000_1900.root
 
-- name: signal_312_1000_100
+- name: signal_2018_312_1000_100
   sample_type: MC
   era: '2018'
   files:
@@ -283,7 +283,7 @@
   x_sec: 480
   other_data: 
     stop_mass: 0
-- name: signal_312_1000_700
+- name: signal_2018_312_1000_700
   sample_type: MC
   era: '2018'
   files:
@@ -294,7 +294,7 @@
   x_sec: 480
   other_data: 
     stop_mass: 0
-- name: signal_312_1000_800
+- name: signal_2018_312_1000_800
   sample_type: MC
   era: '2018'
   files:
@@ -305,7 +305,7 @@
   x_sec: 480
   other_data: 
     stop_mass: 0
-- name: signal_312_1200_1000
+- name: signal_2018_312_1200_1000
   sample_type: MC
   era: '2018'
   files:
@@ -316,7 +316,7 @@
   x_sec: 210
   other_data: 
     stop_mass: 0
-- name: signal_312_1200_700
+- name: signal_2018_312_1200_700
   sample_type: MC
   era: '2018'
   files:
@@ -327,7 +327,7 @@
   x_sec: 210
   other_data: 
     stop_mass: 0
-- name: signal_312_1200_800
+- name: signal_2018_312_1200_800
   sample_type: MC
   era: '2018'
   files:
@@ -338,7 +338,7 @@
   x_sec: 210
   other_data: 
     stop_mass: 0
-- name: signal_312_1200_900
+- name: signal_2018_312_1200_900
   sample_type: MC
   era: '2018'
   files:
@@ -349,7 +349,7 @@
   x_sec: 210
   other_data: 
     stop_mass: 0
-- name: signal_312_1500_100
+- name: signal_2018_312_1500_100
   sample_type: MC
   era: '2018'
   files:
@@ -360,7 +360,7 @@
   x_sec: 73
   other_data: 
     stop_mass: 0
-- name: signal_312_1500_1000
+- name: signal_2018_312_1500_1000
   sample_type: MC
   era: '2018'
   files:
@@ -371,7 +371,7 @@
   x_sec: 73
   other_data: 
     stop_mass: 0
-- name: signal_312_1500_1100
+- name: signal_2018_312_1500_1100
   sample_type: MC
   era: '2018'
   files:
@@ -382,7 +382,7 @@
   x_sec: 73
   other_data: 
     stop_mass: 0
-- name: signal_312_1500_1100_mg
+- name: signal_2018_312_1500_1100_mg
   sample_type: MC
   files:
   - root://cmseos.fnal.gov////store/user/dmahon/condor/RPVSingleStopMCMadGraph/NANOAOD-ALL/NANOAOD-MadGraph-NNPDF31-1500_1100.root
@@ -393,7 +393,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_1500_1200
+- name: signal_2018_312_1500_1200
   sample_type: MC
   era: '2018'
   files:
@@ -405,7 +405,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_1500_1300
+- name: signal_2018_312_1500_1300
   sample_type: MC
   era: '2018'
   files:
@@ -417,7 +417,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_1500_1350
+- name: signal_2018_312_1500_1350
   sample_type: MC
   era: '2018'
   files:
@@ -428,7 +428,7 @@
   x_sec: 73
   other_data: 
     stop_mass: 0
-- name: signal_312_1500_1450
+- name: signal_2018_312_1500_1450
   sample_type: MC
   era: '2018'
   files:
@@ -439,7 +439,7 @@
   x_sec: 73
   other_data: 
     stop_mass: 0
-- name: signal_312_2000_100
+- name: signal_2018_312_2000_100
   sample_type: MC
   era: '2018'
   files:
@@ -450,7 +450,7 @@
   x_sec: 16
   other_data: 
     stop_mass: 0
-- name: signal_312_2000_1200
+- name: signal_2018_312_2000_1200
   sample_type: MC
   era: '2018'
   files:
@@ -461,7 +461,7 @@
   x_sec: 16
   other_data: 
     stop_mass: 0
-- name: signal_312_2000_1300
+- name: signal_2018_312_2000_1300
   sample_type: MC
   era: '2018'
   files:
@@ -472,7 +472,7 @@
   x_sec: 16
   other_data: 
     stop_mass: 0
-- name: signal_312_2000_1500
+- name: signal_2018_312_2000_1500
   sample_type: MC
   era: '2018'
   files:
@@ -484,7 +484,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_2000_1600
+- name: signal_2018_312_2000_1600
   sample_type: MC
   era: '2018'
   files:
@@ -496,7 +496,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_2000_1700
+- name: signal_2018_312_2000_1700
   sample_type: MC
   era: '2018'
   files:
@@ -508,7 +508,7 @@
   other_data: 
     stop_mass: 0
 
-- name: signal_312_800_400
+- name: signal_2018_312_800_400
   era: '2018'
   title: "$m_{\\tilde{t}} = 800\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
   n_events: 10000
@@ -518,7 +518,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_400.root
 
-- name: signal_312_800_600
+- name: signal_2018_312_800_600
   era: '2018'
   type: set
   title: "$m_{\\tilde{t}} = 800\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
@@ -529,7 +529,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_600.root
 
-- name: signal_312_800_700
+- name: signal_2018_312_800_700
   era: '2018'
   type: set
   title: "$m_{\\tilde{t}} = 800\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 700\\ \\mathrm{GeV}$"
@@ -540,7 +540,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_700.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-800_700.root
 
-- name: signal_312_900_400
+- name: signal_2018_312_900_400
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 400\\ \\mathrm{GeV}$"
@@ -550,7 +550,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_400.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_400.root
 
-- name: signal_312_900_600
+- name: signal_2018_312_900_600
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
@@ -560,7 +560,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_600.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_600.root
 
-- name: signal_312_900_700
+- name: signal_2018_312_900_700
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 700\\ \\mathrm{GeV}$"
@@ -570,7 +570,7 @@
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_700.root
       umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_700.root
 
-- name: signal_312_900_800
+- name: signal_2018_312_900_800
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 800\\ \\mathrm{GeV}$"

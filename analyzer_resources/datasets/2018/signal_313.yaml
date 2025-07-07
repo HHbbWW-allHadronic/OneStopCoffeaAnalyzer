@@ -1,4 +1,4 @@
-- name: signal_313_1000_400 
+- name: signal_2018_313_1000_400 
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -11,7 +11,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_400.root
 
-- name: signal_313_1000_600
+- name: signal_2018_313_1000_600
   sample_type: MC
   era: '2018'
   x_sec: 270
@@ -24,7 +24,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_600.root
 
-- name: signal_313_1000_900
+- name: signal_2018_313_1000_900
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -37,7 +37,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1000_900.root
 
-- name: signal_313_1500_400
+- name: signal_2018_313_1500_400
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -50,7 +50,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_400.root
 
-- name: signal_313_1500_600
+- name: signal_2018_313_1500_600
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -63,7 +63,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_600.root
 
-- name: signal_313_1500_900
+- name: signal_2018_313_1500_900
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -76,7 +76,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_900.root
 
-- name: signal_313_1500_1400
+- name: signal_2018_313_1500_1400
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -89,7 +89,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-1500_1400.root
 
-- name: signal_313_2000_400
+- name: signal_2018_313_2000_400
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -102,7 +102,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_400.root
 
-- name: signal_313_2000_600
+- name: signal_2018_313_2000_600
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -115,7 +115,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_600.root
 
-- name: signal_313_2000_900
+- name: signal_2018_313_2000_900
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -128,7 +128,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_900.root
 
-- name: signal_313_2000_1400
+- name: signal_2018_313_2000_1400
   sample_type: MC
   era: '2018'
   n_events: 10000
@@ -141,7 +141,7 @@
   files: 
     - root://cmsxrootd.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC313/NANOAOD-ALL/NANOAOD-2000_1400.root
 
-- name: signal_313_2000_1900
+- name: signal_2018_313_2000_1900
   sample_type: MC
   era: '2018'
   n_events: 10000
