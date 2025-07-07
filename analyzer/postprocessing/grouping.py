@@ -11,6 +11,10 @@ from pydantic import BaseModel, Field, field_validator
 
 from .split_histogram import Mode, splitHistogram
 from .style import Style, StyleSet
+import logging
+
+
+logger = logging.getLogger(__name__)
 
 
 def getNested(d, s):
@@ -152,7 +156,14 @@ class SectorGroup(SectorGroupParameters):
         """
         everything = []
         for sector in self.sectors:
-            h = sector.result.histograms[hist_name].histogram
+            try:
+                h = sector.result.histograms[hist_name].histogram
+            except KeyError as e:
+                logger.error(
+                    f"Could not find histogram '{hist_name}' in {sector.sector_params.dataset.name} -- {sector.sector_params.region_name}"
+                )
+                raise
+
             if h.empty():
                 continue
             hists, labels = splitHistogram(
@@ -187,11 +198,19 @@ class SectorGroup(SectorGroupParameters):
                 )
 
         if self.add_together:
+            new_name = "_plus_".join(
+                x.sector_parameters.dataset.name for x in everything
+            )
+            new_title = "+".join(x.sector_parameters.dataset.title for x in everything)
+
+            s = copy.deepcopy(sector.sector_params)
+            s.dataset.name = new_name
+            s.dataset.title = new_title
             ret = [
                 PackagedHist(
                     histogram=ft.reduce(op.add, (x.histogram for x in everything)),
-                    title="+".join(x.title for x in everything),
-                    sector_parameters=sector.sector_params,
+                    title=new_title,
+                    sector_parameters=s,
                     axis_options=self.axis_options,
                     style=everything[0].style,
                 )
