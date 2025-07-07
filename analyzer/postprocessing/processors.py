@@ -11,6 +11,7 @@ import yaml
 import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.core.specifiers import SectorSpec, SectorParams
+from .misc import dumpYield
 
 from .grouping import (
     SectorGroupSpec,
@@ -59,7 +60,7 @@ class BasePostprocessor(abc.ABC):
         return []
 
     def init(self):
-        if isinstance(self.style_set, str):
+        if hasattr(self, "style_set") and isinstance(self.style_set, str):
             print("Loading style set")
             config_path = Path(CONFIG.STYLE_PATH) / self.style_set
             with open(config_path, "r") as f:
@@ -381,3 +382,37 @@ class DocRender(BasePostprocessor, pyd.BaseModel):
 
     def init(self):
         pass
+
+
+@registerPostprocessor
+class DumpYields(BasePostprocessor, pyd.BaseModel):
+    grouping: SectorGroupSpec
+    to_process: SectorSpec
+    target_histogram: str
+    output_name: str
+
+    def getNeededHistograms(self):
+        return [self.target_histogram]
+
+    def getExe(self, results):
+        results = [x for x in results if self.to_process.passes(x.sector_params)]
+        ret, items = [], []
+        groups = createSectorGroups(results, self.grouping)
+        for group in groups:
+            hists = group.histograms(self.target_histogram)
+            output = doFormatting(
+                self.output_name,
+                group.all_parameters,
+            )
+            ret.append(ft.partial(dumpYield, hists, output))
+            items.append(
+                PostprocessCatalogueEntry(
+                    processor_name=self.name,
+                    identifier=self.target_histogram,
+                    path=output,
+                    sector_group=group,
+                    sector_params=[x.sector_params for x in group.sectors],
+                )
+            )
+
+        return ret, items
