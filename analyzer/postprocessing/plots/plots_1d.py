@@ -1,4 +1,5 @@
 import numpy as np
+from collections import defaultdict
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -32,6 +33,7 @@ def plotOne(
     scale="linear",
     normalize=False,
     plot_configuration=None,
+    stacked_hists=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -50,6 +52,18 @@ def plotOne(
             histtype=style.plottype,
             **style.get(),
         )
+    if stacked_hists:
+        style_kwargs = defaultdict(list)
+        hists = []
+        titles = []
+        for x in stacked_hists:
+            hists.append(x.histogram)
+            titles.append(x.title)
+            style = styler.getStyle(x.sector_parameters)
+            for k, v in style.get().items():
+                style_kwargs[k].append(v)
+
+        mplhep.histplot(hists, ax=ax, stack=True, **style_kwargs, label=titles)
 
     labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
     labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)

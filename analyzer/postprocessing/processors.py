@@ -74,11 +74,15 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
     to_process: SectorSpec
     style_set: str | StyleSet
     output_name: str
+
     grouping: SectorGroupSpec
+    stacked: SectorGroupSpec | None = None
+    stack_match_fields: list[str] | None = None
 
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     plot_configuration: PlotConfiguration | None = None
+    to_stack: SectorSpec | None = None
 
     def getNeededHistograms(self):
         return self.histogram_names
@@ -86,10 +90,35 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
     def getExe(self, results):
         sectors = [x for x in results if self.to_process.passes(x.sector_params)]
         r = createSectorGroups(sectors, self.grouping)
+        if self.stacked is not None:
+            stacked_groups = createSectorGroups(sectors, self.stacked)
         ret = []
         items = []
+
         for histogram in self.histogram_names:
             for sector_group in r:
+                if self.stacked is not None:
+                    try:
+                        stacked_group = list(
+                            x
+                            for x in stacked_groups
+                            if groupsMatch(sector_group, x, self.stack_match_fields)
+                        )
+                        print(stacked_group)
+                        if len(stacked_group) != 1:
+                            raise KeyError(f"Too many groups")
+                        stacked_group = next(iter(stacked_group))
+                    except StopIteration:
+                        raise KeyError(f"Could not find group")
+                    stacked_hists = stacked_group.histograms(histogram)
+                    s = [
+                        (x.sector_params.dataset.name, x.sector_params.region_name)
+                        for x in stacked_group.sectors
+                    ]
+                    print(f"Stacking: {s}")
+                else:
+                    stacked_hists = None
+
                 pc = self.plot_configuration.makeFormatted(sector_group.all_parameters)
                 hists = sector_group.histograms(histogram)
                 if not hists:
@@ -110,6 +139,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=pc,
+                        stacked_hists=stacked_hists
                     )
                 )
 

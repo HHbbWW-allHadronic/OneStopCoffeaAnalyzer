@@ -1,9 +1,12 @@
 import copy
+from rich import print
 import operator as op
 import functools as ft
+from collections import defaultdict, OrderedDict
 import itertools as it
 import string
 from typing import Annotated, Any, ClassVar
+from analyzer.utils.querying import Pattern
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams, SectorSpec
@@ -47,9 +50,39 @@ def groupBy(data, fields, data_acquire=lambda x: x):
     def k(v):
         return tuple([getNested(data_acquire(v), x) for x in fields])
 
-    grouped = it.groupby(sorted(data, key=k), k)
-    ret = [(dict(zip(fields, x)), list(y)) for x, y in grouped]
+    grouped = defaultdict(list)
+    for x in data:
+        d = k(x)
+        grouped[d].append(x)
+
+    ret = [(OrderedDict(zip(fields, x)), list(y)) for x, y in grouped.items()]
+
     return ret
+
+
+def combine(data, fields, to_combine):
+    to_combine = to_combine or []
+    grouped = defaultdict(lambda: [False, []])
+    for d, elements in data:
+        combined = False
+        for s in to_combine:
+            if s.field in d and s.pattern.match(d[s.field]):
+                combined = True
+                d[s.field] = s.replace
+
+        grouped[tuple(x for x in d.values())][0] = combined
+        grouped[tuple(x for x in d.values())][1] += elements
+
+    ret = [(OrderedDict(zip(fields, x)), list(y)) for x, y in grouped.items()]
+    # print(ret)
+
+    return ret
+
+
+class SpecialAdd(BaseModel):
+    field: str
+    pattern: Pattern
+    replace: str | int
 
 
 class SectorGroupSpec(BaseModel):
@@ -60,6 +93,7 @@ class SectorGroupSpec(BaseModel):
     title_format: str = "{title}"
     style_set: StyleSet | None = None
     add_together: bool = False
+    special_add: list[SpecialAdd] | None = None
 
     @field_validator("axis_options", mode="after")
     @classmethod
@@ -123,6 +157,7 @@ class SectorGroup(SectorGroupParameters):
     style_set: Annotated[StyleSet | None, Field(repr=False)] = None
     cat_remap: dict[tuple[str, int | str], str] | None = None
     add_together: bool = False
+    add_titles: bool = True
 
     def __len__(self):
         return len(self.sectors)
@@ -201,7 +236,14 @@ class SectorGroup(SectorGroupParameters):
             new_name = "_plus_".join(
                 x.sector_parameters.dataset.name for x in everything
             )
-            new_title = "+".join(x.sector_parameters.dataset.title for x in everything)
+
+            if self.add_titles:
+                new_title = "+".join(
+                    x.sector_parameters.dataset.title for x in everything
+                )
+
+            else:
+                new_title = everything[0].sector_parameters.dataset.title
 
             s = copy.deepcopy(sector.sector_params)
             s.dataset.name = new_name
@@ -227,17 +269,32 @@ class SectorGroup(SectorGroupParameters):
 def createSectorGroups(sectors, spec):
     if spec.to_process is not None:
         sectors = [x for x in sectors if spec.to_process.passes(x.sector_params)]
-    grouped = groupBy(sectors, spec.fields, data_acquire=lambda x: x.params_dict)
-    ret = [
-        SectorGroup(
-            parameters=params,
-            sectors=sectors,
-            axis_options=spec.axis_options,
-            title_format=spec.title_format,
-            cat_remap=spec.cat_remap,
-            style_set=spec.style_set,
-            add_together=spec.add_together,
+    grouped = groupBy(
+        sectors,
+        spec.fields,
+        data_acquire=lambda x: x.params_dict,
+    )
+    grouped = combine(grouped, spec.fields, spec.special_add)
+    ret = []
+
+    for params, (special_add, sectors) in grouped:
+        if special_add:
+            s = [
+                (x.sector_params.dataset.name, x.sector_params.region_name)
+                for x in sectors
+            ]
+            print(f"Specially combining the following sectors: {s}")
+        ret.append(
+            SectorGroup(
+                parameters=params,
+                sectors=sectors,
+                axis_options=spec.axis_options,
+                title_format=spec.title_format,
+                cat_remap=spec.cat_remap,
+                style_set=spec.style_set,
+                add_together=spec.add_together or special_add,
+                add_titles=not special_add,
+            )
         )
-        for params, sectors in grouped
-    ]
+
     return ret
