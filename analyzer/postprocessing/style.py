@@ -32,13 +32,14 @@ class Style(BaseModel):
         if plottype is None:
             plottype = self.plottype
         mapping = dict(
-            step=("color",),
-            fill=("color", "alpha"),
-            band=("color",),
-            errorbar=("color", "markersize", "marker"),
+            step=( "color",),
+            fill=( "color", "alpha"),
+            band=( "color",),
+            errorbar=( "color", "markersize", "marker"),
         )
         ret = self.model_dump(include=mapping[plottype])
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
+        ret["histtype"] = plottype
         if prepend:
             ret = {f"{prepend}_{x}": y for x, y in ret.items()}
         return ret

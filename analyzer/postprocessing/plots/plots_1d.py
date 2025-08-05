@@ -49,10 +49,10 @@ def plotOne(
             density=normalize,
             yerr=style.yerr,
             flow="none",
-            histtype=style.plottype,
             **style.get(),
         )
     if stacked_hists:
+        stacked_hists = sorted(stacked_hists, key=lambda x: x.histogram.sum().value)
         style_kwargs = defaultdict(list)
         hists = []
         titles = []
@@ -63,7 +63,15 @@ def plotOne(
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
 
-        mplhep.histplot(hists, ax=ax, stack=True, **style_kwargs, label=titles)
+        style_kwargs["histtype"] = style_kwargs["histtype"][0]
+
+        mplhep.histplot(
+            hists,
+            ax=ax,
+            stack=True,
+            **style_kwargs,
+            label=titles,  # sort="yield"
+        )
 
     labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
     labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)
@@ -104,11 +112,11 @@ def __plotStrCatOne(
     style_set,
     ax_name=None,
     normalize=False,
+        scale="linear",
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    print(style_set)
     loadStyles()
     mpl.use("Agg")
 
@@ -116,13 +124,11 @@ def __plotStrCatOne(
     for sector in sectors:
         p = sector.sector_params
         style = styler.getStyle(p)
-        print(style)
         h = makeStrHist(getter(sector), ax_name=ax_name)
         h.plot1d(
             ax=ax,
             label=sector.sector_params.dataset.title,
             density=normalize,
-            histtype=style.plottype,
             **style.get(),
         )
     ax.legend()
@@ -134,6 +140,7 @@ def __plotStrCatOne(
         [x.sector_params for x in sectors],
         plot_configuration=plot_configuration,
     )
+    ax.set_yscale(scale)
     # mplhep.yscale_legend(ax, soft_fail=True)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
@@ -230,7 +237,6 @@ def plotRatio(
         ax=ax,
         label=denominator.title,
         density=normalize,
-        histtype=style.plottype,
         yerr=True,
         **style.get(),
     )
@@ -260,7 +266,6 @@ def plotRatio(
             label=title,
             density=normalize,
             yerr=True,
-            histtype=s.plottype,
             **s.get(),
         )
 

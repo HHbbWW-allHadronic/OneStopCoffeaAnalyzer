@@ -104,7 +104,6 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                             for x in stacked_groups
                             if groupsMatch(sector_group, x, self.stack_match_fields)
                         )
-                        print(stacked_group)
                         if len(stacked_group) != 1:
                             raise KeyError(f"Too many groups")
                         stacked_group = next(iter(stacked_group))
@@ -256,7 +255,7 @@ class PlotCutflow(BasePostprocessor, pyd.BaseModel):
     grouping: SectorGroupSpec
     output_name: str
     plot_types: list[str] = ["cutflow", "one_cut", "n_minus_one"]
-
+    scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     table_mode: bool = False
     plot_configuration: PlotConfiguration | None = None
@@ -285,6 +284,7 @@ class PlotCutflow(BasePostprocessor, pyd.BaseModel):
                         table_mode=self.table_mode,
                         normalize=self.normalize,
                         plot_configuration=pc,
+                        scale=self.scale
                     )
                 )
                 items.append(
