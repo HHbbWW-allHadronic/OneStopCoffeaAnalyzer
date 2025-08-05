@@ -45,6 +45,10 @@ class SectorParams(pyd.BaseModel):
     dataset: DatasetParams
     region_name: str
 
+    def simpleName(self):
+        return f"({region_name}, {dataset.name})"
+        
+
 
 class SubSectorParams(pyd.BaseModel):
     sample: SampleParams

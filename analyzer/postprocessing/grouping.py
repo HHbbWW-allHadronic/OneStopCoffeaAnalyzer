@@ -85,6 +85,11 @@ class SpecialAdd(BaseModel):
     replace: str | int
 
 
+class RescaleSpecification(BaseModel):
+    SectorSpec: sector_spec
+    scale: float
+
+
 class SectorGroupSpec(BaseModel):
     fields: list[str]
     to_process: SectorSpec | None = None
@@ -94,6 +99,7 @@ class SectorGroupSpec(BaseModel):
     style_set: StyleSet | None = None
     add_together: bool = False
     special_add: list[SpecialAdd] | None = None
+    rescale: list[RescaleSpecification] | None = None
 
     @field_validator("axis_options", mode="after")
     @classmethod
@@ -158,6 +164,7 @@ class SectorGroup(SectorGroupParameters):
     cat_remap: dict[tuple[str, int | str], str] | None = None
     add_together: bool = False
     add_titles: bool = True
+    rescale: list[RescaleSpecification] | None = None
 
     def __len__(self):
         return len(self.sectors)
@@ -201,6 +208,15 @@ class SectorGroup(SectorGroupParameters):
 
             if h.empty():
                 continue
+            if self.rescale is not None:
+                for s in self.rescales:
+                    if s.sector_spec.passes(sector.sector_params):
+                        logger.warn(
+                            f"Scaling sector {sector.sector_params.simpleName()} by {s.scale} "
+                        )
+                        h = h * s.scale
+                        break
+
             hists, labels = splitHistogram(
                 h,
                 self.axis_options or None,
@@ -294,6 +310,7 @@ def createSectorGroups(sectors, spec):
                 style_set=spec.style_set,
                 add_together=spec.add_together or special_add,
                 add_titles=not special_add,
+                rescale=spec.rescale,
             )
         )
 
