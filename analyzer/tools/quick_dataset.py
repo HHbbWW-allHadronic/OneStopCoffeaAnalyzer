@@ -40,6 +40,7 @@ class ProtoDataset(BaseModel):
     locate_xsec: bool = False
     known_xsec: float | None = None
     process_field: int = 1
+    process_xsec_name: str | None = None
     append_name_field: int | None = None
 
     @model_validator(mode="before")
@@ -65,24 +66,24 @@ class ProtoDataset(BaseModel):
 
 
 class XSecDBEntry(BaseModel):
-    id: str
+    # id: str
     process_name: str
     status: str
     cross_section: float
-    total_uncertainty: float
     accuracy: str
     DAS: str
     MCM: str
-    equivalent_lumi: float
-    fraction_negative_weight: float
-    shower: str
-    matrix_generator: str
     energy: float
     comments: str
     modifiedOn: datetime.datetime
     createdOn: datetime.datetime
     modifiedBy: str
     createdBy: str
+    total_uncertainty: float | str | None = None
+    equivalent_lumi: float | str | None = None
+    fraction_negative_weight: float | None = None
+    shower: str | None = None
+    matrix_generator: str | None = None
 
 
 ProtoDatasetList = TypeAdapter(list[ProtoDataset])
@@ -207,7 +208,7 @@ def getFiles(sample):
 
 
 def getSamples(dataset):
-    return sorted([x["dataset"][0]["name"] for x in query(f"dataset={dataset}")])
+    return sorted(set([x["dataset"][0]["name"] for x in query(f"dataset={dataset}")]))
 
 
 def buildDatasetFromProto(protoset, output, xsec_db, skip_existing=True):
@@ -228,6 +229,7 @@ def buildDatasetFromProto(protoset, output, xsec_db, skip_existing=True):
         sample_name_field=protoset.sample_field,
         sample_process_field=protoset.process_field,
         append_name_field=protoset.append_name_field,
+        sample_xsec_name=protoset.process_xsec_name,
         filter_extra=protoset.filter_regex,
     )
 
@@ -254,6 +256,7 @@ def buildDataset(
     token_file=None,
     sample_name_field=1,
     sample_process_field=2,
+    sample_xsec_name=None,
     append_name_field=None,
     filter_extra=None,
 ):
@@ -280,7 +283,9 @@ def buildDataset(
 
     if sample_type == "MC":
         for d in sample_info:
-            x = xsec_database.get(Path(d["query"]).parts[sample_process_field])
+            x = xsec_database.get(
+                sample_xsec_name or Path(d["query"]).parts[sample_process_field]
+            )
             if x is not None:
                 d["x_sec"] = x.cross_section * 1000
 

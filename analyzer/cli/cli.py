@@ -38,6 +38,12 @@ def handleVisualizeExec(args):
     visualizeSampleExecution(args.configuration, sid, args.output)
 
 
+def handleUpdateMeta(args):
+    from analyzer.core.results import updateMeta
+    updateMeta(args.input)
+
+
+
 def addSubparserVisualize(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser("visualize", help="Visualize dask graph")
@@ -45,6 +51,12 @@ def addSubparserVisualize(subparsers):
     subparser.add_argument("-o", "--output", required=True, type=Path, help="Output")
     subparser.add_argument("-s", "--sample", type=str, help="Sample to examine")
     subparser.set_defaults(func=handleVisualizeExec)
+
+def addSubparserUpdateMetaInfo(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser("update-meta", help="Update Metadata based on new configuration options")
+    subparser.add_argument("input", nargs='+', help="Input file")
+    subparser.set_defaults(func=handleUpdateMeta)
 
 def handleCheckResults(args):
     from analyzer.core.results import checkResult
@@ -201,6 +213,15 @@ def handleRun(args):
         test_mode=args.test_mode,
     )
 
+def handleStartCluster(args):
+    from analyzer.core.executor import LPCCondorDask
+    import time
+    print("HELLO")
+    cluster = LPCCondorDask(max_workers=2)
+    cluster.setup()
+    print(cluster._cluster)
+    time.sleep(20000)
+
 
 def addSubparserRun(subparsers):
     """Update an existing results file with missing info"""
@@ -227,6 +248,14 @@ def addSubparserRun(subparsers):
         "-e", "--executor", type=str, help="Name of executor to use", required=True
     )
     subparser.set_defaults(func=handleRun)
+
+def addSubparserStartCluster(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser(
+        "start-cluster", help="Run analyzer based on provided configuration"
+    )
+    subparser.set_defaults(func=handleStartCluster)
+
 
 
 def handlePost(args):
@@ -337,6 +366,8 @@ def runCli():
     addSubParserStoreResults(subparsers)
     addSubparserSummaryTable(subparsers)
     addSubparserVisualize(subparsers)
+    addSubparserStartCluster(subparsers)
+    addSubparserUpdateMetaInfo(subparsers)
 
     argcomplete.autocomplete(parser)
 

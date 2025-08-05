@@ -11,5 +11,19 @@ styles:
       sample_name: 'qcd*'
     style:
       plottype: fill
-      color: green
+      color: "#5790fc"
+      alpha: 0.3
+
+  - sector_spec:
+      sample_name: 'tt*'
+    style:
+      plottype: fill
+      color: "#f89c20"
+      alpha: 0.3
+
+  - sector_spec:
+      sample_name: 'single*'
+    style:
+      plottype: fill
+      color: "#e42536"
       alpha: 0.3

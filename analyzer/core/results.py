@@ -351,3 +351,23 @@ def checkResult(paths, configuration=None):
                 style=Style(color="red"),
             )
     console.print(table)
+
+
+def updateMeta(paths):
+    from analyzer.datasets import DatasetRepo, EraRepo
+    from rich import print
+
+    dataset_repo = DatasetRepo.getConfig()
+    era_repo = EraRepo.getConfig()
+    for path in paths:
+        with open(path, "rb") as f:
+            data = pkl.load(f)
+        results = loadResults(data)
+        for k in results.values():
+            sid = k.sample_id
+            p = dataset_repo[sid].params
+            p.dataset.populateEra(era_repo)
+            k.params = p
+        with open(path, 'wb') as f:
+            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+

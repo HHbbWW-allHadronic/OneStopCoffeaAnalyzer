@@ -134,6 +134,7 @@ def general_selection(events, params, selector):
     selector.add("0Lep", passes_0Lep)
 
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def partial_signal312_selection(events, params, selector):
     """Signal selection without b cuts"""
@@ -147,6 +148,14 @@ def partial_signal312_selection(events, params, selector):
     selector.add("2bjet", passes_2bjet)
     selector.add("1tightbjet", passes_1tightbjet)
     selector.add("b_dr", passes_b_dr)
+
+
+@MODULE_REPO.register(ModuleType.Selection)
+def partial_one_b_selection(events, params, selector):
+    """Signal selection without b cuts"""
+    med_b = events.med_bs
+    passes_1bjet = ak.num(med_b) >= 1
+    selector.add("1bjet", passes_1bjet)
 
 
 @MODULE_REPO.register(ModuleType.Selection)

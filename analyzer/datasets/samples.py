@@ -135,6 +135,7 @@ class SampleParams:
     x_sec: float | None = None
     cms_dataset_regex: str | None = None
     total_gen_weight: str | None = None
+    trigger_list: set[str] | None = None
 
     @property
     def sample_id(self):

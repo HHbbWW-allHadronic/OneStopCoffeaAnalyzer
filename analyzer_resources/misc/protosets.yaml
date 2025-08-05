@@ -178,3 +178,24 @@
   sample_field: 2
   append_name_field: 1
   cms_regex: '/JetMET*/Run2023D-22Sep2023_v*-v*/NANOAOD'
+
+- name: data_egamma_2018
+  title: Data
+  sample_type: Data
+  sample_field: 2
+  era: '2018'
+  cms_regex: '/EGamma/Run2018*-UL2018_MiniAODv2_NanoAODv9-v*/NANOAOD'
+
+- name: tt_semileptonic_2018
+  title: TT
+  era: '2018'
+  sample_type: MC
+  process_xsec_name: TTToSemiLeptonic
+  cms_regex: '/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAOD-106X_upgrade2018_realistic_v11_L1v1-v1/NANOAODSIM'
+
+- name: single_top_2018
+  title: ST
+  era: '2018'
+  sample_type: MC
+  cms_regex: '/ST_*Decays_TuneCP5_13TeV-*-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v*/NANOAODSIM'
+  filter_regex: '[45]f_(hadronic|lepton|inclusive|Inclusive)'

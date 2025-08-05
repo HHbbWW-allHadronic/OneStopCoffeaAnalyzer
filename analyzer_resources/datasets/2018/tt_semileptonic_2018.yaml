@@ -6,7 +6,7 @@
     - name: TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8
       n_events: 487000000
       cms_dataset_regex: /TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAOD-106X_upgrade2018_realistic_v11_L1v1-v1/NANOAODSIM
-      x_sec: 365340.0
+      x_sec: 365340
       files:
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAOD/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v11_L1v1-v1/10000/65BA739C-0499-C64F-8ADD-C4020102B001.root
         - root://cmsxrootd.fnal.gov//store/mc/RunIISummer20UL18NanoAOD/TTToSemiLeptonic_TuneCP5_13TeV-powheg-pythia8/NANOAODSIM/106X_upgrade2018_realistic_v11_L1v1-v1/20000/19B0B430-F5C9-AA49-97A1-623102DAE135.root
