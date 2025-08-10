@@ -23,7 +23,7 @@ from .grouping import (
 )
 from .plots.export_hist import exportHist
 from .plots.plots_1d import PlotConfiguration, plotOne, plotRatio, plotStrCat
-from .plots.plots_2d import plot2D
+from .plots.plots_2d import plot2D, plot2DSigBkg
 from .registry import registerPostprocessor
 from .split_histogram import Mode
 from .style import Style, StyleSet
@@ -228,7 +228,6 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
                     ft.partial(
                         plot2D,
                         sector_group.histograms(histogram)[0],
-                        sector_group.all_parameters,
                         output,
                         style_set=self.style_set,
                         normalize=self.normalize,
@@ -445,4 +444,76 @@ class DumpYields(BasePostprocessor, pyd.BaseModel):
                 )
             )
 
+        return ret, items
+
+@registerPostprocessor
+class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
+    histogram_names: list[str]
+    background: SectorGroupSpec
+    signal: SectorGroupSpec
+    to_process: SectorSpec
+    style_set: str | StyleSet
+    output_name: str
+    match_fields: list[str]
+    scale: Literal["log", "linear"] = "linear"
+    match_fields: list[str]
+    axis_options: dict[str, Mode | str | int] | None = None
+    normalize: bool = False
+    plot_configuration: PlotConfiguration | None = None
+
+    def getNeededHistograms(self):
+        return self.histogram_names
+
+    def getExe(self, results):
+        results = [x for x in results if self.to_process.passes(x.sector_params)]
+        groups_background = createSectorGroups(results, self.background)
+        groups_signal = createSectorGroups(results, self.signal)
+        ret, items = [], []
+        for histogram in self.histogram_names:
+            for bkg_group in groups_background:
+                if len(bkg_group) != 1:
+                    raise KeyError(f"Too many groups")
+                try:
+                    sig_group = list(
+                        x for x in groups_signal if groupsMatch(bkg_group, x, self.match_fields)
+                    )
+                    if len(sig_group) != 1:
+                        raise KeyError(f"Too many groups")
+                    sig_group = next(iter(sig_group))
+                except StopIteration:
+                    raise KeyError(f"Could not find group")
+
+
+                bh = bkg_group.histograms(histogram)
+                sh = sig_group.histograms(histogram)
+                if not bh or not sh:
+                    continue
+                if len(bh) != 1 or len(sh) != 1:
+                    raise RuntimeError
+                output = doFormatting(
+                    self.output_name, bkg_group.all_parameters, histogram_name=histogram
+                )
+                ret.append(
+                    ft.partial(
+                        plot2DSigBkg,
+                        bh[0],
+                        sh[0],
+                        output,
+                        self.style_set,
+                        normalize=self.normalize,
+                        plot_configuration=self.plot_configuration,
+                    )
+                )
+                items.append(
+                    PostprocessCatalogueEntry(
+                        processor_name=self.name,
+                        identifier=histogram,
+                        path=output,
+                        sector_group=bkg_group,
+                        sector_params=[
+                            x.sector_params
+                            for x in [*bkg_group.sectors, *sig_group.sectors]
+                        ],
+                    )
+                )
         return ret, items

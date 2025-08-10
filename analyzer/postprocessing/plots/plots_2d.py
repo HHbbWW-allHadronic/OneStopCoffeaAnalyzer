@@ -11,7 +11,6 @@ from .mplstyles import loadStyles
 
 def plot2D(
     packaged_hist,
-    group_params,
     output_path,
     style_set,
     normalize=False,
@@ -40,6 +39,69 @@ def plot2D(
         ax,
         [sp],
         extra_text=f"{sp.region_name}\n{packaged_hist.title}",
+        text_color="white",
+        plot_configuration=plot_configuration,
+    )
+    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    plt.close(fig)
+
+
+def getContour(HH,val):
+    total = np.sum(HH)
+    for i in range(round(np.max(HH))):
+        if np.sum(HH[HH > i]) < (total * val):
+            return i
+    return None
+
+def plot2DSigBkg(
+    bkg_hist,
+    sig_hist,
+    output_path,
+    style_set,
+    normalize=False,
+    plot_configuration=None,
+    color_scale="linear",
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+    matplotlib.use("Agg")
+    loadStyles()
+    fig, ax = plt.subplots()
+    style = styler.getStyle(bkg_hist.sector_parameters)
+    h = bkg_hist.histogram
+    fixBadLabels(h)
+
+    if normalize:
+        h = h / np.sum(h.values())
+    if color_scale == "log":
+        art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+    else:
+        art = h.plot2d(ax=ax)
+
+
+    from scipy.ndimage import gaussian_filter
+
+    sh = sig_hist.histogram
+
+    HH, xe, ye = sh.to_numpy()
+    HH = gaussian_filter(HH,1.2)
+    midpoints = (xe[1:] + xe[:-1])/2, (ye[1:] + ye[:-1])/2
+    grid = HH.transpose()
+    total = h.sum().value
+    ax.contour(*midpoints, grid, [getContour(HH,x) for x in (0.75,0.5,0.25)],colors=['red'])
+    
+
+    labelAxis(ax, "y", h.axes)
+    labelAxis(ax, "x", h.axes)
+
+    sp = bkg_hist.sector_parameters
+
+
+
+    addCMSBits(
+        ax,
+        [sp],
+        extra_text=f"{sp.region_name}\n{bkg_hist.title}",
         text_color="white",
         plot_configuration=plot_configuration,
     )

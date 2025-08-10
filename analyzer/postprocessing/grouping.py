@@ -86,7 +86,7 @@ class SpecialAdd(BaseModel):
 
 
 class RescaleSpecification(BaseModel):
-    SectorSpec: sector_spec
+    sector_spec: SectorSpec
     scale: float
 
 
@@ -209,7 +209,7 @@ class SectorGroup(SectorGroupParameters):
             if h.empty():
                 continue
             if self.rescale is not None:
-                for s in self.rescales:
+                for s in self.rescale:
                     if s.sector_spec.passes(sector.sector_params):
                         logger.warn(
                             f"Scaling sector {sector.sector_params.simpleName()} by {s.scale} "
