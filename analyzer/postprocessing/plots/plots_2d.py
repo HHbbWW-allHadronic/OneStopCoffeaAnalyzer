@@ -25,7 +25,7 @@ def plot2D(
     styler = Styler(style_set)
     matplotlib.use("Agg")
     loadStyles()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
     style = styler.getStyle(packaged_hist.sector_parameters)
     h = packaged_hist.histogram
     fixBadLabels(h)
@@ -72,7 +72,7 @@ def plot2DSigBkg(
     styler = Styler(style_set)
     matplotlib.use("Agg")
     loadStyles()
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
     style = styler.getStyle(bkg_hist.sector_parameters)
     h = bkg_hist.histogram
     fixBadLabels(h)

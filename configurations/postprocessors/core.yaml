@@ -244,7 +244,7 @@ Postprocessing:
         - 'signal*'
     override_axis_labels:
       x: "$m^{\\text{reco}}_{\\tilde{t}}$"
-      y: "$m^{\\text{reco}}_{\\tilde{\\chi}}$"
+      y: "$m^{\\text{reco}}_{\\tilde{\\chi}} / m^{\\text{reco}}_{\\tilde{t}}$"
     primary: 
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options: {variation: central, REST: Rebin3}

@@ -120,7 +120,7 @@ def __plotStrCatOne(
     loadStyles()
     mpl.use("Agg")
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
     for sector in sectors:
         p = sector.sector_params
         style = styler.getStyle(p)
@@ -145,7 +145,6 @@ def __plotStrCatOne(
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     # mplhep.yscale_legend(ax, soft_fail=True)
-    fig.tight_layout()
     saveFig(fig, output_path, extension=plot_configuration.image_type)
     plt.close(fig)
 
@@ -171,7 +170,7 @@ def __plotStrCatAsTable(
     row_labels = []
 
     figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
-    fig, ax = plt.subplots(figsize=figsize)
+    fig, ax = plt.subplots(figsize=figsize, layout="constrained")
     fig.patch.set_visible(False)
     ax.axis("off")
     ax.axis("tight")
@@ -189,7 +188,6 @@ def __plotStrCatAsTable(
     )
 
     o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
-    fig.tight_layout()
     saveFig(fig, o, extension=plot_configuration.image_type)
     plt.close(fig)
 
@@ -225,7 +223,7 @@ def plotRatio(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(layout="constrained")
     ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
@@ -306,5 +304,4 @@ def plotRatio(
     mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
     ax.set_yscale(scale)
-    fig.tight_layout()
     saveFig(fig, output_path, extension=plot_configuration.image_type)
