@@ -1,4 +1,5 @@
 import pydantic as pyd
+import matplotlib.typing as mplt
 import copy
 from typing import Optional
 from ..grouping import doFormatting
@@ -18,6 +19,9 @@ class PlotConfiguration(pyd.BaseModel):
     y_label: Optional[str] = None
 
     image_type: Optional[str] = None
+
+    legend_fill_color: mplt.ColorType | None = None
+    legend_fill_alpha: float | None = None
 
 
     def makeFormatted(self, params):

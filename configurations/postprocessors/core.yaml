@@ -2,7 +2,7 @@ PostDefaults:
   style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: ".png"
+    image_type: ".pdf"
     cms_text_color: Black
 
 all_oned: &all_oned
@@ -231,6 +231,7 @@ Postprocessing:
 
   - name: Histogram2DStack
     action: Histogram2DStack
+
     histogram_names:
       - uncomp_0p67_m14_vs_mChiRatio
       - comp_0p67_m14_vs_mChiRatio
@@ -241,8 +242,10 @@ Postprocessing:
       sample_name:
         - 'qcd*'
         - 'signal*'
-
-    background: 
+    override_axis_labels:
+      x: "$m^{\\text{reco}}_{\\tilde{t}}$"
+      y: "$m^{\\text{reco}}_{\\tilde{\\chi}}$"
+    primary: 
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       axis_options: {variation: central, REST: Rebin3}
       to_process:
@@ -253,12 +256,20 @@ Postprocessing:
       axis_options: {variation: central, REST: Rebin3}
       to_process:
         sample_name: signal*
+      style_set:
+        - sample_spec:
+            name: "signal"
+          style:
+            color: red
+            line_width: 2
 
     match_fields: ['dataset.era.name', 'region_name']
 
     output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
     plot_configuration:
       cms_text_color: white
+      legend_fill_color: white
+      legend_fill_alpha: 1.0
   
   # - name: Summed SM Background 2D Plots
   #   action: Histogram2D

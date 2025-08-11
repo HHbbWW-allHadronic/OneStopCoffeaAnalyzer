@@ -45,6 +45,7 @@ def labelAxis(ax, which, axes, label=None, label_complete=None):
             label = axes[idx].label
             if this_unit:
                 label += f" [{this_unit}]"
+
         getattr(ax, f"set_{which}label")(label.replace("textrm", "text"))
     else:
         label = label or "Events"

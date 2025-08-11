@@ -138,7 +138,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                         style_set=self.style_set,
                         normalize=self.normalize,
                         plot_configuration=pc,
-                        stacked_hists=stacked_hists
+                        stacked_hists=stacked_hists,
                     )
                 )
 
@@ -283,7 +283,7 @@ class PlotCutflow(BasePostprocessor, pyd.BaseModel):
                         table_mode=self.table_mode,
                         normalize=self.normalize,
                         plot_configuration=pc,
-                        scale=self.scale
+                        scale=self.scale,
                     )
                 )
                 items.append(
@@ -446,10 +446,11 @@ class DumpYields(BasePostprocessor, pyd.BaseModel):
 
         return ret, items
 
+
 @registerPostprocessor
 class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
     histogram_names: list[str]
-    background: SectorGroupSpec
+    primary: SectorGroupSpec
     signal: SectorGroupSpec
     to_process: SectorSpec
     style_set: str | StyleSet
@@ -459,23 +460,27 @@ class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
     match_fields: list[str]
     axis_options: dict[str, Mode | str | int] | None = None
     normalize: bool = False
+    override_axis_labels: dict[Literal["x", "y"], str] | None = None
     plot_configuration: PlotConfiguration | None = None
 
     def getNeededHistograms(self):
         return self.histogram_names
 
     def getExe(self, results):
+        print(self.plot_configuration)
         results = [x for x in results if self.to_process.passes(x.sector_params)]
-        groups_background = createSectorGroups(results, self.background)
+        groups_primary = createSectorGroups(results, self.primary)
         groups_signal = createSectorGroups(results, self.signal)
         ret, items = [], []
         for histogram in self.histogram_names:
-            for bkg_group in groups_background:
-                if len(bkg_group) != 1:
+            for prim_group in groups_primary:
+                if len(prim_group) != 1:
                     raise KeyError(f"Too many groups")
                 try:
                     sig_group = list(
-                        x for x in groups_signal if groupsMatch(bkg_group, x, self.match_fields)
+                        x
+                        for x in groups_signal
+                        if groupsMatch(prim_group, x, self.match_fields)
                     )
                     if len(sig_group) != 1:
                         raise KeyError(f"Too many groups")
@@ -483,15 +488,16 @@ class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
                 except StopIteration:
                     raise KeyError(f"Could not find group")
 
-
-                bh = bkg_group.histograms(histogram)
+                bh = prim_group.histograms(histogram)
                 sh = sig_group.histograms(histogram)
                 if not bh or not sh:
                     continue
                 if len(bh) != 1 or len(sh) != 1:
                     raise RuntimeError
                 output = doFormatting(
-                    self.output_name, bkg_group.all_parameters, histogram_name=histogram
+                    self.output_name,
+                    prim_group.all_parameters,
+                    histogram_name=histogram,
                 )
                 ret.append(
                     ft.partial(
@@ -502,6 +508,7 @@ class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
                         self.style_set,
                         normalize=self.normalize,
                         plot_configuration=self.plot_configuration,
+                        override_axis_labels=self.override_axis_labels,
                     )
                 )
                 items.append(
@@ -509,10 +516,10 @@ class Histogram2DStack(BasePostprocessor, pyd.BaseModel):
                         processor_name=self.name,
                         identifier=histogram,
                         path=output,
-                        sector_group=bkg_group,
+                        sector_group=prim_group,
                         sector_params=[
                             x.sector_params
-                            for x in [*bkg_group.sectors, *sig_group.sectors]
+                            for x in [*prim_group.sectors, *sig_group.sectors]
                         ],
                     )
                 )

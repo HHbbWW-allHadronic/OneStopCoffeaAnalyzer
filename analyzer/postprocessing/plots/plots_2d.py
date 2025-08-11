@@ -1,6 +1,10 @@
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+
+
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 from analyzer.postprocessing.style import Styler
 
 from .annotations import addCMSBits, labelAxis
@@ -46,7 +50,7 @@ def plot2D(
     plt.close(fig)
 
 
-def getContour(HH,val):
+def getContour(HH, val):
     total = np.sum(HH)
     for i in range(round(np.max(HH))):
         if np.sum(HH[HH > i]) < (total * val):
@@ -61,7 +65,9 @@ def plot2DSigBkg(
     normalize=False,
     plot_configuration=None,
     color_scale="linear",
+    override_axis_labels=None,
 ):
+    override_axis_labels = override_axis_labels or {}
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     matplotlib.use("Agg")
@@ -78,25 +84,46 @@ def plot2DSigBkg(
     else:
         art = h.plot2d(ax=ax)
 
-
     from scipy.ndimage import gaussian_filter
 
     sh = sig_hist.histogram
 
     HH, xe, ye = sh.to_numpy()
-    HH = gaussian_filter(HH,1.2)
-    midpoints = (xe[1:] + xe[:-1])/2, (ye[1:] + ye[:-1])/2
+    HH = gaussian_filter(HH, 1.2)
+    midpoints = (xe[1:] + xe[:-1]) / 2, (ye[1:] + ye[:-1]) / 2
     grid = HH.transpose()
     total = h.sum().value
-    ax.contour(*midpoints, grid, [getContour(HH,x) for x in (0.75,0.5,0.25)],colors=['red'])
-    
 
-    labelAxis(ax, "y", h.axes)
-    labelAxis(ax, "x", h.axes)
+    sig_style = sig_hist.style or styler.getStyle(sig_hist.sector_parameters)
+
+    ax.contour(
+        *midpoints,
+        grid,
+        [getContour(HH, x) for x in (0.75, 0.5, 0.25)],
+        linewidths=sig_style.line_width,
+        colors=[sig_style.color],
+    )
+
+    labelAxis(ax, "y", h.axes, label=override_axis_labels.get("y"))
+    labelAxis(ax, "x", h.axes, label=override_axis_labels.get("x"))
+
+    proxy = [
+        plt.Line2D(
+            [0],
+            [0],
+            lw=sig_style.line_width or 2,
+            color=sig_style.color,
+            label=sig_hist.title,
+        )
+    ]
 
     sp = bkg_hist.sector_parameters
-
-
+    ax.legend(
+        handles=proxy,
+        facecolor=pc.legend_fill_color,
+        framealpha=pc.legend_fill_alpha,
+        frameon=True,
+    )
 
     addCMSBits(
         ax,
