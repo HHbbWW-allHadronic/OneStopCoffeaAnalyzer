@@ -153,9 +153,14 @@ class Sample(BaseModel):
     cms_dataset_regex: str | None = None
     total_gen_weight: str | None = None
     _parent_dataset: Dataset | None = None
+    __has_loaded_replicas: bool = False
 
     @cached_property
     def fdict(self):
+        if not self.__has_loaded_replicas:
+            self.useFilesFromReplicaCache()
+            self.__has_loaded_replicas = True
+
         return {f.cmsLocation(): f for f in self.files}
 
     @property
@@ -384,8 +389,8 @@ class DatasetRepo:
                     continue
                 self.__loadOne(data)
 
-        if use_replicas:
-            self.useReplicaCache()
+        # if use_replicas:
+        #     self.useReplicaCache()
 
     def buildReplicaCache(self, force=False):
         for dataset in track(self.datasets.values()):
@@ -397,11 +402,11 @@ class DatasetRepo:
                 if sample.cms_dataset_regex:
                     sample.discoverAndCacheReplicas(force=force)
 
-    def useReplicaCache(self):
-        for dataset in self.datasets.values():
-            for sample in dataset.samples:
-                if sample.cms_dataset_regex:
-                    sample.useFilesFromReplicaCache()
+    # def useReplicaCache(self):
+    #     for dataset in self.datasets.values():
+    #         for sample in dataset.samples:
+    #             if sample.cms_dataset_regex:
+    #                 sample.useFilesFromReplicaCache()
 
     @staticmethod
     def getConfig():

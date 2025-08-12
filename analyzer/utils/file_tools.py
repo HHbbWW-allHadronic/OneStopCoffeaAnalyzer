@@ -41,7 +41,8 @@ def multiMatch(l, elements):
 
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
-    parts = Path(p).parts
+    #parts = Path(p).parts
+    parts = p.split('/')
     root_idx = None
     for r in CONFIG.FILE_ROOTS:
         m = multiMatch(parts, r)
@@ -51,8 +52,24 @@ def extractCmsLocation(url):
     if root_idx is None:
         raise RuntimeError(f"Could not find 'store' in {parts}")
     good_parts = parts[root_idx:]
-    cms_path = Path(*good_parts)
+    #cms_path = Path(*good_parts)
+    cms_path = '/'.join(good_parts)
     return str(cms_path)
+
+# def extractCmsLocation(url):
+#     _, _, p, *rest = urlparse(url)
+#     parts = Path(p).parts
+#     root_idx = None
+#     for r in CONFIG.FILE_ROOTS:
+#         m = multiMatch(parts, r)
+#         if m is not None:
+#             root_idx = m
+#             break
+#     if root_idx is None:
+#         raise RuntimeError(f"Could not find 'store' in {parts}")
+#     good_parts = parts[root_idx:]
+#     cms_path = Path(*good_parts)
+#     return str(cms_path)
 
 
 def pickleWithParents(outpath, data):
