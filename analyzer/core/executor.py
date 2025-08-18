@@ -128,24 +128,24 @@ def runOneTaskDask(
     client = Client(scheduler_address)
     logger.info(f"Running task {task.sample_id}")
     task.file_set.step_size = task.file_set.step_size or default_step_size
-    to_prep = {task.sample_id: task.file_set.justUnchunked().toCoffeaDataset()}
 
-    # print({x: y["files"] for x, y in to_prep.items()})
-    # import sys
-    #
-    # sys.exit()
+    unchunked = task.file_set.justUnchunked()
 
-    out, all_items = dst.preprocess(
-        to_prep,
-        save_form=True,
-        skip_bad_files=True,
-        step_size=task.file_set.step_size,
-        allow_empty_datasets=True,
-    )
-    if out:
-        file_set_prepped = task.file_set.updateFromCoffea(
-            out[task.sample_id]
-        ).justChunked()
+    if not unchunked.empty:
+        to_prep = {task.sample_id: unchunked.toCoffeaDataset()}
+        out, all_items = dst.preprocess(
+            to_prep,
+            save_form=True,
+            skip_bad_files=True,
+            step_size=task.file_set.step_size,
+            allow_empty_datasets=True,
+        )
+        if out:
+            file_set_prepped = task.file_set.updateFromCoffea(
+                out[task.sample_id]
+            ).justChunked()
+        else:
+            file_set_prepped = task.file_set.justChunked()
     else:
         file_set_prepped = task.file_set.justChunked()
 
