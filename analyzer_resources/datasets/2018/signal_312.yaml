@@ -554,7 +554,7 @@
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 600\\ \\mathrm{GeV}$"
-  n_events: 10000
+  n_events: 9600
   x_sec: 480
   files:
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_600.root
@@ -564,7 +564,7 @@
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 700\\ \\mathrm{GeV}$"
-  n_events: 10000
+  n_events: 9400
   x_sec: 480
   files:
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_700.root
@@ -574,7 +574,7 @@
   era: '2018'
   sample_type: MC
   title: "$m_{\\tilde{t}} = 900\\ \\mathrm{GeV}, m_{\\tilde{\\chi}^{\\pm}} = 800\\ \\mathrm{GeV}$"
-  n_events: 10000
+  n_events: 9700
   x_sec: 480
   files:
     - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-900_800.root
