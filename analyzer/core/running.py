@@ -1,4 +1,5 @@
 import contextlib
+import dask
 import logging
 import pickle as pkl
 from pathlib import Path
@@ -59,15 +60,28 @@ def saveResults(results, output, save_separate=True):
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
 
 
-def makeSaveCallback(output):
-    def inner(key, result):
-        output.mkdir(exist_ok=True, parents=True)
-        output_file = output / f"{key}.pkl"
+
+class Saver:
+    def __init__(self, output):
+        self.output=output
+
+    def __call__(self, key, result):
+        self.output.mkdir(exist_ok=True, parents=True)
+        output_file = self.output / f"{key}.pkl"
         logger.info(f'Saving key {key} to "{output_file}"')
         with openNoOverwrite(output_file, "wb") as f:
             pkl.dump({key: result.model_dump()}, f)
+        
 
-    return inner
+# def makeSaveCallback(output):
+#     def inner(key, result):
+#         output.mkdir(exist_ok=True, parents=True)
+#         output_file = output / f"{key}.pkl"
+#         logger.info(f'Saving key {key} to "{output_file}"')
+#         with openNoOverwrite(output_file, "wb") as f:
+#             pkl.dump({key: result.model_dump()}, f)
+# 
+#     return inner
 
 
 def runFromPath(path, output, executor_name, test_mode=False):
@@ -98,7 +112,7 @@ def runFromPath(path, output, executor_name, test_mode=False):
     if hasattr(executor, "output_dir") and executor.output_dir is None:
         executor.output_dir = str(output)
 
-    callback = makeSaveCallback(output)
+    callback = Saver(output)
     results = executor.run(tasks, result_complete_callback=callback)
 
 
@@ -123,9 +137,6 @@ def runPackagedTask(packaged_task, output=None, output_dir=None):
     saveResults(results, output_dir / output, save_separate=True)
 
 
-def mergeResults(paths, output_path):
-    result = loadSampleResultFromPaths(paths)
-    saveResults(results, output, save_separate=True)
 
 
 def patchFromPath(
@@ -173,7 +184,7 @@ def patchFromPath(
     final_tasks = unknown_sample_tasks
     final_tasks.update(tasks)
 
-    callback = makeSaveCallback(output)
+    callback = Saver(output)
     results = executor.run(final_tasks, result_complete_callback=callback)
 
 

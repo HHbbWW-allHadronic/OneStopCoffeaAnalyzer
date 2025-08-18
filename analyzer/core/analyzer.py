@@ -1,4 +1,5 @@
 import itertools as it
+import dask
 import logging
 from dataclasses import dataclass
 from collections.abc import Sequence
@@ -13,8 +14,20 @@ from analyzer.core.columns import Columns
 from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
 from analyzer.core.histograms import Hist
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 logger = logging.getLogger(__name__)
+import functools
+import signal
+
+
+def callTimeout(func, timeout_seconds, *args, **kwargs):
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        future = executor.submit(func, *args, **kwargs)
+        try:
+            return future.result(timeout=timeout_seconds)
+        except TimeoutError:
+            raise TimeoutError("Function execution timed out!")
 
 
 @dataclass
@@ -143,6 +156,43 @@ class Analyzer:
                 )
             )
         return ret
+
+    def runDelayed(self, *args, **kwargs):
+        return dask.delayed(self.run)(*args, **kwargs)
+
+    def runChunks(
+        self,
+        fileset,
+        params,
+        known_form=None,
+        treepath="Events",
+        processing_timeout=60,
+        load_timeout=10,
+    ):
+        try:
+            from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+
+            chunks = fileset.toCoffeaDataset()["files"]
+
+            events = callTimeout(
+                NanoEventsFactory.from_root,
+                load_timeout,
+                chunks,
+                schemaclass=NanoAODSchema,
+                known_base_form=known_form,
+                delayed=True,
+                uproot_options=dict(use_threads=False),
+            ).events()
+
+            result = results.subsector_adapter.dump_python(self.run(events, params))
+            result = callTimeout(
+                dask.compute, processing_timeout, result, scheduler="synchronous"
+            )[0]
+            result = results.subsector_adapter.validate_python(result)
+            return (fileset, result)  # self.run(events, params))
+
+        except Exception as e:
+            return None
 
     def ensureFunction(self, module_repo):
         for ra in self.region_analyzers:

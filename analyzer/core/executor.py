@@ -9,7 +9,7 @@ import os
 import shutil
 import traceback
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -24,22 +24,13 @@ import dask
 from analyzer.configuration import CONFIG
 from analyzer.datasets import FileSet, SampleId, SampleParams
 from analyzer.utils.file_tools import compressDirectory, extractCmsLocation
-from analyzer.utils.structure_tools import accumulate
+import math
+from analyzer.utils.structure_tools import accumulate, iadd
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
-from distributed import Client, LocalCluster
+from distributed import Client, LocalCluster, as_completed
 from pydantic import BaseModel, Field, TypeAdapter
 from rich import print
-
-try:
-    from lpcjobqueue import LPCCondorCluster
-    from lpcjobqueue.schedd import SCHEDD
-
-    LPCQUEUE_AVAILABLE = True
-except ImportError as e:
-    LPCQUEUE_AVAILABLE = False
-
-NanoAODSchema.warn_missing_crossrefs = False
 
 logger = logging.getLogger(__name__)
 
@@ -106,10 +97,44 @@ def visualize(
     )
 
 
-def runOneTaskDask(task, default_step_size=100000):
+def mergeFutures(futures):
+    futures = [x for x in futures if x is not None]
+    if not futures:
+        return None
+    ret = futures[0]
+    for p, r in futures[1:]:
+        iadd(ret[0], p)
+        iadd(ret[1], r)
+    return ret
+
+
+def reduceResults(client, futures, reduction_count=10, terminal_frac=0.05):
+    final_count = math.ceil(terminal_frac * len(futures))
+    while len(futures) > final_count:
+        futures = [
+            client.submit(mergeFutures, futures[i : i + reduction_count])
+            for i in range(0, len(futures), reduction_count)
+        ]
+    return futures
+
+
+def runOneTaskDask(
+    task,
+    result_complete_callback,
+    default_step_size=100000,
+    bulk_mode=False,
+    scheduler_address=None,
+):
+    client = Client(scheduler_address)
     logger.info(f"Running task {task.sample_id}")
     task.file_set.step_size = task.file_set.step_size or default_step_size
     to_prep = {task.sample_id: task.file_set.justUnchunked().toCoffeaDataset()}
+
+    # print({x: y["files"] for x, y in to_prep.items()})
+    # import sys
+    #
+    # sys.exit()
+
     out, all_items = dst.preprocess(
         to_prep,
         save_form=True,
@@ -124,32 +149,61 @@ def runOneTaskDask(task, default_step_size=100000):
     else:
         file_set_prepped = task.file_set.justChunked()
 
-    cds = file_set_prepped.toCoffeaDataset()
     if task.file_set.form is not None:
         maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
     else:
         maybe_base_form = None
-    events, report = NanoEventsFactory.from_root(
-        cds["files"],
-        schemaclass=NanoAODSchema,
-        uproot_options=dict(
-            allow_read_errors_with_report=True,
-        ),
-        known_base_form=maybe_base_form,
-    ).events()
-    r = task.analyzer.run(events, task.sample_params)
-    r = core_results.subsector_adapter.dump_python(r)
-    ready_to_compute = {"result": r, "report": report}
-    computed = dask.compute(ready_to_compute)[0]
-    processed = file_set_prepped.justProcessed(computed["report"])
-    final_result = core_results.SampleResult(
-        sample_id=task.sample_id,
-        file_set_ran=file_set_prepped,
-        file_set_processed=processed,
-        params=task.sample_params,
-        results=computed["result"],
-    )
-    return final_result
+
+    if bulk_mode:
+        futures = client.map(
+            lambda chunk: task.analyzer.runChunks(
+                chunk,
+                task.sample_params,
+                known_form=maybe_base_form,
+            ),
+            list(file_set_prepped.iterChunks()),
+        )
+        final_futures = reduceResults(client, futures)
+        all_results = None
+        for future in as_completed(final_futures):
+            fset, all_results = future.result()
+            processed = file_set_prepped.intersect(fset)
+            final_result = core_results.SampleResult(
+                sample_id=task.sample_id,
+                file_set_ran=file_set_prepped,
+                file_set_processed=processed,
+                params=task.sample_params,
+                results=all_results,
+            )
+            result_complete_callback(final_result.sample_id, final_result)
+            del future
+            gc.collect()
+
+    else:
+        cds = file_set_prepped.toCoffeaDataset()
+        events, report = NanoEventsFactory.from_root(
+            cds["files"],
+            schemaclass=NanoAODSchema,
+            uproot_options=dict(
+                allow_read_errors_with_report=True,
+            ),
+            known_base_form=maybe_base_form,
+        ).events()
+        r = task.analyzer.run(events, task.sample_params)
+        r = core_results.subsector_adapter.dump_python(r)
+        ready_to_compute = {"result": r, "report": report}
+        computed = dask.compute(ready_to_compute)[0]
+        processed = file_set_prepped.justProcessed(computed["report"])
+        all_results = computed["result"]
+
+        final_result = core_results.SampleResult(
+            sample_id=task.sample_id,
+            file_set_ran=file_set_prepped,
+            file_set_processed=processed,
+            params=task.sample_params,
+            results=all_results,
+        )
+        result_complete_callback(final_result.sample_id, final_result)
 
 
 def giveIdToTasks(tasks: AnalysisTask):
@@ -228,6 +282,7 @@ class DaskExecutor(Executor):
     map_mode: bool = False
     use_threads: bool = False
     parallel_submission: int = 4
+    bulk_mode: bool = False
 
     def setup(self):
         if self.adapt:
@@ -272,7 +327,6 @@ class DaskExecutor(Executor):
                     f"{e}"
                 )
         for k, task in tasks.items():
-            print(k)
             if k in all_events:
                 r = task.analyzer.run(all_events[k][0], task.sample_params)
                 r = core_results.subsector_adapter.dump_python(r)
@@ -286,16 +340,16 @@ class DaskExecutor(Executor):
         with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
             futures = []
             for k, v in ret.items():
-                print(k)
                 computed = None
                 if v is not None:
-                    futures.append(tp.submit(lambda x, k=k, v=v: (k, dask.compute(x)), v))
+                    futures.append(
+                        tp.submit(lambda x, k=k, v=v: (k, dask.compute(x)), v)
+                    )
                 else:
                     logger.info(f"Nothing to compute for {k}")
             for future in concurrent.futures.as_completed(futures):
                 try:
                     k, computed = future.result()
-                    print(k)
                     computed = computed[0]
                     if computed is not None:
                         processed = file_sets[k].justProcessed(computed["report"])
@@ -328,21 +382,48 @@ class DaskExecutor(Executor):
                         f"{e}"
                     )
 
+    def runSerial(self, tasks, result_complete_callback=None):
+        for task in tasks.values():
+            try:
+                result = runOneTaskDask(
+                    task,
+                    result_complete_callback,
+                    default_step_size=self.step_size,
+                    bulk_mode=self.bulk_mode,
+                    client=self._client,
+                )
+            except Exception as e:
+                logger.warn(
+                    f"An exception occurred while processing task {task.sample_id}."
+                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                    f"{e}"
+                )
+                logger.warn(traceback.format_exc())
+
     def runThreaded(self, tasks, result_complete_callback=None):
-        with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
-            futures = [
-                tp.submit(runOneTaskDask, v, default_step_size=self.step_size)
+
+        # from analyzer.utils.debugging import jumpIn
+        # jumpIn(**locals(), **globals())
+        with ProcessPoolExecutor(max_workers=self.parallel_submission) as tp:
+            futures = {
+                tp.submit(
+                    runOneTaskDask,
+                    v,
+                    result_complete_callback,
+                    default_step_size=self.step_size,
+                    bulk_mode=self.bulk_mode,
+                    scheduler_address=self._client.cluster.scheduler_address,
+                    # client=self._client,
+                ): v.sample_id
                 for v in tasks.values()
-            ]
+            }
             for future in concurrent.futures.as_completed(futures):
+                sample_id = futures[future]
                 try:
-                    result = future.result()
-                    logger.info(f"Successfully got result for {result.sample_id}")
-                    result_complete_callback(result.sample_id, result)
-                    del result
+                    future.result()
                 except Exception as e:
                     logger.warn(
-                        f"An exception occurred while processing task."
+                        f"An exception occurred while processing task {sample_id}."
                         f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
                         f"{e}"
                     )
@@ -353,7 +434,8 @@ class DaskExecutor(Executor):
         if self.use_threads:
             self.runThreaded(*args, **kwargs)
         else:
-            self.runStandard(*args, **kwargs)
+            self.runSerial(*args, **kwargs)
+            # self.runStandard(*args, **kwargs)
 
 
 class LocalDaskExecutor(DaskExecutor):
@@ -600,7 +682,6 @@ class CondorExecutor(Executor):
         }
 
         job = htcondor.Submit(job_desc)
-        print(job)
         # schedd = htcondor.Schedd()
         # schedd.submit(items)
 
@@ -627,17 +708,25 @@ class LPCCondorDask(DaskExecutor):
         self._working_dir = str(Path(".").absolute())
 
     def setup(self):
+        from lpcjobqueue import LPCCondorCluster
+        from lpcjobqueue.schedd import SCHEDD
+        import shutil
+
         with open(CONFIG.DASK_CONFIG_PATH) as f:
             defaults = yaml.safe_load(f)
             dask.config.update(dask.config.config, defaults, priority="new")
-        if not LPCQUEUE_AVAILABLE:
-            raise NotImplemented("LPC Condor can only be used at the LPC.")
         apptainer_container = "/".join(
             Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
         )
+        base = Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
 
         logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
         logpath.mkdir(exist_ok=True, parents=True)
+
+        logger.info("Deleting old dask logs")
+        shutil.rmtree(logpath)
+        # for p in self.base_log_path.glob("tmp*"):
+        #     shutil.rmtree(p)
 
         transfer_input_files = setupForCondor(
             analysis_root_dir=self._working_dir,

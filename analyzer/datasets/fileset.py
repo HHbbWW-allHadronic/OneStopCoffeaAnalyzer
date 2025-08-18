@@ -11,10 +11,17 @@ import analyzer.datasets.files as adf
 
 
 class FileSet(BaseModel):
-    files: dict[str, tuple[adf.SampleFile, dict]]
+    files: dict[str, tuple[adf.SampleFile | str, dict]]
     step_size: int | None
     form: str | None = None
     file_retrieval_kwargs: dict[str, Any] | None = None
+
+    def getFile(self, f):
+        target = self.files[f][0]
+        if isinstance(target, str):
+            return target
+        else:
+            return target.getFile(**self.file_retrieval_kwargs)
 
     def intersect(self, other):
         common_files = set(self.files).intersection(other.files)
@@ -30,7 +37,7 @@ class FileSet(BaseModel):
                     for s in (data_this["steps"] or [])
                     if s in (data_other["steps"] or [])
                 ]
-            ret[fname] = (sf_this, copy.deepcopy(data))
+            ret[fname] = (sf_this, data)
 
         return FileSet(
             files=ret,
@@ -39,13 +46,12 @@ class FileSet(BaseModel):
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
-    def add(self, other):
-        ret = {}
-        for fname, (s, data) in it.chain(self.files.items(), other.files.items()):
-            if fname not in ret:
-                ret[fname] = (s, data)
+    def __iadd__(self, other):
+        for fname, (s, data) in other.files.items():
+            if fname not in self.files:
+                self.files[fname] = (s, data)
             else:
-                c = ret[fname][1]
+                c = self.files[fname][1]
                 steps_init = c["steps"]
                 steps_other = data["steps"]
                 if steps_init is None and steps_other is None:
@@ -57,13 +63,12 @@ class FileSet(BaseModel):
                 else:
                     steps_new = [x for x in steps_other if x not in steps_init]
                     c["steps"] = list(sorted(steps_init + steps_new))
+        return self
 
-        return FileSet(
-            files=ret,
-            step_size=self.step_size,
-            form=self.form,
-            file_retrieval_kwargs=self.file_retrieval_kwargs,
-        )
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
     def withoutFiles(self, other):
         ret = {x: y for x, y in self.files.items() if x not in other.files}
@@ -74,7 +79,7 @@ class FileSet(BaseModel):
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
 
-    def sub(self, other):
+    def __sub__(self, other):
         ret = copy.deepcopy(self.files)
         common_files = set(self.files).intersection(other.files)
 
@@ -98,12 +103,6 @@ class FileSet(BaseModel):
             form=self.form,
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
-
-    def __add__(self, other):
-        return self.add(other)
-
-    def __sub__(self, other):
-        return self.sub(other)
 
     @property
     def empty(self):
@@ -207,24 +206,53 @@ class FileSet(BaseModel):
             for k, v in files_split.items()
         }
 
-    def toCoffeaDataset(self, simple=False):
-        if simple:
+    def toCoffeaDataset(self, chunks=True):
+        if not chunks:
             coffea_dataset = {
                 "files": {
-                    f.getFile(**self.file_retrieval_kwargs): data["object_path"]
-                    for f, data in self.files.values()
+                    self.getFile(f): data["object_path"]
+                    for f, (_, data) in self.files.items()
                 },
                 "form": self.form,
             }
         else:
             coffea_dataset = {
                 "files": {
-                    f.getFile(**self.file_retrieval_kwargs): copy.deepcopy(data)
-                    for f, data in self.files.values()
+                    self.getFile(f): copy.deepcopy(data)
+                    for f, (_, data) in self.files.items()
                 },
                 "form": self.form,
             }
         return coffea_dataset
+
+    def iterChunks(self):
+        for k, (f, data) in self.files.items():
+            d = copy.deepcopy(data)
+            for s in data["steps"]:
+                d["steps"] = [s]
+                yield FileSet(
+                    files={k: (self.getFile(f), d)},
+                    step_size=self.step_size,
+                    form=None, #self.form,
+                    file_retrieval_kwargs=None,
+                )
+
+    def toMultiChunk(self):
+        files = []
+        for f, (_, data) in self.files.items():
+            file_path = self.getFile(f)
+            files += [
+                {
+                    file_path: {
+                        "num_entries": data["num_entries"],
+                        "uuid": data["uuid"],
+                        "steps": [s],
+                    }
+                }
+                for s in data["steps"]
+            ]
+
+        return files
 
     def asEmpty(self):
         return FileSet(
@@ -249,6 +277,9 @@ class FileSet(BaseModel):
             form=self.form,
             file_retrieval_kwargs=self.file_retrieval_kwargs,
         )
+
+    # @staticmethod
+    # def
 
 
 # def getPatch(target, processed):
