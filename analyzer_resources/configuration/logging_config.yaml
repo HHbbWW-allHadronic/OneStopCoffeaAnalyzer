@@ -55,23 +55,23 @@ loggers:
     propagate: false
   distributed.core:
     level: INFO
-    handlers: [debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   distributed.client:
     level: INFO
-    handlers: [debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   distributed.scheduler:
     level: INFO
-    handlers: [debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   dask:
     level: INFO 
-    handlers: [debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
   lpcjobqueue.cluster:
     level: INFO 
-    handlers: [debug_file_handler]
+    handlers: [debug_file_handler, error_console]
     propagate: false
 
 root:

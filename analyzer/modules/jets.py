@@ -187,8 +187,8 @@ def jet_combo_kinematics(events, params, analyzer):
         analyzer.H(
             f"m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [
-                makeAxis(30, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
-                makeAxis(30, 0, 3000, rf"$m_{{{title1}}}$", unit="GeV"),
+                makeAxis(200, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
+                makeAxis(200, 0, 3000, rf"$m_{{{title1}}}$", unit="GeV"),
             ],
             [masses[p2], masses[p1]],
         )
@@ -196,9 +196,9 @@ def jet_combo_kinematics(events, params, analyzer):
         analyzer.H(
             f"ratio_m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [
-                makeAxis(30, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
+                makeAxis(200, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
                 makeAxis(
-                    30,
+                    200,
                     0,
                     1,
                     rf"$\frac{{m_{{ {title1} }} }}{{ m_{{ {title2} }} }}$",
