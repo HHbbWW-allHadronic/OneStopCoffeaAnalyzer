@@ -30,9 +30,11 @@ def addSubparserGenerateReplicaCache(subparsers):
     )
     subparser.set_defaults(func=handleGenReplicas)
 
+
 def handleVisualizeExec(args):
     from analyzer.core.running import visualizeSampleExecution
     from analyzer.datasets import SampleId
+
     sid = SampleId(args.sample)
     args.output.parent.mkdir(exist_ok=True, parents=True)
     visualizeSampleExecution(args.configuration, sid, args.output)
@@ -40,8 +42,14 @@ def handleVisualizeExec(args):
 
 def handleUpdateMeta(args):
     from analyzer.core.results import updateMeta
+
     updateMeta(args.input)
 
+
+def handleMerge(args):
+    from analyzer.core.results import merge
+
+    merge(args.input, args.outdir)
 
 
 def addSubparserVisualize(subparsers):
@@ -52,14 +60,19 @@ def addSubparserVisualize(subparsers):
     subparser.add_argument("-s", "--sample", type=str, help="Sample to examine")
     subparser.set_defaults(func=handleVisualizeExec)
 
+
 def addSubparserUpdateMetaInfo(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("update-meta", help="Update Metadata based on new configuration options")
-    subparser.add_argument("input", nargs='+', help="Input file")
+    subparser = subparsers.add_parser(
+        "update-meta", help="Update Metadata based on new configuration options"
+    )
+    subparser.add_argument("input", nargs="+", help="Input file")
     subparser.set_defaults(func=handleUpdateMeta)
+
 
 def handleCheckResults(args):
     from analyzer.core.results import checkResult
+
     checkResult(args.input, configuration=args.configuration)
 
 
@@ -213,9 +226,11 @@ def handleRun(args):
         test_mode=args.test_mode,
     )
 
+
 def handleStartCluster(args):
     from analyzer.core.executor import LPCCondorDask
     import time
+
     print("HELLO")
     cluster = LPCCondorDask(max_workers=2)
     cluster.setup()
@@ -249,13 +264,13 @@ def addSubparserRun(subparsers):
     )
     subparser.set_defaults(func=handleRun)
 
+
 def addSubparserStartCluster(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser(
         "start-cluster", help="Run analyzer based on provided configuration"
     )
     subparser.set_defaults(func=handleStartCluster)
-
 
 
 def handlePost(args):
@@ -344,6 +359,15 @@ def addSubparserPatch(subparsers):
     subparser.set_defaults(func=handlePatch)
 
 
+def addSubparserMerge(subparsers):
+    subparser = subparsers.add_parser("merge", help="Merge multiple output files")
+    subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
+    subparser.add_argument(
+        "-o", "--outdir", type=Path, help="Output path", required=True
+    )
+    subparser.set_defaults(func=handleMerge)
+
+
 def addGeneralArguments(parser):
     parser.add_argument("--log-level", type=str, default="WARN", help="Logging level")
 
@@ -368,6 +392,7 @@ def runCli():
     addSubparserVisualize(subparsers)
     addSubparserStartCluster(subparsers)
     addSubparserUpdateMetaInfo(subparsers)
+    addSubparserMerge(subparsers)
 
     argcomplete.autocomplete(parser)
 

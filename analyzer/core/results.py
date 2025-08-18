@@ -1,5 +1,6 @@
 import copy
 import logging
+from pathlib import Path
 import pickle as pkl
 from collections import defaultdict
 from typing import Any
@@ -13,8 +14,9 @@ import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.progress import progbar, spinner
-from analyzer.utils.structure_tools import accumulate
+from analyzer.utils.structure_tools import accumulate, iadd
 from rich.progress import track
+
 
 logger = logging.getLogger(__name__)
 
@@ -258,6 +260,21 @@ def loadSampleResultFromPaths(paths, include=None):
     return ret
 
 
+def merge(paths, outdir):
+    outdir = Path(outdir)
+    outdir.mkdir(exist_ok=True, parents=True)
+
+    results = loadSampleResultFromPaths(paths)
+    for sample_id, result in results.items():
+        output = outdir / f"{sample_id}.pkl"
+        print(f'Saving sample {sample_id} to "{output}"')
+        if output.exists():
+            raise RuntimeError("Cannot overwrite when merging!")
+
+        with open(output, "wb") as f:
+            pkl.dump({sample_id: result.model_dump()}, f)
+
+
 def makeDatasetResults(
     sample_results,
     drop_samples=None,
@@ -303,6 +320,9 @@ def checkResult(paths, configuration=None):
 
     loaded = loadSampleResultFromPaths(paths, include=[])
     results = list(loaded.values())
+
+    # from analyzer.utils.debugging import jumpIn
+    # jumpIn(**locals())
 
     if configuration:
         # If a configuration is provided we also check for completely missing samples
@@ -368,6 +388,5 @@ def updateMeta(paths):
             p = dataset_repo[sid].params
             p.dataset.populateEra(era_repo)
             k.params = p
-        with open(path, 'wb') as f:
+        with open(path, "wb") as f:
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
-
