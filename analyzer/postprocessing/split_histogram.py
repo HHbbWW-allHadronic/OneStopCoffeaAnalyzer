@@ -74,7 +74,10 @@ def splitHistogram(
             return h
     possible_values = {(x.name): list(x) for x in split_axes}
     options = OrderedDict(possible_values)
-    ret = {x: h[dict(zip(options.keys(), x))] for x in it.product(*options.values())}
+    ret = {
+        x: h[dict(zip(options.keys(), map(hist.loc, x)))]
+        for x in it.product(*options.values())
+    }
     if return_labels:
         return ret, [(x.name or x.label) for x in split_axes]
     else:

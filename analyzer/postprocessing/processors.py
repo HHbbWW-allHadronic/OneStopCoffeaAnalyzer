@@ -38,6 +38,7 @@ class PostprocessCatalogueEntry(pyd.BaseModel):
     path: str
     sector_group: SectorGroupParameters
     sector_params: list[SectorParams]
+    axis_parameters: dict[str, int | float | str]
 
 
 postprocess_catalog = pyd.TypeAdapter(list[PostprocessCatalogueEntry])
@@ -149,6 +150,7 @@ class Histogram1D(BasePostprocessor, pyd.BaseModel):
                         path=output,
                         sector_group=sector_group,
                         sector_params=[x.sector_params for x in sector_group.sectors],
+                        axis_parameters=hists[0].axis_parameters,
                     )
                 )
         return ret, items
@@ -219,31 +221,36 @@ class Histogram2D(BasePostprocessor, pyd.BaseModel):
         items = []
         for histogram in self.histogram_names:
             for sector_group in r:
-                output = doFormatting(
-                    self.output_name,
-                    sector_group.all_parameters,
-                    histogram_name=histogram,
-                )
-                ret.append(
-                    ft.partial(
-                        plot2D,
-                        sector_group.histograms(histogram)[0],
-                        output,
-                        style_set=self.style_set,
-                        normalize=self.normalize,
-                        plot_configuration=self.plot_configuration,
-                        color_scale=self.color_scale,
+                for h in sector_group.histograms(histogram):
+                    output = doFormatting(
+                        self.output_name,
+                        sector_group.all_parameters,
+                        histogram_name=histogram,
+                        **h.axis_parameters,
                     )
-                )
-                items.append(
-                    PostprocessCatalogueEntry(
-                        processor_name=self.name,
-                        identifier=histogram,
-                        path=output,
-                        sector_group=sector_group,
-                        sector_params=[x.sector_params for x in sector_group.sectors],
+                    ret.append(
+                        ft.partial(
+                            plot2D,
+                            h,
+                            output,
+                            style_set=self.style_set,
+                            normalize=self.normalize,
+                            plot_configuration=self.plot_configuration,
+                            color_scale=self.color_scale,
+                        )
                     )
-                )
+                    items.append(
+                        PostprocessCatalogueEntry(
+                            processor_name=self.name,
+                            identifier=histogram,
+                            path=output,
+                            sector_group=sector_group,
+                            sector_params=[
+                                x.sector_params for x in sector_group.sectors
+                            ],
+                            axis_parameters=h.axis_parameters,
+                        )
+                    )
         return ret, items
 
 

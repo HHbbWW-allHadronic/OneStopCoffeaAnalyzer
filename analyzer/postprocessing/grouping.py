@@ -140,7 +140,7 @@ class SectorGroupParameters(BaseModel):
 
     @property
     def all_parameters(self):
-        return {**self.parameters, **(self.axis_options or {})}
+        return {**self.parameters}
 
     def compatible(self, other):
         return self.parameters == other.parameters
@@ -196,7 +196,7 @@ class SectorGroup(SectorGroupParameters):
         Get all the histograms corresponding to the given name.
         Returns a list of PackagedHist
         """
-        everything = []
+        everything = defaultdict(list)
         for sector in self.sectors:
             try:
                 h = sector.result.histograms[hist_name].histogram
@@ -228,54 +228,59 @@ class SectorGroup(SectorGroupParameters):
 
             if isinstance(hists, dict):
                 for c, h in hists.items():
-                    everything.append(
+                    options = dict(zip(labels, c))
+                    everything[c].append(
                         PackagedHist(
                             histogram=h,
-                            title=self.__getHistTitle(h, sector, dict(zip(labels, c))),
+                            title=self.__getHistTitle(h, sector, options),
                             sector_parameters=sector.sector_params,
-                            axis_options=self.axis_options,
+                            axis_parameters=options,
                             style=style,
                         )
                     )
             else:
-                everything.append(
+                everything[None].append(
                     PackagedHist(
                         histogram=hists,
                         title=self.__getHistTitle(hists, sector),
                         sector_parameters=sector.sector_params,
-                        axis_options=self.axis_options,
+                        axis_parameters=self.axis_options,
                         style=style,
                     )
                 )
 
-        if self.add_together:
-            new_name = "_plus_".join(
-                x.sector_parameters.dataset.name for x in everything
-            )
 
-            if self.add_titles:
-                new_title = "+".join(
-                    x.sector_parameters.dataset.title for x in everything
-                )
 
-            else:
-                new_title = everything[0].sector_parameters.dataset.title
-
-            s = copy.deepcopy(sector.sector_params)
-            s.dataset.name = new_name
-            s.dataset.title = new_title
-            ret = [
-                PackagedHist(
-                    histogram=ft.reduce(op.add, (x.histogram for x in everything)),
-                    title=new_title,
-                    sector_parameters=s,
-                    axis_options=self.axis_options,
-                    style=everything[0].style,
-                )
-            ]
-            return ret
+        if not self.add_together:
+            return list(it.chain.from_iterable(everything.values()))
         else:
-            return everything
+            ret = []
+            for group in everything.values():
+                new_name = "_plus_".join(
+                    x.sector_parameters.dataset.name for x in group
+                )
+
+                if self.add_titles:
+                    new_title = "+".join(
+                        x.sector_parameters.dataset.title for x in group
+                    )
+
+                else:
+                    new_title = group[0].sector_parameters.dataset.title
+
+                s = copy.deepcopy(sector.sector_params)
+                s.dataset.name = new_name
+                s.dataset.title = new_title
+                ret.append(
+                    PackagedHist(
+                        histogram=ft.reduce(op.add, (x.histogram for x in group)),
+                        title=new_title,
+                        sector_parameters=s,
+                        axis_parameters=group[0].axis_parameters,
+                        style=group[0].style,
+                    )
+                )
+            return ret
 
     def __rich_repr__(self):
         yield "parameters", self.parameters
