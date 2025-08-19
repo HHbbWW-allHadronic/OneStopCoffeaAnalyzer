@@ -20,5 +20,7 @@ class Config:
 
     DEFAULT_PARALLEL_PROCESSES = 8
 
+    WARN_LOAD_FILE_NUMBER = 50
+
 
 CONFIG = Config()

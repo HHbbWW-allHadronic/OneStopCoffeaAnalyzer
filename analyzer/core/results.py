@@ -246,6 +246,12 @@ def loadSampleResultFromPaths(
 ):
     ret = {}
 
+    if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER:
+        print(
+            f"You are attempting to load {len(paths)} files."
+            f"You may want to consider running 'analyzer merge' to improve loading speed."
+        )
+
     if not parallel:
         iterator = track(
             paths,
