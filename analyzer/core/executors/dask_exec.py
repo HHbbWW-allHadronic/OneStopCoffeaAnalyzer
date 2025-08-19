@@ -81,6 +81,7 @@ def runOneTaskDask(
     default_step_size=100000,
     bulk_mode=False,
     scheduler_address=None,
+    timeout=120,
 ):
     client = Client(scheduler_address)
     logger.info(f"Running task {task.sample_id}")
@@ -99,6 +100,7 @@ def runOneTaskDask(
                 chunk,
                 task.sample_params,
                 known_form=maybe_base_form,
+                timeout=timeout,
             ),
             list(file_set_prepped.iterChunks()),
         )
@@ -155,8 +157,9 @@ class DaskExecutor(Executor):
     step_size: int | None = 100000
     map_mode: bool = False
     use_threads: bool = False
-    parallel_submission: int = 4
+    parallel_submission: int = 20
     bulk_mode: bool = False
+    timeout: int = 120
 
     def setup(self):
         if self.adapt:
@@ -171,8 +174,9 @@ class DaskExecutor(Executor):
                     task,
                     result_complete_callback,
                     default_step_size=self.step_size,
+                    scheduler_address=self._client.cluster.scheduler_address,
                     bulk_mode=self.bulk_mode,
-                    client=self._client,
+                    timeout=self.timeout,
                 )
             except Exception as e:
                 logger.warn(
@@ -195,6 +199,7 @@ class DaskExecutor(Executor):
                     default_step_size=self.step_size,
                     bulk_mode=self.bulk_mode,
                     scheduler_address=self._client.cluster.scheduler_address,
+                    timeout=self.timeout,
                     # client=self._client,
                 ): v.sample_id
                 for v in tasks.values()
