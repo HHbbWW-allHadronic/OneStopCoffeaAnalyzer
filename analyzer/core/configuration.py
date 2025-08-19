@@ -13,7 +13,7 @@ import logging
 
 import analyzer.core.specifiers as specs
 import analyzer.core.region_analyzer as ra
-import analyzer.core.executor as executor
+import analyzer.core.executors as executors
 
 logger = logging.getLogger(__name__)
 
@@ -74,7 +74,7 @@ class FileConfig(BaseModel):
 
 class AnalysisDescription(BaseModel):
     name: str
-    executors: dict[str, executor.AnyExecutor]
+    executors: dict[str, executors.AnyExecutor]
     # execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
     file_config: FileConfig = Field(default_factory=FileConfig)
     samples: dict[str, list[str] | str]

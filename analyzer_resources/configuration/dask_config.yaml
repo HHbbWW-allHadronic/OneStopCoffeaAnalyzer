@@ -6,7 +6,6 @@ distributed:
       enabled: true
     memory:
       terminate: false
-    multiprocessing-method: spawn
     daemon: false
     
   comm:

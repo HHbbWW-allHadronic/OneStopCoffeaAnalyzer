@@ -21,10 +21,12 @@ from analyzer.utils.structure_tools import iadd
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import decompress_form
 from distributed import Client, LocalCluster, as_completed
-from pydantic import Field
+from pydantic import Field, RootModel
+from .condor_tools import setupForCondor
 from rich import print
 
 from .executor import Executor
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,19 +52,8 @@ def reduceResults(client, futures, reduction_count=10, terminal_frac=0.05):
     return futures
 
 
-def runOneTaskDask(
-    task,
-    result_complete_callback,
-    default_step_size=100000,
-    bulk_mode=False,
-    scheduler_address=None,
-):
-    client = Client(scheduler_address)
-    logger.info(f"Running task {task.sample_id}")
-    task.file_set.step_size = task.file_set.step_size or default_step_size
-
+def preprocess(task):
     unchunked = task.file_set.justUnchunked()
-
     if not unchunked.empty:
         to_prep = {task.sample_id: unchunked.toCoffeaDataset()}
         out, all_items = dst.preprocess(
@@ -80,6 +71,22 @@ def runOneTaskDask(
             file_set_prepped = task.file_set.justChunked()
     else:
         file_set_prepped = task.file_set.justChunked()
+
+    return file_set_prepped
+
+
+def runOneTaskDask(
+    task,
+    result_complete_callback,
+    default_step_size=100000,
+    bulk_mode=False,
+    scheduler_address=None,
+):
+    client = Client(scheduler_address)
+    logger.info(f"Running task {task.sample_id}")
+    task.file_set.step_size = task.file_set.step_size or default_step_size
+
+    file_set_prepped = preprocess(task)
 
     if task.file_set.form is not None:
         maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
@@ -137,6 +144,7 @@ def runOneTaskDask(
         )
         result_complete_callback(final_result.sample_id, final_result)
 
+
 class DaskExecutor(Executor):
     memory: str = "2GB"
     dashboard_address: str | None = "localhost:8787"
@@ -155,7 +163,6 @@ class DaskExecutor(Executor):
             self._cluster.adapt(
                 minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
             )
-
 
     def runSerial(self, tasks, result_complete_callback=None):
         for task in tasks.values():
@@ -227,6 +234,7 @@ class LocalDaskExecutor(DaskExecutor):
         )
         self._client = Client(self._cluster)
 
+
 class LPCCondorDask(DaskExecutor):
     executor_type: Literal["dask_condor"] = "dask_condor"
     apptainer_working_dir: str | None = None
@@ -285,9 +293,13 @@ class LPCCondorDask(DaskExecutor):
         ]
         kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
+        prologue = dask.config.get("jobqueue.lpccondor.job-script-prologue")
+        prologue.append(
+            "export DASK_INTERNAL_INHERIT_CONFIG="
+            + dask.config.serialize(dask.config.global_config)
+        )
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
-        SCHEDD()
         self._cluster = LPCCondorCluster(
             ship_env=False,
             image=apptainer_container,
@@ -295,8 +307,8 @@ class LPCCondorDask(DaskExecutor):
             transfer_input_files=transfer_input_files,
             log_directory=logpath,
             scheduler_options=dict(dashboard_address=self.dashboard_address),
+            job_script_prologue=prologue,
             **kwargs,
         )
-        print(self._cluster)
         self._client = Client(self._cluster)
         super().setup()

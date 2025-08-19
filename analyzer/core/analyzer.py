@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 
 
-
 from analyzer.core.region_analyzer import RegionAnalyzer
 
 from analyzer.datasets import SampleParams
@@ -18,11 +17,12 @@ from multiprocessing import Process, Queue
 
 logger = logging.getLogger(__name__)
 
-def callTimeout(function, timeout, *args, **kwargs):
+
+def callTimeout(process_timeout, function, *args, **kwargs):
     with ProcessPoolExecutor(max_workers=1) as executor:
         try:
             future = executor.submit(function, *args, **kwargs)
-            return future.result(timeout=timeout)
+            return future.result(timeout=process_timeout)
         except TimeoutError:
             for pid, process in executor._processes.items():
                 process.terminate()
@@ -165,33 +165,40 @@ class Analyzer:
         params,
         known_form=None,
         treepath="Events",
-        processing_timeout=60,
-        load_timeout=20,
+        timeout=60,
     ):
-        try:
-            from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+        if timeout:
+            return callTimeout(
+                timeout,
+                self.runChunks,
+                fileset,
+                params,
+                known_form=known_form,
+                treepath=treepath,
+                timeout=None,
+            )
+        else:
+            try:
+                from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 
-            chunks = fileset.toCoffeaDataset()["files"]
+                chunks = fileset.toCoffeaDataset()["files"]
 
-            events = callTimeout(
-                NanoEventsFactory.from_root,
-                load_timeout,
-                chunks,
-                schemaclass=NanoAODSchema,
-                known_base_form=known_form,
-                delayed=True,
-                uproot_options=dict(use_threads=False),
-            ).events()
+                events = NanoEventsFactory.from_root(
+                    chunks,
+                    schemaclass=NanoAODSchema,
+                    known_base_form=known_form,
+                    delayed=True,
+                    uproot_options=dict(use_threads=False),
+                ).events()
 
-            result = results.subsector_adapter.dump_python(self.run(events, params))
-            result = callTimeout(
-                dask.compute, processing_timeout, result, scheduler="synchronous"
-            )[0]
-            result = results.subsector_adapter.validate_python(result)
-            return (fileset, result)  # self.run(events, params))
+                result = results.subsector_adapter.dump_python(self.run(events, params))
+                result = dask.compute(result, scheduler="synchronous")[0]
+                result = results.subsector_adapter.validate_python(result)
+                return (fileset, result)  # self.run(events, params))
 
-        except Exception:
-            return None
+            except Exception:
+                raise
+                return None
 
     def ensureFunction(self, module_repo):
         for ra in self.region_analyzers:
