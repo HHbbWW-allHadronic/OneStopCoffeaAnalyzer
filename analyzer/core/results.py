@@ -15,6 +15,7 @@ from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.structure_tools import accumulate
 from rich.progress import track
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 
 logger = logging.getLogger(__name__)
@@ -234,27 +235,58 @@ def loadResults(obj):
     return results_adapter.validate_python(obj)
 
 
-def loadSampleResultFromPaths(paths, include=None):
-    ret = {}
-    for p in track(
-        paths,
-        total=len(paths),
-        transient=True,
-        description="Loading Files",
-        disable=not CONFIG.PRETTY_MODE,
-    ):
-        with open(p, "rb") as f:
-            data = pkl.load(f)
-            r = loadResults(data)
-            for k in list(r.keys()):
-                if include is not None:
-                    r[k].includeOnly(include)
-                if k not in ret:
-                    ret[k] = r[k]
-                else:
-                    ret[k] += r[k]
-                del r[k]
+def openAndLoad(path):
+    with open(path, "rb") as f:
+        data = pkl.load(f)
+    return loadResults(data)
 
+
+def loadSampleResultFromPaths(
+    paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES
+):
+    ret = {}
+
+    if not parallel:
+        iterator = track(
+            paths,
+            total=len(paths),
+            transient=True,
+            description="Loading Files",
+            disable=not CONFIG.PRETTY_MODE,
+        )
+        for p in iterator:
+            with open(p, "rb") as f:
+                data = pkl.load(f)
+                r = loadResults(data)
+                for k in list(r.keys()):
+                    if include is not None:
+                        r[k].includeOnly(include)
+                    if k not in ret:
+                        ret[k] = r[k]
+                    else:
+                        ret[k] += r[k]
+                    del r[k]
+    else:
+        with ProcessPoolExecutor(max_workers=parallel) as executor:
+            futures = [executor.submit(openAndLoad, path) for path in paths]
+            # futures = executor.map(openAndLoad, paths)
+            iterator = track(
+                as_completed(futures),
+                total=len(paths),
+                transient=True,
+                description="Loading Files",
+                disable=not CONFIG.PRETTY_MODE,
+            )
+            for f in iterator:
+                r = f.result()
+                for k in list(r.keys()):
+                    if include is not None:
+                        r[k].includeOnly(include)
+                    if k not in ret:
+                        ret[k] = r[k]
+                    else:
+                        ret[k] += r[k]
+                    del r[k]
     return ret
 
 

@@ -18,5 +18,7 @@ class Config:
 
     PRETTY_MODE = True
 
+    DEFAULT_PARALLEL_PROCESSES = 8
+
 
 CONFIG = Config()
