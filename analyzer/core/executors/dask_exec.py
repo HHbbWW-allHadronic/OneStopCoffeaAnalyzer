@@ -104,7 +104,8 @@ def runOneTaskDask(
             ),
             list(file_set_prepped.iterChunks()),
         )
-        final_futures = reduceResults(client, futures)
+        with dask.annotate(priority=10):
+            final_futures = reduceResults(client, futures)
         all_results = None
         for future in as_completed(final_futures):
             fset, all_results = future.result()
@@ -117,6 +118,7 @@ def runOneTaskDask(
                 results=all_results,
             )
             result_complete_callback(final_result.sample_id, final_result)
+            future.cancel()
             del future
             gc.collect()
 
