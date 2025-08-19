@@ -28,52 +28,6 @@ from .executor import Executor
 
 logger = logging.getLogger(__name__)
 
-def preprocess(tasks, default_step_size=100000, scheduler=None, test_mode=False):
-    step_sizes = set(x.file_set.step_size for x in tasks.values())
-    step_sizes_not_none = set(
-        x.file_set.step_size for x in tasks.values() if x.file_set.step_size is not None
-    )
-    if len(step_sizes_not_none) > 1:
-        raise RuntimeError()
-
-    this_step_size = next(iter(step_sizes))
-    to_prep = {uid: task.file_set.justUnchunked() for uid, task in tasks.items()}
-    if test_mode:
-        scheduler = "single-threaded"
-        to_prep = {
-            uid: task.file_set.slice(files=slice(0, 1)) for uid, task in tasks.items()
-        }
-
-    to_prep = {uid: fs.toCoffeaDataset() for uid, fs in to_prep.items() if not fs.empty}
-
-    if not to_prep:
-        return {uid: task.file_set for uid, task in tasks.items()}
-
-    logger.info("Preprocessing %d samples", len(to_prep))
-    out, all_items = dst.preprocess(
-        to_prep,
-        save_form=True,
-        skip_bad_files=True,
-        step_size=this_step_size or default_step_size,
-        scheduler=scheduler,
-        allow_empty_datasets=True,
-    )
-    new_filesets = {
-        uid: (
-            task.file_set.updateFromCoffea(out[uid]) if uid in out else task.file_set
-        ).justChunked()
-        for uid, task in tasks.items()
-    }
-
-    if test_mode:
-        new_filesets = {
-            uid: f.slice(chunks=slice(0, 1)) for uid, f in new_filesets.items()
-        }
-    for v in new_filesets.values():
-        v.step_size = v.step_size or default_step_size
-
-    return new_filesets
-
 
 def mergeFutures(futures):
     futures = [x for x in futures if x is not None]
@@ -202,97 +156,6 @@ class DaskExecutor(Executor):
                 minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
             )
 
-    def _preprocess(self, tasks):
-        return preprocess(
-            tasks, default_step_size=self.step_size, test_mode=self.test_mode
-        )
-
-    def runStandard(self, tasks, result_complete_callback=None):
-        ret = {}
-        all_events = {}
-        file_sets = self._preprocess(tasks)
-
-        for k, t in tasks.items():
-
-            fs = file_sets[k]
-            cds = fs.toCoffeaDataset()
-
-            if fs.form is not None:
-                maybe_base_form = ak.forms.from_json(decompress_form(fs.form))
-            else:
-                maybe_base_form = None
-
-            try:
-                events, report = NanoEventsFactory.from_root(
-                    cds["files"],
-                    schemaclass=NanoAODSchema,
-                    uproot_options=dict(
-                        allow_read_errors_with_report=True,
-                    ),
-                    known_base_form=maybe_base_form,
-                ).events()
-                all_events[k] = (events, report)
-            except Exception as e:
-                logger.warn(
-                    f"An exception occurred while preprocessing task {k}.\n"
-                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                    f"{e}"
-                )
-        for k, task in tasks.items():
-            if k in all_events:
-                r = task.analyzer.run(all_events[k][0], task.sample_params)
-                r = core_results.subsector_adapter.dump_python(r)
-                ret[k] = {
-                    "result": r,
-                    "report": all_events[k][1],
-                }
-            else:
-                ret[k] = None
-
-        with ThreadPoolExecutor(max_workers=self.parallel_submission) as tp:
-            futures = []
-            for k, v in ret.items():
-                computed = None
-                if v is not None:
-                    futures.append(
-                        tp.submit(lambda x, k=k, v=v: (k, dask.compute(x)), v)
-                    )
-                else:
-                    logger.info(f"Nothing to compute for {k}")
-            for future in concurrent.futures.as_completed(futures):
-                try:
-                    k, computed = future.result()
-                    computed = computed[0]
-                    if computed is not None:
-                        processed = file_sets[k].justProcessed(computed["report"])
-                        final_result = core_results.SampleResult(
-                            sample_id=tasks[k].sample_id,
-                            file_set_ran=file_sets[k],
-                            file_set_processed=processed,
-                            params=tasks[k].sample_params,
-                            results=computed["result"],
-                        )
-                    else:
-                        logger.info(
-                            f"Computed result was none for {k}, treating as failure"
-                        )
-                        final_result = core_results.SampleResult(
-                            sample_id=tasks[k].sample_id,
-                            file_set_ran=file_sets[k],
-                            file_set_processed=file_sets[k].asEmpty(),
-                            params=tasks[k].sample_params,
-                            results={},
-                        )
-                    if result_complete_callback is not None:
-                        result_complete_callback(k, final_result)
-
-                except Exception as e:
-                    raise e
-                    logger.warn(
-                        f"An exception occurred while processing task {k}."
-                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                        f"{e}"
-                    )
 
     def runSerial(self, tasks, result_complete_callback=None):
         for task in tasks.values():
@@ -347,7 +210,6 @@ class DaskExecutor(Executor):
             self.runThreaded(*args, **kwargs)
         else:
             self.runSerial(*args, **kwargs)
-            # self.runStandard(*args, **kwargs)
 
 
 class LocalDaskExecutor(DaskExecutor):
