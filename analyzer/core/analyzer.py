@@ -166,7 +166,7 @@ class Analyzer:
         known_form=None,
         treepath="Events",
         processing_timeout=60,
-        load_timeout=1,
+        load_timeout=20,
     ):
         try:
             from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
