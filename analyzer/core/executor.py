@@ -48,54 +48,6 @@ class PackagedTasks(BaseModel):
     task: AnalysisTask
 
 
-def visualize(
-    task, file_name, default_step_size=1000000, max_files=1, max_chunks_per_file=1
-):
-    with open(CONFIG.DASK_CONFIG_PATH) as f:
-        defaults = yaml.safe_load(f)
-        dask.config.update(dask.config.config, defaults, priority="new")
-    task.file_set.step_size = task.file_set.step_size or default_step_size
-    to_prep = {
-        task.sample_id: task.file_set.slice(files=slice(0, max_files)).toCoffeaDataset()
-    }
-    out, all_items = dst.preprocess(
-        to_prep,
-        save_form=True,
-        skip_bad_files=True,
-        step_size=task.file_set.step_size,
-        scheduler="single-threaded",
-        allow_empty_datasets=True,
-    )
-    if out:
-        file_set_prepped = task.file_set.updateFromCoffea(
-            out[task.sample_id]
-        ).justChunked()
-    else:
-        file_set_prepped = task.file_set.justChunked()
-
-    file_set_prepped = file_set_prepped.slice(chunks=slice(0, max_chunks_per_file))
-    cds = file_set_prepped.toCoffeaDataset()
-    if task.file_set.form is not None:
-        maybe_base_form = ak.forms.from_json(decompress_form(fs.form))
-    else:
-        maybe_base_form = None
-    events, report = NanoEventsFactory.from_root(
-        cds["files"],
-        schemaclass=NanoAODSchema,
-        uproot_options=dict(
-            allow_read_errors_with_report=True,
-        ),
-        known_base_form=maybe_base_form,
-    ).events()
-    r = task.analyzer.run(events, task.sample_params)
-    r = core_results.subsector_adapter.dump_python(r)
-    ready_to_compute = {"result": r, "report": report}
-    ret = dask.visualize(
-        ready_to_compute,
-        filename=str(file_name),
-        optimize_graph=True,
-    )
-
 
 def mergeFutures(futures):
     futures = [x for x in futures if x is not None]

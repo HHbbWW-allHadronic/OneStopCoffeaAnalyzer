@@ -31,13 +31,6 @@ def addSubparserGenerateReplicaCache(subparsers):
     subparser.set_defaults(func=handleGenReplicas)
 
 
-def handleVisualizeExec(args):
-    from analyzer.core.running import visualizeSampleExecution
-    from analyzer.datasets import SampleId
-
-    sid = SampleId(args.sample)
-    args.output.parent.mkdir(exist_ok=True, parents=True)
-    visualizeSampleExecution(args.configuration, sid, args.output)
 
 
 def handleUpdateMeta(args):
@@ -52,13 +45,6 @@ def handleMerge(args):
     merge(args.input, args.outdir)
 
 
-def addSubparserVisualize(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("visualize", help="Visualize dask graph")
-    subparser.add_argument("configuration", type=Path, help="Configuraiton file")
-    subparser.add_argument("-o", "--output", required=True, type=Path, help="Output")
-    subparser.add_argument("-s", "--sample", type=str, help="Sample to examine")
-    subparser.set_defaults(func=handleVisualizeExec)
 
 
 def addSubparserUpdateMetaInfo(subparsers):
@@ -389,7 +375,6 @@ def runCli():
     addSubparserQuickDataset(subparsers)
     addSubParserStoreResults(subparsers)
     addSubparserSummaryTable(subparsers)
-    addSubparserVisualize(subparsers)
     addSubparserStartCluster(subparsers)
     addSubparserUpdateMetaInfo(subparsers)
     addSubparserMerge(subparsers)
