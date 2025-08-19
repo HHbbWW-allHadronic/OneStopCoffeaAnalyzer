@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from collections.abc import Sequence
 
 
-from analyzer.configuration import CONFIG
 
 from analyzer.core.region_analyzer import RegionAnalyzer
 
@@ -17,8 +16,6 @@ from analyzer.core.histograms import Hist
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 
 logger = logging.getLogger(__name__)
-import functools
-import signal
 
 
 def callTimeout(func, timeout_seconds, *args, **kwargs):
@@ -191,7 +188,7 @@ class Analyzer:
             result = results.subsector_adapter.validate_python(result)
             return (fileset, result)  # self.run(events, params))
 
-        except Exception as e:
+        except Exception:
             return None
 
     def ensureFunction(self, module_repo):

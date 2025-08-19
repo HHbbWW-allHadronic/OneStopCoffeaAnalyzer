@@ -1,7 +1,5 @@
 import logging
 import numpy as np
-from rich import print
-import operator as op
 from typing import Any
 
 import awkward as ak
@@ -104,7 +102,6 @@ class HistogramCollection(BaseModel):
         return self
 
     def get(self, variation=None):
-        has_variations = "variation" in map(op.attrgetter("name"), self.histogram.axes)
         if variation:
             return self.histogram[variation, ...]
         else:

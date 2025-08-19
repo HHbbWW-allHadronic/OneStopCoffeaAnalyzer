@@ -1,7 +1,7 @@
 from analyzer.datasets import FileSet
 
 from analyzer.core.results import SampleResult
-from analyzer.core.executor import AnalysisTask
+from analyzer.core.executors import AnalysisTask
 from analyzer.core.analyzer import Analyzer
 
 

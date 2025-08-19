@@ -1,5 +1,4 @@
 import contextlib
-import dask
 import logging
 import pickle as pkl
 from pathlib import Path
@@ -7,7 +6,7 @@ from pathlib import Path
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import getSubSectors, loadDescription
-from analyzer.core.executor import AnalysisTask, visualize
+from analyzer.core.executors import AnalysisTask
 from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
 from analyzer.datasets import DatasetRepo, EraRepo
@@ -85,7 +84,7 @@ class Saver:
 
 
 def runFromPath(path, output, executor_name, test_mode=False):
-    import analyzer.modules
+    import analyzer.modules # noqa
 
     output = Path(output)
     description = loadDescription(path)
@@ -117,7 +116,7 @@ def runFromPath(path, output, executor_name, test_mode=False):
 
 
 def runPackagedTask(packaged_task, output=None, output_dir=None):
-    import analyzer.modules
+    import analyzer.modules # noqa
 
     if output_dir is None:
         output_dir = Path(".")
@@ -146,7 +145,7 @@ def patchFromPath(
     description_path,
     ignore_ret_prefs=False,
 ):
-    import analyzer.modules
+    import analyzer.modules # noqa
 
     output = Path(output)
     inputs = [Path(path) for path in paths]
@@ -189,7 +188,7 @@ def patchFromPath(
 
 
 def visualizeSampleExecution(path, sample_name, output):
-    import analyzer.modules
+    import analyzer.modules # noqa
 
     description = loadDescription(path)
     dataset_repo = DatasetRepo.getConfig()

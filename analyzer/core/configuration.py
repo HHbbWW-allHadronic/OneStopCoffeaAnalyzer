@@ -85,7 +85,7 @@ class AnalysisDescription(BaseModel):
     def getRegion(self, name):
         try:
             return next(x for x in self.regions if x.name == name)
-        except StopIteration as e:
+        except StopIteration:
             raise KeyError(f'No region "{name}"')
 
     def __eq__(self, other):

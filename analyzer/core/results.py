@@ -13,8 +13,7 @@ import analyzer.datasets as ad
 import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
-from analyzer.utils.progress import progbar, spinner
-from analyzer.utils.structure_tools import accumulate, iadd
+from analyzer.utils.structure_tools import accumulate
 from rich.progress import track
 
 
@@ -236,7 +235,6 @@ def loadResults(obj):
 
 
 def loadSampleResultFromPaths(paths, include=None):
-    results = []
     ret = {}
     for p in track(
         paths,
@@ -326,8 +324,8 @@ def checkResult(paths, configuration=None):
 
     if configuration:
         # If a configuration is provided we also check for completely missing samples
-        from analyzer.datasets import DatasetRepo, EraRepo
-        from analyzer.core.configuration import getSubSectors, loadDescription
+        from analyzer.datasets import DatasetRepo
+        from analyzer.core.configuration import loadDescription
 
         description = loadDescription(configuration)
         dataset_repo = DatasetRepo.getConfig()
@@ -375,7 +373,6 @@ def checkResult(paths, configuration=None):
 
 def updateMeta(paths):
     from analyzer.datasets import DatasetRepo, EraRepo
-    from rich import print
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()

@@ -1,8 +1,5 @@
 import logging
-from enum import Enum
-from fnmatch import fnmatch
-import re
-from analyzer.utils.querying import Pattern, PatternList
+from analyzer.utils.querying import Pattern
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
 from pydantic import (
@@ -10,7 +7,6 @@ from pydantic import (
     ConfigDict,
     field_validator,
     model_validator,
-    TypeAdapter,
 )
 
 logger = logging.getLogger(__name__)
