@@ -13,18 +13,20 @@ from analyzer.core.columns import Columns
 from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
 from analyzer.core.histograms import Hist
-from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from multiprocessing import Process, Queue
 
 logger = logging.getLogger(__name__)
 
-
-def callTimeout(func, timeout_seconds, *args, **kwargs):
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        future = executor.submit(func, *args, **kwargs)
+def callTimeout(function, timeout, *args, **kwargs):
+    with ProcessPoolExecutor(max_workers=1) as executor:
         try:
-            return future.result(timeout=timeout_seconds)
+            future = executor.submit(function, *args, **kwargs)
+            return future.result(timeout=timeout)
         except TimeoutError:
-            raise TimeoutError("Function execution timed out!")
+            for pid, process in executor._processes.items():
+                process.terminate()
+            raise
 
 
 @dataclass
@@ -164,7 +166,7 @@ class Analyzer:
         known_form=None,
         treepath="Events",
         processing_timeout=60,
-        load_timeout=10,
+        load_timeout=1,
     ):
         try:
             from coffea.nanoevents import NanoAODSchema, NanoEventsFactory

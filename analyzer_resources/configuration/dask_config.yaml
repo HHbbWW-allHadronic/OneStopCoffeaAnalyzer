@@ -5,7 +5,10 @@ distributed:
     profile:
       enabled: true
     memory:
-      temrinate: false
+      terminate: false
+    multiprocessing-method: spawn
+    daemon: false
+    
   comm:
     retry:
       count: 100
@@ -42,7 +45,7 @@ jobqueue:
     # Dask worker options
     cores: 1                     # Total number of cores per job
     memory: 2.5GB                # Total amount of memory per job
-    processes: 1                 # Number of Python processes per job
+    processes: False                 # Number of Python processes per jo
     threads: 1
 
     interface: null             # Network interface to use like eth0 or ib0
