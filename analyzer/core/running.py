@@ -187,19 +187,3 @@ def patchFromPath(
     results = executor.run(final_tasks, result_complete_callback=callback)
 
 
-def visualizeSampleExecution(path, sample_name, output):
-    import analyzer.modules # noqa
-
-    description = loadDescription(path)
-    dataset_repo = DatasetRepo.getConfig()
-    era_repo = EraRepo.getConfig()
-    subsectors = getSubSectors(description, dataset_repo, era_repo)
-
-    for k, v in subsectors.items():
-        print(f"{k} => {[x.region_name for x in v]}")
-
-    tasks = makeTasks(
-        subsectors, dataset_repo, era_repo, description.file_config.model_dump()
-    )
-    task = next(iter(task for task in tasks if task.sample_id == sample_name))
-    visualize(task, output)
