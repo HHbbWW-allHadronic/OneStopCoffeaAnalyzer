@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from analyzer.logging import setup_logging
-from rich import inspect, print
+from rich import print
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +151,8 @@ def handleSummaryTable(args):
         makeTableFromDict,
         texTable,
     )
-    from analyzer.datasets import DatasetRepo, EraRepo
+    from analyzer.datasets import EraRepo
 
-    inspect(args)
-    print(args.fields)
 
     query = {x: "*" for x in args.fields}
     format_opts = {"TT": "\\texttt{{{}}}", "RM": "\\textrm{{{}}}"}
@@ -165,7 +163,6 @@ def handleSummaryTable(args):
         query,
     )
     t = makeTableFromDict(r)
-    print(args.extra_format)
     format_funcs = {
         i: lambda x: format_opts[k].format(x) for i, k in args.extra_format or []
     }
@@ -186,7 +183,7 @@ def addSubparserSummaryTable(subparsers):
 
 
 def handleRunPackaged(args):
-    from analyzer.core.executor import PackagedTask
+    from analyzer.core.executors import PackagedTask
 
     with open(args.input, "rb") as f:
         task = f.load(f)
@@ -214,7 +211,7 @@ def handleRun(args):
 
 
 def handleStartCluster(args):
-    from analyzer.core.executor import LPCCondorDask
+    from analyzer.core.executors import LPCCondorDask
     import time
 
     print("HELLO")
