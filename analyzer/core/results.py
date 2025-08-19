@@ -2,6 +2,7 @@ import copy
 import logging
 from pathlib import Path
 import pickle as pkl
+from rich.prompt import Confirm
 from collections import defaultdict
 from typing import Any
 
@@ -248,7 +249,7 @@ def loadSampleResultFromPaths(
 
     if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER:
         print(
-            f"You are attempting to load {len(paths)} files."
+            f"You are attempting to load {len(paths)} files. "
             f"You may want to consider running 'analyzer merge' to improve loading speed."
         )
 
@@ -299,6 +300,13 @@ def loadSampleResultFromPaths(
 def merge(paths, outdir):
     outdir = Path(outdir)
     outdir.mkdir(exist_ok=True, parents=True)
+    if any(outdir.iterdir()):
+        ok = Confirm.ask(
+            f"Output directory '{outdir}' is not empty. This may cause problem. Do you want to proceed?"
+        )
+        if not ok:
+            print("Aborting")
+            return
 
     results = loadSampleResultFromPaths(paths)
     for sample_id, result in results.items():
