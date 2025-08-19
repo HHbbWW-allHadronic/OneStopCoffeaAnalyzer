@@ -4,32 +4,35 @@ distributed:
   worker:
     profile:
       enabled: true
-    memory:
-      terminate: false
+    # memory:
+    #   terminate: false
     daemon: false
+  # adaptive: {}
     
-  comm:
-    retry:
-      count: 100
-    timeouts:
-      connect: 1000
-      tcp: 1000
-  deploy:
-    lost-worker-timeout: 100
+    
+  # comm:
+  #   retry:
+  #     count: 100
+  #   timeouts:
+  #     connect: 1000
+  #     tcp: 1000
+  # deploy:
+  #   lost-worker-timeout: 100
   # nanny:
   #   environ:
   #     MALLOC_TRIM_THRESHOLD_: 0
   # scheduler:
   scheduler:
     events-log-length: 0
-    worker-saturation: 1.1
+    worker-saturation: 1.0
+    # no-workers-timeout: true
   # admin:
   #   log-length: 0
   # diagnostics:
   #   computations:
   #     max-history: 0
 
-optimization: {}
+# optimization: {}
   # fuse:
   #   ave-width: 10000
   #   delayed: true
