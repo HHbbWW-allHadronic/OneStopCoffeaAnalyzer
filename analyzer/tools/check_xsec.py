@@ -62,7 +62,6 @@ def main():
             if not sample.cms_dataset_regex:
                 continue
             n = sample.cms_dataset_regex.split("/")[1]
-            x = getSampleXSec(n, m)
 
 
 if __name__ == "__main__":

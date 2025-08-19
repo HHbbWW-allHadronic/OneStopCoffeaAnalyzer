@@ -303,7 +303,6 @@ def buildDataset(
         files = [f"root://cmsxrootd.fnal.gov/{x}" for x in getFiles(sample)]
         # x_sec = getSampleXSec(sample, token_file),
         cms_dataset_regex = sample
-        sample_process = sample.split("/")[0]
         d = {
             "name": name,
             "n_events": events,

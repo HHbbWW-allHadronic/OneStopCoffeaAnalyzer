@@ -1,9 +1,6 @@
-import functools as ft
 import operator as op
 
-from analyzer.datasets import DatasetRepo, EraRepo
 from analyzer.utils.querying import dictMatches
-from rich import print
 
 
 def texEscape(s):
@@ -12,7 +9,6 @@ def texEscape(s):
 
 def makeTableFromDict(data):
     keys = list(data[0].keys())
-    header = keys
     ret = [keys] + sorted([[d[k] for k in keys] for d in data], key=op.itemgetter(0))
     return ret
 
