@@ -165,20 +165,20 @@ class Analyzer:
         params,
         known_form=None,
         treepath="Events",
-        timeout=60,
+        timeout=120,
     ):
-        if timeout:
-            return callTimeout(
-                timeout,
-                self.runChunks,
-                fileset,
-                params,
-                known_form=known_form,
-                treepath=treepath,
-                timeout=None,
-            )
-        else:
-            try:
+        try:
+            if timeout:
+                return callTimeout(
+                    timeout,
+                    self.runChunks,
+                    fileset,
+                    params,
+                    known_form=known_form,
+                    treepath=treepath,
+                    timeout=None,
+                )
+            else:
                 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 
                 chunks = fileset.toCoffeaDataset()["files"]
@@ -196,9 +196,8 @@ class Analyzer:
                 result = results.subsector_adapter.validate_python(result)
                 return (fileset, result)  # self.run(events, params))
 
-            except Exception:
-                raise
-                return None
+        except Exception:
+            return None
 
     def ensureFunction(self, module_repo):
         for ra in self.region_analyzers:
