@@ -159,7 +159,6 @@ def copyFile(fr, to, from_rel_to=None):
     fr = urlunparse((fr_scheme, fr_netloc, str(Path(fr_path).absolute()), *fr_rest))
     to = urlunparse((to_scheme, to_netloc, to_path, *to_rest))
 
-    xrootd = any("root" in x for x in (fr_scheme, to_scheme))
 
     import XRootD
     import XRootD.client

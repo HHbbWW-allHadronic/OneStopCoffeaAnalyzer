@@ -1,5 +1,4 @@
 import yaml
-from rich import print
 import copy
 from analyzer.utils.structure_tools import deepMerge
 from analyzer.core.specifiers import PatternList

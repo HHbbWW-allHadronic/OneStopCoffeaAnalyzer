@@ -26,7 +26,7 @@ def getNested(d, s):
     parts = s.split(".", 1)
     try:
         ret = ft.reduce(getNested, parts, d)
-    except KeyError as e:
+    except KeyError:
         raise KeyError(str(s))
     return ret
 
@@ -187,7 +187,7 @@ class SectorGroup(SectorGroupParameters):
 
     def getSectorStyle(self, sector):
         if self.style_set:
-            style = self.style_set.getStyle(sector.sector_params)
+            return self.style_set.getStyle(sector.sector_params)
         else:
             return None
 
@@ -200,7 +200,7 @@ class SectorGroup(SectorGroupParameters):
         for sector in self.sectors:
             try:
                 h = sector.result.histograms[hist_name].histogram
-            except KeyError as e:
+            except KeyError:
                 logger.error(
                     f"Could not find histogram '{hist_name}' in {sector.sector_params.dataset.name} -- {sector.sector_params.region_name}"
                 )

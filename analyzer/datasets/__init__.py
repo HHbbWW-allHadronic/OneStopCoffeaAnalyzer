@@ -1,4 +1,4 @@
-from .era import Era, EraRepo
+from .era import Era, EraRepo #noqa
 from .samples import (
     Dataset,
     DatasetParams,
@@ -7,5 +7,5 @@ from .samples import (
     SampleId,
     SampleParams,
     SampleType,
-)
-from .fileset import FileSet
+) #noqa
+from .fileset import FileSet #noqa

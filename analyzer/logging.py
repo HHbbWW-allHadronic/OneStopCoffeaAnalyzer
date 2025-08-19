@@ -14,7 +14,7 @@ def setup_logging(
         with open(path, "rt") as f:
             config = yaml.safe_load(f.read())
         logging.config.dictConfig(config)
-    except OSError as e:
+    except OSError:
         pass
     if default_level is not None:
         logger = logging.getLogger("analyzer")

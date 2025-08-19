@@ -1,16 +1,11 @@
 from __future__ import annotations
-import functools as ft
 from typing_extensions import TypeAliasType
-import logging
 from enum import Enum
 from fnmatch import fnmatch
 import re
 
 from pydantic import (
     BaseModel,
-    RootModel,
-    ConfigDict,
-    field_validator,
     model_validator,
     TypeAdapter,
 )
@@ -63,7 +58,7 @@ def getNested(d, s):
     parts = s.split(".", 1)
     try:
         ret = getNested(d[parts[0]], parts[1])
-    except KeyError as e:
+    except KeyError:
         raise KeyError(str(s))
     return ret
 

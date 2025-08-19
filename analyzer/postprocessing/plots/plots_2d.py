@@ -3,8 +3,6 @@ import matplotlib
 import matplotlib.pyplot as plt
 
 
-from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
 from analyzer.postprocessing.style import Styler
 
 from .annotations import addCMSBits, labelAxis
@@ -26,7 +24,7 @@ def plot2D(
     matplotlib.use("Agg")
     loadStyles()
     fig, ax = plt.subplots(layout="constrained")
-    style = styler.getStyle(packaged_hist.sector_parameters)
+    styler.getStyle(packaged_hist.sector_parameters)
     h = packaged_hist.histogram
     fixBadLabels(h)
 
@@ -44,9 +42,9 @@ def plot2D(
         [sp],
         extra_text=f"{sp.region_name}\n{packaged_hist.title}",
         text_color="white",
-        plot_configuration=plot_configuration,
+        plot_configuration=pc,
     )
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -73,7 +71,7 @@ def plot2DSigBkg(
     matplotlib.use("Agg")
     loadStyles()
     fig, ax = plt.subplots(layout="constrained")
-    style = styler.getStyle(bkg_hist.sector_parameters)
+    styler.getStyle(bkg_hist.sector_parameters)
     h = bkg_hist.histogram
     fixBadLabels(h)
 
@@ -92,7 +90,7 @@ def plot2DSigBkg(
     HH = gaussian_filter(HH, 1.2)
     midpoints = (xe[1:] + xe[:-1]) / 2, (ye[1:] + ye[:-1]) / 2
     grid = HH.transpose()
-    total = h.sum().value
+    h.sum().value
 
     sig_style = sig_hist.style or styler.getStyle(sig_hist.sector_parameters)
 

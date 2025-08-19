@@ -12,7 +12,6 @@ def njets(events, params, analyzer):
     """Basic information about individual jets"""
     gj = events.good_jets
     analyzer.H(f"h_njet", CommonAxes.nj_axis, ak.num(gj))
-    jet_combos = [(0, 4), (0, 3), (1, 4)]
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
@@ -106,7 +105,6 @@ def jet_kinematics_detailed(events, params, analyzer):
     gj = events.good_jets
     for i in range(0, 4):
         mask = ak.num(gj, axis=1) > i
-        masked_jets = gj[mask]
 
         analyzer.H(
             rf"pt_{i+1}",
@@ -182,8 +180,6 @@ def jet_combo_kinematics(events, params, analyzer):
     ]:
         p1_1, p1_2 = p1
         p2_1, p2_2 = p2
-        mtitle1 = 3
-        mtitle2 = 4
         analyzer.H(
             f"m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [

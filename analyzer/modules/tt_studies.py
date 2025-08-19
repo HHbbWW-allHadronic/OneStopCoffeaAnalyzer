@@ -1,6 +1,5 @@
 import awkward as ak
 import numpy as np
-import dask_awkward as dak
 from analyzer.core import MODULE_REPO, ModuleType
 import hist
 

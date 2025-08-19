@@ -1,5 +1,4 @@
 import copy
-import itertools as it
 from collections import defaultdict
 from typing import Any
 

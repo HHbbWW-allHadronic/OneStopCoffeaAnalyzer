@@ -8,7 +8,7 @@ mplhep.style.use("CMS")
 
 def loadStyles():
     font_dirs = [str(Path(CONFIG.STATIC_PATH) / "fonts")]
-    style = str(Path(CONFIG.STYLE_PATH) / "style.mplstyle")
+    str(Path(CONFIG.STYLE_PATH) / "style.mplstyle")
     font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
     for font in font_files:
         font_manager.fontManager.addfont(font)

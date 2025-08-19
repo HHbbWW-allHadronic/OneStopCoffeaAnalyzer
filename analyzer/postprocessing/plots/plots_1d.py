@@ -5,7 +5,6 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 from analyzer.postprocessing.style import Styler
-from rich import print
 
 from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
@@ -73,12 +72,12 @@ def plotOne(
             label=titles,  # sort="yield"
         )
 
-    labelAxis(ax, "y", h.axes, label=plot_configuration.y_label)
-    labelAxis(ax, "x", h.axes, label=plot_configuration.x_label)
+    labelAxis(ax, "y", h.axes, label=pc.y_label)
+    labelAxis(ax, "x", h.axes, label=pc.x_label)
     addCMSBits(
         ax,
         [x.sector_parameters for x in packaged_hists],
-        plot_configuration=plot_configuration,
+        plot_configuration=pc,
     )
     if style.legend:
         legend_kwargs = {}
@@ -91,7 +90,7 @@ def plotOne(
         ax.set_ylim(bottom=style.y_min)
     else:
         mplhep.ylow(ax)
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -138,14 +137,14 @@ def __plotStrCatOne(
     addCMSBits(
         ax,
         [x.sector_params for x in sectors],
-        plot_configuration=plot_configuration,
+        plot_configuration=pc,
     )
     ax.set_yscale(scale)
     # mplhep.yscale_legend(ax, soft_fail=True)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
     # mplhep.yscale_legend(ax, soft_fail=True)
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -176,7 +175,7 @@ def __plotStrCatAsTable(
     ax.axis("tight")
     for sector in sectors:
         p = sector.sector_params
-        style = styler.getStyle(p)
+        styler.getStyle(p)
         data = getter(sector)
         row_labels.append(sector.sector_params.dataset.title)
         rows.append([x[1] for x in data])
@@ -188,7 +187,7 @@ def __plotStrCatAsTable(
     )
 
     o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
-    saveFig(fig, o, extension=plot_configuration.image_type)
+    saveFig(fig, o, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -249,7 +248,7 @@ def plotRatio(
         title = num.title
         h = num.histogram
         fixBadLabels(h)
-        sp = num.sector_parameters
+        num.sector_parameters
         s = num.style or styler.getStyle(num.sector_parameters)
 
         n, d = h.values(), den_hist.values()
@@ -296,7 +295,7 @@ def plotRatio(
     addCMSBits(
         ax,
         [denominator.sector_parameters, *(x.sector_parameters for x in numerators)],
-        plot_configuration=plot_configuration,
+        plot_configuration=pc,
     )
 
     ratio_ax.set_ylabel("Ratio", loc="center")
@@ -304,4 +303,4 @@ def plotRatio(
     mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
     ax.set_yscale(scale)
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)

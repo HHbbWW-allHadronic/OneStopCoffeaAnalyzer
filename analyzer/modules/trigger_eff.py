@@ -37,7 +37,6 @@ def trigger_eff_objects(columns, params):
     good_fj_mask = (fat_jets.pt > 175) & (abs(fat_jets.eta) < 2.4)
 
     era_info = params.dataset.era
-    jet_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     # if (
     #     "TrimMass" in jet_trigger_name
     #     or "SoftDrop" in jet_trigger_name

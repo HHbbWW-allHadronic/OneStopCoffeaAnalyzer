@@ -382,7 +382,6 @@ class DatasetRepo:
     def load(self, directory, use_replicas=True):
         directory = Path(directory)
         files = list(directory.rglob("*.yaml"))
-        file_contents = {}
         for f in progbar(files, title="Reading File"):
             with open(f, "r") as fo:
                 data = yaml.safe_load(fo)

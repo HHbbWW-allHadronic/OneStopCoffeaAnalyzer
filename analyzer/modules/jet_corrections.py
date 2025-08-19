@@ -59,12 +59,10 @@ def smearJets(jets, jer, jet_type, cset, jer_conf, systematic="nom"):
     resrng = correctionlib_wrapper(resrng_unwrapped)
 
     key_jersmear = "JERSmear"
-    cset_jersmear = core.CorrectionSet.from_file(jer_conf.smear_path)
     sf_jersmear = correctionlib_wrapper(cset_jetsmear[key_jersmear])
 
     sf_key, res_key = getJerKeys(jer, jet_type)
     sf_corr = correctionlib_wrapper(cset[sf_key])
-    res_corr = correctionlib_wrapper(cset[res_key])
     sf = sf_corr.evaluate(jets["eta"], systematic)
     res = pt_corr.evaluate(jets["eta"], jets["pt"], jets["rho"])
 

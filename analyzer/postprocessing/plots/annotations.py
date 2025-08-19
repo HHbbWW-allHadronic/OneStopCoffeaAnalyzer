@@ -51,7 +51,6 @@ def labelAxis(ax, which, axes, label=None, label_complete=None):
         label = label or "Events"
         units = [getattr(x, "unit", None) for x in axes]
         units = [x for x in units if x]
-        unit_format = "*".join(units)
         # if unit_format:
         #     label += f" / {unit_format}"
         getattr(ax, f"set_{which}label")(label.replace("textrm", "text"))

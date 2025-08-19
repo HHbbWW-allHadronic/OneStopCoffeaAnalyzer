@@ -1,5 +1,4 @@
 import copy
-from rich import print
 import itertools as it
 import hist
 import enum

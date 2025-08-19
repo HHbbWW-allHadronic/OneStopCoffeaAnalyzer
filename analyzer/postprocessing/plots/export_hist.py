@@ -1,7 +1,6 @@
 import pickle as pkl
 from pathlib import Path
 
-from ..grouping import doFormatting
 
 
 def exportHist(
