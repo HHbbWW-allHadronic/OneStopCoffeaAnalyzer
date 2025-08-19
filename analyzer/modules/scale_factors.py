@@ -138,7 +138,6 @@ def btagging_shape_sf(
 ):
     current_syst = events.getSystName()
 
-    bwps = getBTagWP(profile)
     jets = events.Jet
     corrs = correctionlib.CorrectionSet.from_file(profile.btag_scale_factors)
 
