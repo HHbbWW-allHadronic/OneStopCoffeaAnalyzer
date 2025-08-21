@@ -1,5 +1,5 @@
 import logging
-from analyzer.utils.querying import Pattern
+from analyzer.utils.querying import Pattern, PatternList
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleType, SampleParams
 from pydantic import (
