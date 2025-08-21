@@ -5,7 +5,7 @@ from pathlib import Path
 
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
-from analyzer.core.configuration import getSubSectors, loadDescription
+from analyzer.core.configuration import getSubSectors, loadDescription, iterSubsectors
 from analyzer.core.executors import AnalysisTask
 from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
@@ -28,6 +28,20 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
         )
         ret.append(u)
     return ret
+
+
+def iterTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
+    ret = []
+    for sample_id, region_analyzers in subsectors:
+        params = dataset_repo[sample_id].params
+        params.dataset.populateEra(era_repo)
+        logger.info(f"Construted analysis task for {sample_id}")
+        yield AnalysisTask(
+            sample_id=sample_id,
+            sample_params=params,
+            file_set=dataset_repo[sample_id].getFileSet(file_retrieval_kwargs),
+            analyzer=Analyzer(region_analyzers),
+        )
 
 
 def getUniqueFilename(file_name):
@@ -61,16 +75,16 @@ def runFromPath(path, output, executor_name, test_mode=False):
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
-    subsectors = getSubSectors(description, dataset_repo, era_repo)
+    subsectors = iterSubsectors(description, dataset_repo, era_repo)
 
-    for k, v in subsectors.items():
-        print(f"{k} => {[x.region_name for x in v]}")
+    # for k, v in subsectors.items():
+    #     print(f"{k} => {[x.region_name for x in v]}")
 
-    tasks = makeTasks(
+    tasks = iterTasks(
         subsectors, dataset_repo, era_repo, description.file_config.model_dump()
     )
 
-    tasks = {task.sample_id: task for task in tasks}
+    # tasks = {task.sample_id: task for task in tasks}
 
     if executor_name not in description.executors:
         raise KeyError(f"Unknown executor {executor_name}")

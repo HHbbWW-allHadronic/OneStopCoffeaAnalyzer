@@ -29,6 +29,7 @@ from rich import print
 from .executor import Executor
 from .preprocessing_tools import preprocess
 
+from dask.distributed import get_client
 
 logger = logging.getLogger(__name__)
 
@@ -116,14 +117,20 @@ def reduceResults(
     reduction_factor=10,
     target_final_count=10,
     close_to_target_frac=0.7,
+    key_prefix="",
 ):
+    layer = 0
     while len(futures) > target_final_count:
         if (len(futures) / reduction_factor) < (
             target_final_count * close_to_target_frac
         ):
             reduction_factor = math.ceil(len(futures) / target_final_count)
         futures = [
-            client.submit(mergeFutures, futures[i : i + reduction_factor])
+            client.submit(
+                mergeFutures,
+                futures[i : i + reduction_factor],
+                key=key_prefix + f"merge-{layer}-{i}",
+            )
             for i in range(0, len(futures), reduction_factor)
         ]
     return futures
@@ -153,6 +160,7 @@ def runOneTaskDask(
         maybe_base_form = None
 
     if bulk_mode:
+        to_submit = list(file_set_prepped.iterChunks())
         futures = client.map(
             lambda chunk: task.analyzer.runChunks(
                 chunk,
@@ -160,7 +168,8 @@ def runOneTaskDask(
                 known_form=maybe_base_form,
                 timeout=timeout,
             ),
-            list(file_set_prepped.iterChunks()),
+            to_submit,
+            key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
         )
         with dask.annotate(priority=10):
             final_futures = reduceResults(
@@ -168,6 +177,7 @@ def runOneTaskDask(
                 futures,
                 reduction_factor=reduction_factor,
                 target_final_count=final_files,
+                key_prefix=str(task.sample_id) + "-",
             )
         all_results = None
         for future in as_completed(final_futures):
@@ -233,7 +243,7 @@ class DaskExecutor(Executor):
             )
 
     def runSerial(self, tasks, result_complete_callback=None):
-        for task in tasks.values():
+        for task in tasks:
             try:
                 result = runOneTaskDask(
                     task,
@@ -267,8 +277,11 @@ class DaskExecutor(Executor):
                     timeout=self.timeout,
                     # client=self._client,
                 ): v.sample_id
-                for v in tasks.values()
+                for v in tasks
             }
+
+            del tasks
+
             for future in concurrent.futures.as_completed(futures):
                 sample_id = futures[future]
                 try:
