@@ -30,61 +30,31 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
     return ret
 
 
-@contextlib.contextmanager
-def openNoOverwrite(file_name, *args, **kwargs):
+def getUniqueFilename(file_name):
     p = Path(file_name)
     orig_stem = p.stem
     i = 1
     while p.exists():
         p = p.with_stem(orig_stem + "_" + str(i))
         i += 1
-
-    handle = open(p, *args, **kwargs)
-    yield handle
-    handle.close()
-
-
-def saveResults(results, output, save_separate=True):
-    if not results:
-        return
-    output = Path(output)
-    if save_separate:
-        output.mkdir(exist_ok=True, parents=True)
-        for k, v in results.items():
-            with openNoOverwrite(output / f"{k}.pkl", "wb") as f:
-                pkl.dump({k: v.model_dump()}, f)
-    else:
-        output.parent.mkdir(exist_ok=True, parents=True)
-        with openNoOverwrite(output, "wb") as f:
-            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
-
+    return p
 
 
 class Saver:
     def __init__(self, output):
-        self.output=output
+        self.output = output
 
     def __call__(self, key, result):
         self.output.mkdir(exist_ok=True, parents=True)
         output_file = self.output / f"{key}.pkl"
-        logger.info(f'Saving key {key} to "{output_file}"')
-        with openNoOverwrite(output_file, "wb") as f:
+        real_path = getUniqueFilename(output_file)
+        logger.info(f"Saving file '{real_path}'")
+        with open(real_path, "wb") as f:
             pkl.dump({key: result.model_dump()}, f)
-        
-
-# def makeSaveCallback(output):
-#     def inner(key, result):
-#         output.mkdir(exist_ok=True, parents=True)
-#         output_file = output / f"{key}.pkl"
-#         logger.info(f'Saving key {key} to "{output_file}"')
-#         with openNoOverwrite(output_file, "wb") as f:
-#             pkl.dump({key: result.model_dump()}, f)
-# 
-#     return inner
 
 
 def runFromPath(path, output, executor_name, test_mode=False):
-    import analyzer.modules # noqa
+    import analyzer.modules  # noqa
 
     output = Path(output)
     description = loadDescription(path)
@@ -116,7 +86,7 @@ def runFromPath(path, output, executor_name, test_mode=False):
 
 
 def runPackagedTask(packaged_task, output=None, output_dir=None):
-    import analyzer.modules # noqa
+    import analyzer.modules  # noqa
 
     if output_dir is None:
         output_dir = Path(".")
@@ -136,8 +106,6 @@ def runPackagedTask(packaged_task, output=None, output_dir=None):
     saveResults(results, output_dir / output, save_separate=True)
 
 
-
-
 def patchFromPath(
     paths,
     output,
@@ -145,7 +113,7 @@ def patchFromPath(
     description_path,
     ignore_ret_prefs=False,
 ):
-    import analyzer.modules # noqa
+    import analyzer.modules  # noqa
 
     output = Path(output)
     inputs = [Path(path) for path in paths]
@@ -185,5 +153,3 @@ def patchFromPath(
 
     callback = Saver(output)
     results = executor.run(final_tasks, result_complete_callback=callback)
-
-
