@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
+import uproot
 
 import analyzer.core.results as core_results
 import awkward as ak
@@ -19,16 +20,83 @@ from analyzer.configuration import CONFIG
 import math
 from analyzer.utils.structure_tools import iadd
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.util import decompress_form
+from coffea.util import compress_form, decompress_form
 from distributed import Client, LocalCluster, as_completed
 from pydantic import Field, RootModel
 from .condor_tools import setupForCondor
 from rich import print
 
 from .executor import Executor
+from .preprocessing_tools import preprocess
 
 
 logger = logging.getLogger(__name__)
+
+
+def getSteps(
+    files,
+    step_size: int | None = None,
+    save_form: bool = False,
+    uproot_options: dict = {},
+):
+    nf_backend = awkward.backend(normed_files)
+    lz_or_nf = awkward.typetracer.length_zero_if_typetracer(normed_files)
+
+    ret = []
+    for arg in files:
+        the_file = uproot.open({arg.file: None}, **uproot_options)
+        tree = the_file[arg.object_path]
+
+        num_entries = tree.num_entries
+
+        form_json = None
+        form_hash = None
+        if save_form:
+            form_str = uproot.dask(
+                tree,
+                ak_add_doc={"__doc__": "title", "typename": "typename"},
+                filter_name=no_filter,
+                filter_typename=no_filter,
+                filter_branch=partial(_is_interpretable, emit_warning=False),
+            ).layout.form.to_json()
+            # the function cache needs to be popped if present to prevent memory growth
+            if hasattr(dask.base, "function_cache"):
+                dask.base.function_cache.popitem()
+
+            form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
+            form_json = compress_form(form_str)
+
+        target_step_size = num_entries if step_size is None else step_size
+        file_uuid = str(the_file.file.uuid)
+        n_steps_target = max(round(num_entries / target_step_size), 1)
+        actual_step_size = math.ceil(num_entries / n_steps_target)
+        out = [
+            [
+                i * actual_step_size,
+                min((i + 1) * actual_step_size, num_entries),
+            ]
+            for i in range(n_steps_target)
+        ]
+
+        out_uuid = file_uuid
+        out_steps = out.tolist()
+
+        if out_steps is not None and len(out_steps) == 0:
+            out_steps = [[0, 0]]
+
+        array.append(
+            {
+                "file": arg.file,
+                "object_path": arg.object_path,
+                "steps": out_steps,
+                "num_entries": num_entries,
+                "uuid": out_uuid,
+                "form": form_json,
+                "form_hash_md5": form_hash,
+            }
+        )
+
+    return array
 
 
 def mergeFutures(futures):
@@ -42,37 +110,23 @@ def mergeFutures(futures):
     return ret
 
 
-def reduceResults(client, futures, reduction_count=10, terminal_frac=0.05):
-    final_count = math.ceil(terminal_frac * len(futures))
-    while len(futures) > final_count:
+def reduceResults(
+    client,
+    futures,
+    reduction_factor=10,
+    target_final_count=10,
+    close_to_target_frac=0.7,
+):
+    while len(futures) > target_final_count:
+        if (len(futures) / reduction_factor) < (
+            target_final_count * close_to_target_frac
+        ):
+            reduction_factor = math.ceil(len(futures) / target_final_count)
         futures = [
-            client.submit(mergeFutures, futures[i : i + reduction_count])
-            for i in range(0, len(futures), reduction_count)
+            client.submit(mergeFutures, futures[i : i + reduction_factor])
+            for i in range(0, len(futures), reduction_factor)
         ]
     return futures
-
-
-def preprocess(task):
-    unchunked = task.file_set.justUnchunked()
-    if not unchunked.empty:
-        to_prep = {task.sample_id: unchunked.toCoffeaDataset()}
-        out, all_items = dst.preprocess(
-            to_prep,
-            save_form=True,
-            skip_bad_files=True,
-            step_size=task.file_set.step_size,
-            allow_empty_datasets=True,
-        )
-        if out:
-            file_set_prepped = task.file_set.updateFromCoffea(
-                out[task.sample_id]
-            ).justChunked()
-        else:
-            file_set_prepped = task.file_set.justChunked()
-    else:
-        file_set_prepped = task.file_set.justChunked()
-
-    return file_set_prepped
 
 
 def runOneTaskDask(
@@ -82,12 +136,16 @@ def runOneTaskDask(
     bulk_mode=False,
     scheduler_address=None,
     timeout=120,
+    input_events_per_output=10**8,
+    reduction_factor=10,
 ):
     client = Client(scheduler_address)
     logger.info(f"Running task {task.sample_id}")
     task.file_set.step_size = task.file_set.step_size or default_step_size
 
     file_set_prepped = preprocess(task)
+    total_events = file_set_prepped.events
+    final_files = math.ceil(total_events / input_events_per_output)
 
     if task.file_set.form is not None:
         maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
@@ -105,7 +163,12 @@ def runOneTaskDask(
             list(file_set_prepped.iterChunks()),
         )
         with dask.annotate(priority=10):
-            final_futures = reduceResults(client, futures)
+            final_futures = reduceResults(
+                client,
+                futures,
+                reduction_factor=reduction_factor,
+                target_final_count=final_files,
+            )
         all_results = None
         for future in as_completed(final_futures):
             fset, all_results = future.result()
