@@ -243,11 +243,11 @@ def openAndLoad(path):
 
 
 def loadSampleResultFromPaths(
-    paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES
+        paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES, show_warning=True
 ):
     ret = {}
 
-    if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER:
+    if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER and show_warning:
         print(
             f"You are attempting to load {len(paths)} files. "
             f"You may want to consider running 'analyzer merge' to improve loading speed."
@@ -308,7 +308,7 @@ def merge(paths, outdir):
             print("Aborting")
             return
 
-    results = loadSampleResultFromPaths(paths)
+    results = loadSampleResultFromPaths(paths, show_warning=False)
     for sample_id, result in results.items():
         output = outdir / f"{sample_id}.pkl"
         print(f'Saving sample {sample_id} to "{output}"')
