@@ -77,14 +77,9 @@ def runFromPath(path, output, executor_name, test_mode=False):
     era_repo = EraRepo.getConfig()
     subsectors = iterSubsectors(description, dataset_repo, era_repo)
 
-    # for k, v in subsectors.items():
-    #     print(f"{k} => {[x.region_name for x in v]}")
-
     tasks = iterTasks(
         subsectors, dataset_repo, era_repo, description.file_config.model_dump()
     )
-
-    # tasks = {task.sample_id: task for task in tasks}
 
     if executor_name not in description.executors:
         raise KeyError(f"Unknown executor {executor_name}")

@@ -134,7 +134,7 @@ def getSubSectors(description, dataset_repo, era_repo):
 
 def iterSubsectors(description, dataset_repo, era_repo):
     s_pairs = []
-    ret = defaultdict(list)
+    by_dataset = defaultdict(list)
     for dataset_name, regions in description.samples.items():
         if any(x in dataset_name for x in [".", "*"]):
             todo = [(x, regions) for x in dataset_repo if re.match(dataset_name, x)]
@@ -144,17 +144,13 @@ def iterSubsectors(description, dataset_repo, era_repo):
             if isinstance(regions, str) and regions == "All":
                 regions = [r.name for r in description.regions]
             for r in regions:
-                s_pairs.append((dataset_name, r))
-    by_dataset = defaultdict(list)
-    for dataset_name, region_name in s_pairs:
-        by_dataset[dataset_name].append(region_name)
+                by_dataset[dataset_name].append(r)
 
     for dataset_name, regions in by_dataset.items():
         logger.debug(
-            f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"'
+            f'Getting analyzer for dataset "{dataset_name}" and regions "{regions}"'
         )
         dataset = dataset_repo[dataset_name]
-        region = description.getRegion(region_name)
         for sample in dataset.samples:
             logger.info(
                 f"Constructing {len(regions)} region analyzers for {sample.sample_id} "
@@ -168,6 +164,6 @@ def iterSubsectors(description, dataset_repo, era_repo):
                         MODULE_REPO,
                         era_repo,
                     )
-                    for region in regions
+                    for region_name in regions
                 ],
             )
