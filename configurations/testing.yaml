@@ -3,13 +3,13 @@ name: Complete
 # Samples and in which regions they should be processed
 samples:
   signal_2018_312_1500_1400: All
-  # signal_2018_312_1500_900: All
-  # signal_2018_312_1500_600: All
+  signal_2018_312_1500_900: All
+  signal_2018_312_1500_600: All
 
 executors:
   local:
     executor_type: dask_local
-    step_size: 500
+    step_size: 10000
     max_workers: 1
     parallel_submission: 1
     use_threads: true

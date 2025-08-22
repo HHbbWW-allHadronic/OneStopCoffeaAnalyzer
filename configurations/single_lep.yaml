@@ -4,14 +4,17 @@ name: Complete
 samples:
   tt_to_hadronic_2018: [Signal313, Signal312]
   tt_semileptonic_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
-  # wjets_to_ln_2018: [SingleLepCR313, SingleLepCR312]
-  # diboson_2018: [SingleLepCR313, SingleLepCR312]
-  single_top_2018: [SingleLepCR313, SingleLepCR312]
-  # qcd_inclusive_2018: [SingleLepCR313, SingleLepCR312]
+  single_top_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
   data_singlemuon_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
   data_egamma_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
-  # signal_2018_312_.+: [SingleLepCR312]
-  # signal_2018_313_.+: [SingleLepCR313]
+
+  wjets_to_ln_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
+  diboson_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
+
+  # qcd_inclusive.*:  [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313, Signal312, Signal313]
+
+  signal_2018_312_.+: [Signal312,SingleLepCR312]
+  signal_2018_313_.+: [Signal313,SingleLepCR313]
 
 executors:
   local:
@@ -20,31 +23,23 @@ executors:
     parallel_submission: 1
     step_size: 10000
     max_workers: 4
-  imm:
-    executor_type: immediate
-    step_size: 1000000
-    catch_exceptions: False
-
-  condor:
-    executor_type: condor
-    step_size: 100000
 
   dask_condor:
     executor_type: dask_condor
     max_workers: 200
-    min_workers: 200
+    min_workers: 50
     use_threads: true
-    parallel_submission: 20
+    parallel_submission: 4
     memory: 4GB
     worker_timeout: 7200
-    step_size: 250000
+    step_size: 400000
     bulk_mode: true
     extra_files:
         - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
         - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
 
 file_config:
-  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*US.*", ".*(T0|T1|T2).*","eos"]
   # location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 

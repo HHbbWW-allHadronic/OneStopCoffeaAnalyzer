@@ -3,6 +3,7 @@ import dask
 import logging
 from dataclasses import dataclass
 from collections.abc import Sequence
+import psutil
 
 
 from analyzer.core.region_analyzer import RegionAnalyzer
@@ -27,6 +28,21 @@ def callTimeout(process_timeout, function, *args, **kwargs):
             for pid, process in executor._processes.items():
                 process.terminate()
             raise
+
+
+def checkProcess(process, max_mem):
+    try:
+        memory = psutil.Process(process.pid).memory_info().rss
+    except (ProcessLookupError, psutil.NoSuchProcess, psutil.AccessDenied):
+        return 
+
+    if memory / self.memory_limit <= self.memory_terminate_fraction:
+        return
+    else:
+        process.terminate()
+
+
+
 
 
 @dataclass
@@ -166,9 +182,11 @@ class Analyzer:
         known_form=None,
         treepath="Events",
         timeout=120,
+        max_memory_gb=3.2,
     ):
         try:
             if timeout:
+                logger.info(f"Starting run of analyzer using file set: {fileset}")
                 return callTimeout(
                     timeout,
                     self.runChunks,
@@ -180,9 +198,14 @@ class Analyzer:
                 )
             else:
                 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+                from analyzer.logging import setup_logging
+                setup_logging()
+
+                max_memory_bytes = round(1024 * 1024 * max_memory_gb)
 
                 chunks = fileset.toCoffeaDataset()["files"]
 
+                logger.info(f"Loading events from {fileset}")
                 events = NanoEventsFactory.from_root(
                     chunks,
                     schemaclass=NanoAODSchema,
@@ -193,10 +216,13 @@ class Analyzer:
 
                 result = results.subsector_adapter.dump_python(self.run(events, params))
                 result = dask.compute(result, scheduler="synchronous")[0]
+                logger.info(f"Analysis completed successfully for {fileset}")
                 result = results.subsector_adapter.validate_python(result)
+
                 return (fileset, result)  # self.run(events, params))
 
         except Exception:
+            raise
             return None
 
     def ensureFunction(self, module_repo):

@@ -2,7 +2,7 @@ PostDefaults:
   style_set: "style.yaml"
   plot_configuration:
     cms_text: "Preliminary"
-    image_type: ".pdf"
+    image_type: ".png"
     cms_text_color: Black
 
 all_oned: &all_oned
@@ -112,41 +112,41 @@ Postprocessing:
   #     axis_options: {variation: central, NJets: Sum}
   #   output_name: "postprocessing/plots/{dataset.name}/{region_name}/{histogram_name}"
 
-  # - name: Simple 1D Plots
-  #   action: Histogram1D
-  #   histogram_names: *all_oned
-  #   to_process:
-  #     region_name: '*'
-  #     sample_spec:
-  #       name:
-  #           - '*'
-  #   scale: linear
-  #   plot_configuration:
-  #     cms_text: "Preliminary\n{region_name}"
-  #   grouping: 
-  #     fields: ['dataset.era.name', 'dataset.name', 'region_name']
-  #     axis_options: {variation: central, NJets: Sum}
-  #     to_process:
-  #       sample_spec:
-  #         name:
-  #           - 'data*'
-  #     special_add:
-  #       - field: "dataset.name"
-  #         pattern: "data*"
-  #         replace: "Data SingleLep"
-  # 
-  #   stacked: 
-  #     fields: ['dataset.era.name',  'region_name']
-  #     axis_options: {variation: central, NJets: Sum}
-  #     to_process:
-  #       sample_spec:
-  #         name:
-  #           - 'tt*'
-  #           # - 'qcd*'
-  #           # - 'single_top*'
-  #   stack_match_fields: ['dataset.era.name', 'region_name']
-  # 
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
+  - name: Simple 1D Plots
+    action: Histogram1D
+    histogram_names: *all_oned
+    to_process:
+      region_name: '*'
+      sample_spec:
+        name:
+            - '*'
+    scale: linear
+    plot_configuration:
+      cms_text: "Preliminary\n{region_name}"
+    grouping: 
+      fields: ['dataset.era.name', 'dataset.name', 'region_name']
+      axis_options: {variation: central, NJets: Sum}
+      to_process:
+        sample_spec:
+          name:
+            - 'data*'
+      special_add:
+        - field: "dataset.name"
+          pattern: "data*"
+          replace: "Data SingleLep"
+  
+    stacked: 
+      fields: ['dataset.era.name',  'region_name']
+      axis_options: {variation: central, NJets: Sum}
+      to_process:
+        sample_spec:
+          name:
+            - 'tt*'
+            - 'qcd*'
+            - 'single_top*'
+    stack_match_fields: ['dataset.era.name', 'region_name']
+  
+    output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
 
   # - name: Simple 1D Plots
   #   action: Histogram1D
@@ -185,15 +185,16 @@ Postprocessing:
       region_name: "*"
       sample_name:
         - 'tt*'
-        # - 'single_top*'
+        - 'single_top*'
         - 'data*'
+    scale: log
     grouping: 
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
       special_add:
         - field: "dataset.name"
           pattern: "data*"
           replace: "Data SingleLep"
-      axis_options: {variation: central, NJets: Split}
+      axis_options: {variation: central, NJets: Split, REST: Rebin2}
       #, REST: Rebin2}
     output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}_{NJets}"
     plot_configuration:
@@ -210,11 +211,12 @@ Postprocessing:
       - m24_vs_m14
       # - ratio_m13_vs_m14
       # - ratio_m24_vs_m14
+    scale: log
     to_process:
       region_name: "*"
       sample_name:
         - 'tt*'
-        # - 'single_top*'
+        - 'single_top*'
         - 'data*'
     grouping: 
       fields: ['dataset.name', 'dataset.era.name', 'region_name']
@@ -222,7 +224,7 @@ Postprocessing:
         - field: "dataset.name"
           pattern: "data*"
           replace: "Data SingleLep"
-      axis_options: {variation: central, NJets: Sum}
+      axis_options: {variation: central, NJets: Sum, REST: Rebin2}
       #, REST: Rebin1}
     output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
     plot_configuration:

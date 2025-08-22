@@ -23,7 +23,6 @@ distributed:
   #     MALLOC_TRIM_THRESHOLD_: 0
   # scheduler:
   scheduler:
-    events-log-length: 0
     worker-saturation: 1.0
     # no-workers-timeout: true
   # admin:

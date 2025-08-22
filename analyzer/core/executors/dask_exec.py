@@ -1,4 +1,6 @@
 from __future__ import annotations
+import json
+import base64
 
 import concurrent.futures
 import gc
@@ -117,7 +119,7 @@ def reduceResults(
     reduction_factor=10,
     target_final_count=10,
     close_to_target_frac=0.7,
-    key_prefix="",
+    key_suffix="",
 ):
     layer = 0
     while len(futures) > target_final_count:
@@ -129,10 +131,11 @@ def reduceResults(
             client.submit(
                 mergeFutures,
                 futures[i : i + reduction_factor],
-                key=key_prefix + f"merge-{layer}-{i}",
+                key=f"merge-{layer}-{i}" + str(key_suffix),
             )
             for i in range(0, len(futures), reduction_factor)
         ]
+        layer += 1
     return futures
 
 
@@ -171,26 +174,30 @@ def runOneTaskDask(
             to_submit,
             key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
         )
-        with dask.annotate(priority=10):
+        with dask.annotate(priority=20):
             final_futures = reduceResults(
                 client,
                 futures,
                 reduction_factor=reduction_factor,
                 target_final_count=final_files,
-                key_prefix=str(task.sample_id) + "-",
+                key_suffix="-" + str(task.sample_id),
             )
         all_results = None
         for future in as_completed(final_futures):
-            fset, all_results = future.result()
-            processed = file_set_prepped.intersect(fset)
-            final_result = core_results.SampleResult(
-                sample_id=task.sample_id,
-                file_set_ran=file_set_prepped,
-                file_set_processed=processed,
-                params=task.sample_params,
-                results=all_results,
-            )
-            result_complete_callback(final_result.sample_id, final_result)
+            try:
+                fset, all_results = future.result()
+                processed = file_set_prepped.intersect(fset)
+                final_result = core_results.SampleResult(
+                    sample_id=task.sample_id,
+                    file_set_ran=file_set_prepped,
+                    file_set_processed=processed,
+                    params=task.sample_params,
+                    results=all_results,
+                )
+                result_complete_callback(final_result.sample_id, final_result)
+            except Exception as e:
+                raise
+
             future.cancel()
             del future
             gc.collect()
@@ -315,6 +322,7 @@ class LocalDaskExecutor(DaskExecutor):
             n_workers=self.max_workers,
             scheduler_kwargs={"host": self.schedd_address},
         )
+
         self._client = Client(self._cluster)
 
 
@@ -381,6 +389,11 @@ class LPCCondorDask(DaskExecutor):
             "export DASK_INTERNAL_INHERIT_CONFIG="
             + dask.config.serialize(dask.config.global_config)
         )
+        log_config_path = Path(CONFIG.CONFIG_PATH) / "worker_logging_config.yaml"
+        with open(log_config_path, "rt") as f:
+            config = yaml.safe_load(f.read())
+            c = base64.b64encode(json.dumps(config).encode("utf-8")).decode("utf-8")
+        prologue.append("export ANALYZER_LOG_CONFIG=" + c)
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
         self._cluster = LPCCondorCluster(
@@ -393,5 +406,7 @@ class LPCCondorDask(DaskExecutor):
             job_script_prologue=prologue,
             **kwargs,
         )
+        # import dask_memusage
+        # dask_memusage.install(self._cluster.scheduler, "memusage.csv")
         self._client = Client(self._cluster)
         super().setup()

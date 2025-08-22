@@ -30,7 +30,7 @@ handlers:
     level: WARN
     formatter: just_name
 
-  debug_file_handler:
+  file_handler:
     class: logging.handlers.RotatingFileHandler
     level: DEBUG
     filename: logs/debug.log
@@ -39,41 +39,26 @@ handlers:
     formatter: simple
     encoding: utf8
 
-  error_file_handler:
-    class: logging.handlers.RotatingFileHandler
-    level: ERROR
-    formatter: simple
-    filename: logs/errors.log
-    maxBytes: 10485760 # 10MB
-    backupCount: 20
-    encoding: utf8
-
 loggers:
   analyzer:
     level: INFO
-    handlers: [debug_file_handler, debug_console]
-    propagate: false
-  distributed.core:
+    handlers: [file_handler, debug_console]
+  distributed:
     level: INFO
-    handlers: [debug_file_handler, error_console]
-    propagate: false
+    handlers: [file_handler, warn_console]
+  distributed.worker:
+    level: WARNING
+    handlers: [file_handler, warn_console]
   distributed.client:
-    level: INFO
-    handlers: [debug_file_handler, error_console]
-    propagate: false
-  distributed.scheduler:
-    level: INFO
-    handlers: [debug_file_handler, error_console]
-    propagate: false
-  dask:
-    level: INFO 
-    handlers: [debug_file_handler, error_console]
-    propagate: false
+    level: WARNING
+    handlers: [file_handler, warn_console]
+  distributed.bokeh:
+    level: ERROR
+    handlers: [file_handler, warn_console]
   lpcjobqueue.cluster:
     level: INFO 
-    handlers: [debug_file_handler, error_console]
-    propagate: false
+    handlers: [file_handler, warn_console]
 
 root:
   level: INFO
-  handlers: [warn_console, debug_file_handler]
+  handlers: [warn_console, file_handler]
