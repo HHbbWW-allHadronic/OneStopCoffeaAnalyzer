@@ -10,9 +10,6 @@ from pydantic import BaseModel, ConfigDict
 from .common_types import Scalar
 from analyzer.utils.structure_tools import accumulate
 
-if CONFIG.PRETTY_MODE:
-    pass
-
 logger = logging.getLogger("analyzer.core")
 
 
