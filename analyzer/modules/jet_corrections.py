@@ -122,6 +122,8 @@ def correctedJets(columns, params, jet_type="AK4", systematics=None):
     corrections_path = jec_params.files[jet_type]
     cset = correctionlib.CorrectionSet.from_file(corrections_path)
 
+    # corr = JECfile.compound[f'{JECversion}_L1L2L3Res_{typeJet}']
+
     base_key = jec_params.jec[params.dataset.sample_type]
     jet_type = jec_params.jet_names[jet_type]
 
@@ -137,23 +139,18 @@ def correctedJets(columns, params, jet_type="AK4", systematics=None):
         # event_rho = getRho(events, jec_params.rho_name)
         factor = corr.evaluate(jets.eta, pt_raw)
         for shift_name, shift in [("Up", 1), ("Down", -1)]:
-            # corrected = ak.copy(jets)
+            corrected = ak.copy(jets)
 
             # fields = {field: jets[field] for field in jets.fields}
-            fields["rho"] = rho
-            fields["pt"] = pt_raw * factor
-            fields["mass"] = mass_raw * factor
-            # syst = ak.zip(
-            #     fields,
-            #     depth_limit=1,
-            #     parameters=params,
-            #     with_name=flat.layout.parameters["__record__"],
-            #     behavior=jets.behavior,
-            # )
+            corrected["rho"] = rho
+            corrected["pt"] = pt_raw * factor
+            corrected["mass"] = mass_raw * factor
 
             systematic_name = f"{systematic}_{shift_name}"
             logger.info(f"Adding jet systematic {systematic_name}")
-            systs[systematic_name] = syst
+
+            systs[systematic_name] = corrected
+
 
     columns.add("CorrectedJet", jets, systs)
 
