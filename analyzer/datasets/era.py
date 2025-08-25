@@ -22,7 +22,7 @@ class Era(BaseModel):
     lumi: float
     golden_json: str
 
-    trigger_names: dict[str, str] = Field(default_factory=dict)
+    trigger_names: dict[str, str | None] = Field(default_factory=dict)
     trigger_plateaus: dict[str, float | dict[str, float]] = Field(default_factory=dict)
     sections: dict[str, dict[str, Any]] = Field(default_factory=dict)
 

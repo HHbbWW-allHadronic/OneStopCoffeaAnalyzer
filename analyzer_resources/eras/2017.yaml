@@ -21,6 +21,8 @@
     AK8SingleJetPt: AK8PFJet500
     SingleMuon: Mu50
     IsoMuon: IsoMu24
+    EleWPTight: Ele35_WPTight_Gsf
+    EleCaloIdVT: null
 
   trigger_plateaus:
     HT: 1200
@@ -31,6 +33,7 @@
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2017_UL/btagging.json.gz
+    systematics: [hf,lf,hfstats1,hfstats2]
 
   jet_pileup_id:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/jmar.json.gz

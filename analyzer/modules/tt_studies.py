@@ -7,7 +7,9 @@ import hist
 @MODULE_REPO.register(ModuleType.Selection)
 def one_lep_hlt(events, params, selector):
     tn = params.dataset.era.trigger_names
-    pass_el = events.HLT[tn["EleWPTight"]] | events.HLT[tn["EleCaloIdVT"]]
+    pass_el = events.HLT[tn["EleWPTight"]]
+    if tn["EleCaloIdVT"] is not None:
+        pass_el = pass_el | events.HLT[tn["EleCaloIdVT"]]
     pass_mu = events.HLT[tn["SingleMuon"]] | events.HLT[tn["IsoMuon"]]
     selector.add(f"Single Lep", pass_mu | (pass_el & ~pass_mu))
 
@@ -27,6 +29,7 @@ def single_lep_selection(events, params, selector):
     passes_jets = (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)
     selector.add("njets", passes_jets)
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def high_pt_jet_selection(events, params, selector):
     """Signal selection without b cuts"""
@@ -34,6 +37,7 @@ def high_pt_jet_selection(events, params, selector):
     filled_jets = ak.pad_none(good_jets, 4, axis=1)
     passes_highptjet = ak.fill_none(filled_jets[:, 0].pt > 300, False)
     selector.add("highptjet", passes_highptjet)
+
 
 @MODULE_REPO.register(ModuleType.Categorization)
 def njets_category(columns, params, categories):

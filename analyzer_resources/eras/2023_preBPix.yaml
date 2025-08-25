@@ -10,6 +10,7 @@
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz
+    systematics: [hf,lf,hfstats1,hfstats2]
 
   jet_veto_map:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23/jetvetomaps.json.gz
@@ -24,6 +25,8 @@
     AK8SingleJetPt: AK8PFJet420_MassSD30
     SingleMuon: Mu50
     IsoMuon: IsoMu24
+    EleWPTight: Ele30_WPTight_Gsf
+    EleCaloIdVT: Ele115_CaloIdVT_GsfTrkIdT
 
 
   trigger_plateaus:
