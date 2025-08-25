@@ -18,8 +18,6 @@ from .weights import Weighter
 import logging
 from dataclasses import dataclass
 
-if CONFIG.PRETTY_MODE:
-    pass
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +27,7 @@ class Category:
     """
     Category axis to be added to histograms
     """
+
     name: str
     axis: Any
     values: Any
@@ -188,11 +187,13 @@ class RegionAnalyzer(BaseModel):
             module(columns, params)
         return columns
 
-    def runPostSelection(self, columns, params, histogram_storage):
+    def runPostSelection(self, columns, params, histogram_storage, weight_storage=None):
         params = self.getSectorParams(params)
         active_shape = columns.syst
-        logger.info(f"Running post selection with active shape systematic {active_shape}")
-        # Different behaviour for dask 
+        logger.info(
+            f"Running post selection with active shape systematic {active_shape}"
+        )
+        # Different behaviour for dask
         if columns.delayed:
             size = None
         else:
@@ -215,6 +216,16 @@ class RegionAnalyzer(BaseModel):
         )
         for module in self.histograms:
             module(columns, params, histogrammer)
+
+        if weight_storage is not None:
+            names = weighter.weight_names
+            for name in names:
+                weight_storage[name] = ak.sum(
+                    weighter.weight(
+                        include=[name],
+                    ),
+                    axis=0,
+                )
 
 
 __subsector_param_cache = {}

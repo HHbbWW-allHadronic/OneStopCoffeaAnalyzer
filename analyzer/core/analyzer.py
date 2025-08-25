@@ -34,15 +34,12 @@ def checkProcess(process, max_mem):
     try:
         memory = psutil.Process(process.pid).memory_info().rss
     except (ProcessLookupError, psutil.NoSuchProcess, psutil.AccessDenied):
-        return 
+        return
 
     if memory / self.memory_limit <= self.memory_terminate_fraction:
         return
     else:
         process.terminate()
-
-
-
 
 
 @dataclass
@@ -62,6 +59,7 @@ class Analyzer:
         preselection_set: SelectionSet,
         histogram_storage: dict[str, Hist],
         cutflow_storage: dict[str, SelectionFlow],
+        weight_storage: dict[str, float],
         variation=None,
     ) -> dict[tuple[str, str], results.SubSectorResult]:
         """
@@ -89,9 +87,12 @@ class Analyzer:
                 new_cols = columns
             # Once the final selection has been performed for a region
             # we can run the remainder of the analyzer
-            res = ra.runPostSelection(new_cols, params, hs)
-            ret[(ra.region_name, variation)] = res
-        return ret
+            if variation is None:
+                ra.runPostSelection(
+                    new_cols, params, hs, weight_storage[ra.region_name]
+                )
+            else:
+                ra.runPostSelection(new_cols, params, hs)
 
     def _runPreselectionGroup(
         self, events, params, region_analyzers, preselection, preselection_set
@@ -100,6 +101,9 @@ class Analyzer:
         histogram_storage = {ra.region_name: {} for ra in region_analyzers}
         # Each region has its own cutflow
         cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
+        # Each region has its own cutflow
+        weight_storage = {ra.region_name: {} for ra in region_analyzers}
+
         mask = preselection.getMask()
         if mask is not None:
             events = events[mask]
@@ -113,11 +117,10 @@ class Analyzer:
 
         branches = [None] + columns.allShapes()
         logger.info(f"Known variations are {branches}")
-        ret = {}
         # Run over each shape variation in the analysis
         for variation in branches:
             logger.info(f'Running branch for variation "{variation}"')
-            res = self._runBranch(
+            self._runBranch(
                 region_analyzers,
                 columns,
                 params,
@@ -125,9 +128,9 @@ class Analyzer:
                 preselection_set,
                 histogram_storage,
                 cutflow_storage,
+                weight_storage,
                 variation=variation,
             )
-            ret.update(res)
 
         ret = {
             ra.region_name: results.SubSectorResult(
@@ -136,6 +139,7 @@ class Analyzer:
                     histograms=histogram_storage[ra.region_name],
                     other_data={},
                     selection_flow=cutflow_storage[ra.region_name],
+                    post_sel_weight_flow=weight_storage[ra.region_name],
                 ),
             )
             for ra in region_analyzers
@@ -199,6 +203,7 @@ class Analyzer:
             else:
                 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
                 from analyzer.logging import setup_logging
+
                 setup_logging()
 
                 max_memory_bytes = round(1024 * 1024 * max_memory_gb)
@@ -215,14 +220,13 @@ class Analyzer:
                 ).events()
 
                 result = results.subsector_adapter.dump_python(self.run(events, params))
-                result = dask.compute(result, scheduler="synchronous")[0]
+                result = dask.compute(result, scheduler="threads")[0]
                 logger.info(f"Analysis completed successfully for {fileset}")
                 result = results.subsector_adapter.validate_python(result)
 
                 return (fileset, result)  # self.run(events, params))
 
         except Exception:
-            raise
             return None
 
     def ensureFunction(self, module_repo):
