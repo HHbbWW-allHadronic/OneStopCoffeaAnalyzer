@@ -9,24 +9,19 @@ from analyzer.utils.file_tools import extractCmsLocation
 from analyzer.utils.structure_tools import accumulate
 from .executor import Executor
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+from .preprocessing_tools import preprocess
+import logging
 
+logger = logging.getLogger(__name__)
 
 
 class ImmediateExecutor(Executor):
     executor_type: Literal["immediate"] = "immediate"
-    catch_exceptions: bool = True
+    catch_exceptions: bool = False
     step_size: int = 100000
 
-    def _preprocess(self, tasks):
-        return preprocess(
-            tasks,
-            default_step_size=self.step_size,
-            scheduler="single-threaded",
-            test_mode=self.test_mode,
-        )
-
-    def __run_task(self, k, task):
-        fs = self._preprocess({k: task})[k]
+    def __run_task(self, task):
+        fs = preprocess(task, test_mode=self.test_mode)
         processed = copy.deepcopy(fs)
         cds = fs.toCoffeaDataset()
         ret = None
@@ -62,25 +57,22 @@ class ImmediateExecutor(Executor):
         logger.info(f"Starting run with immediate executor")
 
         final_results = {}
-        for k, task in tasks.items():
-            try:
-                logger.info(f"Running task {k}")
-                result, fs, processed = self.__run_task(k, task)
-                if result is not None:
-                    r = core_results.SampleResult(
-                        sample_id=tasks[k].sample_id,
-                        file_set_ran=fs,
-                        file_set_processed=processed,
-                        params=tasks[k].sample_params,
-                        results=result,
-                    )
-                    if result_complete_callback is not None:
-                        result_complete_callback(k, r)
-                    else:
-                        final_result[k] = r
-            except Exception as e:
-                logger.warn(f"An exception occurred while running {k}.\n {e}")
-                if not self.catch_exceptions:
-                    raise
+        for task in tasks:
+            print(f"Running {task.sample_id}")
+            task.file_set.step_size = task.file_set.step_size or self.step_size
+            logger.info(f"Running task {task.sample_id}")
+            result, fs, processed = self.__run_task(task)
+            if result is not None:
+                r = core_results.SampleResult(
+                    sample_id=task.sample_id,
+                    file_set_ran=fs,
+                    file_set_processed=processed,
+                    params=task.sample_params,
+                    results=result,
+                )
+                if result_complete_callback is not None:
+                    result_complete_callback(task.sample_id, r)
+                else:
+                    final_result[task.sample_id] = r
 
         return final_results
