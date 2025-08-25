@@ -15,6 +15,7 @@ import pydantic as pyd
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.structure_tools import accumulate
+from .exceptions import ResultIntegrityError
 from rich.progress import track
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
@@ -26,22 +27,15 @@ class BaseResult(pyd.BaseModel):
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     selection_flow: ans.SelectionFlow | None = None
+    post_sel_weight_flow: dict[str, float] | None = None
 
     def includeOnly(self, histograms):
         self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
 
     def __add__(self, other: "SubSectorResult"):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-
-        new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
-        return BaseResult(
-            histograms=new_hists,
-            other_data=new_other,
-            selection_flow=self.selection_flow + other.selection_flow,
-        )
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
     def __iadd__(self, other: "SubSectorResult"):
         """Two SubSector results may be added if they have the same parameters
@@ -50,8 +44,12 @@ class BaseResult(pyd.BaseModel):
 
         new_hists = accumulate([self.histograms, other.histograms])
         new_other = accumulate([self.other_data, other.other_data])
+        new_post_weight = accumulate(
+            [self.post_sel_weight_flow, other.post_sel_weight_flow]
+        )
         self.histograms = new_hists
         self.other_data = new_other
+        self.post_sel_weight_flow = new_post_weight
         self.selection_flow = self.selection_flow + other.selection_flow
         return self
 
@@ -63,6 +61,11 @@ class BaseResult(pyd.BaseModel):
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
             selection_flow=self.selection_flow,  # .scaled(scale),
+            post_sel_weight_flow=(
+                {x: y * scale for x, y in self.post_sel_weight_flow}
+                if self.post_sel_weight_flow is not None
+                else None
+            ),
         )
 
 
@@ -71,21 +74,16 @@ class SubSectorResult(pyd.BaseModel):
     base_result: BaseResult
 
     def __add__(self, other: "SubSectorResult"):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-        if self.region != other.region:
-            raise RuntimeError("Cannot add different regions together.")
-        return SubSectorResult(
-            region=self.region, base_result=self.base_result + other.base_result
-        )
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
     def __iadd__(self, other: "SubSectorResult"):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
         if self.region != other.region:
-            raise RuntimeError("Cannot add different regions together.")
+            raise ResultIntegrityError("Cannot add different regions together.")
         self.base_result += other.base_result
         return self
 
@@ -123,24 +121,19 @@ class SampleResult(pyd.BaseModel):
                 f"Could not add analysis results because the file sets over which they successfully processed overlap."
                 f"Overlapping files:\n{fs}"
             )
-            raise RuntimeError(error)
+            raise ResultIntegrityError(error)
 
         # We can only add results if the parameters are the same
         if self.params != other.params:
-            raise RuntimeError(
+            raise ResultIntegrityError(
                 f"Error: Attempting to merge incomaptible analysis results"
             )
 
     def __add__(self, other):
         self.compatible(other)
-
-        return SampleResult(
-            sample_id=self.sample_id,
-            params=self.params,
-            file_set_ran=self.file_set_ran + other.file_set_ran,
-            file_set_processed=self.file_set_processed + other.file_set_processed,
-            results=accumulate([self.results, other.results]),
-        )
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
     def __iadd__(self, other):
         self.compatible(other)
@@ -196,9 +189,9 @@ class DatasetResult(pyd.BaseModel):
 
     @staticmethod
     def fromSampleResult(sample_results):
-        # All samples must belong fo the same dataset
+        # All samples must belong to the same dataset
         if not len(set(x.sample_id.dataset_name for x in sample_results)) == 1:
-            raise RuntimeError()
+            raise ResultIntegrityError()
 
         # Dataset is created by adding sample results
         return DatasetResult(
@@ -243,7 +236,7 @@ def openAndLoad(path):
 
 
 def loadSampleResultFromPaths(
-        paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES, show_warning=True
+    paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES, show_warning=True
 ):
     ret = {}
 
@@ -313,7 +306,7 @@ def merge(paths, outdir):
         output = outdir / f"{sample_id}.pkl"
         print(f'Saving sample {sample_id} to "{output}"')
         if output.exists():
-            raise RuntimeError("Cannot overwrite when merging!")
+            raise ResultIntegrityError("Cannot overwrite when merging!")
 
         with open(output, "wb") as f:
             pkl.dump({sample_id: result.model_dump()}, f)
