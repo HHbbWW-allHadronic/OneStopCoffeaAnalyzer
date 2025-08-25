@@ -17,6 +17,9 @@ def quicklookSample(result):
             x: list(y.base_result.selection_flow.cutflow)
             for x, y in result.results.items()
         },
+        "weight_flow": {
+            x: y.base_result.post_sel_weight_flow for x, y in result.results.items()
+        },
     }
     print(data)
 
