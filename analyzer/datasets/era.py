@@ -27,7 +27,7 @@ class Era(BaseModel):
     sections: dict[str, dict[str, Any]] = Field(default_factory=dict)
 
     pileup_scale_factors: dict[str, str]
-    btag_scale_factors: dict[str, str]
+    btag_scale_factors: dict[str, Any]
     jet_pileup_id: dict[str, Any] | None = None
     jet_veto_maps: dict[str, Any] | None = None
     jet_corrections: JetCorrectionInfo | None = None

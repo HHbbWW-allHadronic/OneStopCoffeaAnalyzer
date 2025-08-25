@@ -8,6 +8,7 @@ import correctionlib.convert
 from analyzer.core import MODULE_REPO, ModuleType
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
+import correctionlib.highlevel as ch
 
 from .utils.btag_points import getBTagWP
 
@@ -130,28 +131,41 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
     weight_manager.add(f"L1_prefire", nom, {"inclusive": (up, down)})
 
 
-
-
 @MODULE_REPO.register(ModuleType.Weight)
 def btagging_shape_sf(
     events, params, weight_manager, variations=None, working_points=None
 ):
+    bparams = params.dataset.era.btag_scale_factors
+
     current_syst = events.getSystName()
 
-    jets = events.Jet
-    corrs = correctionlib.CorrectionSet.from_file(profile.btag_scale_factors)
+    gj = events.good_jets
+    jets = gj[gj.hadronFlavour == 5]
 
-    sf_eval = correctionlib_wrapper(corrs["deepJet_shape"])
-    central_perjet = sf_eval(
-        "central", jets.hadronFlavour, abs(jets.eta), jets.pt, jets.btagDeepFlavB
-    )
+    corrs = correctionlib.CorrectionSet.from_file(bparams["file"])
+    shape_corr = corrs["deepJet_shape"]
+    sf_eval = correctionlib_wrapper(shape_corr)
 
-    if current_syst.starts_with("JES"):
+    systematics = bparams["systematics"]
+
+
+    def computeForSyst(syst):
+        return ak.prod(
+            sf_eval(
+                syst, jets.hadronFlavour, abs(jets.eta), jets.pt, jets.btagDeepFlavB
+            ),
+            axis=1,
+        )
+
+    if current_syst is not None and current_syst.starts_with("JES"):
         pass
 
-    central = ak.prod(central_perjet, axis=1)
+    variations = {
+        syst_name: (
+            computeForSyst("up_" + syst_name),
+            computeForSyst("down_" + syst_name),
+        )
+        for syst_name in systematics
+    }
 
-    weight_manager.add(
-        f"btag_shape_sf",
-        central,
-    )
+    weight_manager.add(f"btag_shape_sf", computeForSyst("central"), variations)
