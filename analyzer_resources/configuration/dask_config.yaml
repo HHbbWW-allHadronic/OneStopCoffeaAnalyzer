@@ -2,34 +2,42 @@ distributed:
   dashboard:
     link:  "{scheme}://{host}:{port}/status"
   worker:
-    profile:
-      enabled: true
+    memory:
+      spill: 0.6  # default: 0.7
+      target: 0.7  # default: 0.6
+      terminate: 0.98  # default: 0.95
+    # profile:
+    #   enabled: true
     # memory:
     #   terminate: false
     daemon: false
   # adaptive: {}
     
     
-  # comm:
-  #   retry:
-  #     count: 100
-  #   timeouts:
-  #     connect: 1000
-  #     tcp: 1000
+  comm:
+    retry:
+      count: 100
+    timeouts:
+      connect: 1000
+      tcp: 1000
   # deploy:
   #   lost-worker-timeout: 100
-  # nanny:
-  #   environ:
-  #     MALLOC_TRIM_THRESHOLD_: 0
+  nanny:
+    environ:
+      MALLOC_TRIM_THRESHOLD_: 0
   # scheduler:
+
   scheduler:
     worker-saturation: 1.0
     # no-workers-timeout: true
-  # admin:
-  #   log-length: 0
-  # diagnostics:
-  #   computations:
-  #     max-history: 0
+
+  admin:
+      log-length: 0
+      low-level-log-length: 0
+
+  diagnostics:
+    computations:
+      max-history: 0
 
 # optimization: {}
   # fuse:

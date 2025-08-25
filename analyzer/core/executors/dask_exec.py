@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+import time
 import base64
 
 import concurrent.futures
@@ -20,18 +21,19 @@ import coffea.dataset_tools as dst
 import dask
 from analyzer.configuration import CONFIG
 import math
-from analyzer.utils.structure_tools import iadd
+from analyzer.utils.structure_tools import iadd, accumulate
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import compress_form, decompress_form
 from distributed import Client, LocalCluster, as_completed
 from pydantic import Field, RootModel
-from .condor_tools import setupForCondor
 from rich import print
 
+from .condor_tools import setupForCondor
 from .executor import Executor
 from .preprocessing_tools import preprocess
 
 from dask.distributed import get_client
+import analyzer.core.dask_sizes
 
 logger = logging.getLogger(__name__)
 
@@ -103,9 +105,11 @@ def getSteps(
 
 
 def mergeFutures(futures):
+    logger.info(f"Merging {len(futures)} futures")
     futures = [x for x in futures if x is not None]
     if not futures:
         return None
+    # return accumulate(futures)
     ret = futures[0]
     for p, r in futures[1:]:
         iadd(ret[0], p)
@@ -116,7 +120,7 @@ def mergeFutures(futures):
 def reduceResults(
     client,
     futures,
-    reduction_factor=10,
+    reduction_factor=3,
     target_final_count=10,
     close_to_target_frac=0.7,
     key_suffix="",
@@ -147,9 +151,11 @@ def runOneTaskDask(
     scheduler_address=None,
     timeout=120,
     input_events_per_output=10**8,
-    reduction_factor=10,
+    reduction_factor=3,
 ):
+    print(f"Starting to process sample {task.sample_id}")
     client = Client(scheduler_address)
+    start_time = time.time()
     logger.info(f"Running task {task.sample_id}")
     task.file_set.step_size = task.file_set.step_size or default_step_size
 
@@ -161,6 +167,8 @@ def runOneTaskDask(
         maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
     else:
         maybe_base_form = None
+
+    total_events_processed = 0
 
     if bulk_mode:
         to_submit = list(file_set_prepped.iterChunks())
@@ -183,6 +191,8 @@ def runOneTaskDask(
                 key_suffix="-" + str(task.sample_id),
             )
         all_results = None
+        del futures
+
         for future in as_completed(final_futures):
             try:
                 fset, all_results = future.result()
@@ -195,6 +205,7 @@ def runOneTaskDask(
                     results=all_results,
                 )
                 result_complete_callback(final_result.sample_id, final_result)
+                total_events_processed += final_result.file_set_processed.events
             except Exception as e:
                 raise
 
@@ -227,17 +238,24 @@ def runOneTaskDask(
             results=all_results,
         )
         result_complete_callback(final_result.sample_id, final_result)
+        total_events_processed += final_result.file_set_processed.events
+    end_time = time.time()
+    ellapsed = end_time - start_time
+    events_per_sec = total_events_processed / ellapsed
+    print(
+        f"Finished processing sample {task.sample_id}."
+        f"Processed {total_events_processed} events in {ellapsed:0.2f} seconds ({events_per_sec:0.2f} events/s)"
+    )
 
 
 class DaskExecutor(Executor):
     memory: str = "2GB"
-    dashboard_address: str | None = "localhost:8787"
+    dashboard_address: str | None = "localhost:8789"
     schedd_address: str | None = "localhost:12358"
     max_workers: int | None = 2
     min_workers: int | None = 1
     adapt: bool = True
     step_size: int | None = 100000
-    map_mode: bool = False
     use_threads: bool = False
     parallel_submission: int = 20
     bulk_mode: bool = False
@@ -361,12 +379,10 @@ class LPCCondorDask(DaskExecutor):
         Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
 
         logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
+        if logpath.exists():
+            logger.info("Deleting old dask logs")
+            shutil.rmtree(logpath, ignore_errors=True)
         logpath.mkdir(exist_ok=True, parents=True)
-
-        logger.info("Deleting old dask logs")
-        shutil.rmtree(logpath)
-        # for p in self.base_log_path.glob("tmp*"):
-        #     shutil.rmtree(p)
 
         transfer_input_files = setupForCondor(
             analysis_root_dir=self._working_dir,
