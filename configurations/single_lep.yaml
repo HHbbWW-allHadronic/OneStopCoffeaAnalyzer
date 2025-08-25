@@ -11,7 +11,7 @@ samples:
   wjets_to_ln_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
   diboson_2018: [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313]
 
-  # qcd_inclusive.*:  [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313, Signal312, Signal313]
+  qcd_inclusive.*:  [SingleLepCR313, SingleLepCR312, SingleLepHighPtCR312, SingleLepHighPtCR313, Signal312, Signal313]
 
   signal_2018_312_.+: [Signal312,SingleLepCR312]
   signal_2018_313_.+: [Signal313,SingleLepCR313]
@@ -23,6 +23,10 @@ executors:
     parallel_submission: 1
     step_size: 10000
     max_workers: 4
+
+  immediate:
+    executor_type: immediate
+    step_size: 2000
 
   dask_condor:
     executor_type: dask_condor
@@ -39,7 +43,7 @@ executors:
         - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
 
 file_config:
-  location_priority_regex: [".*US.*", ".*(T0|T1|T2).*","eos"]
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(T0|T1|T2).*","eos"]
   # location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
@@ -94,8 +98,11 @@ common_items:
 
       - name: top_pt_reweighting
         sample_spec:
-          sample_name: 'tt*'
+          name: 'tt*'
+      - name: btagging_shape_sf
+        sample_spec:
           sample_type: MC
+
 
 
 regions:
