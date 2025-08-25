@@ -31,8 +31,6 @@ def addSubparserGenerateReplicaCache(subparsers):
     subparser.set_defaults(func=handleGenReplicas)
 
 
-
-
 def handleUpdateMeta(args):
     from analyzer.core.results import updateMeta
 
@@ -43,8 +41,6 @@ def handleMerge(args):
     from analyzer.core.results import merge
 
     merge(args.input, args.outdir)
-
-
 
 
 def addSubparserUpdateMetaInfo(subparsers):
@@ -153,7 +149,6 @@ def handleSummaryTable(args):
     )
     from analyzer.datasets import EraRepo
 
-
     query = {x: "*" for x in args.fields}
     format_opts = {"TT": "\\texttt{{{}}}", "RM": "\\textrm{{{}}}"}
 
@@ -207,6 +202,7 @@ def handleRun(args):
         args.output,
         args.executor,
         test_mode=args.test_mode,
+        filter_samples=args.filter_samples,
     )
 
 
@@ -223,6 +219,12 @@ def handleStartCluster(args):
 
 def addSubparserRun(subparsers):
     """Update an existing results file with missing info"""
+
+    def parsePatterns(p):
+        from analyzer.utils.querying import Pattern
+
+        return Pattern(pattern=p)
+
     subparser = subparsers.add_parser(
         "run", help="Run analyzer based on provided configuration"
     )
@@ -235,6 +237,14 @@ def addSubparserRun(subparsers):
         default=False,
         action="store_true",
         help="Run in test mode",
+    )
+    subparser.add_argument(
+        "--filter-samples",
+        nargs="*",
+        type=parsePatterns,
+        required=False,
+        default=None,
+        help="Filter samples",
     )
     subparser.add_argument(
         "-s",

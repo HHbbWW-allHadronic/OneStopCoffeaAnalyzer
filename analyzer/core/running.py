@@ -67,7 +67,7 @@ class Saver:
             pkl.dump({key: result.model_dump()}, f)
 
 
-def runFromPath(path, output, executor_name, test_mode=False):
+def runFromPath(path, output, executor_name, test_mode=False, filter_samples=None):
     import analyzer.modules  # noqa
 
     output = Path(output)
@@ -76,6 +76,12 @@ def runFromPath(path, output, executor_name, test_mode=False):
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     subsectors = iterSubsectors(description, dataset_repo, era_repo)
+    if filter_samples is not None:
+        subsectors = (
+            x
+            for x in subsectors
+            if any(f.match(str(x[0])) for f in filter_samples)
+        )
 
     tasks = iterTasks(
         subsectors, dataset_repo, era_repo, description.file_config.model_dump()
@@ -147,7 +153,6 @@ def patchFromPath(
                 "location_priority_regex": [".*(T0|T1|T2).*", ".*"]
             }
     use_replicas: bool = True
-    tasks = {task.sample_id: task for task in patches}
 
     subsectors = getSubSectors(description, dataset_repo, era_repo)
     unknown_sample_tasks = makeTasks(
@@ -156,9 +161,8 @@ def patchFromPath(
         era_repo,
         description.file_config.model_dump(),
     )
-    unknown_sample_tasks = {task.sample_id: task for task in unknown_sample_tasks}
-    final_tasks = unknown_sample_tasks
-    final_tasks.update(tasks)
+
+    final_tasks = unknown_sample_tasks + patches
 
     callback = Saver(output)
     results = executor.run(final_tasks, result_complete_callback=callback)
