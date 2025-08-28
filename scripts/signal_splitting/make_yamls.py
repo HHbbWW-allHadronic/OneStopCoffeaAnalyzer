@@ -21,7 +21,9 @@ def getXS(year, sample_name):
             next(reader)
             for r in reader:
                 coupling, mt, mx, run, sign, xsec, _ = r
-                xsec_dict[(run, f"signal_{coupling}_{mt}_{mx}_{sign}")] = float(xsec)
+                xsec_dict[(run, f"signal_{coupling}_{mt}_{mx}_{sign}")] = round(
+                    float(xsec) * 1000 * 0.1**2, 4
+                )
     run = "Run2" if year.startswith("201") else "Run3"
     return xsec_dict[(run, sample_name)]
 
@@ -40,17 +42,20 @@ def makeFile(fname, year, sample_name, base_name):
 
 def makeEntry(signal_name, year, plus, minus):
     coupling, mt, mx = re.search("signal_(31.)_([0-9]+)_([0-9]+)", signal_name).groups()
-    name = f"signal_{year}_{coupling}_{mt}_{mx}"
+    name = f"signal_{year}_{coupling}_{mt}_{mx}_official"
     basename = f"signal_{coupling}_{mt}_{mx}"
     title = f"$m_{{\\tilde{{t}} }} = {mt}\\ \\mathrm{{GeV}}, m_{{\\tilde{{\\chi}}^{{\\pm}}}} = {mx}\\ \\mathrm{{GeV}}$"
-    other_data = {"stop_mass": mt, "chargino_mass": mx, "coupling": coupling}
-    ret = {"name": name, "title": title, "era": year, "samples": []}
-    ret["samples"].append(
-        makeFile(plus, year, name + "_plus", basename + "_plus")
-    )
-    ret["samples"].append(
-        makeFile(minus, year, name + "_minus", basename + "_minus")
-    )
+    other_data = {"stop_mass": int(mt), "chargino_mass": int(mx), "coupling": coupling}
+    ret = {
+        "name": name,
+        "title": title,
+        "sample_type": "MC",
+        "era": year,
+        "other_data": other_data,
+        "samples": [],
+    }
+    ret["samples"].append(makeFile(plus, year, name + "_plus", basename + "_plus"))
+    ret["samples"].append(makeFile(minus, year, name + "_minus", basename + "_minus"))
     return ret
 
 
