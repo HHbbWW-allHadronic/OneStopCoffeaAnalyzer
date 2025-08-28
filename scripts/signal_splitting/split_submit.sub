@@ -1,0 +1,27 @@
+# file name:  my_program.condor
+# HTCondor submit description file for my_program
+
+executable      = scripts/signal_splitting/split_condor.sh
+
+universe        = vanilla
+request_cpus   = 1
+request_memory=4GB
+request_disk=4GB
+
+
+error           = logs/$(cluster).$(process).err
+output          = logs/$(cluster).$(process).out
+log             = logs/$(cluster).$(process).log
+on_exit_remove   = (ExitBySignal == False) && (ExitCode == 0)
+
+stream_error=true
+stream_output=true
+
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = scripts/signal_splitting/split_signals.cpp
+preserve_relative_paths = true
+
+arguments=$(FILE) split_signals/$(YEAR)
+
+queue FILE,YEAR from scripts/signal_splitting/all_signals.txt
