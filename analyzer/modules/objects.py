@@ -13,7 +13,17 @@ def makeCutSet(x, s, args):
 def jets_and_ht(columns, params):
 
     jets = columns.get("Jet")
-    good_jets = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
+    gj = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
+
+    if "2016" in params.dataset.era.name:
+        gj = gj[gj.jetId == 7]
+    else:
+        gj = gj[gj.jetId == 6]
+
+    if any(x in params.dataset.era.name for x in ["2016", "2017", "2018"]):
+        gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
+
+    good_jets = gj
     ht = ak.sum(good_jets.pt, axis=1)
 
     columns.add("good_jets", good_jets, shape_dependent=True)
