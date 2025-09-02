@@ -9,10 +9,10 @@ import logging
 from functools import cached_property
 from pathlib import Path
 from typing import Any, List
-from analyzer.utils.progress import progbar
 
 import pydantic as pyd
 import yaml
+from yaml import CLoader as Loader
 from analyzer.configuration import CONFIG
 from pydantic import (
     BaseModel,
@@ -94,6 +94,7 @@ class DatasetParams(BaseModel):
     def populateEra(self, era_repo):
         if isinstance(self.era, str):
             self.era = era_repo[self.era]
+        
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -127,8 +128,7 @@ class SampleId:
             return value
 
 
-@pyd.dataclasses.dataclass
-class SampleParams:
+class SampleParams(BaseModel):
     dataset: DatasetParams
     name: str
     n_events: int
@@ -279,7 +279,10 @@ class Dataset(BaseModel):
         return ds
 
     def getSample(self, name):
-        return next(x for x in self.samples if x.name == name)
+        try:
+            return next(x for x in self.samples if x.name == name)
+        except StopIteration:
+            raise KeyError(name)
 
     def __getitem__(self, item):
         return self.getSample(item)
@@ -371,7 +374,7 @@ class DatasetRepo:
         return sample
 
     def __loadOne(self, data):
-        for d in progbar(data, "Reading Sets"):
+        for d in data:
             s = Dataset(**d)
             if s.name in self.datasets:
                 raise KeyError(
@@ -382,9 +385,9 @@ class DatasetRepo:
     def load(self, directory, use_replicas=True):
         directory = Path(directory)
         files = list(directory.rglob("*.yaml"))
-        for f in progbar(files, title="Reading File"):
+        for f in track(files, description="Reading File"):
             with open(f, "r") as fo:
-                data = yaml.safe_load(fo)
+                data = yaml.load(fo,Loader=Loader)
                 if not data:
                     continue
                 self.__loadOne(data)
@@ -415,3 +418,6 @@ class DatasetRepo:
         for path in paths:
             repo.load(path)
         return repo
+
+
+    
