@@ -1,10 +1,13 @@
 import copy
+
+import lz4.frame
 import logging
 from pathlib import Path
 import pickle as pkl
 from rich.prompt import Confirm
 from collections import defaultdict
 from typing import Any
+import gc
 
 import analyzer.core.histograms as anh
 import analyzer.core.region_analyzer as anr
@@ -230,9 +233,26 @@ def loadResults(obj):
 
 
 def openAndLoad(path):
-    with open(path, "rb") as f:
+    gc.disable()
+
+    with lz4.frame.open(path, "rb") as f:
         data = pkl.load(f)
+
+    gc.enable()
+
     return loadResults(data)
+
+
+def makeResultMap(paths):
+    ret = defaultdict(list)
+    for p in paths:
+        with lz4.frame.open(p, "rb") as f:
+            gc.disable()
+            data = pkl.load(f)
+            gc.enable()
+            for s in data.keys():
+                ret[s].append(p)
+    return ret
 
 
 def loadSampleResultFromPaths(
@@ -416,7 +436,7 @@ def updateMeta(paths):
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     for path in paths:
-        with open(path, "rb") as f:
+        with lz4.frame.open(path, "rb") as f:
             data = pkl.load(f)
         results = loadResults(data)
         for k in results.values():
