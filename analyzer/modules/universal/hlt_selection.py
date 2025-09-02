@@ -1,7 +1,5 @@
-import awkward as ak
 import operator as op
 from analyzer.core import MODULE_REPO, ModuleType
-import hist
 
 
 @MODULE_REPO.register(ModuleType.Selection)
