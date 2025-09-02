@@ -8,7 +8,6 @@ import correctionlib.convert
 from analyzer.core import MODULE_REPO, ModuleType
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
-import correctionlib.highlevel as ch
 
 from .utils.btag_points import getBTagWP
 
