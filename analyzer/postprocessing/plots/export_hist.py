@@ -5,7 +5,6 @@ from pathlib import Path
 
 def exportHist(
     packaged_hist,
-    group_params,
     output_path,
 ):
     ret = {}

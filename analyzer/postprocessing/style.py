@@ -2,7 +2,7 @@ import logging
 
 import matplotlib as mpl
 import matplotlib.typing as mplt
-from analyzer.core.specifiers import SectorSpec
+from analyzer.utils.querying import NestedPatternExpression
 from cycler import cycler
 from pydantic import BaseModel, Field, model_validator
 
@@ -28,7 +28,7 @@ class Style(BaseModel):
     legend: bool = True
     legend_font: int | None = None
 
-    def get(self, plottype=None, prepend=None):
+    def get(self, plottype=None, prepend=None, include_type=True):
         if plottype is None:
             plottype = self.plottype
         mapping = dict(
@@ -39,7 +39,8 @@ class Style(BaseModel):
         )
         ret = self.model_dump(include=mapping[plottype])
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
-        ret["histtype"] = plottype
+        if include_type:
+            ret["histtype"] = plottype
         if prepend:
             ret = {f"{prepend}_{x}": y for x, y in ret.items()}
         return ret
@@ -47,7 +48,7 @@ class Style(BaseModel):
 
 class StyleRule(BaseModel):
     style: Style
-    sector_spec: SectorSpec | None = None
+    sector_spec: NestedPatternExpression | None = None
 
 
 cms_colors_6 = [
@@ -87,7 +88,7 @@ class StyleSet(BaseModel):
         for style_rule in self.styles:
             if style_rule.sector_spec is None:
                 return style_rule.style
-            elif style_rule.sector_spec.passes(sector_params):
+            elif style_rule.sector_spec.match(sector_params):
                 logger.debug(
                     f"Found matching style rule for {sector_params.dataset.name}"
                 )

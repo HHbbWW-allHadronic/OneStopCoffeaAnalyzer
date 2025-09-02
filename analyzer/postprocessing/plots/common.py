@@ -2,7 +2,6 @@ import pydantic as pyd
 import matplotlib.typing as mplt
 import copy
 from typing import Optional
-from ..grouping import doFormatting
 
 
 class PlotConfiguration(pyd.BaseModel):
@@ -23,13 +22,10 @@ class PlotConfiguration(pyd.BaseModel):
     legend_fill_color: mplt.ColorType | None = None
     legend_fill_alpha: float | None = None
 
-
-    def makeFormatted(self, params):
+    def makeFormatted(self, **kwargs):
         ret = copy.deepcopy(self)
         if ret.extra_text:
-            ret.extra_text = doFormatting(ret.extra_text, params)
+            ret.extra_text = ret.extra_text.format(**kwargs)
         if ret.cms_text:
-            ret.cms_text = doFormatting(ret.cms_text, params)
+            ret.cms_text = ret.cms_text.format(**kwargs)
         return ret
-
-

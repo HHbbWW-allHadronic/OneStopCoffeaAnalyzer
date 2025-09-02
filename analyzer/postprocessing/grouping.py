@@ -1,134 +1,65 @@
+from __future__ import annotations
 import copy
+import hist
 from rich import print
-import operator as op
-import functools as ft
-from collections import defaultdict, OrderedDict
+from collections import defaultdict, OrderedDict, ChainMap
 import itertools as it
 import string
 from typing import Annotated, Any, ClassVar
-from analyzer.utils.querying import Pattern
+from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern
 
 from analyzer.core.results import SectorResult
-from analyzer.core.specifiers import SectorParams, SectorSpec
-from pydantic import BaseModel, Field, field_validator
+from analyzer.core.specifiers import SectorParams
+from pydantic import BaseModel, Field
 
-from .split_histogram import Mode, splitHistogram
-from .style import Style, StyleSet
+from .split_histogram import Mode
+from .style import Style
 import logging
 
 
 logger = logging.getLogger(__name__)
 
 
-def getNested(d, s):
-    if s in d:
-        return d[s]
-    parts = s.split(".", 1)
-    try:
-        ret = ft.reduce(getNested, parts, d)
-    except KeyError:
-        raise KeyError(str(s))
-    return ret
-
-
-def doFormatting(s, data=None, **kwargs):
+def doFormatting(s, **kwargs):
     parsed = string.Formatter().parse(s)
-    d = data or {}
     s = ""
-    all_data = {**d, **kwargs}
     for x in parsed:
         s += x[0]
         if x[1] is not None:
-            if x[1] in all_data:
-                s += str(all_data[x[1]])
-            else:
-                s += str(getNested(all_data, x[1]))
+            s += str(kwargs[x[1]])
+            # else:
+            #     s += str(getNested(all_data, x[1]))
     return s
 
 
-def groupBy(data, fields, data_acquire=lambda x: x):
-    def k(v):
-        return tuple([getNested(data_acquire(v), x) for x in fields])
+class HistogramProvenance(BaseModel):
+    name: str
+    sector_parameters: SectorParams = Field(repr=False)
+    group_params: dict[str, Any]
+    axis_params: dict[str, Any] = Field(default_factory=dict)
 
-    grouped = defaultdict(list)
-    for x in data:
-        d = k(x)
-        grouped[d].append(x)
-
-    ret = [(OrderedDict(zip(fields, x)), list(y)) for x, y in grouped.items()]
-
-    return ret
-
-
-def combine(data, fields, to_combine):
-    to_combine = to_combine or []
-    grouped = defaultdict(lambda: [False, []])
-    for d, elements in data:
-        combined = False
-        for s in to_combine:
-            if s.field in d and s.pattern.match(d[s.field]):
-                combined = True
-                d[s.field] = s.replace
-
-        grouped[tuple(x for x in d.values())][0] = combined
-        grouped[tuple(x for x in d.values())][1] += elements
-
-    ret = [(OrderedDict(zip(fields, x)), list(y)) for x, y in grouped.items()]
-    # print(ret)
-
-    return ret
-
-
-class SpecialAdd(BaseModel):
-    field: str
-    pattern: Pattern
-    replace: str | int
-
-
-class RescaleSpecification(BaseModel):
-    sector_spec: SectorSpec
-    scale: float
-
-
-class SectorGroupSpec(BaseModel):
-    fields: list[str]
-    to_process: SectorSpec | None = None
-    axis_options: dict[str | int, Mode | str | int] | None = None
-    cat_remap: dict[tuple[str, int | str], str] | None = None
-    title_format: str = "{title}"
-    style_set: StyleSet | None = None
-    add_together: bool = False
-    special_add: list[SpecialAdd] | None = None
-    rescale: list[RescaleSpecification] | None = None
-
-    @field_validator("axis_options", mode="after")
-    @classmethod
-    def coerceMode(cls, value):
-        for k in list(value.keys()):
-            if value[k] in ("Sum", "Split", "Or", "Rebin2", "Rebin3", "Rebin4"):
-                value[k] = Mode[value[k]]
-        return value
-
-    @field_validator("cat_remap", mode="before")
-    @classmethod
-    def transformCatRemap(cls, value):
-        return {(k1, k2): v for k2, v in inner for k1, inner in value.items()}
+    def allEntries(self):
+        return ChainMap(
+            {"histogram_name": self.name},
+            self.group_params,
+            self.axis_params,
+            dict(modelIter(self.sector_parameters)),
+        )
 
 
 class PackagedHist(BaseModel):
     histogram: Any
     title: str
-    sector_parameters: SectorParams
-    axis_parameters: dict[str, Any] | None = None
+    provenance: HistogramProvenance
     style: Style | None = None
+
+    @property
+    def sector_parameters(self):
+        return self.provenance.sector_parameters
 
     @property
     def dim(self):
         return len(self.histogram.axes)
-
-    @property
-    def all_parameters(self):
-        return {**self.parameters, **(self.all_parameters or {})}
 
     def compatible(self, other):
         return self.histogram.axes == other.histogram.axes
@@ -150,7 +81,217 @@ def groupsMatch(group1, group2, fields):
     return all(group1.all_parameters[f] == group2.all_parameters[f] for f in fields)
 
 
-class SectorGroup(SectorGroupParameters):
+class ScaleHistograms(BaseModel):
+    limit: NestedPatternExpression
+
+    def __call__(self, histograms):
+        return histograms
+
+
+class RemapCategories(BaseModel):
+    def __call__(self, histograms):
+        return histograms
+
+
+class Merge(BaseModel):
+    limit: NestedPatternExpression
+
+    def __call__(self, histograms):
+        return histograms
+
+
+class SplitAxes(BaseModel):
+    split_axis_names: list[str | int]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+
+            split_axes = [h.axes[a] for a in self.split_axis_names]
+            possible_values = OrderedDict({(x.name): list(x) for x in split_axes})
+            labels = [(x.name or x.label) for x in split_axes]
+
+            all_hists = {
+                x: h[dict(zip(possible_values.keys(), map(hist.loc, x)))]
+                for x in it.product(*possible_values.values())
+            }
+            for values, split_hist in all_hists.items():
+                axis_values = dict(zip(labels, values))
+                provenance = copy.deepcopy(ph.provenance)
+                provenance.axis_params.update(axis_values)
+                ret.append(
+                    PackagedHist(
+                        histogram=split_hist,
+                        provenance=provenance,
+                        style=ph.style,
+                        title=ph.title,
+                    )
+                )
+
+        return ret
+
+
+class MergeAxes(BaseModel):
+    merge_axis_names: list[str | int]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+            merging = {x: sum for x in self.merge_axis_names}
+            h = h[merging]
+            provenance = copy.deepcopy(ph.provenance)
+            provenance.axis_params.update(merging)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
+class SelectAxesValues(BaseModel):
+    select_axes_values: dict[str | int, str | int | float]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+            h = h[self.select_axes_values]
+            provenance = copy.deepcopy(ph.provenance)
+            provenance.axis_params.update(self.select_axes_values)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
+class RebinAxes(BaseModel):
+    rebin: int | dict[str, int]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+            if isinstance(self.rebin, dict):
+                rebins = {x: hist.rebin(y) for x, y in self.rebin}
+            else:
+                rebins = {x.name: hist.rebin(self.rebin) for x in h.axes}
+            h = h[rebins]
+            provenance = copy.deepcopy(ph.provenance)
+            provenance.axis_params.update(rebins)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
+class FormatTitle(BaseModel):
+    title_format: str
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            ret.append(
+                PackagedHist(
+                    histogram=ph.histogram,
+                    provenance=ph.provenance,
+                    style=ph.style,
+                    title=doFormatting(self.title_format, **ph.provenance.allEntries()),
+                )
+            )
+        return ret
+
+
+AnyPipeline = (
+    ScaleHistograms
+    | RemapCategories
+    | Merge
+    | SplitAxes
+    | RebinAxes
+    | MergeAxes
+    | SelectAxesValues
+    | FormatTitle
+)
+
+
+HistPipeline = list[AnyPipeline]
+
+
+def dictToFrozen(d):
+    return frozenset(sorted(d.items()))
+
+
+class SectorPipelineSpec(BaseModel):
+    group_fields: NestedPatternExpression
+    pipeline: HistPipeline
+
+    def makePipelines(self, sectors):
+        groups = defaultdict(list)
+        for s in sectors:
+            if self.group_fields.match(s.sector_params):
+                captured = self.group_fields.capture(s.sector_params)
+                groups[dictToFrozen(captured)].append(s)
+
+
+        return [
+            SectorHistPipeline(
+                sector_group=SectorGroup(field_values=dict(k), sectors=s),
+                pipeline=self.pipeline,
+            )
+            for k, s in groups.items()
+        ]
+
+
+class SectorHistPipeline(BaseModel):
+    sector_group: SectorGroup
+    pipeline: HistPipeline
+
+    def getHists(self, name):
+        ret = []
+        for sector in self.sector_group.sectors:
+            try:
+                h = sector.result.histograms[name].histogram
+            except KeyError as e:
+                logger.error(
+                    f"Could not find histogram '{name}' in {sector.sector_params.dataset.name} -- {sector.sector_params.region_name}"
+                )
+                raise e
+            h = sector.result.histograms[name].histogram
+            ph = PackagedHist(
+                histogram=h,
+                title="",
+                provenance=HistogramProvenance(
+                    name=name,
+                    sector_parameters=sector.sector_params,
+                    group_params=self.sector_group.field_values,
+                ),
+            )
+            ret.append(ph)
+
+        for p in self.pipeline:
+            ret = p(ret)
+        return ret
+
+
+class SectorGroup(BaseModel):
     """
     A collection of sectors (Region,Datasets pairs), which are treated as a unit for certain processors purposes.
     Different processors may use this construction differently
@@ -158,133 +299,124 @@ class SectorGroup(SectorGroupParameters):
     """
 
     separator: ClassVar[str] = " "
-    sectors: Annotated[list[SectorResult], Field(repr=False)]
-    title_format: Annotated[str, Field(repr=False)] = "{title}"
-    style_set: Annotated[StyleSet | None, Field(repr=False)] = None
-    cat_remap: dict[tuple[str, int | str], str] | None = None
-    add_together: bool = False
-    add_titles: bool = True
-    rescale: list[RescaleSpecification] | None = None
 
-    def __len__(self):
-        return len(self.sectors)
+    field_values: dict[str, Any]
+    sectors: Annotated[list[SectorResult], Field(repr=False)]
 
     def __iter__(self):
         return iter(self.sectors)
 
-    def __getHistTitle(self, hist, sector, cat_values=None):
-        cat_values = cat_values or {}
-        l = copy.deepcopy(cat_values)
-        if self.cat_remap:
-            for k, v in self.cat_remap.items():
-                if k in l:
-                    l[k] = v
-        return doFormatting(
-            self.title_format,
-            **sector.sector_params.model_dump(),
-            title=sector.sector_params.dataset.title,
-        )
+    # def __getHistTitle(self, hist, sector, cat_values=None):
+    #     cat_values = cat_values or {}
+    #     l = copy.deepcopy(cat_values)
+    #     if self.cat_remap:
+    #         for k, v in self.cat_remap.items():
+    #             if k in l:
+    #                 l[k] = v
+    #     return doFormatting(
+    #         self.title_format,
+    #         **sector.sector_params.model_dump(),
+    #         title=sector.sector_params.dataset.title,
+    #     )
 
-    def getSectorStyle(self, sector):
-        if self.style_set:
-            return self.style_set.getStyle(sector.sector_params)
-        else:
-            return None
-
-    def histograms(self, hist_name):
-        """
-        Get all the histograms corresponding to the given name.
-        Returns a list of PackagedHist
-        """
-        everything = defaultdict(list)
-        for sector in self.sectors:
-            try:
-                h = sector.result.histograms[hist_name].histogram
-            except KeyError:
-                logger.error(
-                    f"Could not find histogram '{hist_name}' in {sector.sector_params.dataset.name} -- {sector.sector_params.region_name}"
-                )
-                raise
-
-            if h.empty():
-                continue
-            if self.rescale is not None:
-                for s in self.rescale:
-                    if s.sector_spec.passes(sector.sector_params):
-                        logger.warn(
-                            f"Scaling sector {sector.sector_params.simpleName()} by {s.scale} "
-                        )
-                        h = h * s.scale
-                        break
-
-            hists, labels = splitHistogram(
-                h,
-                self.axis_options or None,
-                return_labels=True,
-            )
-            style = None
-            if self.style_set:
-                style = self.style_set.getStyle(sector.sector_params)
-
-            if isinstance(hists, dict):
-                for c, h in hists.items():
-                    options = dict(zip(labels, c))
-                    everything[c].append(
-                        PackagedHist(
-                            histogram=h,
-                            title=self.__getHistTitle(h, sector, options),
-                            sector_parameters=sector.sector_params,
-                            axis_parameters=options,
-                            style=style,
-                        )
-                    )
-            else:
-                everything[None].append(
-                    PackagedHist(
-                        histogram=hists,
-                        title=self.__getHistTitle(hists, sector),
-                        sector_parameters=sector.sector_params,
-                        axis_parameters=self.axis_options,
-                        style=style,
-                    )
-                )
-
-
-
-        if not self.add_together:
-            return list(it.chain.from_iterable(everything.values()))
-        else:
-            ret = []
-            for group in everything.values():
-                new_name = "_plus_".join(
-                    x.sector_parameters.dataset.name for x in group
-                )
-
-                if self.add_titles:
-                    new_title = "+".join(
-                        x.sector_parameters.dataset.title for x in group
-                    )
-
-                else:
-                    new_title = group[0].sector_parameters.dataset.title
-
-                s = copy.deepcopy(sector.sector_params)
-                s.dataset.name = new_name
-                s.dataset.title = new_title
-                ret.append(
-                    PackagedHist(
-                        histogram=ft.reduce(op.add, (x.histogram for x in group)),
-                        title=new_title,
-                        sector_parameters=s,
-                        axis_parameters=group[0].axis_parameters,
-                        style=group[0].style,
-                    )
-                )
-            return ret
-
-    def __rich_repr__(self):
-        yield "parameters", self.parameters
-        yield "axis_options", self.axis_options
+    # def getSectorStyle(self, sector):
+    #     if self.style_set:
+    #         return self.style_set.getStyle(sector.sector_params)
+    #     else:
+    #         return None
+    #
+    # def histograms(self, hist_name):
+    #     """
+    #     Get all the histograms corresponding to the given name.
+    #     Returns a list of PackagedHist
+    #     """
+    #     everything = defaultdict(list)
+    #     for sector in self.sectors:
+    #         try:
+    #             h = sector.result.histograms[hist_name].histogram
+    #         except KeyError:
+    #             logger.error(
+    #                 f"Could not find histogram '{hist_name}' in {sector.sector_params.dataset.name} -- {sector.sector_params.region_name}"
+    #             )
+    #             raise
+    #
+    #         if h.empty():
+    #             continue
+    #         if self.rescale is not None:
+    #             for s in self.rescale:
+    #                 if s.sector_spec.passes(sector.sector_params):
+    #                     logger.warn(
+    #                         f"Scaling sector {sector.sector_params.simpleName()} by {s.scale} "
+    #                     )
+    #                     h = h * s.scale
+    #                     break
+    #
+    #         hists, labels = splitHistogram(
+    #             h,
+    #             self.axis_options or None,
+    #             return_labels=True,
+    #         )
+    #         style = None
+    #         if self.style_set:
+    #             style = self.style_set.getStyle(sector.sector_params)
+    #
+    #         if isinstance(hists, dict):
+    #             for c, h in hists.items():
+    #                 options = dict(zip(labels, c))
+    #                 everything[c].append(
+    #                     PackagedHist(
+    #                         histogram=h,
+    #                         title=self.__getHistTitle(h, sector, options),
+    #                         sector_parameters=sector.sector_params,
+    #                         axis_parameters=options,
+    #                         style=style,
+    #                     )
+    #                 )
+    #         else:
+    #             everything[None].append(
+    #                 PackagedHist(
+    #                     histogram=hists,
+    #                     title=self.__getHistTitle(hists, sector),
+    #                     sector_parameters=sector.sector_params,
+    #                     axis_parameters=self.axis_options,
+    #                     style=style,
+    #                 )
+    #             )
+    #
+    #     if not self.add_together:
+    #         return list(it.chain.from_iterable(everything.values()))
+    #     else:
+    #         ret = []
+    #         for group in everything.values():
+    #             new_name = "_plus_".join(
+    #                 x.sector_parameters.dataset.name for x in group
+    #             )
+    #
+    #             if self.add_titles:
+    #                 new_title = "+".join(
+    #                     x.sector_parameters.dataset.title for x in group
+    #                 )
+    #
+    #             else:
+    #                 new_title = group[0].sector_parameters.dataset.title
+    #
+    #             s = copy.deepcopy(sector.sector_params)
+    #             s.dataset.name = new_name
+    #             s.dataset.title = new_title
+    #             ret.append(
+    #                 PackagedHist(
+    #                     histogram=ft.reduce(op.add, (x.histogram for x in group)),
+    #                     title=new_title,
+    #                     sector_parameters=s,
+    #                     axis_parameters=group[0].axis_parameters,
+    #                     style=group[0].style,
+    #                 )
+    #             )
+    #         return ret
+    #
+    # def __rich_repr__(self):
+    #     yield "parameters", self.parameters
+    #     yield "axis_options", self.axis_options
 
 
 def createSectorGroups(sectors, spec):
@@ -320,3 +452,24 @@ def createSectorGroups(sectors, spec):
         )
 
     return ret
+
+
+def joinOnFields(fields, *args, key=lambda x: x):
+    pattern = NestedPatternExpression({f: Pattern.Any() for f in fields})
+    matched = [[(dictToFrozen(pattern.capture(key(x))), x) for x in a] for a in args]
+    ret = defaultdict(list)
+    for k, v in matched[0]:
+        if ret[k]:
+            ret[k][0].append(v)
+        else:
+            ret[k] = [[v]]
+
+
+    for m in matched[1:]:
+        to_append = defaultdict(list)
+        for capture, item in m:
+            to_append[capture].append(item)
+        for capture in ret:
+            ret[capture].append(to_append[capture])
+    # print(ret)
+    return list(ret.values())

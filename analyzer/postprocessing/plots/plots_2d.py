@@ -24,7 +24,7 @@ def plot2D(
     matplotlib.use("Agg")
     loadStyles()
     fig, ax = plt.subplots(layout="constrained")
-    styler.getStyle(packaged_hist.sector_parameters)
+    styler.getStyle(packaged_hist.provenance.sector_parameters)
     h = packaged_hist.histogram
     fixBadLabels(h)
 
@@ -36,7 +36,7 @@ def plot2D(
         art = h.plot2d(ax=ax)
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    sp = packaged_hist.sector_parameters
+    sp = packaged_hist.provenance.sector_parameters
     addCMSBits(
         ax,
         [sp],

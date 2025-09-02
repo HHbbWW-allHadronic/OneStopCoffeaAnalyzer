@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import mplhep
 from analyzer.postprocessing.style import Styler
 
-from ..grouping import doFormatting
+# from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .mplstyles import loadStyles
@@ -34,14 +34,16 @@ def plotOne(
     plot_configuration=None,
     stacked_hists=None,
 ):
+    stacked_hists = stacked_hists or []
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     fig, ax = plt.subplots()
+    h = None
     for packaged_hist in packaged_hists:
         title = packaged_hist.title
         h = packaged_hist.histogram
         fixBadLabels(h)
-        style = styler.getStyle(packaged_hist.sector_parameters)
+        style = styler.getStyle(packaged_hist.provenance.sector_parameters)
         h.plot1d(
             ax=ax,
             label=title,
@@ -50,6 +52,9 @@ def plotOne(
             flow="none",
             **style.get(),
         )
+    if h is None:
+        h = stacked_hists[0].histogram
+
     if stacked_hists:
         stacked_hists = sorted(stacked_hists, key=lambda x: x.histogram.sum().value)
         style_kwargs = defaultdict(list)
@@ -76,7 +81,7 @@ def plotOne(
     labelAxis(ax, "x", h.axes, label=pc.x_label)
     addCMSBits(
         ax,
-        [x.sector_parameters for x in packaged_hists],
+        [x.provenance.sector_parameters for x in packaged_hists + stacked_hists],
         plot_configuration=pc,
     )
     if style.legend:
@@ -86,6 +91,7 @@ def plotOne(
         ax.legend(loc="upper right", **legend_kwargs)
         mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
+    mplhep.yscale_legend(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
     else:
@@ -105,13 +111,12 @@ def makeStrHist(data, ax_name=None):
 
 def __plotStrCatOne(
     getter,
-    group_params,
     sectors,
     output_path,
     style_set,
     ax_name=None,
     normalize=False,
-        scale="linear",
+    scale="linear",
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
@@ -148,53 +153,56 @@ def __plotStrCatOne(
     plt.close(fig)
 
 
-def __plotStrCatAsTable(
-    getter,
-    sectors,
-    group_params,
-    output_name,
-    style_set,
-    ax_name=None,
-    normalize=False,
-    plot_configuration=None,
-):
-    pc = plot_configuration or PlotConfiguration()
-    styler = Styler(style_set)
-    loadStyles()
-    mpl.use("Agg")
+# def __plotStrCatAsTable(
+#     getter,
+#     sectors,
+#     group_params,
+#     output_name,
+#     style_set,
+#     ax_name=None,
+#     normalize=False,
+#     plot_configuration=None,
+# ):
+#     pc = plot_configuration or PlotConfiguration()
+#     styler = Styler(style_set)
+#     loadStyles()
+#     mpl.use("Agg")
+#
+#     rep_data = getter(sectors[0])
+#     col_labels = [x[0] for x in rep_data]
+#     rows = []
+#     row_labels = []
+#
+#     figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
+#     fig, ax = plt.subplots(figsize=figsize, layout="constrained")
+#     fig.patch.set_visible(False)
+#     ax.axis("off")
+#     ax.axis("tight")
+#     for sector in sectors:
+#         p = sector.sector_params
+#         styler.getStyle(p)
+#         data = getter(sector)
+#         row_labels.append(sector.sector_params.dataset.title)
+#         rows.append([x[1] for x in data])
+#
+#     table = ax.table(
+#         cellText=rows,
+#         rowLabels=row_labels,
+#         colLabels=col_labels,
+#     )
+#
+#     o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
+#     saveFig(fig, o, extension=pc.image_type)
+#     plt.close(fig)
 
-    rep_data = getter(sectors[0])
-    col_labels = [x[0] for x in rep_data]
-    rows = []
-    row_labels = []
 
-    figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
-    fig, ax = plt.subplots(figsize=figsize, layout="constrained")
-    fig.patch.set_visible(False)
-    ax.axis("off")
-    ax.axis("tight")
-    for sector in sectors:
-        p = sector.sector_params
-        styler.getStyle(p)
-        data = getter(sector)
-        row_labels.append(sector.sector_params.dataset.title)
-        rows.append([x[1] for x in data])
-
-    table = ax.table(
-        cellText=rows,
-        rowLabels=row_labels,
-        colLabels=col_labels,
-    )
-
-    o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
-    saveFig(fig, o, extension=pc.image_type)
-    plt.close(fig)
-
-
-def plotStrCat(plot_type, *args, table_mode=False, **kwargs):
+def plotStrCat(plot_type, *args, table_mode=False, weighted=False, **kwargs):
     def makeGetter(n):
         def inner(sec):
-            return getattr(sec.result.selection_flow, n)
+            if weighted:
+                return getattr(sec.result.selection_flow, n)
+            else:
+                return getattr(sec.result.raw_selection_flow, n)
 
         return inner
 
@@ -230,6 +238,7 @@ def plotRatio(
     fixBadLabels(den_hist)
 
     style = denominator.style or styler.getStyle(denominator.sector_parameters)
+    print(style)
     den_hist.plot1d(
         ax=ax,
         label=denominator.title,
@@ -268,7 +277,8 @@ def plotRatio(
 
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
-        all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
+        all_opts = {**s.get("errorbar", include_type=False), **dict(linestyle="none")}
+        print(all_opts)
         ratio_ax.errorbar(
             x_values,
             ratio,
@@ -282,6 +292,7 @@ def plotRatio(
 
     ratio_ax.set_xlim(left_edge, right_edge)
     ratio_ax.set_ylim(bottom=ratio_ylim[0], top=ratio_ylim[1])
+
     if normalize:
         y_label = "Normalized Events"
     else:
@@ -291,7 +302,6 @@ def plotRatio(
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
 
-    labelAxis(ratio_ax, "x", den_hist.axes)
     addCMSBits(
         ax,
         [denominator.sector_parameters, *(x.sector_parameters for x in numerators)],
@@ -299,8 +309,9 @@ def plotRatio(
     )
 
     ratio_ax.set_ylabel("Ratio", loc="center")
+    labelAxis(ratio_ax, "x", den_hist.axes)
     ax.tick_params(axis="x", which="both", labelbottom=False)
     mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
-    ax.set_yscale(scale)
+    mplhep.yscale_legend(ax, soft_fail=True)
     saveFig(fig, output_path, extension=pc.image_type)
