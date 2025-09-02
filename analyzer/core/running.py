@@ -1,8 +1,8 @@
-import contextlib
 import logging
 import pickle as pkl
 from pathlib import Path
 
+import lz4.frame
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import getSubSectors, loadDescription, iterSubsectors
@@ -31,7 +31,6 @@ def makeTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
 
 
 def iterTasks(subsectors, dataset_repo, era_repo, file_retrieval_kwargs):
-    ret = []
     for sample_id, region_analyzers in subsectors:
         params = dataset_repo[sample_id].params
         params.dataset.populateEra(era_repo)
@@ -60,10 +59,11 @@ class Saver:
 
     def __call__(self, key, result):
         self.output.mkdir(exist_ok=True, parents=True)
-        output_file = self.output / f"{key}.pkl"
+        output_file = self.output / f"{key}.pklz4"
         real_path = getUniqueFilename(output_file)
         logger.info(f"Saving file '{real_path}'")
-        with open(real_path, "wb") as f:
+        print(f"Saving file '{real_path}'")
+        with lz4.frame.open(real_path, "wb") as f:
             pkl.dump({key: result.model_dump()}, f)
 
 
