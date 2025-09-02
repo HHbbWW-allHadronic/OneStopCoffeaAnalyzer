@@ -6,11 +6,60 @@ import hist
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_hlt(events, params, selector):
     era_info = params.dataset.era
-    ht_trigger_name = era_info.trigger_names["HT"]
-    ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
-    selector.add(
-        f"HLT_HT | HLT_AK8", events.HLT[ht_trigger_name] | events.HLT[ak8_trigger_name]
-    )
+
+    if "signal" in params.dataset.name and "official" in params.dataset.name:
+        ht_cutoffs = {
+            "2016_preVFP": 900,
+            "2016_postVFP": 900,
+            "2017": 1050,
+            "2018": 1050,
+            "2022_preEE": 1050,
+            "2022_postEE": 1050,
+            "2023_preBPix": 1050,
+            "2023_postBPix": 1050,
+        }
+        ak8_cutoffs = {
+            "2016_preVFP": (360, 30),
+            "2016_postVFP": (360, 30),
+            "2017": (500, None),
+            "2018": (400, 30),
+            "2022_preEE": (420, 30),
+            "2022_postEE": (420, 30),
+            "2023_preBPix": (420, 30),
+            "2023_postBPix": (420, 30),
+        }
+        era_name = era_info.name
+
+        ht_cutoff = ht_cutoffs[era_name]
+        ak8pt, ak8sd = ak8_cutoffs[era_name]
+
+        jets = events.Jet
+        gj = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
+
+        gj = gj[((gj.jetId & 0b100) != 0) & ((gj.jetId & 0b010) != 0)]
+        if any(x in params.dataset.era.name for x in ["2016", "2017", "2018"]):
+            gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
+
+        good_jets = gj
+        ht = ak.sum(good_jets.pt, axis=1)
+
+        fat_jets = events.FatJet
+        good_fatjets = fat_jets[(fat_jets.pt > 150) & (abs(fat_jets.eta) < 2.4)]
+        padded_fatjets = ak.pad_none(good_fatjets, 1, axis=1)
+
+        pass_ht = ht > ht_cutoff
+        pass_ak8 = padded_fatjets[:, 0].pt > ak8pt
+        if ak8sd is not None:
+            pass_ak8 = pass_ak8 & (padded_fatjets[:, 0].msoftdrop > ak8sd)
+
+        selector.add(f"HLT_HT | HLT_AK8", pass_ht | pass_ak8)
+    else:
+        ht_trigger_name = era_info.trigger_names["HT"]
+        ak8_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
+        selector.add(
+            f"HLT_HT | HLT_AK8",
+            events.HLT[ht_trigger_name] | events.HLT[ak8_trigger_name],
+        )
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -132,7 +181,6 @@ def general_selection(events, params, selector):
 
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     selector.add("0Lep", passes_0Lep)
-
 
 
 @MODULE_REPO.register(ModuleType.Selection)
