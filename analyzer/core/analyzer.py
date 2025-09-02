@@ -3,7 +3,6 @@ import dask
 import logging
 from dataclasses import dataclass
 from collections.abc import Sequence
-import psutil
 
 
 from analyzer.core.region_analyzer import RegionAnalyzer
@@ -14,7 +13,6 @@ from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
 from analyzer.core.histograms import Hist
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
-from multiprocessing import Process, Queue
 
 logger = logging.getLogger(__name__)
 
@@ -25,9 +23,9 @@ def callTimeout(process_timeout, function, *args, **kwargs):
             future = executor.submit(function, *args, **kwargs)
             return future.result(timeout=process_timeout)
         except TimeoutError:
-            for pid, process in executor._processes.items():
-                process.terminate()
             raise
+            # for pid, process in executor._processes.items():
+            #     process.terminate()
 
 
 def checkProcess(process, max_mem):
@@ -71,7 +69,6 @@ class Analyzer:
         columns = columns.withSyst(variation)
         for ra in region_analyzers:
             ra.runObjects(columns, params)
-        ret = {}
         for ra in region_analyzers:
             hs = histogram_storage[ra.region_name]
             selection = ra.runSelection(columns, params, selection_set)
@@ -101,7 +98,7 @@ class Analyzer:
         histogram_storage = {ra.region_name: {} for ra in region_analyzers}
         # Each region has its own cutflow
         cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
-        # Each region has its own cutflow
+        # Each region has its own weights
         weight_storage = {ra.region_name: {} for ra in region_analyzers}
 
         mask = preselection.getMask()
@@ -174,61 +171,61 @@ class Analyzer:
                     events, params, [x[0] for x in items], sel, preselection_set
                 )
             )
-        return ret
+        return results.MultiSectorResult(ret)
 
     def runDelayed(self, *args, **kwargs):
         return dask.delayed(self.run)(*args, **kwargs)
 
-    def runChunks(
-        self,
-        fileset,
-        params,
-        known_form=None,
-        treepath="Events",
-        timeout=120,
-        max_memory_gb=3.2,
-    ):
-        try:
-            if timeout:
-                logger.info(f"Starting run of analyzer using file set: {fileset}")
-                return callTimeout(
-                    timeout,
-                    self.runChunks,
-                    fileset,
-                    params,
-                    known_form=known_form,
-                    treepath=treepath,
-                    timeout=None,
-                )
-            else:
-                from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-                from analyzer.logging import setup_logging
-
-                setup_logging()
-
-                max_memory_bytes = round(1024 * 1024 * max_memory_gb)
-
-                chunks = fileset.toCoffeaDataset()["files"]
-
-                logger.info(f"Loading events from {fileset}")
-                events = NanoEventsFactory.from_root(
-                    chunks,
-                    schemaclass=NanoAODSchema,
-                    known_base_form=known_form,
-                    delayed=True,
-                    uproot_options=dict(use_threads=False),
-                ).events()
-
-                result = results.subsector_adapter.dump_python(self.run(events, params))
-                result = dask.compute(result, scheduler="threads")[0]
-                logger.info(f"Analysis completed successfully for {fileset}")
-                result = results.subsector_adapter.validate_python(result)
-
-                return (fileset, result)  # self.run(events, params))
-
-        except Exception:
-            return None
-
     def ensureFunction(self, module_repo):
         for ra in self.region_analyzers:
             ra.ensureFunction(module_repo)
+
+
+def runAnalyzerChunks(
+    analyzer,
+    fileset,
+    params,
+    known_form=None,
+    treepath="Events",
+    timeout=120,
+):
+    try:
+        if timeout:
+            logger.info(f"Starting run of analyzer using file set: {fileset}")
+            return callTimeout(
+                timeout,
+                runAnalyzerChunks,
+                analyzer,
+                fileset,
+                params,
+                known_form=known_form,
+                treepath=treepath,
+                timeout=None,
+            )
+        else:
+            from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
+            from analyzer.logging import setup_logging
+
+            setup_logging()
+
+            chunks = fileset.toCoffeaDataset()["files"]
+
+            logger.info(f"Loading events from {fileset}")
+            events = NanoEventsFactory.from_root(
+                chunks,
+                schemaclass=NanoAODSchema,
+                known_base_form=known_form,
+                delayed=True,
+                uproot_options=dict(use_threads=False),
+            ).events()
+
+            result = analyzer.run(events, params)
+            result = result.model_dump()
+            result = dask.compute(result, scheduler="threads")[0]
+            logger.info(f"Analysis completed successfully for {fileset}")
+            result = results.MultiSectorResult(**result)
+
+            return (fileset, result)
+
+    except Exception as e:
+        return e
