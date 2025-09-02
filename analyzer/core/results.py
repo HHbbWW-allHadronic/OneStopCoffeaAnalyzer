@@ -15,22 +15,34 @@ import analyzer.core.selection as ans
 import analyzer.core.specifiers as spec
 import analyzer.datasets as ad
 import pydantic as pyd
+from pydantic import ConfigDict
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.structure_tools import accumulate
 from .exceptions import ResultIntegrityError
 from rich.progress import track
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from .common_types import Scalar
 
 
 logger = logging.getLogger(__name__)
 
 
 class BaseResult(pyd.BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     selection_flow: ans.SelectionFlow | None = None
-    post_sel_weight_flow: dict[str, float] | None = None
+    post_sel_weight_flow: dict[str, Scalar] | None = None
+
+    _raw_selection_flow: ans.SelectionFlow | None = None
+
+    @property
+    def raw_selection_flow(self):
+        if self._raw_selection_flow is None:
+            return self.selection_flow
+        return self._raw_selection_flow
 
     def includeOnly(self, histograms):
         self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
@@ -54,22 +66,25 @@ class BaseResult(pyd.BaseModel):
         self.other_data = new_other
         self.post_sel_weight_flow = new_post_weight
         self.selection_flow = self.selection_flow + other.selection_flow
+        self._raw_selection_flow = self.raw_selection_flow + other.raw_selection_flow
         return self
 
     def scaled(self, scale):
         """
         Scale all data. Currently selection flow is left unscaled.
         """
-        return BaseResult(
+        ret = BaseResult(
             histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
             other_data=self.other_data,
-            selection_flow=self.selection_flow,  # .scaled(scale),
+            selection_flow=self.selection_flow.scaled(scale),
             post_sel_weight_flow=(
-                {x: y * scale for x, y in self.post_sel_weight_flow}
+                {x: y * scale for x, y in self.post_sel_weight_flow.items()}
                 if self.post_sel_weight_flow is not None
                 else None
             ),
         )
+        ret._raw_selection_flow = self.raw_selection_flow
+        return ret
 
 
 class SubSectorResult(pyd.BaseModel):
@@ -99,11 +114,35 @@ class SubSectorResult(pyd.BaseModel):
         )
 
 
+class MultiSectorResult(pyd.RootModel):
+    root: dict[str, SubSectorResult]
+
+    def values(self):
+        return self.root.values()
+
+    def keys(self):
+        return self.root.keys()
+
+    def items(self):
+        return self.root.items()
+
+    def __iadd__(self, other):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        self.root = accumulate([self.root, other.root])
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
+
+
 class SampleResult(pyd.BaseModel):
     sample_id: ad.SampleId
 
     params: SampleParams
-    results: dict[str, SubSectorResult]
+    results: MultiSectorResult
 
     file_set_ran: FileSet
     file_set_processed: FileSet
@@ -122,7 +161,7 @@ class SampleResult(pyd.BaseModel):
         if not fs.empty:
             error = (
                 f"Could not add analysis results because the file sets over which they successfully processed overlap."
-                f"Overlapping files:\n{fs}"
+                f"Overlapping files:\n{list(fs.files)}"
             )
             raise ResultIntegrityError(error)
 
@@ -225,7 +264,6 @@ class DatasetResult(pyd.BaseModel):
 
 
 results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
-subsector_adapter = pyd.TypeAdapter(dict[str, SubSectorResult])
 
 
 def loadResults(obj):
@@ -275,8 +313,10 @@ def loadSampleResultFromPaths(
             disable=not CONFIG.PRETTY_MODE,
         )
         for p in iterator:
-            with open(p, "rb") as f:
+            with lz4.frame.open(p, "rb") as f:
+                gc.disable()
                 data = pkl.load(f)
+                gc.enable()
                 r = loadResults(data)
                 for k in list(r.keys()):
                     if include is not None:
@@ -323,12 +363,12 @@ def merge(paths, outdir):
 
     results = loadSampleResultFromPaths(paths, show_warning=False)
     for sample_id, result in results.items():
-        output = outdir / f"{sample_id}.pkl"
+        output = outdir / f"{sample_id}.pklz4"
         print(f'Saving sample {sample_id} to "{output}"')
         if output.exists():
             raise ResultIntegrityError("Cannot overwrite when merging!")
 
-        with open(output, "wb") as f:
+        with lz4.frame.open(output, "wb") as f:
             pkl.dump({sample_id: result.model_dump()}, f)
 
 
@@ -364,7 +404,6 @@ def makeDatasetResults(
                 ds.dataset_params.name = str(s.sample_id)
                 ds.dataset_params.title = str(s.sample_id.sample_name)
                 ret[s.sample_id] = ds
-                print(s.sample_id)
         return ret
 
 
@@ -444,5 +483,5 @@ def updateMeta(paths):
             p = dataset_repo[sid].params
             p.dataset.populateEra(era_repo)
             k.params = p
-        with open(path, "wb") as f:
+        with lz4.frame.open(path, "wb") as f:
             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)

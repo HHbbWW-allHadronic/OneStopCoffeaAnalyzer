@@ -1,4 +1,4 @@
-from analyzer.core.results import BaseResult, SubSectorResult
+from analyzer.core.results import BaseResult, SubSectorResult, MultiSectorResult
 from analyzer.core.histograms import HistogramCollection
 import hist
 from dask.sizeof import sizeof
@@ -22,3 +22,7 @@ def approxSizeofBaseResult(obj):
 @sizeof.register(SubSectorResult)
 def approxSizeofSubsectorResult(obj):
     return 1000 + sizeof(obj.base_result)
+
+@sizeof.register(MultiSectorResult)
+def approxSizeofMultiSectorResult(obj):
+    return sum(sizeof(x) for x in obj.root.values())
