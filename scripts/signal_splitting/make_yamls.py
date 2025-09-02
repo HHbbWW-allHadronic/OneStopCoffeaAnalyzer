@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import re
 import csv
+import yaml
 
 
 xsec_dict = None
@@ -87,8 +88,11 @@ def main():
     parser.add_argument("-y", "--year", type=str, required=True)
     parser.add_argument("-o", "--output", type=str, required=True)
     parser.add_argument("input", type=str)
-
     args = parser.parse_args()
+
+    out = Path(args.output)
+    out.parent.mkdir(exist_ok=True, parents=True)
+
 
     f = getFiles(args.input)
     g = makeGroups(f)
@@ -98,6 +102,10 @@ def main():
         e = makeEntry(group, args.year, *items)
         print(e)
         ret.append(e)
+
+    yaml_string = yaml.dump(ret,sort_keys=False)
+    with open(out,'w') as f:
+        f.write(yaml_string)
 
 
 if __name__ == "__main__":

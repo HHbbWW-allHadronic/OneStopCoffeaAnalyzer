@@ -7,7 +7,7 @@ import subprocess
 
 
 def getFiles():
-    command = "eos root://cmseos.fnal.gov// find  -f '/store/user/ckapsiak/SingleStop/raw_official_samples/'"
+    command = "eos root://cmseos.fnal.gov// find  -f '/store/user/ckapsiak/SingleStop/raw_official_samples/split_signals/'"
     out = subprocess.run(command,shell=True, capture_output=True)
     lines = out.stdout.splitlines()
     lines = [l.decode("utf-8").replace("/eos/uscms/", "root://cmseos.fnal.gov//") for l in lines]
