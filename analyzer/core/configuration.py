@@ -11,9 +11,9 @@ from .analysis_modules import MODULE_REPO
 
 import logging
 
-import analyzer.core.specifiers as specs
 import analyzer.core.region_analyzer as ra
 import analyzer.core.executors as executors
+from analyzer.utils.querying import PatternExpression
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class AnalysisStage(str, enum.Enum):
 
 class ModuleDescription(BaseModel):
     name: str
-    sample_spec: specs.SampleSpec | None = None
+    constraint: PatternExpression | None = None
     config: list[dict[str, Any]] | dict[str, Any] | None = None
 
 
@@ -133,7 +133,6 @@ def getSubSectors(description, dataset_repo, era_repo):
 
 
 def iterSubsectors(description, dataset_repo, era_repo):
-    s_pairs = []
     by_dataset = defaultdict(list)
     for dataset_name, regions in description.samples.items():
         if any(x in dataset_name for x in [".", "*"]):

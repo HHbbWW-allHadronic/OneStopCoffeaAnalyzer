@@ -1,7 +1,4 @@
 import itertools as it
-
-
-from analyzer.configuration import CONFIG
 from pydantic import BaseModel, Field
 from typing import Any
 import awkward as ak
@@ -97,7 +94,7 @@ class RegionAnalyzer(BaseModel):
             ret = [
                 mod
                 for mod in l
-                if not mod.sample_spec or mod.sample_spec.passes(dataset_params)
+                if not mod.constraint or mod.constraint.match(dataset_params)
             ]
             modules = [
                 [
