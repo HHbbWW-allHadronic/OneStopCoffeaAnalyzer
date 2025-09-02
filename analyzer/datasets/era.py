@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Any
 import yaml
+from yaml import CLoader as Loader
 from pydantic import BaseModel, Field, AliasChoices
 import dataclasses
 from analyzer.configuration import CONFIG
@@ -54,7 +55,7 @@ class EraRepo:
         for f in files:
             with open(f, "r") as fo:
                 logger.debug(f"Loading era from  file {f}")
-                data = yaml.safe_load(fo)
+                data = yaml.load(fo, Loader=Loader)
                 for d in data:
                     s = Era(**d)
                     if s.name in self.eras:
