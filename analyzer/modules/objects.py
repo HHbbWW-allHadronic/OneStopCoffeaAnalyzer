@@ -15,10 +15,7 @@ def jets_and_ht(columns, params):
     jets = columns.get("Jet")
     gj = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
 
-    if "2016" in params.dataset.era.name:
-        gj = gj[gj.jetId == 7]
-    else:
-        gj = gj[gj.jetId == 6]
+    gj = gj[((gj.jetId & 0b100) != 0) & ((gj.jetId & 0b010) != 0)]
 
     if any(x in params.dataset.era.name for x in ["2016", "2017", "2018"]):
         gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
