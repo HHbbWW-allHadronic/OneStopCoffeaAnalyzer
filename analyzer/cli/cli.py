@@ -148,8 +148,9 @@ def handleSummaryTable(args):
         texTable,
     )
     from analyzer.datasets import EraRepo
+    from analyzer.utils.querying import PatternExpression, pattern_expr_adapter
 
-    query = {x: "*" for x in args.fields}
+    query = pattern_expr_adapter.validate_python({x: "*" for x in args.fields})
     format_opts = {"TT": "\\texttt{{{}}}", "RM": "\\textrm{{{}}}"}
 
     era_repo = EraRepo.getConfig()

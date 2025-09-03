@@ -1,6 +1,5 @@
 import operator as op
 
-from analyzer.utils.querying import dictMatches
 
 
 def texEscape(s):
@@ -33,6 +32,6 @@ def createEraTable(era_repo, query):
     for era_name in era_repo:
         era = era_repo[era_name]
         era_dict = era.model_dump()
-        matches = dictMatches(query, era_dict)
+        matches = query.capture(era_dict)
         ret.append(matches)
     return ret
