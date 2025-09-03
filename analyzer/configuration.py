@@ -5,6 +5,8 @@ class Config:
     FILE_ROOTS = [("store", "store"), "store", "applocal"]
     APPLICATION_DATA = "/srv/.application_data"
     PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
+    CACHE_PATH = APPLICATION_DATA + "/object_caches"
+    USE_CACHE = True
     # APPLICATION_RESOURCES = "/srv/analyzer_resources"
     APPLICATION_RESOURCES = "analyzer_resources"
 
