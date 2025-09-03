@@ -216,6 +216,16 @@ class RegionAnalyzer(BaseModel):
 
         if weight_storage is not None:
             names = weighter.weight_names
+            if "pos_neg" in names:
+                weight_storage["unweighted"] = ak.sum(
+                    weighter.weight(
+                        include=["pos_neg"],
+                    ),
+                    axis=0,
+                )
+            else:
+                weight_storage["unweighted"] = ak.num(columns.events, axis=0)
+
             for name in names:
                 weight_storage[name] = ak.sum(
                     weighter.weight(
