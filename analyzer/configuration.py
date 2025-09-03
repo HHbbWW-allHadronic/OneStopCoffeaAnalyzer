@@ -25,5 +25,7 @@ class Config:
 
     WARN_LOAD_FILE_NUMBER = 50
 
+    SUPPRESS_WARNINGS = True
+
 
 CONFIG = Config()
