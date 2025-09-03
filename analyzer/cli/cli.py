@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 
 from analyzer.logging import setup_logging
-from rich import print
+from rich import print, get_console
 
 logger = logging.getLogger(__name__)
 
@@ -124,19 +124,39 @@ def addSubParserStoreResults(subparsers):
 
 def handleSamples(args):
     from .sample_report import createSampleTable
-    from analyzer.datasets import DatasetRepo
-    from rich.console import Console
+    from analyzer.datasets import DatasetRepo,EraRepo
+    from analyzer.utils.querying import pattern_expr_adapter, MultiPatternExpression
 
-    console = Console()
+
+    if args.filter:
+        filter_pattern = MultiPatternExpression(exprs=args.filter, op="AND")
+    else:
+        filter_pattern = None
     repo = DatasetRepo.getConfig()
-    table = createSampleTable(repo)
-    console.print(table)
+    era_repo = EraRepo.getConfig()
+    repo.populateEras(era_repo)
+    table = createSampleTable(repo, pattern=filter_pattern)
+    print(table)
 
 
 def addSubparserSampleReport(subparsers):
-    """Update an existing results file with missing info"""
+    from analyzer.utils.querying import pattern_expr_adapter
+    import json
+
     subparser = subparsers.add_parser(
         "samples", help="Get information on available samples"
+    )
+
+    def keyValuePattern(p):
+        k, v = p.split("=")
+        return pattern_expr_adapter.validate_python({k: v})
+
+    subparser.add_argument(
+        "--filter",
+        nargs="+",
+        type=keyValuePattern,
+        required=False,
+        default=None,
     )
     subparser.set_defaults(func=handleSamples)
 
@@ -221,10 +241,7 @@ def handleStartCluster(args):
 def addSubparserRun(subparsers):
     """Update an existing results file with missing info"""
 
-    def parsePatterns(p):
-        from analyzer.utils.querying import Pattern
-
-        return Pattern(pattern=p)
+    from analyzer.utils.querying import Pattern
 
     subparser = subparsers.add_parser(
         "run", help="Run analyzer based on provided configuration"
@@ -242,7 +259,7 @@ def addSubparserRun(subparsers):
     subparser.add_argument(
         "--filter-samples",
         nargs="*",
-        type=parsePatterns,
+        type=Pattern.model_validate,
         required=False,
         default=None,
         help="Filter samples",
