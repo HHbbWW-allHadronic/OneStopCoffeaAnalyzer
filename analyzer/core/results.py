@@ -126,6 +126,9 @@ class MultiSectorResult(pyd.RootModel):
     def items(self):
         return self.root.items()
 
+    def __getitem__(self,item):
+        return self.root[item]
+
     def __iadd__(self, other):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
