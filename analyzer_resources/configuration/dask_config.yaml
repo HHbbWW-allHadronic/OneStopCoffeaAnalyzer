@@ -2,15 +2,15 @@ distributed:
   dashboard:
     link:  "{scheme}://{host}:{port}/status"
   worker:
-    memory:
-      spill: 0.6  # default: 0.7
-      target: 0.7  # default: 0.6
-      terminate: 0.98  # default: 0.95
+    daemon: false
+    # memory:
+    #   spill: 0.6  # default: 0.7
+    #   target: 0.7  # default: 0.6
+    #   terminate: 0.98  # default: 0.95
     # profile:
     #   enabled: true
     # memory:
     #   terminate: false
-    daemon: false
   # adaptive: {}
     
     
@@ -27,8 +27,8 @@ distributed:
       MALLOC_TRIM_THRESHOLD_: 0
   # scheduler:
 
-  scheduler:
-    worker-saturation: 1.0
+  scheduler: {}
+    # worker-saturation: 1.0
     # no-workers-timeout: true
 
   admin:
@@ -53,7 +53,7 @@ jobqueue:
     name: dask-worker
     # Dask worker options
     cores: 1                     # Total number of cores per job
-    memory: 2.5GB                # Total amount of memory per job
+    memory: 4GB                # Total amount of memory per job
     processes: 1             # Number of Python processes per job
     threads: 1
 
@@ -66,7 +66,11 @@ jobqueue:
     worker-extra-args:
       - "--worker-port 10000:10300"
       - "--nanny-port 10301:10600"
-      - "--no-dashboard"
+      # - "--no-dashboard"
+      - "--preload"
+      - "analyzer.core.dask_sizes"
+      - "--preload"
+      - "lpcjobqueue.patch"
 
     # HTCondor Resource Manager options
     disk: 4GB                  # Total amount of disk per job

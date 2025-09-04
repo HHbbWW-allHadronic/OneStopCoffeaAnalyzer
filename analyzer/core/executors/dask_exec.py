@@ -34,6 +34,7 @@ from .executor import Executor
 from .preprocessing_tools import preprocess
 
 from analyzer.core.analyzer import runAnalyzerChunks
+import analyzer.core.dask_sizes  # noqa
 
 logger = logging.getLogger(__name__)
 
