@@ -1,4 +1,10 @@
-from analyzer.core.results import BaseResult, SubSectorResult, MultiSectorResult
+from analyzer.core.results import (
+    BaseResult,
+    SubSectorResult,
+    MultiSectorResult,
+    SampleResult,
+    MultiSampleResult,
+)
 from analyzer.core.histograms import HistogramCollection
 import hist
 from dask.sizeof import sizeof
@@ -41,3 +47,15 @@ def approxSizeofFileset(obj):
 @sizeof.register(SampleFile)
 def approxSizeofSampleFile(obj):
     return sizeof(obj.paths)
+
+
+@sizeof.register(SampleResult)
+def approxSizeofSampleResult(obj):
+    return (
+        sizeof(obj.results) + sizeof(obj.file_set_ran) + sizeof(obj.file_set_processed)
+    )
+
+
+@sizeof.register(MultiSampleResult)
+def approxSizeofMultiSampleResult(obj):
+    return sizeof(obj.root)

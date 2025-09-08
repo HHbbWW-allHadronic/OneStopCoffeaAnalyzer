@@ -1,8 +1,10 @@
 import copy
 
+import itertools as it
 import lz4.frame
 import logging
 from pathlib import Path
+from rich import print
 import pickle as pkl
 from rich.prompt import Confirm
 from collections import defaultdict
@@ -12,16 +14,19 @@ import gc
 import analyzer.core.histograms as anh
 import analyzer.core.region_analyzer as anr
 import analyzer.core.selection as ans
+from analyzer.core.dask_tools import reduceResults
 import analyzer.core.specifiers as spec
 import analyzer.datasets as ad
 import pydantic as pyd
+from analyzer.utils.querying import SimpleNestedPatternExpression, Pattern
 from pydantic import ConfigDict
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
-from analyzer.utils.structure_tools import accumulate
+from analyzer.utils.structure_tools import accumulate, dictToFrozen, iadd
 from .exceptions import ResultIntegrityError
 from rich.progress import track
-from concurrent.futures import ProcessPoolExecutor, as_completed
+
+# from concurrent.futures import ProcessPoolExecutor, as_completed
 from .common_types import Scalar
 
 
@@ -47,12 +52,12 @@ class BaseResult(pyd.BaseModel):
     def includeOnly(self, histograms):
         self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
 
-    def __add__(self, other: "SubSectorResult"):
+    def __add__(self, other):
         ret = copy.deepcopy(self)
         ret += other
         return ret
 
-    def __iadd__(self, other: "SubSectorResult"):
+    def __iadd__(self, other):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
@@ -91,12 +96,12 @@ class SubSectorResult(pyd.BaseModel):
     region: anr.RegionAnalyzer
     base_result: BaseResult
 
-    def __add__(self, other: "SubSectorResult"):
+    def __add__(self, other):
         ret = copy.deepcopy(self)
         ret += other
         return ret
 
-    def __iadd__(self, other: "SubSectorResult"):
+    def __iadd__(self, other):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
@@ -126,14 +131,14 @@ class MultiSectorResult(pyd.RootModel):
     def items(self):
         return self.root.items()
 
-    def __getitem__(self,item):
+    def __getitem__(self, item):
         return self.root[item]
 
     def __iadd__(self, other):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
-        self.root = accumulate([self.root, other.root])
+        iadd(self.root, other.root)
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -175,7 +180,6 @@ class SampleResult(pyd.BaseModel):
             )
 
     def __add__(self, other):
-        self.compatible(other)
         ret = copy.deepcopy(self)
         ret += other
         return ret
@@ -184,7 +188,7 @@ class SampleResult(pyd.BaseModel):
         self.compatible(other)
         self.file_set_ran += other.file_set_ran
         self.file_set_processed += other.file_set_processed
-        self.results = accumulate([self.results, other.results])
+        iadd(self.results, other.results)
         return self
 
     def scaled(self, scale):
@@ -210,6 +214,38 @@ class SampleResult(pyd.BaseModel):
         else:
             scale = self.params.n_events / self.file_set_processed.events
         return self.scaled(scale)
+
+
+class MultiSampleResult(pyd.RootModel):
+    root: dict[ad.SampleId, SampleResult]
+
+    def includeOnly(self, histograms):
+        for r in self.values():
+            r.includeOnly(histograms)
+
+    def values(self):
+        return self.root.values()
+
+    def keys(self):
+        return self.root.keys()
+
+    def items(self):
+        return self.root.items()
+
+    def __getitem__(self, item):
+        return self.root[item]
+
+    def __iadd__(self, other):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        iadd(self.root, other.root)
+        return self
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
 
 class SectorResult(pyd.BaseModel):
@@ -266,22 +302,18 @@ class DatasetResult(pyd.BaseModel):
         ]
 
 
-results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
-
-
-def loadResults(obj):
-    return results_adapter.validate_python(obj)
-
-
-def openAndLoad(path):
+def openAndLoad(path, include=None):
     gc.disable()
 
     with lz4.frame.open(path, "rb") as f:
         data = pkl.load(f)
 
     gc.enable()
+    ret = MultiSampleResult(data)
+    if include is not None:
+        ret.includeOnly(include)
 
-    return loadResults(data)
+    return ret
 
 
 def makeResultMap(paths):
@@ -296,31 +328,37 @@ def makeResultMap(paths):
     return ret
 
 
+def mergeResult(results):
+    return accumulate(results)
+
+
 def loadSampleResultFromPaths(
-    paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES, show_warning=True
+    paths,
+    include=None,
+    parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES,
+    show_warning=True,
+    show_progress=False,
 ):
     ret = {}
-
     if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER and show_warning:
         print(
             f"You are attempting to load {len(paths)} files. "
             f"You may want to consider running 'analyzer merge' to improve loading speed."
         )
 
+    print(parallel)
     if not parallel:
+        paths = list(paths)
         iterator = track(
             paths,
             total=len(paths),
             transient=True,
             description="Loading Files",
-            disable=not CONFIG.PRETTY_MODE,
+            disable=not show_progress,
         )
         for p in iterator:
-            with lz4.frame.open(p, "rb") as f:
-                gc.disable()
-                data = pkl.load(f)
-                gc.enable()
-                r = loadResults(data)
+            try:
+                r = openAndLoad(p)
                 for k in list(r.keys()):
                     if include is not None:
                         r[k].includeOnly(include)
@@ -328,20 +366,36 @@ def loadSampleResultFromPaths(
                         ret[k] = r[k]
                     else:
                         ret[k] += r[k]
-                    del r[k]
+            except Exception:
+                print(f"An error occurred while trying to load file {p}")
+                raise
     else:
-        with ProcessPoolExecutor(max_workers=parallel) as executor:
-            futures = [executor.submit(openAndLoad, path) for path in paths]
-            # futures = executor.map(openAndLoad, paths)
+        from distributed import Client, LocalCluster, as_completed
+
+        with LocalCluster(
+            n_workers=parallel,
+            processes=True,
+            dashboard_address="localhost:8786",
+            memory_limit="4GB",
+        ) as cluster, Client(cluster) as client:
+            futures = client.map(lambda x: openAndLoad(x, include), paths)
+            final = reduceResults(
+                client,
+                accumulate,
+                futures,
+                reduction_factor=5,
+                target_final_count=10,
+            )
             iterator = track(
-                as_completed(futures),
-                total=len(paths),
+                as_completed(final),
+                total=len(final),
                 transient=True,
                 description="Loading Files",
-                disable=not CONFIG.PRETTY_MODE,
+                disable=not show_progress,
             )
             for f in iterator:
                 r = f.result()
+                f.cancel()
                 for k in list(r.keys()):
                     if include is not None:
                         r[k].includeOnly(include)
@@ -349,11 +403,17 @@ def loadSampleResultFromPaths(
                         ret[k] = r[k]
                     else:
                         ret[k] += r[k]
-                    del r[k]
     return ret
 
 
-def merge(paths, outdir):
+def merge(paths, outdir, fields=None):
+    from analyzer.cli.quicklook import quicklookSample
+
+    fields = fields or ["dataset.name"]
+    pattern = SimpleNestedPatternExpression.model_validate(
+        {x: Pattern.Any() for x in fields}
+    )
+
     outdir = Path(outdir)
     outdir.mkdir(exist_ok=True, parents=True)
     if any(outdir.iterdir()):
@@ -364,15 +424,25 @@ def merge(paths, outdir):
             print("Aborting")
             return
 
-    results = loadSampleResultFromPaths(paths, show_warning=False)
-    for sample_id, result in results.items():
-        output = outdir / f"{sample_id}.pklz4"
-        print(f'Saving sample {sample_id} to "{output}"')
+    group_paths = defaultdict(dict)
+
+    params_dict = defaultdict(list)
+    for p in track(paths, total=len(paths)):
+        data = openAndLoad(p)
+        for sample in data.values():
+            params = dictToFrozen(pattern.capture(sample.params))
+            params_dict[params].append(p)
+
+    for params, paths in track(params_dict.items(), total=len(params_dict)):
+        output_name = "_".join(x[1] for x in params)
+        output = outdir / f"{output_name}.pklz4"
+        print(f'Saving "{output}"')
+        loaded = loadSampleResultFromPaths(paths)
         if output.exists():
             raise ResultIntegrityError("Cannot overwrite when merging!")
 
         with lz4.frame.open(output, "wb") as f:
-            pkl.dump({sample_id: result.model_dump()}, f)
+            pkl.dump(loaded.model_dump(), f)
 
 
 def makeDatasetResults(
@@ -410,14 +480,16 @@ def makeDatasetResults(
         return ret
 
 
-def checkResult(paths, configuration=None):
+def checkResult(paths, configuration=None, only_bad=False):
     from rich.console import Console
     from rich.style import Style
     from rich.table import Table
 
     console = Console()
 
-    loaded = loadSampleResultFromPaths(paths, include=[])
+    loaded = loadSampleResultFromPaths(
+        paths, include=[], show_progress=True, parallel=8
+    )
     results = list(loaded.values())
 
     # from analyzer.utils.debugging import jumpIn
@@ -450,6 +522,9 @@ def checkResult(paths, configuration=None):
         done = diff == 0
         percent = round(val / exp * 100, 2)
 
+        if only_bad and done:
+            continue
+
         table.add_row(
             sample_id.dataset_name,
             sample_id.sample_name,
@@ -458,7 +533,6 @@ def checkResult(paths, configuration=None):
             f"{exp}",
             style=Style(color="green" if done else "red"),
         )
-        # print(f"{sample_id} is missing {diff} events")
     if configuration:
         for sample_id in missing_samples:
             table.add_row(
@@ -478,9 +552,7 @@ def updateMeta(paths):
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     for path in paths:
-        with lz4.frame.open(path, "rb") as f:
-            data = pkl.load(f)
-        results = loadResults(data)
+        result = openAndLoad(path)
         for k in results.values():
             sid = k.sample_id
             p = dataset_repo[sid].params
