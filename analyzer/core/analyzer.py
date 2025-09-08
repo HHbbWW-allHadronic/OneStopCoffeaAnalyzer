@@ -23,9 +23,9 @@ def callTimeout(process_timeout, function, *args, **kwargs):
             future = executor.submit(function, *args, **kwargs)
             return future.result(timeout=process_timeout)
         except TimeoutError:
+            for pid, process in executor._processes.items():
+                process.terminate()
             raise
-            # for pid, process in executor._processes.items():
-            #     process.terminate()
 
 
 def checkProcess(process, max_mem):
@@ -188,6 +188,7 @@ def runAnalyzerChunks(
     known_form=None,
     treepath="Events",
     timeout=120,
+    return_exceptions_as_values=True,
 ):
     try:
         if timeout:
@@ -228,4 +229,7 @@ def runAnalyzerChunks(
             return (fileset, result)
 
     except Exception as e:
-        return e
+        if return_exceptions_as_values:
+            return e
+        else:
+            raise e
