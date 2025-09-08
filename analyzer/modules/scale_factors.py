@@ -103,9 +103,10 @@ def btagging_wp_sf(
     weight_manager.add(f"btag_sf", computeWeight("central", wp_names), s)
 
 
+
+
 @MODULE_REPO.register(ModuleType.Weight)
 def pileup_sf(events, params, weight_manager, variations=None):
-    return
     pu_info = params.dataset.era.pileup_scale_factors
     path = pu_info["file"]
     name = pu_info["name"]
@@ -116,9 +117,6 @@ def pileup_sf(events, params, weight_manager, variations=None):
     nom = corr.evaluate(n_pu, "nominal")
     up = corr.evaluate(n_pu, "up")
     down = corr.evaluate(n_pu, "down")
-    logging.info(nom)
-    logging.info(up)
-    logging.info(down)
     weight_manager.add(f"pileup_sf", nom, {"inclusive": (up, down)})
 
 
@@ -156,15 +154,17 @@ def btagging_shape_sf(
             axis=1,
         )
 
-    if current_syst is not None and current_syst.starts_with("JES"):
-        pass
+    if current_syst is not None and "jes" in current_syst:
+        central_name = current_syst
+        variations_axis = {}
+    else:
+        central_name = "central"
+        variations = {
+            syst_name: (
+                computeForSyst("up_" + syst_name),
+                computeForSyst("down_" + syst_name),
+            )
+            for syst_name in systematics
+        }
 
-    variations = {
-        syst_name: (
-            computeForSyst("up_" + syst_name),
-            computeForSyst("down_" + syst_name),
-        )
-        for syst_name in systematics
-    }
-
-    weight_manager.add(f"btag_shape_sf", computeForSyst("central"), variations)
+    weight_manager.add(f"btag_shape_sf", computeForSyst(central_name), variations)
