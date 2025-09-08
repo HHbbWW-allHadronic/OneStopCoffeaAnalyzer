@@ -1,5 +1,6 @@
 import logging
 import numpy as np
+from rich import print
 from typing import Any
 
 import awkward as ak
@@ -129,9 +130,9 @@ class HistogramCollection(BaseModel):
         representative = fill_data[0]
         if active_shape_systematic is not None:
             weight_variations = []
-            # logger.info(
-            #     f"Filling histogram with active shape systematic: {active_shape_systematic}"
-            # )
+            logger.info(
+                f"Filling histogram with active shape systematic: {active_shape_systematic}"
+            )
             central_name = active_shape_systematic
         else:
             central_name = "central"
@@ -149,6 +150,7 @@ class HistogramCollection(BaseModel):
             transformToFill(representative, x.values, mask) for x in categories
         ]
 
+        logger.debug(f'Filling histogram with variation "{central_name}"')
         fillHistogram(
             self.histogram,
             cat_values,
