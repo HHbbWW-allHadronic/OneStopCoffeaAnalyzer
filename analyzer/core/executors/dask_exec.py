@@ -1,7 +1,11 @@
 from __future__ import annotations
 import json
+import lz4.frame
+import pickle as pkl
+import cProfile
 import time
 import base64
+import os
 
 import concurrent.futures
 import gc
@@ -24,11 +28,29 @@ from analyzer.utils.structure_tools import iadd
 from analyzer.datasets import FileSet
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import compress_form, decompress_form
-from distributed import Client, LocalCluster, as_completed
+from distributed import (
+    Client,
+    LocalCluster,
+    as_completed,
+    get_client,
+    secede,
+    rejoin,
+    Queue,
+    Future,
+)
 from pydantic import Field
 from rich import print
-from rich.progress import Progress
+from rich.progress import (
+    Progress,
+    TextColumn,
+    SpinnerColumn,
+    TimeElapsedColumn,
+    MofNCompleteColumn,
+    BarColumn,
+    TextColumn,
+)
 
+from analyzer.core.dask_tools import reduceResults
 from .condor_tools import setupForCondor
 from .executor import Executor
 from .preprocessing_tools import preprocess
@@ -39,69 +61,60 @@ import analyzer.core.dask_sizes  # noqa
 logger = logging.getLogger(__name__)
 
 
-def getSteps(
-    files,
-    step_size: int | None = None,
-    save_form: bool = False,
-    uproot_options: dict = {},
-):
-    awkward.backend(normed_files)
-    awkward.typetracer.length_zero_if_typetracer(normed_files)
+def constructSampleResult(task, prepped, future_result):
+    fset, all_results = future_result
+    sample_id = task.sample_id
+    sample_params = task.sample_params
+    processed = prepped.intersect(fset)
+    final_result = core_results.SampleResult(
+        sample_id=sample_id,
+        file_set_ran=prepped,
+        file_set_processed=processed,
+        params=sample_params,
+        results=all_results,
+    )
+    return final_result
 
-    for arg in files:
-        the_file = uproot.open({arg.file: None}, **uproot_options)
-        tree = the_file[arg.object_path]
 
-        num_entries = tree.num_entries
+def dumpKeyByteProcessed(result):
+    data = core_results.MultiSampleResult({result.sample_id: result})
+    data = lz4.frame.compress(pkl.dumps(data.model_dump()))
+    return ((result.sample_id, data), result.file_set_processed.events)
 
-        form_json = None
-        form_hash = None
-        if save_form:
-            form_str = uproot.dask(
-                tree,
-                ak_add_doc={"__doc__": "title", "typename": "typename"},
-                filter_name=no_filter,
-                filter_typename=no_filter,
-                filter_branch=partial(_is_interpretable, emit_warning=False),
-            ).layout.form.to_json()
-            # the function cache needs to be popped if present to prevent memory growth
-            if hasattr(dask.base, "function_cache"):
-                dask.base.function_cache.popitem()
 
-            form_hash = hashlib.md5(form_str.encode("utf-8")).hexdigest()
-            form_json = compress_form(form_str)
+def prepWrapper(queue, task, prep_kwargs=None, **kwargs):
+    prep_kwargs = prep_kwargs or {}
 
-        target_step_size = num_entries if step_size is None else step_size
-        file_uuid = str(the_file.file.uuid)
-        n_steps_target = max(round(num_entries / target_step_size), 1)
-        actual_step_size = math.ceil(num_entries / n_steps_target)
-        out = [
-            [
-                i * actual_step_size,
-                min((i + 1) * actual_step_size, num_entries),
-            ]
-            for i in range(n_steps_target)
-        ]
-
-        out_uuid = file_uuid
-        out_steps = out.tolist()
-
-        if out_steps is not None and len(out_steps) == 0:
-            out_steps = [[0, 0]]
-
-        array.append(
-            {
-                "file": arg.file,
-                "object_path": arg.object_path,
-                "steps": out_steps,
-                "num_entries": num_entries,
-                "uuid": out_uuid,
-                "form": form_json,
-                "form_hash_md5": form_hash,
-            }
+    client = get_client()
+    secede()
+    res = preprocess(task, **prep_kwargs)
+    merge_futures = runPrepped(client, task, res, **kwargs)
+    with dask.annotate(priority=1000):
+        results = client.map(
+            lambda x: constructSampleResult(task, res, x), merge_futures
         )
+        compressed = client.map(dumpKeyByteProcessed, results)
+    for f in compressed:
+        queue.put(f)
+    rejoin()
+    return res.nfiles, res.events
 
-    return array
+
+class LocalExecutor:
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def submit(self, func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    def shutdown(self, *args, **kwargs):
+        return
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args, **kwargs):
+        return
 
 
 def mergeFutures(futures):
@@ -119,58 +132,13 @@ def mergeFutures(futures):
     return ret
 
 
-def reduceResults(
-    client,
-    futures,
-    reduction_factor=2,
-    target_final_count=10,
-    close_to_target_frac=0.7,
-    key_suffix="",
-):
-    layer = 0
-    while len(futures) > target_final_count:
-        if (len(futures) / reduction_factor) < (
-            target_final_count * close_to_target_frac
-        ):
-            reduction_factor = math.ceil(len(futures) / target_final_count)
-        futures = [
-            client.submit(
-                mergeFutures,
-                futures[i : i + reduction_factor],
-                key=f"merge-{layer}-{i}" + str(key_suffix),
-            )
-            for i in range(0, len(futures), reduction_factor)
-        ]
-        layer += 1
-    return futures
-
-
-def finalCallback(
-    fset,
-    all_results,
-    sample_id,
-    sample_params,
-    file_set_prepped,
-    result_complete_callback,
-):
-    processed = file_set_prepped.intersect(fset)
-    final_result = core_results.SampleResult(
-        sample_id=sample_id,
-        file_set_ran=file_set_prepped,
-        file_set_processed=processed,
-        params=sample_params,
-        results=all_results,
-    )
-    result_complete_callback(final_result.sample_id, final_result)
-
-
 def runPrepped(
     client,
     task,
     file_set_prepped,
     timeout=120,
     input_events_per_output=10**7,
-    reduction_factor=2,
+    reduction_factor=5,
 ):
     total_events = file_set_prepped.events
     final_files = math.ceil(total_events / input_events_per_output)
@@ -181,148 +149,47 @@ def runPrepped(
         maybe_base_form = None
 
     to_submit = list(file_set_prepped.iterChunks())
-    with dask.annotate(priority=50):
-        futures = client.map(
-            lambda chunk: runAnalyzerChunks(
-                task.analyzer,
-                chunk,
-                task.sample_params,
-                known_form=maybe_base_form,
-                timeout=timeout,
-            ),
-            to_submit,
-            key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
-        )
+    futures = client.map(
+        lambda chunk: runAnalyzerChunks(
+            task.analyzer,
+            chunk,
+            task.sample_params,
+            known_form=maybe_base_form,
+            timeout=timeout,
+        ),
+        to_submit,
+        key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
+    )
     with dask.annotate(priority=100):
         final_futures = reduceResults(
             client,
+            mergeFutures,
             futures,
             reduction_factor=reduction_factor,
             target_final_count=final_files,
             key_suffix="-" + str(task.sample_id),
         )
-    del futures
     return final_futures
 
 
-def runOneTaskDask(
-    task,
-    result_complete_callback,
-    default_step_size=100000,
-    bulk_mode=False,
-    scheduler_address=None,
-    timeout=120,
-    input_events_per_output=10**8,
-    reduction_factor=2,
-):
-    print(f"Starting to process sample {task.sample_id}")
-    client = Client(scheduler_address)
-    start_time = time.time()
-    logger.info(f"Running task {task.sample_id}")
-    task.file_set.step_size = task.file_set.step_size or default_step_size
-
-    file_set_prepped = preprocess(task)
-    total_events = file_set_prepped.events
-    final_files = math.ceil(total_events / input_events_per_output)
-
-    if task.file_set.form is not None:
-        maybe_base_form = ak.forms.from_json(decompress_form(task.file_set.form))
-    else:
-        maybe_base_form = None
-
-    total_events_processed = 0
-
-    if bulk_mode:
-        to_submit = list(file_set_prepped.iterChunks())
-        futures = client.map(
-            lambda chunk: runAnalyzerChunks(
-                task.analyzer,
-                chunk,
-                task.sample_params,
-                known_form=maybe_base_form,
-                timeout=timeout,
-            ),
-            to_submit,
-            key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
-        )
-        with dask.annotate(priority=20):
-            final_futures = reduceResults(
-                client,
-                futures,
-                reduction_factor=reduction_factor,
-                target_final_count=final_files,
-                key_suffix="-" + str(task.sample_id),
-            )
-        all_results = None
-        del futures
-
-        for future in as_completed(final_futures):
-            try:
-                fset, all_results = future.result()
-                processed = file_set_prepped.intersect(fset)
-                final_result = core_results.SampleResult(
-                    sample_id=task.sample_id,
-                    file_set_ran=file_set_prepped,
-                    file_set_processed=processed,
-                    params=task.sample_params,
-                    results=all_results,
-                )
-                result_complete_callback(final_result.sample_id, final_result)
-                total_events_processed += final_result.file_set_processed.events
-            except Exception:
-                raise
-
-            future.cancel()
-            del future
-            gc.collect()
-
-    else:
-        cds = file_set_prepped.toCoffeaDataset()
-        events, report = NanoEventsFactory.from_root(
-            cds["files"],
-            schemaclass=NanoAODSchema,
-            uproot_options=dict(
-                allow_read_errors_with_report=True,
-            ),
-            known_base_form=maybe_base_form,
-        ).events()
-        r = task.analyzer.run(events, task.sample_params)
-        r = r.model_dump()
-        ready_to_compute = {"result": r, "report": report}
-        computed = dask.compute(ready_to_compute)[0]
-        processed = file_set_prepped.justProcessed(computed["report"])
-        all_results = computed["result"]
-
-        final_result = core_results.SampleResult(
-            sample_id=task.sample_id,
-            file_set_ran=file_set_prepped,
-            file_set_processed=processed,
-            params=task.sample_params,
-            results=all_results,
-        )
-        result_complete_callback(final_result.sample_id, final_result)
-        total_events_processed += final_result.file_set_processed.events
-    end_time = time.time()
-    ellapsed = end_time - start_time
-    events_per_sec = total_events_processed / ellapsed
-    print(
-        f"Finished processing sample {task.sample_id}."
-        f"Processed {total_events_processed} events in {ellapsed:0.2f} seconds ({events_per_sec:0.2f} events/s)"
-    )
-
-
 class DaskExecutor(Executor):
-    memory: str = "2GB"
+    max_workers: int
+    min_workers: int
+
+    worker_memory: str = "4GB"
     dashboard_address: str | None = "localhost:8789"
     schedd_address: str | None = "localhost:12358"
-    max_workers: int | None = 2
-    min_workers: int | None = 1
+
     adapt: bool = True
+
     step_size: int | None = 100000
+
     use_threads: bool = False
-    parallel_submission: int = 20
     bulk_mode: bool = False
     timeout: int = 120
+
+    reduction_factor: int = 5
+    parallel_save: int | None = 8
 
     def setup(self):
         if self.adapt:
@@ -330,139 +197,115 @@ class DaskExecutor(Executor):
                 minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
             )
 
-    def runSerial(self, tasks, result_complete_callback=None):
-        for task in tasks:
-            try:
-                result = runOneTaskDask(
-                    task,
-                    result_complete_callback,
-                    default_step_size=self.step_size,
-                    scheduler_address=self._client.cluster.scheduler_address,
-                    bulk_mode=self.bulk_mode,
-                    timeout=self.timeout,
-                )
-            except Exception as e:
-                logger.warn(
-                    f"An exception occurred while processing task {task.sample_id}."
-                    f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                    f"{e}"
-                )
-                logger.warn(traceback.format_exc())
-
-    def runThreaded(self, tasks, result_complete_callback=None):
-        with ProcessPoolExecutor(max_workers=self.parallel_submission) as tp:
-            futures = {
-                tp.submit(
-                    runOneTaskDask,
-                    v,
-                    result_complete_callback,
-                    default_step_size=self.step_size,
-                    bulk_mode=self.bulk_mode,
-                    scheduler_address=self._client.cluster.scheduler_address,
-                    timeout=self.timeout,
-                    # client=self._client,
-                ): v.sample_id
-                for v in tasks
-            }
-
-            del tasks
-
-            for future in concurrent.futures.as_completed(futures):
-                sample_id = futures[future]
-                try:
-                    future.result()
-                except Exception as e:
-                    logger.warn(
-                        f"An exception occurred while processing task {sample_id}."
-                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                        f"{e}"
-                    )
-                    logger.warn(traceback.format_exc())
-                gc.collect()
-
     def runFutured(self, tasks, result_complete_callback=None):
         client = self._client
         tasks = list(tasks)
         for t in tasks:
             t.file_set.step_size = t.file_set.step_size or self.step_size
 
+        queue = Queue()
+        run_kwargs = {
+            "reduction_factor": self.reduction_factor,
+            "timeout": self.timeout,
+        }
         prepped_futures = dict(
             zip(
                 client.map(
-                    preprocess, tasks, key=[f"prep--{t.sample_id}" for t in tasks]
+                    lambda x, kwargs=run_kwargs: prepWrapper(queue, x, **kwargs),
+                    tasks,
+                    key=[f"prep--{t.sample_id}" for t in tasks],
                 ),
-                (t for t in tasks),
+                tasks,
             )
         )
-        finalizing_futures = {}
+        finalizing_futures = set()
         completed = as_completed(prepped_futures)
-        processed = {task.sample_id: 0 for task in tasks}
+        start_time = time.time()
 
-        with Progress() as progress:
-            task = progress.add_task("Processing", total=None)
-            for f in completed:
-                try:
-                    res = f.result()
-                    if isinstance(res, FileSet):
-                        task = prepped_futures[f]
-                        print(
-                            f"Finished preprocessing sample {task.sample_id}. Submitting main job."
-                        )
-                        final_futures = runPrepped(client, task, res)
-                        for new_f in final_futures:
-                            finalizing_futures[new_f] = (task, res)
-                            completed.add(new_f)
-                        del prepped_futures[f]
-                        del f
+        total_files_to_prep = sum(t.file_set.nfiles for t in tasks)
+        total_events_to_analyze = 0
 
-                    else:
-                        task, prepped = finalizing_futures[f]
-                        print(f"Finished analyzing sample {task.sample_id}.")
-                        if res is not None:
-                            fset, all_results = res
-                            processed[task.sample_id] += fset.events
-                            finalCallback(
-                                fset,
-                                all_results,
-                                task.sample_id,
-                                task.sample_params,
-                                prepped,
-                                result_complete_callback,
+        saving_tasks = []
+        save_queue = Queue()
+        if self.parallel_save is not None:
+            save_executor = ProcessPoolExecutor
+        else:
+            save_executor = LocalExecutor
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            disable=False,
+        ) as progress:
+            with save_executor(max_workers=self.parallel_save) as pexec:
+                prep_bar = progress.add_task(
+                    "Pre-Processing", total=total_files_to_prep
+                )
+                analyze_bar = progress.add_task(
+                    "Analyzing", total=total_events_to_analyze
+                )
+                for batch in completed.batches():
+                    for f in batch:
+                        try:
+                            if f in prepped_futures:
+                                i = 0
+                                while queue.qsize() > 0:
+                                    x = queue.get()
+                                    finalizing_futures.add(x)
+                                    i += 1
+                                    completed.add(x)
+                                nfiles, nevents = f.result()
+                                total_events_to_analyze += nevents
+                                progress.update(prep_bar, advance=nfiles)
+                                progress.update(
+                                    analyze_bar, total=total_events_to_analyze
+                                )
+                            elif f in finalizing_futures:
+                                res, events = f.result()
+                                saving_tasks.append(
+                                    pexec.submit(result_complete_callback, *res)
+                                )
+                                progress.update(analyze_bar, advance=events)
+                        except Exception as e:
+                            raise e
+                            logger.warn(
+                                f"An exception occurred while processing a future."
+                                f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                                f"{e}"
                             )
-                        f.cancel()
-                        del finalizing_futures[f]
-                        del f
-                    gc.collect()
-                except Exception as e:
-                    logger.warn(
-                        f"An exception occurred while processing task {task.sample_id}."
-                        f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                        f"{e}"
-                    )
-                    logger.warn(traceback.format_exc())
+                            logger.warn(traceback.format_exc())
+                        finally:
+                            f.cancel()
+                pexec.shutdown(wait=True)
 
     def run(self, *args, **kwargs):
         self.runFutured(*args, **kwargs)
         return
-        # if self.use_threads:
-        #     # self.runThreaded(*args, **kwargs)
-        #     self.runFutured(*args, **kwargs)
-        # else:
-        #     self.runSerial(*args, **kwargs)
 
 
 class LocalDaskExecutor(DaskExecutor):
     executor_type: Literal["dask_local"] = "dask_local"
+    processes: bool = True
 
     def setup(self):
         with open(CONFIG.DASK_CONFIG_PATH) as f:
             defaults = yaml.safe_load(f)
             dask.config.update(dask.config.config, defaults, priority="new")
+
+        log_config_path = Path(CONFIG.CONFIG_PATH) / "worker_logging_config.yaml"
+        with open(log_config_path, "rt") as f:
+            config = yaml.safe_load(f.read())
+            c = base64.b64encode(json.dumps(config).encode("utf-8")).decode("utf-8")
+        os.environ["ANALYZER_LOG_CONFIG"] = c
+
         self._cluster = LocalCluster(
             dashboard_address=self.dashboard_address,
-            memory_limit=self.memory,
+            memory_limit=self.worker_memory,
             n_workers=self.max_workers,
             scheduler_kwargs={"host": self.schedd_address},
+            processes=self.processes,
         )
 
         self._client = Client(self._cluster)
@@ -518,8 +361,10 @@ class LPCCondorDask(DaskExecutor):
         kwargs = {}
         kwargs["worker_extra_args"] = [
             *dask.config.get("jobqueue.lpccondor.worker_extra_args"),
-            # "--preload",
-            # "lpcjobqueue.patch",
+            "--preload",
+            "lpcjobqueue.patch",
+            "--preload",
+            "analyzer.core.dask_sizes",
         ]
         kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
@@ -538,7 +383,7 @@ class LPCCondorDask(DaskExecutor):
         self._cluster = LPCCondorCluster(
             ship_env=False,
             image=apptainer_container,
-            memory=self.memory,
+            memory=self.worker_memory,
             transfer_input_files=transfer_input_files,
             log_directory=logpath,
             scheduler_options=dict(dashboard_address=self.dashboard_address),
@@ -548,4 +393,8 @@ class LPCCondorDask(DaskExecutor):
         # import dask_memusage
         # dask_memusage.install(self._cluster.scheduler, "memusage.csv")
         self._client = Client(self._cluster)
+        try:
+            os.system("ulimit -n 4096")
+        except Exception:
+            pass
         super().setup()
