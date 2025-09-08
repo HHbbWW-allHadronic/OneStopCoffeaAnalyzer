@@ -13,6 +13,9 @@ except ImportError:
 
     from typing_extensions import Protocol  # type: ignore
 
+def dictToFrozen(d):
+    return frozenset(sorted(d.items()))
+
 
 def get_git_revision_hash() -> str:
     return subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()
