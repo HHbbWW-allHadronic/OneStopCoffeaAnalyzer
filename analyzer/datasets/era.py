@@ -10,11 +10,22 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class JECConfig(BaseModel):
+    campaign: str | None = None
+    version: str | None = None
+    systematics: list[str] | None = None
+
+class JERConfig(BaseModel):
+    campaign: str | None = None
+    version: str | None = None
+    systematics: list[str] | None = None
+    genjet_idx_col: str | None = None
+
 class JetCorrectionInfo(BaseModel):
     files: dict[str, str]
-    jec: dict[str, str]
-    jer: dict[str, str]
-    jet_names: dict[str,str]
+    jec: JECConfig
+    jer: JERConfig
+    jet_names: dict[str, str]
 
 
 class Era(BaseModel):
