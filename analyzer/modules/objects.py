@@ -12,7 +12,7 @@ def makeCutSet(x, s, args):
 @MODULE_REPO.register(ModuleType.Producer)
 def jets_and_ht(columns, params):
 
-    jets = columns.get("Jet")
+    jets = columns.get("CorrectedJet")
     gj = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
 
     gj = gj[((gj.jetId & 0b100) != 0) & ((gj.jetId & 0b010) != 0)]

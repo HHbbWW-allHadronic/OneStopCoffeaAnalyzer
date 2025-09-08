@@ -5,6 +5,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 import dask_awkward as dak
+from .selection import Selection
 
 
 logger = logging.getLogger(__name__)
@@ -26,6 +27,8 @@ class Column:
 @dataclass
 class Columns:
     events: Any
+    # parent_columns: Columns | None = None
+    # parent_selection: Selection | None = None
     columns: dict[str, Column] = field(default_factory=dict)
     base: Columns | None = None
     syst: tuple[str, str] | None = None
@@ -132,3 +135,7 @@ class Columns:
 
     def withEvents(self, events):
         return Columns(events, copy.deepcopy(self.columns), self.base, self.syst)
+
+    @property
+    def fields(self):
+        return self.events.fields
