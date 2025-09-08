@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict, ChainMap
 import itertools as it
 import string
 from typing import Annotated, Any, ClassVar
-from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern
+from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern, PatternExpression
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams
@@ -89,6 +89,8 @@ class ScaleHistograms(BaseModel):
 
 
 class RemapCategories(BaseModel):
+    nothing_here: None = None
+
     def __call__(self, histograms):
         return histograms
 
@@ -101,7 +103,8 @@ class Merge(BaseModel):
 
 
 class SplitAxes(BaseModel):
-    split_axis_names: list[str | int]
+    split_axis_names: list[str]
+    pattern: dict[str, PatternExpression] | PatternExpression | None = None
 
     def __call__(self, histograms):
         ret = []
@@ -109,7 +112,21 @@ class SplitAxes(BaseModel):
             h = ph.histogram
 
             split_axes = [h.axes[a] for a in self.split_axis_names]
-            possible_values = OrderedDict({(x.name): list(x) for x in split_axes})
+
+            def passedPattern(name, val):
+                if self.pattern is not None:
+                    if isinstance(self.pattern, dict):
+                        return self.pattern[name].match(val)
+                    else:
+                        return self.pattern.match(val)
+                return True
+
+            possible_values = OrderedDict(
+                {
+                    (x.name): [y for y in x if passedPattern(x.name, y)]
+                    for x in split_axes
+                }
+            )
             labels = [(x.name or x.label) for x in split_axes]
 
             all_hists = {
@@ -156,7 +173,7 @@ class MergeAxes(BaseModel):
 
 
 class SelectAxesValues(BaseModel):
-    select_axes_values: dict[str | int, str | int | float]
+    select_axes_values: dict[str, str | int | float]
 
     def __call__(self, histograms):
         ret = []
@@ -249,7 +266,6 @@ class SectorPipelineSpec(BaseModel):
             if self.group_fields.match(s.sector_params):
                 captured = self.group_fields.capture(s.sector_params)
                 groups[dictToFrozen(captured)].append(s)
-
 
         return [
             SectorHistPipeline(
@@ -463,7 +479,6 @@ def joinOnFields(fields, *args, key=lambda x: x):
             ret[k][0].append(v)
         else:
             ret[k] = [[v]]
-
 
     for m in matched[1:]:
         to_append = defaultdict(list)

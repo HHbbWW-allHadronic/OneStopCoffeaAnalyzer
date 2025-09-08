@@ -63,7 +63,9 @@ def runPostprocessors(config, input_files, parallel=8):
         to_run = [input_files]
 
     for files in to_run:
-        sample_results = loadSampleResultFromPaths(files, include=all_needed_hists)
+        sample_results = loadSampleResultFromPaths(
+            files, include=all_needed_hists, show_progress=True
+        )
 
         def dropSampleFunction(sid):
             if drops is None:

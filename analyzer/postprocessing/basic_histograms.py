@@ -1,6 +1,5 @@
 import functools as ft
 import logging
-from rich import print
 import itertools as it
 from typing import Literal
 from pydantic import Field
