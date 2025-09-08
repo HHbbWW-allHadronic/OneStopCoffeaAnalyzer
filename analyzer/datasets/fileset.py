@@ -117,6 +117,9 @@ class FileSet(BaseModel):
             for x in self.files.values()
             for s in x[1]["steps"]
         )
+    @property
+    def nfiles(self):
+        return len(self.files)
 
     def dropChunk(self, fname, chunk):
         self.files[fname][1]["steps"].remove(chunk)
