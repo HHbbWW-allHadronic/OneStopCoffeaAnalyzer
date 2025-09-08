@@ -2,6 +2,7 @@ from __future__ import annotations
 import re
 import dataclasses
 import enum
+from analyzer.utils.caching import runOrCacheMtimePaths
 from rich.progress import track
 import itertools as it
 import json
@@ -94,7 +95,6 @@ class DatasetParams(BaseModel):
     def populateEra(self, era_repo):
         if isinstance(self.era, str):
             self.era = era_repo[self.era]
-        
 
 
 @pyd.dataclasses.dataclass(frozen=True)
@@ -265,7 +265,7 @@ class Dataset(BaseModel):
 
     name: str
     title: str
-    era: str
+    era: str | Era
     sample_type: SampleType
     samples: List[Sample] = Field(default_factory=list)
     lumi: float | None = None
@@ -277,6 +277,10 @@ class Dataset(BaseModel):
         ds = DatasetParams(**self.model_dump())
         ds._lumi = self.lumi
         return ds
+
+    def populateEra(self, era_repo):
+        if isinstance(self.era, str):
+            self.era = era_repo[self.era]
 
     def getSample(self, name):
         try:
@@ -385,9 +389,9 @@ class DatasetRepo:
     def load(self, directory, use_replicas=True):
         directory = Path(directory)
         files = list(directory.rglob("*.yaml"))
-        for f in track(files, description="Reading File"):
+        for f in track(files, description="Loading Datasets"):
             with open(f, "r") as fo:
-                data = yaml.load(fo,Loader=Loader)
+                data = yaml.load(fo, Loader=Loader)
                 if not data:
                     continue
                 self.__loadOne(data)
@@ -411,13 +415,22 @@ class DatasetRepo:
     #             if sample.cms_dataset_regex:
     #                 sample.useFilesFromReplicaCache()
 
+
+    def populateEras(self, era_repo):
+        for d in self.datasets.values():
+            d.populateEra(era_repo)
+
     @staticmethod
     def getConfig():
         paths = CONFIG.DATASET_PATHS
-        repo = DatasetRepo()
-        for path in paths:
-            repo.load(path)
+
+        def internal():
+            repo = DatasetRepo()
+            for path in paths:
+                repo.load(path)
+            return repo
+
+        repo = internal()
+        # for path in paths:
+        #     repo.load(path)
         return repo
-
-
-    
