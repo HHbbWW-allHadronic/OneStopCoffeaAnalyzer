@@ -40,7 +40,7 @@ def handleUpdateMeta(args):
 def handleMerge(args):
     from analyzer.core.results import merge
 
-    merge(args.input, args.outdir)
+    merge(args.input, args.outdir, fields=args.fields)
 
 
 def addSubparserUpdateMetaInfo(subparsers):
@@ -55,13 +55,20 @@ def addSubparserUpdateMetaInfo(subparsers):
 def handleCheckResults(args):
     from analyzer.core.results import checkResult
 
-    checkResult(args.input, configuration=args.configuration)
+    checkResult(args.input, configuration=args.configuration, only_bad=args.only_bad)
 
 
 def addSubparserCheckResult(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser("check-results", help="Check results")
     subparser.add_argument("input", nargs="+", type=Path, help="Input data paths.")
+    subparser.add_argument(
+        "-b",
+        "--only-bad",
+        action="store_true",
+        default=False,
+        help="Only show samples with potential problems",
+    )
     subparser.add_argument(
         "-c",
         "--configuration",
@@ -124,9 +131,8 @@ def addSubParserStoreResults(subparsers):
 
 def handleSamples(args):
     from .sample_report import createSampleTable
-    from analyzer.datasets import DatasetRepo,EraRepo
+    from analyzer.datasets import DatasetRepo, EraRepo
     from analyzer.utils.querying import pattern_expr_adapter, MultiPatternExpression
-
 
     if args.filter:
         filter_pattern = MultiPatternExpression(exprs=args.filter, op="AND")
@@ -307,7 +313,14 @@ def handleQuicklook(args):
     from .quicklook import quicklookFiles, quicklookHistsPath
 
     if args.region_name:
-        quicklookHistsPath(args.input, args.region_name, args.hist_name, args.interact)
+        quicklookHistsPath(
+            args.input,
+            args.region_name,
+            args.hist_name,
+            args.interact,
+            args.variation,
+            args.rebin,
+        )
     else:
         quicklookFiles(args.input)
 
@@ -326,6 +339,18 @@ def addSubparserQuicklookFile(subparsers):
     )
     subparser.add_argument(
         "-i", "--interact", action="store_true", default=False, help="interact"
+    )
+    subparser.add_argument(
+        "-v",
+        "--variation",
+        type=str,
+        default=None,
+    )
+    subparser.add_argument(
+        "-b",
+        "--rebin",
+        type=int,
+        default=None,
     )
     subparser.set_defaults(func=handleQuicklook)
 
@@ -375,6 +400,13 @@ def addSubparserMerge(subparsers):
     subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o", "--outdir", type=Path, help="Output path", required=True
+    )
+    subparser.add_argument(
+        "-f",
+        "--fields",
+        type=list,
+        nargs="*",
+        default=None,
     )
     subparser.set_defaults(func=handleMerge)
 
