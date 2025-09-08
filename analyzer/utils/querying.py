@@ -4,6 +4,7 @@ from fnmatch import fnmatch
 import re
 from typing import Annotated
 from collections.abc import Generator
+from rich import print
 
 
 from pydantic import Field
@@ -23,8 +24,6 @@ def modelIter(model: BaseModel) -> Generator[tuple[str, Any], None, None]:
                 yield f"{field}.{key}", val
         else:
             yield field, value
-
-
 
 
 def lookup(obj, key):
@@ -126,8 +125,33 @@ class MultiPatternExpression(BaseModel):
             return data
 
 
-class NestedPatternExpression(RootModel):
-    root: dict[str, PatternExpression]
+class ComplexNestedPatternExpression(RootModel):
+    root: dict[str, UnaryPatternExpression | MultiPatternExpression]
+
+    def match(self, data):
+        ret = True
+        for k, pattern in self.root.items():
+            try:
+                found = deepLookup(data, k)
+                ret = ret and pattern.match(found)
+            except AttributeError:
+                return False
+        return ret
+
+    def capture(self, data):
+        ret = {}
+        for k, pattern in self.root.items():
+            try:
+                found = deepLookup(data, k)
+                captured = pattern.capture(found)
+                ret[k] = captured
+            except AttributeError:
+                ret[k] = None
+        return ret
+
+
+class SimpleNestedPatternExpression(RootModel):
+    root: dict[str, Pattern]
 
     def match(self, data):
         ret = True
@@ -168,6 +192,9 @@ class UnaryPatternExpression(BaseModel):
             return data
         else:
             return None
+
+
+NestedPatternExpression = SimpleNestedPatternExpression | ComplexNestedPatternExpression
 
 
 PatternExpression = Annotated[
