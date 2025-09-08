@@ -63,8 +63,12 @@ class Saver:
         real_path = getUniqueFilename(output_file)
         logger.info(f"Saving file '{real_path}'")
         print(f"Saving file '{real_path}'")
-        with lz4.frame.open(real_path, "wb") as f:
-            pkl.dump({key: result.model_dump()}, f)
+        if isinstance(result, bytes):
+            with open(real_path, "wb") as f:
+                f.write(result)
+        else:
+            with lz4.frame.open(real_path, "wb") as f:
+                pkl.dump({key: result.model_dump()}, f)
 
 
 def runFromPath(path, output, executor_name, test_mode=False, filter_samples=None):
@@ -78,9 +82,7 @@ def runFromPath(path, output, executor_name, test_mode=False, filter_samples=Non
     subsectors = iterSubsectors(description, dataset_repo, era_repo)
     if filter_samples is not None:
         subsectors = (
-            x
-            for x in subsectors
-            if any(f.match(str(x[0])) for f in filter_samples)
+            x for x in subsectors if any(f.match(str(x[0])) for f in filter_samples)
         )
 
     tasks = iterTasks(
