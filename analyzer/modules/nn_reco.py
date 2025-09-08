@@ -1,4 +1,5 @@
 import pickle
+import warnings
 
 import awkward as ak
 from analyzer.core import MODULE_REPO, ModuleType
@@ -17,8 +18,10 @@ def NN_mass_reco(
     class jetAssignmentNN(torch_wrapper):
         def prepare_awkward(self, events, scalerFile, _fake):
 
-            with open(scalerFile, "rb") as f:
-                scaler = pickle.load(f)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                with open(scalerFile, "rb") as f:
+                    scaler = pickle.load(f)
 
             jets = events.good_jets
             flat_jets = ak.flatten(jets)
@@ -78,7 +81,9 @@ def NN_mass_reco(
     model = jetAssignmentNN(model_path)
     outputs = model(events, scaler_path, events.events)[:, 0]
     # m14 = jets[:, 0:4].sum().mass
-    top_3_idx = ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        top_3_idx = ak.argsort(ak.unflatten(outputs, ak.num(jets)), axis=1)[:, -3:]
     mChiComp = jets[top_3_idx].sum()
     top_3_excl_mask = (
         (ak.local_index(jets, axis=1) != top_3_idx[:, 0])
