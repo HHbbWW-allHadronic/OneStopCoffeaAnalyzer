@@ -85,6 +85,63 @@ def handleQuickDataset(args):
     run(args.input, args.output_dir, args.limit_regex)
 
 
+def handleQuickEvents(args):
+    from analyzer.utils.debugging import jumpIn
+    import awkward as ak
+    from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
+    from analyzer.datasets import DatasetRepo, EraRepo
+    import random
+
+    repo = DatasetRepo.getConfig()
+    era_repo = EraRepo.getConfig()
+
+
+    try:
+        ds = repo[args.dataset_name]
+    except KeyError as e:
+        print(f"Could not find dataset '{args.dataset_name}'")
+        return
+    try:
+        sname = args.sample_name or args.dataset_name
+        sample = ds[sname]
+    except KeyError as e:
+        print(
+            f"Could not find sample '{sname}'. Available samples are {[x.name for x in ds]}"
+        )
+        return
+
+    fname = random.choice(sample.files).getFile()
+
+    print(f"Loading events...")
+    events = NanoEventsFactory.from_root(
+        {fname: args.tree_name},
+        schemaclass=NanoAODSchema,
+        entry_start=0,
+        entry_stop=args.nevents,
+        delayed=False,
+    ).events()
+
+
+    jumpIn(events=events)
+
+
+def addSubparserQuickEvents(subparsers):
+    """Update an existing results file with missing info"""
+    subparser = subparsers.add_parser(
+        "quick-events", help="Construct datasets from simple descriptions."
+    )
+    subparser.add_argument("dataset_name")
+    subparser.add_argument("sample_name", nargs="?")
+    subparser.add_argument(
+        "-n",
+        "--nevents",
+        default=10000,
+        type=int,
+    )
+    subparser.add_argument("-t", "--tree-name", type=str, default="Events")
+    subparser.set_defaults(func=handleQuickEvents)
+
+
 def addSubparserQuickDataset(subparsers):
     """Update an existing results file with missing info"""
     subparser = subparsers.add_parser(
@@ -130,7 +187,7 @@ def addSubParserStoreResults(subparsers):
 
 
 def handleSamples(args):
-    from .sample_report import createSampleTable
+    from .sample_report import createSampleTable, createDatasetTable
     from analyzer.datasets import DatasetRepo, EraRepo
     from analyzer.utils.querying import pattern_expr_adapter, MultiPatternExpression
 
@@ -141,7 +198,10 @@ def handleSamples(args):
     repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
     repo.populateEras(era_repo)
-    table = createSampleTable(repo, pattern=filter_pattern)
+    if args.dataset_only:
+        table = createDatasetTable(repo, pattern=filter_pattern)
+    else:
+        table = createSampleTable(repo, pattern=filter_pattern)
     print(table)
 
 
@@ -156,6 +216,13 @@ def addSubparserSampleReport(subparsers):
     def keyValuePattern(p):
         k, v = p.split("=")
         return pattern_expr_adapter.validate_python({k: v})
+
+    subparser.add_argument(
+        "-d",
+        "--dataset-only",
+        action="store_true",
+        default=False,
+    )
 
     subparser.add_argument(
         "--filter",
@@ -435,6 +502,7 @@ def runCli():
     addSubparserStartCluster(subparsers)
     addSubparserUpdateMetaInfo(subparsers)
     addSubparserMerge(subparsers)
+    addSubparserQuickEvents(subparsers)
 
     argcomplete.autocomplete(parser)
 
