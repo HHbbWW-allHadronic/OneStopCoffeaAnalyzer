@@ -8,6 +8,7 @@ import correctionlib.convert
 from analyzer.core import MODULE_REPO, ModuleType
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
+from analyzer.core.exceptions import AnalysisConfigurationError
 
 from .utils.btag_points import getBTagWP
 
@@ -103,8 +104,6 @@ def btagging_wp_sf(
     weight_manager.add(f"btag_sf", computeWeight("central", wp_names), s)
 
 
-
-
 @MODULE_REPO.register(ModuleType.Weight)
 def pileup_sf(events, params, weight_manager, variations=None):
     pu_info = params.dataset.era.pileup_scale_factors
@@ -145,7 +144,6 @@ def btagging_shape_sf(
 
     systematics = bparams["systematics"]
 
-
     def computeForSyst(syst):
         return ak.prod(
             sf_eval(
@@ -168,3 +166,52 @@ def btagging_shape_sf(
         }
 
     weight_manager.add(f"btag_shape_sf", computeForSyst(central_name), variations)
+
+
+@MODULE_REPO.register(ModuleType.Weight)
+def puid_sf(events, params, weight_manager, working_point=None):
+    if not working_point:
+        raise AnalysisConfigurationError(f"Must specify a working point")
+
+    puid_info = params.dataset.era.jet_pileup_id
+    name = puid_info["name"]
+    corrs = correctionlib.CorrectionSet.from_file(puid_info["file"])
+    eval_pu = corrs[name]
+
+    jets = events.good_jets
+    pu_jets = jets[jets.pt < 50]
+
+    matched_pujet = pu_jets[pu_jets.genJetIdx > -1]
+    # unmatched_pujet = pu_jets[pu_jets.genJetIdx < 0]
+    # eff = ak.num(matched_pujet) / ak.num(pu_jets)
+    # sf_matched =
+
+    inputs_matched = {
+        "eta": matched_pujet.eta,
+        "pt": matched_pujet.pt,
+        "systematic": "nom",
+        "workingpoint": working_point,
+    }
+
+    def computeWeight(inputs_matched, inputs_unmatched):
+        sf_matched = eval_pu.evaluate(
+            *[inputs_matched[inp.name] for inp in eval_pu.inputs]
+        )
+        # sf_unmatched =  eval_pu.evaluate(*[inputs_unmatched[inp.name] for inp in eval_pu.inputs])
+        # w_matched = sf_matched
+        return ak.prod(sf_matched, axis=1)
+
+    nom = computeWeight(inputs_matched, None)
+
+    syst = {
+        "variation": [
+            computeWeight(inputs_matched | {"systematic": s}, None)
+            for s in ("up", "down")
+        ]
+    }
+
+    from analyzer.utils.debugging import jumpIn
+    
+    jumpIn(**locals())
+
+    weight_manager.add(f"puid_sf", nom, syst)
