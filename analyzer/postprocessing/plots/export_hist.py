@@ -1,5 +1,6 @@
 import pickle as pkl
 from pathlib import Path
+import lz4.frame
 
 
 
@@ -19,5 +20,6 @@ def exportHist(
         "hist": h,
     }
     Path(output_path).parent.mkdir(exist_ok=True, parents=True)
-    with open(output_path, "wb") as f:
+    print(f"Saving {output_path}")
+    with lz4.frame.open(output_path, "wb") as f:
         pkl.dump(ret, f)
