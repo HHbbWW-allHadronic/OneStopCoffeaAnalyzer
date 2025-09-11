@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 
 import itertools as it
@@ -6,10 +7,12 @@ import logging
 from pathlib import Path
 from rich import print
 import pickle as pkl
+from functools import cached_property
 from rich.prompt import Confirm
 from collections import defaultdict
 from typing import Any
 import gc
+from contextlib import contextmanager
 
 import analyzer.core.histograms as anh
 import analyzer.core.region_analyzer as anr
@@ -19,7 +22,17 @@ import analyzer.core.specifiers as spec
 import analyzer.datasets as ad
 import pydantic as pyd
 from analyzer.utils.querying import SimpleNestedPatternExpression, Pattern
-from pydantic import ConfigDict
+from pydantic import (
+    ConfigDict,
+    computed_field,
+    BaseModel,
+    RootModel,
+    model_validator,
+    TypeAdapter,
+    Field,
+    AliasChoices,
+    PrivateAttr,
+)
 from analyzer.configuration import CONFIG
 from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
 from analyzer.utils.structure_tools import accumulate, dictToFrozen, iadd
@@ -118,6 +131,9 @@ class SubSectorResult(pyd.BaseModel):
             region=self.region, base_result=self.base_result.scaled(scale)
         )
 
+    def getHist(self, name):
+        return self.base_result.histograms[name]
+
 
 class MultiSectorResult(pyd.RootModel):
     root: dict[str, SubSectorResult]
@@ -146,6 +162,37 @@ class MultiSectorResult(pyd.RootModel):
         return ret
 
 
+class SampleResultPeek(BaseModel):
+    # nevents_ran: int = Field(alias="run_events")
+    nevents_processed: int
+    params: SampleParams
+
+    _from_files: set[str] = PrivateAttr(default_factory=set)
+
+    @property
+    def processed_events(self):
+        return self.nevents_processed
+
+    def __iadd__(self, other):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+
+        if self.params != other.params:
+            raise ResultIntegrityError(
+                f"Error: Attempting to add incomaptible analysis peeks"
+            )
+        # self.nevents_ran += other.nevents_ran
+        self.nevents_processed += other.nevents_processed
+        self._from_files |= other._from_files
+        return self
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
+
+
 class SampleResult(pyd.BaseModel):
     sample_id: ad.SampleId
 
@@ -154,6 +201,15 @@ class SampleResult(pyd.BaseModel):
 
     file_set_ran: FileSet
     file_set_processed: FileSet
+
+    @computed_field
+    @cached_property
+    def peek(self) -> SampleResultPeek:
+        return SampleResultPeek(
+            nevents_ran=self.file_set_ran.events,
+            nevents_processed=self.processed_events,
+            params=self.params,
+        )
 
     @property
     def processed_events(self):
@@ -216,12 +272,8 @@ class SampleResult(pyd.BaseModel):
         return self.scaled(scale)
 
 
-class MultiSampleResult(pyd.RootModel):
-    root: dict[ad.SampleId, SampleResult]
-
-    def includeOnly(self, histograms):
-        for r in self.values():
-            r.includeOnly(histograms)
+class ResultFilePeek(RootModel):
+    root: dict[ad.SampleId, SampleResultPeek]
 
     def values(self):
         return self.root.values()
@@ -240,6 +292,167 @@ class MultiSampleResult(pyd.RootModel):
         We simply sum the histograms and cutflow data.
         """
         iadd(self.root, other.root)
+        return self
+
+    def addFromFile(self, f):
+        for x in self.root.values():
+            x._from_files.add(f)
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
+
+
+class MultiSampleResult(BaseModel):
+    _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
+    _HEADER_SIZE: ClassVar[Literal[4]] = 4
+
+    root: dict[ad.SampleId, SampleResult] | bytes
+
+    # @model_validator(mode="after")
+    # def cachePeek(self) -> MultiSampleResult:
+    #     self.peek  # noqa
+    #     return self
+
+    @classmethod
+    def peekFile(cls, f):
+        maybe_magic = f.read(len(cls._MAGIC_ID))
+        if maybe_magic == cls._MAGIC_ID:
+            peek_size = int.from_bytes(f.read(cls._HEADER_SIZE), byteorder="big")
+            ret = ResultFilePeek.model_validate(pkl.loads(f.read(peek_size)))
+            return ret
+        else:
+            return cls.model_validate(pkl.loads(maybe_magic + f.read())).peek
+
+    @classmethod
+    def peekBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            peek = data[
+                len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            return ResultFilePeek.model_validate(pkl.loads(peek))
+        else:
+            return cls.model_validate(pkl.loads(data)).peek
+
+    @classmethod
+    def fromBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            peek = data[
+                len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            core_data = data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
+            return cls.model_validate(pkl.loads(core_data))
+        else:
+            return cls.model_validate(pkl.loads(data))
+
+    def toBytes(self, packed_mode=True) -> bytes:
+        with self.ensureCompressed():
+            if packed_mode:
+                # peek = pkl.dumps(self.peek.model_dump())
+                # core_data = pkl.dumps(self.model_dump())
+                peek = pkl.dumps(self.peek.model_dump())
+                core_data = pkl.dumps(self.model_dump())
+                pl = len(peek)
+                plb = (pl.bit_length() + 7) // 8
+                if plb > self._HEADER_SIZE:
+                    raise RuntimeError
+                return (
+                    self._MAGIC_ID
+                    + pl.to_bytes(self._HEADER_SIZE, byteorder="big")
+                    + peek
+                    + core_data
+                )
+            else:
+                return pkl.dumps(self.model_dump())
+
+    @model_validator(mode="before")
+    @classmethod
+    def handleRoot(cls, data):
+        if isinstance(data, dict) and "root" not in data:
+            return dict(root=data)
+        return data
+
+    # def model_post_init(self, __context):
+    #     self.decompress()
+
+    @property
+    def is_compressed(self):
+        return isinstance(self.root, bytes)
+
+    @computed_field
+    @cached_property
+    def peek(self) -> ResultFilePeek:
+        with self.ensureDecompressed():
+            return ResultFilePeek({k: v.peek for k, v in self.root.items()})
+
+    @contextmanager
+    def ensureDecompressed(self):
+        is_compressed = self.is_compressed
+        if is_compressed:
+            self.decompress()
+        yield
+        if is_compressed:
+            self.compress()
+
+    @contextmanager
+    def ensureCompressed(self):
+        is_compressed = self.is_compressed
+        if not is_compressed:
+            self.compress()
+        yield
+        if not is_compressed:
+            self.decompress()
+
+    def compress(self):
+        if not self.is_compressed:
+            self.root = lz4.frame.compress(pkl.dumps(self.root))
+
+    def decompress(self):
+        if self.is_compressed:
+            self.root = pkl.loads(lz4.frame.decompress(self.root))
+
+    def includeOnly(self, histograms):
+        with self.ensureDecompressed():
+            for r in self.values():
+                r.includeOnly(histograms)
+
+    def values(self):
+        with self.ensureDecompressed():
+            return self.root.values()
+
+    def keys(self):
+        with self.ensureDecompressed():
+            return self.root.keys()
+
+    def items(self):
+        with self.ensureDecompressed():
+            return self.root.items()
+
+    def __getitem__(self, item):
+        with self.ensureDecompressed():
+            return self.root[item]
+
+    def __iadd__(self, other):
+        """Two SubSector results may be added if they have the same parameters
+        We simply sum the histograms and cutflow data.
+        """
+        with self.ensureDecompressed():
+            iadd(self.root, other.root)
         return self
 
     def __add__(self, other):
@@ -302,16 +515,22 @@ class DatasetResult(pyd.BaseModel):
         ]
 
 
-def openAndLoad(path, include=None):
+def openAndLoad(path, include=None, decompress=False, peek_only=False):
     gc.disable()
 
-    with lz4.frame.open(path, "rb") as f:
-        data = pkl.load(f)
+    with open(path, "rb") as f:
+        if peek_only:
+            ret = MultiSampleResult.peekFile(f)
+            ret.addFromFile(path)
+        else:
+            ret = MultiSampleResult.fromBytes(f.read())
+            if decompress:
+                ret.decompress()
+
+            if include is not None:
+                ret.includeOnly(include)
 
     gc.enable()
-    ret = MultiSampleResult(data)
-    if include is not None:
-        ret.includeOnly(include)
 
     return ret
 
@@ -319,7 +538,7 @@ def openAndLoad(path, include=None):
 def makeResultMap(paths):
     ret = defaultdict(list)
     for p in paths:
-        with lz4.frame.open(p, "rb") as f:
+        with open(p, "rb") as f:
             gc.disable()
             data = pkl.load(f)
             gc.enable()
@@ -338,6 +557,8 @@ def loadSampleResultFromPaths(
     parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES,
     show_warning=True,
     show_progress=False,
+    decompress=False,
+    peek_only=False,
 ):
     ret = {}
     if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER and show_warning:
@@ -346,7 +567,6 @@ def loadSampleResultFromPaths(
             f"You may want to consider running 'analyzer merge' to improve loading speed."
         )
 
-    print(parallel)
     if not parallel:
         paths = list(paths)
         iterator = track(
@@ -358,10 +578,10 @@ def loadSampleResultFromPaths(
         )
         for p in iterator:
             try:
-                r = openAndLoad(p)
+                r = openAndLoad(
+                    p, include=include, decompress=decompress, peek_only=peek_only
+                )
                 for k in list(r.keys()):
-                    if include is not None:
-                        r[k].includeOnly(include)
                     if k not in ret:
                         ret[k] = r[k]
                     else:
@@ -378,7 +598,16 @@ def loadSampleResultFromPaths(
             dashboard_address="localhost:8786",
             memory_limit="4GB",
         ) as cluster, Client(cluster) as client:
-            futures = client.map(lambda x: openAndLoad(x, include), paths)
+            futures = client.map(
+                lambda x: openAndLoad(
+                    x,
+                    include,
+                    decompress=decompress,
+                    peek_only=peek_only,
+                    include=include,
+                ),
+                paths,
+            )
             final = reduceResults(
                 client,
                 accumulate,
@@ -397,13 +626,30 @@ def loadSampleResultFromPaths(
                 r = f.result()
                 f.cancel()
                 for k in list(r.keys()):
-                    if include is not None:
-                        r[k].includeOnly(include)
                     if k not in ret:
                         ret[k] = r[k]
                     else:
                         ret[k] += r[k]
     return ret
+
+
+def gatherFilesByPattern(paths, fields):
+    from analyzer.cli.quicklook import quicklookSample
+
+    pattern = SimpleNestedPatternExpression.model_validate(
+        {x: Pattern.Any() for x in fields}
+    )
+
+    group_paths = defaultdict(dict)
+
+    params_dict = defaultdict(set)
+    for p in track(paths, total=len(paths)):
+        with open(p, "rb") as f:
+            data = MultiSampleResult.peekFile(f)
+        for sample in data.values():
+            params = dictToFrozen(pattern.capture(sample.params))
+            params_dict[params].add(str(p))
+    return params_dict
 
 
 def merge(paths, outdir, fields=None):
@@ -435,14 +681,14 @@ def merge(paths, outdir, fields=None):
 
     for params, paths in track(params_dict.items(), total=len(params_dict)):
         output_name = "_".join(x[1] for x in params)
-        output = outdir / f"{output_name}.pklz4"
+        output = outdir / f"{output_name}.result"
         print(f'Saving "{output}"')
         loaded = loadSampleResultFromPaths(paths)
         if output.exists():
             raise ResultIntegrityError("Cannot overwrite when merging!")
 
-        with lz4.frame.open(output, "wb") as f:
-            pkl.dump(loaded.model_dump(), f)
+        with open(output, "wb") as f:
+            f.write(loaded.toBytes())
 
 
 def makeDatasetResults(
@@ -480,7 +726,9 @@ def makeDatasetResults(
         return ret
 
 
-def checkResult(paths, configuration=None, only_bad=False):
+def checkResult(
+    paths, configuration=None, only_bad=False, peek_only=True, threshold=0.95
+):
     from rich.console import Console
     from rich.style import Style
     from rich.table import Table
@@ -488,7 +736,7 @@ def checkResult(paths, configuration=None, only_bad=False):
     console = Console()
 
     loaded = loadSampleResultFromPaths(
-        paths, include=[], show_progress=True, parallel=8
+        paths, include=[], show_progress=True, parallel=None, peek_only=True
     )
     results = list(loaded.values())
 
@@ -519,8 +767,8 @@ def checkResult(paths, configuration=None, only_bad=False):
         exp = result.params.n_events
         val = result.processed_events
         diff = exp - val
-        done = diff == 0
         percent = round(val / exp * 100, 2)
+        done = (val / exp) >= threshold
 
         if only_bad and done:
             continue
@@ -546,17 +794,17 @@ def checkResult(paths, configuration=None, only_bad=False):
     console.print(table)
 
 
-def updateMeta(paths):
-    from analyzer.datasets import DatasetRepo, EraRepo
-
-    dataset_repo = DatasetRepo.getConfig()
-    era_repo = EraRepo.getConfig()
-    for path in paths:
-        result = openAndLoad(path)
-        for k in results.values():
-            sid = k.sample_id
-            p = dataset_repo[sid].params
-            p.dataset.populateEra(era_repo)
-            k.params = p
-        with lz4.frame.open(path, "wb") as f:
-            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+# def updateMeta(paths):
+#     from analyzer.datasets import DatasetRepo, EraRepo
+#
+#     dataset_repo = DatasetRepo.getConfig()
+#     era_repo = EraRepo.getConfig()
+#     for path in paths:
+#         result = openAndLoad(path)
+#         for k in results.values():
+#             sid = k.sample_id
+#             p = dataset_repo[sid].params
+#             p.dataset.populateEra(era_repo)
+#             k.params = p
+#         with open(path, "wb") as f:
+#             pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
