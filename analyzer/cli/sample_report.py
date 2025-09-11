@@ -29,3 +29,22 @@ def createSampleTable(manager, pattern=None):
             f"{xs:0.3g}" if xs else "N/A",
         )
     return table
+
+
+def createDatasetTable(manager, pattern=None):
+    table = Table(title="Samples")
+    table.add_column("Dataset")
+    table.add_column("Num Samples")
+    table.add_column("Data/MC")
+    table.add_column("Era")
+    everything = [manager[x] for x in sorted(manager)]
+    if pattern is not None:
+        everything = [x for x in everything if pattern.match(x.params)]
+    for s in everything:
+        table.add_row(
+            s.params.name,
+            f"{len(s)}",
+            s.params.sample_type,
+            f"{s.params.era.name}",
+        )
+    return table
