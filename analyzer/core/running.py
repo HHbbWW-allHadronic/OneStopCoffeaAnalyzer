@@ -59,16 +59,12 @@ class Saver:
 
     def __call__(self, key, result):
         self.output.mkdir(exist_ok=True, parents=True)
-        output_file = self.output / f"{key}.pklz4"
+        output_file = self.output / f"{key}.result"
         real_path = getUniqueFilename(output_file)
         logger.info(f"Saving file '{real_path}'")
         print(f"Saving file '{real_path}'")
-        if isinstance(result, bytes):
-            with open(real_path, "wb") as f:
-                f.write(result)
-        else:
-            with lz4.frame.open(real_path, "wb") as f:
-                pkl.dump({key: result.model_dump()}, f)
+        with open(real_path, "wb") as f:
+            f.write(result)
 
 
 def runFromPath(path, output, executor_name, test_mode=False, filter_samples=None):
@@ -129,6 +125,7 @@ def patchFromPath(
     executor_name,
     description_path,
     ignore_ret_prefs=False,
+    threshhold=0.95,
 ):
     import analyzer.modules  # noqa
 
@@ -144,7 +141,25 @@ def patchFromPath(
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
-    sample_results = loadSampleResultFromPaths(inputs, include=[])
+
+    raw_loaded = loadSampleResultFromPaths(
+        inputs, include=[], show_progress=True, parallel=None, peek_only=True
+    )
+    loaded = list(raw_loaded.values())
+
+    to_load_real = set()
+
+    for peek in loaded:
+        sample_id = peek.params.sample_id
+        exp = peek.params.n_events
+        val = peek.processed_events
+        frac_done = val / exp
+        if frac_done < threshhold:
+            to_load_real |= peek._from_files
+
+    sample_results = loadSampleResultFromPaths(
+        to_load_real, include=[], show_progress=True
+    )
     patches = [getSamplePatch(s, dataset_repo) for s in sample_results.values()]
     patches = [p for p in patches if not p.file_set.empty]
 
@@ -154,11 +169,10 @@ def patchFromPath(
             p.file_set.file_retrieval_kwargs = {
                 "location_priority_regex": [".*(T0|T1|T2).*", ".*"]
             }
-    use_replicas: bool = True
 
     subsectors = getSubSectors(description, dataset_repo, era_repo)
     unknown_sample_tasks = makeTasks(
-        {x: y for x, y in subsectors.items() if x not in sample_results},
+        {x: y for x, y in subsectors.items() if x not in raw_loaded},
         dataset_repo,
         era_repo,
         description.file_config.model_dump(),
