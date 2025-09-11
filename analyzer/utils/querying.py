@@ -174,6 +174,9 @@ class SimpleNestedPatternExpression(RootModel):
                 ret[k] = None
         return ret
 
+    def fields(self):
+        return list(self.root)
+
 
 class UnaryPatternOp(str, Enum):
     NOT = "NOT"
