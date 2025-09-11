@@ -10,16 +10,23 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+class JetVetoMap(BaseModel):
+    file: str | None = None
+    name: str | None = None
+
+
 class JECConfig(BaseModel):
     campaign: str | None = None
     version: str | None = None
     systematics: list[str] | None = None
+
 
 class JERConfig(BaseModel):
     campaign: str | None = None
     version: str | None = None
     systematics: list[str] | None = None
     genjet_idx_col: str | None = None
+
 
 class JetCorrectionInfo(BaseModel):
     files: dict[str, str]
@@ -41,7 +48,7 @@ class Era(BaseModel):
     pileup_scale_factors: dict[str, str]
     btag_scale_factors: dict[str, Any]
     jet_pileup_id: dict[str, Any] | None = None
-    jet_veto_maps: dict[str, Any] | None = None
+    jet_veto_maps: JetVetoMap | None = None
     jet_corrections: JetCorrectionInfo | None = None
 
     @property
