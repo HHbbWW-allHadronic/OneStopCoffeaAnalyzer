@@ -34,7 +34,6 @@ def quicklookSample(result, include_hists=False):
     )
     print(data)
 
-
 def quicklookHist(result, region, hist_name, variation=None, rebin=None):
     h = result.results[region].base_result.histograms[hist_name].histogram
     if variation:
@@ -46,7 +45,7 @@ def quicklookHist(result, region, hist_name, variation=None, rebin=None):
 
 
 def quicklookFiles(paths):
-    results = loadSampleResultFromPaths(paths)
+    results = loadSampleResultFromPaths(paths,decompress=True,show_progress=True)
     for k, v in results.items():
         quicklookSample(v)
 
