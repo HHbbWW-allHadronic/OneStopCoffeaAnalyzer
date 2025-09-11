@@ -52,7 +52,7 @@ class ImmediateExecutor(Executor):
                         processed.dropChunk(extractCmsLocation(fname), [start, end])
         return ret, fs, processed
 
-    def run(self, tasks, result_complete_callback=None):
+    def run(self, tasks, result_complete_callback):
 
         logger.info(f"Starting run with immediate executor")
 
@@ -70,9 +70,8 @@ class ImmediateExecutor(Executor):
                     params=task.sample_params,
                     results=result,
                 )
-                if result_complete_callback is not None:
-                    result_complete_callback(task.sample_id, r)
-                else:
-                    final_result[task.sample_id] = r
+                r = core_results.MultiSampleResult.model_validate({r.sample_id: r})               
+                r.compress()
+                result_complete_callback(task.sample_id, r.toBytes())
 
         return final_results

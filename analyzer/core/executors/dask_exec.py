@@ -77,9 +77,9 @@ def constructSampleResult(task, prepped, future_result):
 
 
 def dumpKeyByteProcessed(result):
-    data = core_results.MultiSampleResult({result.sample_id: result})
-    data = lz4.frame.compress(pkl.dumps(data.model_dump()))
-    return ((result.sample_id, data), result.file_set_processed.events)
+    data = core_results.MultiSampleResult.model_validate({result.sample_id: result})
+    # data = lz4.frame.compress(pkl.dumps(data.model_dump()))
+    return ((result.sample_id, data.toBytes()), result.file_set_processed.events)
 
 
 def prepWrapper(queue, task, prep_kwargs=None, **kwargs):
