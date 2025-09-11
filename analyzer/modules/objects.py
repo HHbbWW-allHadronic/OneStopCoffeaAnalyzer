@@ -10,15 +10,26 @@ def makeCutSet(x, s, args):
 
 
 @MODULE_REPO.register(ModuleType.Producer)
-def jets_and_ht(columns, params):
+def jets_and_ht(
+    columns,
+    params,
+    jet_name,
+    min_pt=30,
+    min_eta=2.4,
+    include_puid=True,
+    include_jetid=True,
+):
 
-    jets = columns.get("CorrectedJet")
-    gj = jets[(jets.pt > 30) & (abs(jets.eta) < 2.4)]
+    # jets = columns.get("CorrectedJet")
+    jets = columns.get(jet_name)
+    gj = jets[(jets.pt > min_pt) & (abs(jets.eta) < min_eta)]
 
-    gj = gj[((gj.jetId & 0b100) != 0) & ((gj.jetId & 0b010) != 0)]
+    if include_jetid:
+        gj = gj[((gj.jetId & 0b100) != 0) & ((gj.jetId & 0b010) != 0)]
 
-    if any(x in params.dataset.era.name for x in ["2016", "2017", "2018"]):
-        gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
+    if include_puid:
+        if any(x in params.dataset.era.name for x in ["2016", "2017", "2018"]):
+            gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
 
     good_jets = gj
     ht = ak.sum(good_jets.pt, axis=1)
