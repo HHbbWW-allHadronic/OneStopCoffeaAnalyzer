@@ -210,8 +210,4 @@ def puid_sf(events, params, weight_manager, working_point=None):
         ]
     }
 
-    from analyzer.utils.debugging import jumpIn
-    
-    jumpIn(**locals())
-
     weight_manager.add(f"puid_sf", nom, syst)
