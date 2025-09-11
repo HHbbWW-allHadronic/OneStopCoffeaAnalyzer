@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict, ChainMap
 import itertools as it
 import string
 from typing import Annotated, Any, ClassVar
-from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern, PatternExpression
+from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern, PatternExpression, SimpleNestedPatternExpression
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams
@@ -257,7 +257,7 @@ def dictToFrozen(d):
 
 
 class SectorPipelineSpec(BaseModel):
-    group_fields: NestedPatternExpression
+    group_fields: SimpleNestedPatternExpression
     pipeline: HistPipeline
 
     def makePipelines(self, sectors):
