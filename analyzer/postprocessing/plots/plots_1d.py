@@ -225,20 +225,21 @@ def plotRatio(
     scale="linear",
     plot_configuration=None,
     ratio_hlines=(1.0,),
-    ratio_height=1.5,
+    ratio_height=0.3,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
-    fig, ax = plt.subplots(layout="constrained")
-    ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
+    gs_kw = dict(height_ratios=[1, ratio_height])
+
+    fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True,gridspec_kw=gs_kw)
+    # ratio_ax = addAxeshToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
 
     fixBadLabels(den_hist)
 
-    style = denominator.style or styler.getStyle(denominator.sector_parameters)
-    print(style)
+    style = styler.getStyle(denominator.sector_parameters)
     den_hist.plot1d(
         ax=ax,
         label=denominator.title,
@@ -258,7 +259,7 @@ def plotRatio(
         h = num.histogram
         fixBadLabels(h)
         num.sector_parameters
-        s = num.style or styler.getStyle(num.sector_parameters)
+        s = styler.getStyle(num.sector_parameters)
 
         n, d = h.values(), den_hist.values()
         ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
@@ -278,7 +279,6 @@ def plotRatio(
         ratio[ratio == 0] = np.nan
         ratio[np.isinf(ratio)] = np.nan
         all_opts = {**s.get("errorbar", include_type=False), **dict(linestyle="none")}
-        print(all_opts)
         ratio_ax.errorbar(
             x_values,
             ratio,
@@ -309,9 +309,18 @@ def plotRatio(
     )
 
     ratio_ax.set_ylabel("Ratio", loc="center")
-    labelAxis(ratio_ax, "x", den_hist.axes)
+    # labelAxis(ax, "x", den_hist.axes)
+
     ax.tick_params(axis="x", which="both", labelbottom=False)
+
     mplhep.sort_legend(ax=ax)
+
     ax.set_yscale(scale)
     mplhep.yscale_legend(ax, soft_fail=True)
+
+    labelAxis(ratio_ax, "x", den_hist.axes)
+    # ratio_ax.set_xlabel("Ratio", loc="center")
+    # ratio_ax.set_xlabel("HELLO WORLD")
+    # fig.tight_layout()
+
     saveFig(fig, output_path, extension=pc.image_type)
