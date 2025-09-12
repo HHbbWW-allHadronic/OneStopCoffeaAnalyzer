@@ -30,6 +30,9 @@ def quicklookSample(result, include_hists=False):
             "weight_flow": {
                 x: y.base_result.post_sel_weight_flow for x, y in res.items()
             },
+            "pre_sel_weight_flow": {
+                x: y.base_result.pre_sel_weight_flow for x, y in res.items()
+            },
         }
     )
     print(data)
