@@ -551,21 +551,25 @@ def mergeResult(results):
     return accumulate(results)
 
 
+def combineResults(results):
+    ret = {}
+    for r in results:
+        for k in list(r.keys()):
+            if k not in ret:
+                ret[k] = r[k]
+            else:
+                ret[k] += r[k]
+    return ret
+
 def loadSampleResultFromPaths(
     paths,
     include=None,
     parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES,
-    show_warning=True,
     show_progress=False,
     decompress=False,
     peek_only=False,
 ):
     ret = {}
-    if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER and show_warning:
-        print(
-            f"You are attempting to load {len(paths)} files. "
-            f"You may want to consider running 'analyzer merge' to improve loading speed."
-        )
 
     if not parallel:
         paths = list(paths)
@@ -664,7 +668,7 @@ def merge(paths, outdir, fields=None):
     outdir.mkdir(exist_ok=True, parents=True)
     if any(outdir.iterdir()):
         ok = Confirm.ask(
-            f"Output directory '{outdir}' is not empty. This may cause problem. Do you want to proceed?"
+            f"Output directory '{outdir}' is not empty. This may cause problems. Do you want to proceed?"
         )
         if not ok:
             print("Aborting")
@@ -702,7 +706,7 @@ def makeDatasetResults(
     # Make datasets results by grouping samples for each dataset
     for result in sample_results.values():
         if result.sample_id in drop_samples or drop_sample_fn(result.sample_id):
-            logger.warn(f'Not including sample "{result.sample_id}"')
+            logger.info(f'Not including sample "{result.sample_id}"')
             continue
         if result.processed_events > 0:
             scaled_sample_results[result.sample_id.dataset_name].append(
