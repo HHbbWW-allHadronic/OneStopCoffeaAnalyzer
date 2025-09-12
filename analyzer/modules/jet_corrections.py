@@ -141,7 +141,7 @@ def corrected_jets(
     rho = (
         columns.fixedGridRhoFastjetAll
         if "fixedGridRhoFastjetAll" in columns.fields
-        else events.Rho.fixedGridRhoFastjetAll
+        else columns.Rho.fixedGridRhoFastjetAll
     )
 
     systs = {}
