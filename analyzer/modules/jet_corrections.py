@@ -1,6 +1,8 @@
 import copy
 from rich import print
+import numpy as np
 from analyzer.core import MODULE_REPO, ModuleType
+from analyzer.utils.debugging import jumpIn
 
 
 import awkward as ak
@@ -20,6 +22,10 @@ class JerConf(pyd.BaseModel):
     pt_min: float
     gen_jet_name: str
     gen_jet_idx_name: str
+
+
+def to_f32(x):
+    return ak.values_astype(x, np.float32)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -60,7 +66,7 @@ def getKeyJer(name, jet_type, params):
     return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
 
 
-def smearJets(jets, rho, params, cset, jet_type, include_systematics=False):
+def smearJets(jets, gen_jets, rho, params, cset, jet_type, include_systematics=False):
     jec_params = params.dataset.era.jet_corrections
     systematics = jec_params.jer.systematics
     evaljer = cset[getKeyJer("PtResolution", jet_type, params)]
@@ -76,20 +82,14 @@ def smearJets(jets, rho, params, cset, jet_type, include_systematics=False):
         "Rho": rho,
     }
     jer = evaljer.evaluate(*[inputs[inp.name] for inp in evaljer.inputs])
+    jer = to_f32(jer)
 
     def smearWithSystematic(jets, systematic_name):
         sf_inputs = inputs | {"systematic": systematic_name}
         sf = evalsf.evaluate(*[sf_inputs[inp.name] for inp in evalsf.inputs])
-        genjet_idx = jets[genjet_idx_col]
-        valid_genjet_idxs = ak.mask(genjet_idx, genjet_idx >= 0)
+        sf = to_f32(sf)
 
-        max_genjet_idx = ak.max(valid_genjet_idxs)
-        padded_genjets = ak.pad_none(
-            jets,
-            0 if max_genjet_idx is None else (max_genjet_idx + 1),
-        )
-
-        matched_genjet = padded_genjets[valid_genjet_idxs]
+        matched_genjet = jets.matched_gen
         pt_relative_diff = 1 - matched_genjet.pt / jets.pt
         is_matched_pt = abs(pt_relative_diff) < (3 * jer)
         is_matched_pt = ak.fill_none(is_matched_pt, False)
@@ -106,6 +106,7 @@ def smearJets(jets, rho, params, cset, jet_type, include_systematics=False):
         final_smear = evalsmear.evaluate(
             *[smear_inputs[inp.name] for inp in evalsmear.inputs]
         )
+        final_smear = to_f32(final_smear)
 
         smeared_jets = ak.with_field(jets, jets.pt * final_smear, "pt")
         smeared_jets = ak.with_field(smeared_jets, jets.mass * final_smear, "mass")
@@ -127,6 +128,7 @@ def corrected_jets(
     output_col: str = None,
     jet_type="AK4",
     do_smearing=False,
+    include_systematics=True,
 ):
     jec_params = params.dataset.era.jet_corrections
     systematics = jec_params.jec.systematics
@@ -145,31 +147,36 @@ def corrected_jets(
     )
 
     systs = {}
-    for systematic in systematics:
-        k = getKeyJec(systematic, jet_type, params)
-        logger.info(f"Getting jet correction key {k}")
-        corr = cset[k]
-        # event_rho = getRho(events, jec_params.rho_name)
-        factor = corr.evaluate(jets.eta, pt_raw)
-        for shift_name, shift in [("up", 1), ("down", -1)]:
-            # fields = {field: jets[field] for field in jets.fields}
 
-            corrected = ak.with_field(jets, jets.pt * (1.0 + factor * shift), "pt")
-            corrected = ak.with_field(
-                corrected, jets.mass * (1.0 + factor * shift), "mass"
-            )
+    if include_systematics:
+        for systematic in systematics:
+            k = getKeyJec(systematic, jet_type, params)
+            logger.info(f"Getting jet correction key {k}")
+            corr = cset[k]
+            # event_rho = getRho(events, jec_params.rho_name)
+            factor = to_f32(corr.evaluate(jets.eta, pt_raw))
+            for shift_name, shift in [("up", 1), ("down", -1)]:
+                # fields = {field: jets[field] for field in jets.fields}
 
-            if do_smearing:
-                corrected = smearJets(corrected, rho, params, cset, jet_type)
+                corrected = ak.with_field(jets, jets.pt * (1.0 + factor * shift), "pt")
+                corrected = ak.with_field(
+                    corrected, jets.mass * (1.0 + factor * shift), "mass"
+                )
 
-            systematic_name = f"{shift_name}_jes{systematic}"
-            logger.info(f"Adding jet systematic {systematic_name}")
+                if do_smearing:
+                    corrected = smearJets(
+                        corrected, columns.GenJet, rho, params, cset, jet_type
+                    )
 
-            systs[systematic_name] = corrected
+                systematic_name = f"{shift_name}_jes{systematic}"
+                logger.info(f"Adding jet systematic {systematic_name}")
+
+                systs[systematic_name] = corrected
 
     if do_smearing:
         rjets, systs_jer = smearJets(
-            corrected,
+            jets,
+            columns.GenJet,
             rho,
             params,
             cset,
