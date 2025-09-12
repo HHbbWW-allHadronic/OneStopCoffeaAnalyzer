@@ -471,7 +471,7 @@ def createSectorGroups(sectors, spec):
 
 
 def joinOnFields(fields, *args, key=lambda x: x):
-    pattern = NestedPatternExpression({f: Pattern.Any() for f in fields})
+    pattern = SimpleNestedPatternExpression({f: Pattern.Any() for f in fields})
     matched = [[(dictToFrozen(pattern.capture(key(x))), x) for x in a] for a in args]
     ret = defaultdict(list)
     for k, v in matched[0]:
