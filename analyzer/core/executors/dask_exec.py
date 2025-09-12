@@ -26,6 +26,7 @@ from analyzer.configuration import CONFIG
 import math
 from analyzer.utils.structure_tools import iadd
 from analyzer.datasets import FileSet
+from analyzer.core.exceptions import AnalysisRuntimeError
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import compress_form, decompress_form
 from distributed import (
@@ -62,6 +63,15 @@ logger = logging.getLogger(__name__)
 
 
 def constructSampleResult(task, prepped, future_result):
+    if future_result is None:
+        raise AnalysisRuntimeError(
+            f"Could not process any files for sample {task.sample_id}"
+        )
+    if isinstance(future_result, Exception):
+        raise AnalysisRuntimeError(
+            f"An exception occurred while processing task {task.sample_id}"
+        ) from future_result
+
     fset, all_results = future_result
     sample_id = task.sample_id
     sample_params = task.sample_params
@@ -186,7 +196,7 @@ class DaskExecutor(Executor):
 
     use_threads: bool = False
     bulk_mode: bool = False
-    timeout: int = 120
+    timeout: int = 360
 
     reduction_factor: int = 5
     parallel_save: int | None = 8
@@ -269,6 +279,7 @@ class DaskExecutor(Executor):
                                 )
                                 progress.update(analyze_bar, advance=events)
                         except Exception as e:
+                            raise e
                             logger.warn(
                                 f"An exception occurred while processing a future."
                                 f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
