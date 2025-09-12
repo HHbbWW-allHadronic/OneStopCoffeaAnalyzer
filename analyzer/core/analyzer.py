@@ -1,4 +1,5 @@
 import itertools as it
+import awkward as ak
 import dask
 import logging
 from dataclasses import dataclass
@@ -11,6 +12,7 @@ from analyzer.datasets import SampleParams
 from analyzer.core.columns import Columns
 from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
 import analyzer.core.results as results
+from .weights import Weighter
 from analyzer.core.histograms import Hist
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 
@@ -58,6 +60,7 @@ class Analyzer:
         histogram_storage: dict[str, Hist],
         cutflow_storage: dict[str, SelectionFlow],
         weight_storage: dict[str, float],
+        pre_sel_weight_storage: dict[str, float],
         variation=None,
     ) -> dict[tuple[str, str], results.SubSectorResult]:
         """
@@ -67,8 +70,18 @@ class Analyzer:
         selection_set = SelectionSet(parent_selection=preselection)
         # Set columns to use variation
         columns = columns.withSyst(variation)
+        if columns.delayed:
+            size = None
+        else:
+            size = ak.num(columns.events, axis=0)
+        # Scale systematics are included only on the nominal branch
+        weighter = Weighter(size=size, ignore_systematics=variation is not None)
         for ra in region_analyzers:
             ra.runObjects(columns, params)
+
+        for ra in region_analyzers:
+            ra.runWeights(columns, params, weighter)
+
         for ra in region_analyzers:
             hs = histogram_storage[ra.region_name]
             selection = ra.runSelection(columns, params, selection_set)
@@ -76,20 +89,43 @@ class Analyzer:
                 # Only save cutflow if we are on the nominal path
                 cutflow_storage[ra.region_name] = selection.getSelectionFlow()
 
+            if pre_sel_weight_storage is not None and variation is None:
+                names = weighter.weight_names
+                if "pos_neg" in names:
+                    pre_sel_weight_storage[ra.region_name]["unweighted"] = ak.sum(
+                        weighter.weight(
+                            include=["pos_neg"],
+                        ),
+                        axis=0,
+                    )
+                else:
+                    pre_sel_weight_storage[ra.region_name]["unweighted"] = ak.num(
+                        columns.events, axis=0
+                    )
+                for name in names:
+                    pre_sel_weight_storage[ra.region_name][name] = ak.sum(
+                        weighter.weight(
+                            include=[name],
+                        ),
+                        axis=0,
+                    )
+
             mask = selection.getMask()
             # Only apply mask if there is something to mask
             if mask is not None:
                 new_cols = columns.withEvents(columns.events[mask])
             else:
                 new_cols = columns
+            w = weighter.withMask(mask)
+
             # Once the final selection has been performed for a region
             # we can run the remainder of the analyzer
             if variation is None:
                 ra.runPostSelection(
-                    new_cols, params, hs, weight_storage[ra.region_name]
+                    new_cols, params, hs, w, weight_storage[ra.region_name]
                 )
             else:
-                ra.runPostSelection(new_cols, params, hs)
+                ra.runPostSelection(new_cols, params, hs, w)
 
     def _runPreselectionGroup(
         self, events, params, region_analyzers, preselection, preselection_set
@@ -100,6 +136,9 @@ class Analyzer:
         cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
         # Each region has its own weights
         weight_storage = {ra.region_name: {} for ra in region_analyzers}
+
+        # Each region has its own weights
+        pre_sel_weight_storage = {ra.region_name: {} for ra in region_analyzers}
 
         mask = preselection.getMask()
         if mask is not None:
@@ -126,6 +165,7 @@ class Analyzer:
                 histogram_storage,
                 cutflow_storage,
                 weight_storage,
+                pre_sel_weight_storage,
                 variation=variation,
             )
 
@@ -137,6 +177,7 @@ class Analyzer:
                     other_data={},
                     selection_flow=cutflow_storage[ra.region_name],
                     post_sel_weight_flow=weight_storage[ra.region_name],
+                    pre_sel_weight_flow=pre_sel_weight_storage[ra.region_name],
                 ),
             )
             for ra in region_analyzers

@@ -148,21 +148,24 @@ class RegionAnalyzer(BaseModel):
         # we need to create one
         if selection_set is None:
             selection_set = SelectionSet()
-        selection = Selection(select_from=selection_set)
 
+        selection = Selection(select_from=selection_set)
         selector = Selector(selection, selection_set)
+
         for module in self.preselection:
             # Each module adds new masks to the selection
             module(events, params, selector)
         return selection
 
     def runSelection(self, columns, params, selection_set=None):
+        active_shape = columns.syst
         logger.info(f"Running Selection")
         params = self.getSectorParams(params)
         if selection_set is None:
             selection_set = SelectionSet()
         selection = Selection(select_from=selection_set)
         selector = Selector(selection, selection_set)
+
         for module in self.selection:
             module(columns, params, selector)
 
@@ -179,28 +182,29 @@ class RegionAnalyzer(BaseModel):
 
     def runObjects(self, columns, params):
         logger.info(f"Running objects")
+        active_shape = columns.syst
+        logger.info(f"Running objects with active shape systematic {active_shape}")
         params = self.getSectorParams(params)
         for module in self.objects:
             module(columns, params)
         return columns
 
-    def runPostSelection(self, columns, params, histogram_storage, weight_storage=None):
-        params = self.getSectorParams(params)
+    def runWeights(self, columns, params, weighter):
         active_shape = columns.syst
-        logger.info(
-            f"Running post selection with active shape systematic {active_shape}"
-        )
-        # Different behaviour for dask
-        if columns.delayed:
-            size = None
-        else:
-            size = ak.num(columns.events, axis=0)
-        # Scale systematics are included only on the nominal branch
-        weighter = Weighter(size=size, ignore_systematics=active_shape is not None)
-
-        categorizer = Categorizer()
+        logger.info(f"Running objects with active shape systematic {active_shape}")
         for module in self.weights:
             module(columns, params, weighter)
+        return weighter
+
+    def runPostSelection(
+        self, columns, params, histogram_storage, weighter, weight_storage=None
+    ):
+        params = self.getSectorParams(params)
+
+        active_shape = columns.syst
+        logger.info(f"Running objects with active shape systematic {active_shape}")
+
+        categorizer = Categorizer()
         for module in self.categories:
             module(columns, params, categorizer)
 

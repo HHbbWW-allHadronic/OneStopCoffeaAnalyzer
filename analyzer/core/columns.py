@@ -5,7 +5,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 import dask_awkward as dak
-from .selection import Selection
+from .selection import Selection, SelectionSet
+from functools import lru_cache
 
 
 logger = logging.getLogger(__name__)
@@ -27,8 +28,11 @@ class Column:
 @dataclass
 class Columns:
     events: Any
-    # parent_columns: Columns | None = None
-    # parent_selection: Selection | None = None
+
+    parent_columns: Columns | None = None
+    parent_selection: Selection | None = None
+    selection: SelectionSet | None = None
+
     columns: dict[str, Column] = field(default_factory=dict)
     base: Columns | None = None
     syst: tuple[str, str] | None = None
@@ -38,6 +42,22 @@ class Columns:
 
     # def __hash__(self):
     #     return hash((self.events.name, tuple(self.columns), self.syst))
+    @lru_cache
+    def filterBySelector(self, names):
+        new_events = self.selection.all(*names)
+        return Columns(
+            new_events,
+            parent_columns=self,
+            columns=self.colummns,
+            base=self.base,
+            selection=SelectionSet(parent_selection=self.parent_selection),
+            parent_selection=Selection(
+                select_from=self.parent_selection, names=tuple(name)
+            ),
+        )
+
+    def addSelectorMask(self, name, mask):
+        self.selection.addMask(name, mask)
 
     @property
     def delayed(self):

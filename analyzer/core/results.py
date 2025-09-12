@@ -53,6 +53,7 @@ class BaseResult(pyd.BaseModel):
     other_data: dict[str, Any] = pyd.Field(default_factory=dict)
     selection_flow: ans.SelectionFlow | None = None
     post_sel_weight_flow: dict[str, Scalar] | None = None
+    pre_sel_weight_flow: dict[str, Scalar] | None = None
 
     _raw_selection_flow: ans.SelectionFlow | None = None
 
@@ -61,6 +62,7 @@ class BaseResult(pyd.BaseModel):
         if self._raw_selection_flow is None:
             return self.selection_flow
         return self._raw_selection_flow
+
 
     def includeOnly(self, histograms):
         self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
@@ -80,11 +82,18 @@ class BaseResult(pyd.BaseModel):
         new_post_weight = accumulate(
             [self.post_sel_weight_flow, other.post_sel_weight_flow]
         )
+        new_pre_weight = accumulate(
+            [self.post_sel_weight_flow, other.post_sel_weight_flow]
+        )
         self.histograms = new_hists
         self.other_data = new_other
         self.post_sel_weight_flow = new_post_weight
+        self.pre_sel_weight_flow = new_pre_weight
         self.selection_flow = self.selection_flow + other.selection_flow
         self._raw_selection_flow = self.raw_selection_flow + other.raw_selection_flow
+        self._raw_pre_selection_flow = (
+            self.raw_pre_selection_flow + other.raw_pre_selection_flow
+        )
         return self
 
     def scaled(self, scale):
@@ -98,6 +107,11 @@ class BaseResult(pyd.BaseModel):
             post_sel_weight_flow=(
                 {x: y * scale for x, y in self.post_sel_weight_flow.items()}
                 if self.post_sel_weight_flow is not None
+                else None
+            ),
+            pre_sel_weight_flow=(
+                {x: y * scale for x, y in self.pre_sel_weight_flow.items()}
+                if self.pre_sel_weight_flow is not None
                 else None
             ),
         )
@@ -560,6 +574,7 @@ def combineResults(results):
             else:
                 ret[k] += r[k]
     return ret
+
 
 def loadSampleResultFromPaths(
     paths,
