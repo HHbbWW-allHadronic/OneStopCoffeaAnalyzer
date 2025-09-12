@@ -36,3 +36,54 @@
     AK8SingleJetPt:
       pt: 500
       msoftdrop: 50
+
+  jet_corrections:
+    jet_names:
+      AK4: AK4PFPuppi
+    files:
+      AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022EE_Summer22/jet_jerc.json.gz
+      AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022EE_Summer22/fatjet_jerc.json.gz
+      smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
+    jec:
+      campaign: Summer22EE_22Sep2023
+      version: V2
+      systematics:
+        - AbsoluteMPFBias
+        - AbsoluteScale
+        - AbsoluteStat
+        - FlavorQCD
+        - Fragmentation
+        - PileUpDataMC
+        - PileUpPtBB
+        - PileUpPtEC1
+        - PileUpPtEC2
+        - PileUpPtHF
+        - PileUpPtRef
+        - RelativeFSR
+        - RelativeJEREC1
+        - RelativeJEREC2
+        - RelativeJERHF
+        - RelativePtBB
+        - RelativePtEC1
+        - RelativePtEC2
+        - RelativePtHF
+        - RelativeBal
+        - RelativeSample
+        - RelativeStatEC
+        - RelativeStatFSR
+        - RelativeStatHF
+        - SinglePionECAL
+        - SinglePionHCAL
+        - TimePtEta
+    jer:
+      campaign: Summer22_22Sep2023
+      version: JRV1
+      genjet_idx_col: genJetIdx
+      systematics:
+        - up
+        - down
+
+
+
+
+  

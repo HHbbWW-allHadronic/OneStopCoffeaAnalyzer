@@ -19,6 +19,11 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2016preVFP_UL/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
+  jet_pileup_id:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016preVFP_UL/jmar.json.gz
+    working_points: {L: 4, M: 6, T: 7}
+    name: PUJetID_eff
+
   pileup_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2016preVFP_UL/puWeights.json.gz
     name: Collisions16_UltraLegacy_goldenJSON
@@ -44,9 +49,44 @@
     files:
       AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016preVFP_UL/jet_jerc.json.gz
       AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2016preVFP_UL/fatjet_jerc.json.gz
+      smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
     jec:
-      mc_base_name: Summer19UL16APV_V7_MC
+      campaign: Summer19UL16APV
+      version: V7
+      systematics:
+        - AbsoluteMPFBias
+        - AbsoluteScale
+        - AbsoluteStat
+        - FlavorQCD
+        - Fragmentation
+        - PileUpDataMC
+        - PileUpPtBB
+        - PileUpPtEC1
+        - PileUpPtEC2
+        - PileUpPtHF
+        - PileUpPtRef
+        - RelativeFSR
+        - RelativeJEREC1
+        - RelativeJEREC2
+        - RelativeJERHF
+        - RelativePtBB
+        - RelativePtEC1
+        - RelativePtEC2
+        - RelativePtHF
+        - RelativeBal
+        - RelativeSample
+        - RelativeStatEC
+        - RelativeStatFSR
+        - RelativeStatHF
+        - SinglePionECAL
+        - SinglePionHCAL
+        - TimePtEta
     jer:
-      mc_base_name: Summer20UL16APV_JRV3_MC
+      campaign: Summer20UL16APV
+      version: JRV3
+      genjet_idx_col: genJetIdx
+      systematics:
+        - up
+        - down
 
 
