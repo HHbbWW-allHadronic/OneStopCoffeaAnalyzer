@@ -91,9 +91,6 @@ class BaseResult(pyd.BaseModel):
         self.pre_sel_weight_flow = new_pre_weight
         self.selection_flow = self.selection_flow + other.selection_flow
         self._raw_selection_flow = self.raw_selection_flow + other.raw_selection_flow
-        self._raw_pre_selection_flow = (
-            self.raw_pre_selection_flow + other.raw_pre_selection_flow
-        )
         return self
 
     def scaled(self, scale):
