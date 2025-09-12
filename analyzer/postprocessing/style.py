@@ -48,7 +48,7 @@ class Style(BaseModel):
 
 class StyleRule(BaseModel):
     style: Style
-    sector_spec: NestedPatternExpression | None = None
+    pattern: NestedPatternExpression | None = None
 
 
 cms_colors_6 = [
@@ -86,9 +86,9 @@ class StyleSet(BaseModel):
 
     def getStyle(self, sector_params, other_data=None):
         for style_rule in self.styles:
-            if style_rule.sector_spec is None:
+            if style_rule.pattern is None:
                 return style_rule.style
-            elif style_rule.sector_spec.match(sector_params):
+            elif style_rule.pattern.match(sector_params):
                 logger.debug(
                     f"Found matching style rule for {sector_params.dataset.name}"
                 )
