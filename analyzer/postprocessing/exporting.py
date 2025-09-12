@@ -19,13 +19,16 @@ from .processors import BasePostprocessor
 
 
 @registerPostprocessor
-class ExportHists(BasePostprocessor, BaseModel):
+class ExportHists(BasePostprocessor):
     histogram_names: list[str]
     input: SectorPipelineSpec
     output_name: str
 
     def getNeededHistograms(self):
         return self.histogram_names
+
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
 
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)

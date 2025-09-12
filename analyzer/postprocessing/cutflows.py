@@ -35,6 +35,9 @@ class PlotCutflow(BasePostprocessor, BaseModel):
     weighted: bool = False
     plot_configuration: PlotConfiguration | None = None
 
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
+
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)
         for sector_pipeline in pipelines:
@@ -64,6 +67,9 @@ class PlotCutflow(BasePostprocessor, BaseModel):
 class DumpYields(BasePostprocessor, BaseModel):
     input: SectorPipelineSpec
     output_name: str
+
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
 
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)

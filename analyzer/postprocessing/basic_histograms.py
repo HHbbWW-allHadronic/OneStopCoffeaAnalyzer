@@ -30,6 +30,9 @@ class Histogram1D(BasePostprocessor):
     def getNeededHistograms(self):
         return self.histogram_names
 
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
+
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)
 
@@ -78,6 +81,9 @@ class Histogram2D(BasePostprocessor):
     def getNeededHistograms(self):
         return self.histogram_names
 
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
+
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)
         for name, sector_pipeline in it.product(self.histogram_names, pipelines):
@@ -115,8 +121,11 @@ class RatioPlot(BasePostprocessor):
     normalize: bool = False
     ratio_ylim: tuple[float, float] = (0, 2)
     ratio_hlines: list[float] = Field(default_factory=lambda: [1.0])
-    ratio_height: float = 1.5
+    ratio_height: float = 0.5
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
+
+    def getFileFields(self):
+        return set(self.match_fields)
 
     def getNeededHistograms(self):
         return self.histogram_names
