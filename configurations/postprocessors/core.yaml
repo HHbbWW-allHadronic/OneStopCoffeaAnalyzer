@@ -5,257 +5,112 @@ PostDefaults:
     image_type: ".png"
     cms_text_color: Black
 
+# num_files: 400
+
 all_oned: &all_oned
   - uncomp_0p67_mChi
   - comp_0p67_mChi
   - uncomp_0p67_mStop
   - comp_0p67_mStop
-  # - m14_m
-  # - m13_m
+  - m14_m
+  - m13_m
   - h_njet
   - HT
   - pt_1
-  # - eta_1
-  # - phi_1
-  # - pt_ht_ratio_0
   - pt_2
-  # - eta_2
-  # - phi_2
-  # - pt_ht_ratio_1
-  # - pt_3
-  # - eta_3
-  # - phi_3
-  # - pt_ht_ratio_2
-  # - pt_4
-  # - eta_4
-  # - phi_4
-  # - pt_ht_ratio_3
-  # - m14_pt
-  # - m14_eta
-  # - m13_pt
-  # - m13_eta
-  # - m24_pt
-  # - m24_eta
-  # - m24_m
-  # - M_bjet_pt
-  # - M_nb
-  # - M_b_0_pt
-  # - M_b_1_pt
-  # - M_bb_eta
-  # - M_bb_phi
-  # - M_bdr
-  # - M_b_m
-  # - M_b_pt
-  # - T_bjet_pt
-  # - T_nb
-  # - T_b_0_pt
-  # - T_b_1_pt
-  # - T_bb_eta
-  # - T_bb_phi
-  # - T_bdr
-  # - T_b_m
-  # - T_b_pt
-
 
 drop_sample_patterns: 
-  - "*50to80*"
-  - "*80to120*"
-  - "*120to170*"
-  - "*170to300*"
 
-  - "*50to100*"
-  - "*100to200*"
-  - "*200to300*"
-  - "*300to500*"
-  # - "*500to700*"
-  # - "*700to1000*"
+  - "*30to50*"
+  - "*50to80*"
+  # - "*80to120*"
+  # - "*120to170*"
+  # - "*170to300*"
   # - "*300to470*"
   # - "*470to600*"
 
+  - "*50to100*"
+  - "*100to200*"
+  # - "*200to300*"
+  # - "*300to500*"
+
 Postprocessing:
-  # - name: Cutflow
-  #   action: PlotCutflow
-  #   to_process:
-  #     sample_name: '*'
-  #     region_name: '*'
-  #   grouping: 
-  #     fields: ['dataset.era.name', 'dataset.name', 'region_name']
-  #     axis_options: {variation: central, NJets: Sum }
-  #     special_add:
-  #       - field: "dataset.name"
-  #         pattern: "data*"
-  #         replace: "Data SingleLep"
-  #   scale: log
-  # 
-  #   style_set:
-  #     - style:
-  #         plot_type: step
-  # 
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-  
   # - name: Simple 1D Plots
   #   action: Histogram1D
-  #   histogram_names: *all_oned
-  #   to_process:
-  #     region_name: 'Signal*'
-  #     sample_spec:
-  #       name:
-  #           - 'qcd*'
-  #           - 'signal*'
-  #           - 'tt*'
-  #   scale: log
-  #   plot_configuration:
-  #     cms_text: "Preliminary\n{region_name}"
-  # 
-  #   grouping: 
-  #     fields: ['dataset.era.name', 'dataset.name', 'region_name']
-  #     axis_options: {variation: central, NJets: Sum}
-  #   output_name: "postprocessing/plots/{dataset.name}/{region_name}/{histogram_name}"
-
-  - name: Simple 1D Plots
-    action: Histogram1D
-    histogram_names: *all_oned
-    to_process:
-      region_name: '*'
-      sample_spec:
-        name:
-            - '*'
-    scale: linear
-    plot_configuration:
-      cms_text: "Preliminary\n{region_name}"
-    grouping: 
-      fields: ['dataset.era.name', 'dataset.name', 'region_name']
-      axis_options: {variation: central, NJets: Sum}
-      to_process:
-        sample_spec:
-          name:
-            - 'data*'
-      special_add:
-        - field: "dataset.name"
-          pattern: "data*"
-          replace: "Data SingleLep"
-  
-    stacked: 
-      fields: ['dataset.era.name',  'region_name']
-      axis_options: {variation: central, NJets: Sum}
-      to_process:
-        sample_spec:
-          name:
-            - 'tt*'
-            - 'qcd*'
-            - 'single_top*'
-    stack_match_fields: ['dataset.era.name', 'region_name']
-  
-    output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-
-  # - name: Simple 1D Plots
-  #   action: Histogram1D
-  #   histogram_names: *all_oned
-  #   to_process:
-  #     region_name: '*'
-  #     sample_spec:
-  #       name:
-  #           - 'signal*'
+  #   histogram_names: 
+  #       - uncomp_0p67_mChi
+  #       - comp_0p67_mChi
+  #       - uncomp_0p67_mStop
+  #       - comp_0p67_mStop
+  #       - m14_m
+  #       - m13_m
+  #       # - h_njet
+  #       # - HT
+  #       # - pt_1
+  #       # - pt_2
   #   scale: linear
   #   plot_configuration:
   #     cms_text: "Preliminary\n{region_name}"
-  #   grouping: 
-  #     fields: ['dataset.era.name', 'dataset.name', 'region_name']
-  #     axis_options: {variation: central}
-  #     to_process:
-  #       sample_spec:
-  #         name:
-  #           - 'signal*'
+  #   input: 
+  #     group_fields: {'dataset.era.name':'*', 'dataset.name':'*', 'region_name':'*'}
+  #     pipeline:
+  #       - select_axes_values: {"variation":"central"}
+  #       - rebin: 2
+  #       - title_format: "{dataset.title}"
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
   # 
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-
-
-  - name: Simple 2D Plots
-    action: Histogram2D
-    histogram_names:
-      - uncomp_0p67_m14_vs_mChiRatio
-      - comp_0p67_m14_vs_mChiRatio
-      - uncomp_0p67_m14_vs_mChi
-      - comp_0p67_m14_vs_mChi
-      - m13_vs_m14
-      - m24_vs_m14
-      # - ratio_m13_vs_m14
-      # - ratio_m24_vs_m14
-    to_process:
-      region_name: "*"
-      sample_name:
-        - 'tt*'
-        - 'single_top*'
-        - 'data*'
-    scale: log
-    grouping: 
-      fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      special_add:
-        - field: "dataset.name"
-          pattern: "data*"
-          replace: "Data SingleLep"
-      axis_options: {variation: central, NJets: Split, REST: Rebin2}
-      #, REST: Rebin2}
-    output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}_{NJets}"
-    plot_configuration:
-      cms_text_color: white
-
-  - name: Simple 2D Plots
-    action: Histogram2D
-    histogram_names:
-      - uncomp_0p67_m14_vs_mChiRatio
-      - comp_0p67_m14_vs_mChiRatio
-      - uncomp_0p67_m14_vs_mChi
-      - comp_0p67_m14_vs_mChi
-      - m13_vs_m14
-      - m24_vs_m14
-      # - ratio_m13_vs_m14
-      # - ratio_m24_vs_m14
-    scale: log
-    to_process:
-      region_name: "*"
-      sample_name:
-        - 'tt*'
-        - 'single_top*'
-        - 'data*'
-    grouping: 
-      fields: ['dataset.name', 'dataset.era.name', 'region_name']
-      special_add:
-        - field: "dataset.name"
-          pattern: "data*"
-          replace: "Data SingleLep"
-      axis_options: {variation: central, NJets: Sum, REST: Rebin2}
-      #, REST: Rebin1}
-    output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-    plot_configuration:
-      cms_text_color: white
+  # - name: Simple 2D Plots
+  #   action: Histogram2D
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #     # - uncomp_0p67_m14_vs_mChi
+  #     # - comp_0p67_m14_vs_mChi
+  #   input: 
+  #     group_fields: {'dataset.name': '*', 'dataset.era.name': '*', 'region_name': '*'}
+  #     pipeline:
+  #       - select_axes_values: {"variation":"central"}
+  #       - rebin: 3
+  #       - title_format: "{dataset.title}"
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
+  #   plot_configuration:
+  #     cms_text_color: white
 
   # - name: Export
   #   action: ExportHists
   #   histogram_names:
   #     - uncomp_0p67_m14_vs_mChiRatio
   #     - comp_0p67_m14_vs_mChiRatio
-  #   to_process:
-  #     sample_name: '*'
-  #     region_name: '*'
-  #   grouping: 
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central}
-  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pkl"
-  #     - uncomp_0p67_m14_vs_mChi
-  #     - comp_0p67_m14_vs_mChi
-  #   to_process:
-  #     region_name: "Control"
-  #     sample_name:
-  #       # - 'qcd*'
-  #       - 'data*'
-  #       # - 'signal*'
-  #   grouping: 
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central, REST: Rebin2}
+  #   input: 
+  #     group_fields: {'dataset.name': '*', 'dataset.era.name': '*', 'region_name': '*'}
+  #     pipeline: []
+  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"
+
+  # - name: yields
+  #   action: DumpYields
+  #   input:
+  #     group_fields: {}
+  #     pipeline: []
+  # 
+  #   output_name: "postprocessing/yields.csv"
+  # 
+  # - name: Cutflow
+  #   action: PlotCutflow
+  #   input:
+  #     group_fields: {'dataset.era.name':'*', 'dataset.name':'*', 'region_name':'*'}
+  #     pipeline: []
+  #     
+  #   # scale: log
+  #   style_set:
+  #     - style:
+  #         plot_type: step
+  # 
   #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-  #   plot_configuration:
-  #     cms_text_color: white
+  # 
+  # 
+  # 
+
+
   # 
   # - name: MC 2D Plots
   #   action: Histogram2D
@@ -278,120 +133,41 @@ Postprocessing:
   #   plot_configuration:
   #     cms_text_color: white
 
-  # - name: Histogram2DStack
-  #   action: Histogram2DStack
-  # 
-  #   histogram_names:
-  #     - uncomp_0p67_m14_vs_mChiRatio
-  #     - comp_0p67_m14_vs_mChiRatio
-  #     - uncomp_0p67_m14_vs_mChi
-  #     - comp_0p67_m14_vs_mChi
-  #   to_process:
-  #     region_name: "Signal312"
-  #     sample_name:
-  #       - 'qcd*'
-  #       - 'signal*'
-  #   override_axis_labels:
-  #     x: "$m^{\\text{reco}}_{\\tilde{t}}$"
-  #     y: "$m^{\\text{reco}}_{\\tilde{\\chi}} / m^{\\text{reco}}_{\\tilde{t}}$"
-  #   primary: 
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central, REST: Rebin3}
-  #     to_process:
-  #       sample_name: qcd*
-  # 
-  #   signal: 
-  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central, REST: Rebin3}
-  #     to_process:
-  #       sample_name: signal*
-  #     style_set:
-  #       - sample_spec:
-  #           name: "signal"
-  #         style:
-  #           color: red
-  #           line_width: 2
-  # 
-  #   match_fields: ['dataset.era.name', 'region_name']
-  # 
-  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
-  #   plot_configuration:
-  #     cms_text_color: white
-  #     legend_fill_color: white
-  #     legend_fill_alpha: 1.0
-  
-  # - name: Summed SM Background 2D Plots
-  #   action: Histogram2D
-  #   histogram_names:
-  #     - uncomp_0p67_m14_vs_mChiRatio
-  #     - comp_0p67_m14_vs_mChiRatio
-  #     - uncomp_0p67_m14_vs_mChi
-  #     - comp_0p67_m14_vs_mChi
-  #   to_process:
-  #     region_name: "Signal*"
-  #     sample_name:
-  #       - 'qcd*'
-  #       - 'tt*'
-  #   grouping: 
-  #     fields: [ 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central, REST: Rebin2}
-  #     add_together: true
-  #   output_name: "postprocessing/plots/{dataset.era.name}/qcd_tt/{region_name}/{histogram_name}"
-  #   plot_configuration:
-  #     cms_text_color: white
-  # 
-  # 
-  # - name: Export SM MC
-  #   action: ExportHists
-  #   histogram_names:
-  #     - uncomp_0p67_m14_vs_mChiRatio
-  #     - comp_0p67_m14_vs_mChiRatio
-  #   to_process:
-  #     sample_name:
-  #       - 'qcd*'
-  #       # - 'tt*'
-  #     region_name: 'Signal*'
-  #   grouping: 
-  #     fields: [ 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central}
-  #     add_together: true
-  #   output_name: "postprocessing/export_hists/MC/{dataset.era.name}/{region_name}/{histogram_name}.pkl"
-  # 
-  # - name: Export Signal
-  #   action: ExportHists
-  #   histogram_names:
-  #     - uncomp_0p67_m14_vs_mChiRatio
-  #     - comp_0p67_m14_vs_mChiRatio
-  #   to_process:
-  #     region_name: '*'
-  #     sample_spec:
-  #       name:
-  #           - '*'
-  #   grouping: 
-  #     fields: ['dataset.era.name', 'dataset.name', 'region_name']
-  #     axis_options: {variation: central}
-  #     to_process:
-  #       sample_spec:
-  #         name:
-  #           - 'data*'
-  #     special_add:
-  #       - field: "dataset.name"
-  #         pattern: "data*"
-  #         replace: "Data SingleLep"
-  #   output_name: "postprocessing/exporthists/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}.pkl"
 
-  # - name: Dump Yields
-  #   action: DumpYields
-  #   target_histogram: HT
-  # 
-  #   grouping: 
-  #     fields: [ 'dataset.era.name', 'region_name']
-  #     axis_options: {variation: central}
-  # 
-  #   to_process:
-  #     region_name: 'Signal*'
-  #     sample_spec:
-  #       name:
-  #           - 'qcd*'
-  #           - 'data*'
-  #   output_name: "postprocessing/yields/{dataset.era.name}/{region_name}_yield.csv"
+  - name: Plot
+    action: RatioPlot 
+    histogram_names:
+      - HT
+      - pt_1
+    normalize: True
+    scale: log
+
+
+    style_set:
+      - pattern:
+          dataset.name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          linestyle: null
+          marker: 'o'
+
+      - pattern:
+          dataset.name: 'qcd*'
+        style:
+          plottype: step
+          color: "#5790fc"
+
+    numerator: 
+      group_fields: {'dataset.name': 'data*', 'dataset.era.name': '*', 'region_name': 'Control'}
+      pipeline: 
+        - select_axes_values: {"variation":"unweighted"}
+        - title_format: "{dataset.title}"
+
+    denominator: 
+      group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control'}
+      pipeline: 
+        - select_axes_values: {"variation":"unweighted"}
+        - title_format: "{dataset.title}"
+    match_fields: ['dataset.era.name' ,'region_name']
+    output_name: "postprocessing/plots/ratios/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
