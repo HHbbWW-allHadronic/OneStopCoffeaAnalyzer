@@ -150,6 +150,8 @@ function rcmode(){
         eval "$(register-python-argcomplete analyzer)"
     fi
 
+    ulimit -n 4096
+
     welcome_message="
              Single Stop Analysis Framework
 ........................................................
