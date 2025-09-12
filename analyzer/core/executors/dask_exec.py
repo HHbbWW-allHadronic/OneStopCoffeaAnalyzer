@@ -269,7 +269,6 @@ class DaskExecutor(Executor):
                                 )
                                 progress.update(analyze_bar, advance=events)
                         except Exception as e:
-                            raise e
                             logger.warn(
                                 f"An exception occurred while processing a future."
                                 f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
