@@ -2,11 +2,14 @@ import concurrent.futures as cf
 import itertools as it
 
 import matplotlib as mpl
+from analyzer.utils.debugging import jumpIn
 from collections import defaultdict
 from analyzer.core.results import (
     loadSampleResultFromPaths,
     makeDatasetResults,
     gatherFilesByPattern,
+    combineResults,
+    openAndLoad,
 )
 from rich import print
 from rich.progress import Progress, track
@@ -17,6 +20,9 @@ from distributed import (
     get_client,
     secede,
     rejoin,
+    Queue,
+    as_completed,
+    WorkerPlugin,
 )
 
 from .plots.mplstyles import loadStyles
@@ -24,15 +30,25 @@ from .plots.mplstyles import loadStyles
 # from .processors import PostProcessorType, postprocess_catalog
 from .registry import loadPostprocessors
 
+
 import analyzer.postprocessing.processors  # noqa
 import analyzer.postprocessing.exporting  # noqa
 import analyzer.postprocessing.basic_histograms  # noqa
 import analyzer.postprocessing.cutflows  # noqa
+from .plots.mplstyles import loadStyles
 
 
 def initProcess():
     mpl.use("Agg")
     loadStyles()
+
+
+class LoadStyles(WorkerPlugin):
+    def setup(self, worker):
+        loadStyles()
+
+    def teardown(self, worker):
+        pass
 
 
 def run(tasks, parallel):
@@ -61,8 +77,11 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
-def processFileGroup(files, postprocessors, use_samples_as_datasets=False, drops=None):
+def processFileGroup(
+    queue, files, postprocessors, use_samples_as_datasets=False, drops=None
+):
     all_needed_hists = [y for x in postprocessors for y in x.getNeededHistograms()]
+    # sample_results = combineResults(files)
     sample_results = loadSampleResultFromPaths(
         files, include=all_needed_hists, show_progress=False
     )
@@ -81,11 +100,17 @@ def processFileGroup(files, postprocessors, use_samples_as_datasets=False, drops
         it.chain.from_iterable(r.sector_results for r in dataset_results.values())
     )
     ret = []
-    client = get_client()
-    for x in it.chain.from_iterable(
-        (processor.getExe(sector_results) for processor in postprocessors)
-    ):
-        fire_and_forget(client.submit(x))
+    if queue is not None:
+        client = get_client()
+        for x in it.chain.from_iterable(
+            (processor.getExe(sector_results) for processor in postprocessors)
+        ):
+            queue.put(client.submit(x))
+    else:
+        for x in it.chain.from_iterable(
+            (processor.getExe(sector_results) for processor in postprocessors)
+        ):
+            x()
 
 
 def assembleFileGroup(param_dict, fields):
@@ -93,6 +118,18 @@ def assembleFileGroup(param_dict, fields):
     for k, v in param_dict.items():
         newk = frozenset((x, y) for x, y in k if x in fields)
         ret[newk] |= v
+    return ret
+
+
+__file_cache = {}
+
+
+def getFile(client, path):
+    if str(path) in __file_cache:
+        return __file_cache[str(path)]
+
+    ret = client.submit(openAndLoad, path)
+    __file_cache[str(path)] = ret
     return ret
 
 
@@ -114,24 +151,42 @@ def runPostprocessors(config, input_files, parallel=8):
         all_fields |= f
         by_fields[frozenset(f)].append(processor)
     gathered = gatherFilesByPattern(input_files, all_fields)
-    with LocalCluster(dashboard_address="localhost:8789") as cluster, Client(
-        cluster
-    ) as client:
-
+    queue = Queue()
+    futures = []
+    if parallel:
+        with LocalCluster(
+            dashboard_address="localhost:8789",
+            preload=["analyzer.postprocessing.style"],
+        ) as cluster, Client(cluster) as client:
+            client.register_plugin(LoadStyles())
+            for keys, processors in by_fields.items():
+                fgroups = assembleFileGroup(gathered, keys)
+                for files in fgroups.values():
+                    futures.append(
+                        client.submit(
+                            processFileGroup,
+                            queue,
+                            files,
+                            processors,
+                            use_samples_as_datasets=use_samples_as_datasets,
+                            drops=drops,
+                        )
+                    )
+            completed = as_completed(futures)
+            for f in track(completed):
+                while queue.qsize() > 0:
+                    gotten = queue.get()
+                    completed.add(gotten)
+                f.result()
+                f.cancel()
+    else:
         for keys, processors in by_fields.items():
             fgroups = assembleFileGroup(gathered, keys)
-            # print(fgroups)
-            # return
             for files in fgroups.values():
-                print(files)
-                client.submit(
-                    processFileGroup,
+                processFileGroup(
+                    None,
                     files,
                     processors,
                     use_samples_as_datasets=use_samples_as_datasets,
                     drops=drops,
                 )
-        client.close()
-        cluster.close()
-        print("HERE")
-    print("HERE1")
