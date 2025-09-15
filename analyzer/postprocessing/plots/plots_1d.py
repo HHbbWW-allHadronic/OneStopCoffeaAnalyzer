@@ -11,6 +11,7 @@ from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .mplstyles import loadStyles
 from .utils import addAxesToHist, fixBadLabels, saveFig
+from analyzer.utils.debugging import jumpIn
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
@@ -232,7 +233,7 @@ def plotRatio(
 
     gs_kw = dict(height_ratios=[1, ratio_height])
 
-    fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True,gridspec_kw=gs_kw)
+    fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True, gridspec_kw=gs_kw)
     # ratio_ax = addAxeshToHist(ax, size=ratio_height, pad=0.3)
 
     den_hist = denominator.histogram
@@ -240,6 +241,7 @@ def plotRatio(
     fixBadLabels(den_hist)
 
     style = styler.getStyle(denominator.sector_parameters)
+
     den_hist.plot1d(
         ax=ax,
         label=denominator.title,
@@ -268,6 +270,12 @@ def plotRatio(
                 ratio = (n / np.sum(n)) / (d / np.sum(d))
         all_ratios.append(ratio)
         all_uncertainties.append(unc)
+
+        if normalize:
+            hplot = h / h.sum(flow=False).value
+        else:
+            hplot = h
+
         h.plot1d(
             ax=ax,
             label=title,
@@ -324,3 +332,4 @@ def plotRatio(
     # fig.tight_layout()
 
     saveFig(fig, output_path, extension=pc.image_type)
+    plt.close(fig)
