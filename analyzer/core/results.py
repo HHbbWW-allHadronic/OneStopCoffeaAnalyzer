@@ -784,7 +784,8 @@ def checkResult(
         val = result.processed_events
         diff = exp - val
         percent = round(val / exp * 100, 2)
-        done = (val / exp) >= threshold
+        frac_done = val / exp
+        done = (frac_done >= threshold) and (frac_done <= 1.0)
 
         if only_bad and done:
             continue
