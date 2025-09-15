@@ -6,6 +6,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class Weighter:
     def __init__(self, size=None, ignore_systematics=False, mask=None):
         self.weights = Weights(size, storeIndividual=True)
@@ -17,10 +18,8 @@ class Weighter:
 
     def withMask(self, mask):
         ret = copy.copy(self)
-        ret.mask =mask
+        ret.mask = mask
         return ret
-
-        
 
     def add(self, weight_name, central, variations=None):
         if self.is_zero:
@@ -66,7 +65,8 @@ class Weighter:
         return ret
 
     def weight(self, *args, **kwargs):
-        if self.mask is not None:
-            return self._weight(*args, **kwargs)[self.mask]
+        w = self._weight(*args, **kwargs)
+        if self.mask is not None and w is not None:
+            return w[self.mask]
         else:
-            return self._weight(*args, **kwargs)
+            return w
