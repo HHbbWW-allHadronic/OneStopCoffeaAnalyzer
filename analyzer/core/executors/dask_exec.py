@@ -450,8 +450,6 @@ class LPCCondorDask(DaskExecutor):
             job_script_prologue=prologue,
             **kwargs,
         )
-        # import dask_memusage
-        # dask_memusage.install(self._cluster.scheduler, "memusage.csv")
         self._client = Client(self._cluster)
         try:
             os.system("ulimit -n 4096")
