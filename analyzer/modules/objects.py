@@ -20,7 +20,6 @@ def jets_and_ht(
     include_jetid=True,
 ):
 
-    # jets = columns.get("CorrectedJet")
     jets = columns.get(jet_name)
     gj = jets[(jets.pt > min_pt) & (abs(jets.eta) < min_eta)]
 
