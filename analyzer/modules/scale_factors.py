@@ -134,6 +134,8 @@ def btagging_shape_sf(
     bparams = params.dataset.era.btag_scale_factors
 
     current_syst = events.getSystName()
+    if current_syst is not None:
+        current_syst = current_syst.replace("Regrouped_", "")
 
     gj = events.good_jets
     jets = gj[gj.hadronFlavour == 5]
@@ -152,7 +154,11 @@ def btagging_shape_sf(
             axis=1,
         )
 
-    if current_syst is not None and "jes" in current_syst:
+    if (
+        current_syst is not None
+        and "jes" in current_syst
+        and "2023" not in params.dataset.era.name
+    ):
         central_name = current_syst
         variations_axis = {}
     else:
