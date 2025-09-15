@@ -434,7 +434,7 @@ class LPCCondorDask(DaskExecutor):
             + dask.config.serialize(dask.config.global_config)
         )
         log_config_path = Path(CONFIG.CONFIG_PATH) / "worker_logging_config.yaml"
-        with open(log_config_path, "rt") as f:
+        with open(log_config_path, "r") as f:
             config = yaml.safe_load(f.read())
             c = base64.b64encode(json.dumps(config).encode("utf-8")).decode("utf-8")
         prologue.append("export ANALYZER_LOG_CONFIG=" + c)
