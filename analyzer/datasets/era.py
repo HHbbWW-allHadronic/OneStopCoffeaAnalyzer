@@ -19,6 +19,7 @@ class JECConfig(BaseModel):
     campaign: str | None = None
     version: str | None = None
     systematics: list[str] | None = None
+    regrouped_systematics: list[str] | None = None
 
 
 class JERConfig(BaseModel):
