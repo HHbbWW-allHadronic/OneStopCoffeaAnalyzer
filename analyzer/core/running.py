@@ -90,12 +90,12 @@ def runFromPath(path, output, executor_name, test_mode=False, filter_samples=Non
 
     executor = description.executors[executor_name]
     executor.test_mode = test_mode
-    executor.setup()
-    if hasattr(executor, "output_dir") and executor.output_dir is None:
-        executor.output_dir = str(output)
+    with executor:
+        if hasattr(executor, "output_dir") and executor.output_dir is None:
+            executor.output_dir = str(output)
 
-    callback = Saver(output)
-    results = executor.run(tasks, result_complete_callback=callback)
+        callback = Saver(output)
+        results = executor.run(tasks, result_complete_callback=callback)
 
 
 def runPackagedTask(packaged_task, output=None, output_dir=None):
@@ -135,7 +135,6 @@ def patchFromPath(
         raise RuntimeError()
     description = loadDescription(description_path)
     executor = description.executors[executor_name]
-    executor.setup()
     if hasattr(executor, "output_dir") and executor.output_dir is None:
         executor.output_dir = str(output)
 
@@ -181,4 +180,5 @@ def patchFromPath(
     final_tasks = unknown_sample_tasks + patches
 
     callback = Saver(output)
-    results = executor.run(final_tasks, result_complete_callback=callback)
+    with executor:
+        results = executor.run(final_tasks, result_complete_callback=callback)
