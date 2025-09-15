@@ -44,19 +44,19 @@ loggers:
     level: INFO
     handlers: [file_handler, debug_console]
   distributed:
-    level: INFO
+    level: ERROR
     handlers: [file_handler, warn_console]
   distributed.worker:
-    level: WARNING
+    level: ERROR
     handlers: [file_handler, warn_console]
   distributed.client:
-    level: WARNING
+    level: ERROR
     handlers: [file_handler, warn_console]
   distributed.bokeh:
     level: ERROR
     handlers: [file_handler, warn_console]
   lpcjobqueue.cluster:
-    level: INFO 
+    level: ERROR 
     handlers: [file_handler, warn_console]
 
 root:
