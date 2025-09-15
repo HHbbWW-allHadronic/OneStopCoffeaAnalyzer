@@ -29,6 +29,7 @@ from analyzer.datasets import FileSet
 from analyzer.core.exceptions import AnalysisRuntimeError
 from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
 from coffea.util import compress_form, decompress_form
+from analyzer.utils.querying import PatternExpression
 from distributed import (
     Client,
     LocalCluster,
@@ -39,7 +40,7 @@ from distributed import (
     Queue,
     Future,
 )
-from pydantic import Field
+from pydantic import Field, BaseModel
 from rich import print
 from rich.progress import (
     Progress,
@@ -64,13 +65,11 @@ logger = logging.getLogger(__name__)
 
 def constructSampleResult(task, prepped, future_result):
     if future_result is None:
-        raise AnalysisRuntimeError(
+        return AnalysisRuntimeError(
             f"Could not process any files for sample {task.sample_id}"
         )
     if isinstance(future_result, Exception):
-        raise AnalysisRuntimeError(
-            f"An exception occurred while processing task {task.sample_id}"
-        ) from future_result
+        return future_result
 
     fset, all_results = future_result
     sample_id = task.sample_id
@@ -87,6 +86,8 @@ def constructSampleResult(task, prepped, future_result):
 
 
 def dumpKeyByteProcessed(result):
+    if isinstance(result, Exception):
+        return result
     data = core_results.MultiSampleResult.model_validate({result.sample_id: result})
     # data = lz4.frame.compress(pkl.dumps(data.model_dump()))
     return ((result.sample_id, data.toBytes()), result.file_set_processed.events)
@@ -99,11 +100,9 @@ def prepWrapper(queue, task, prep_kwargs=None, **kwargs):
     secede()
     res = preprocess(task, **prep_kwargs)
     merge_futures = runPrepped(client, task, res, **kwargs)
-    with dask.annotate(priority=1000):
-        results = client.map(
-            lambda x: constructSampleResult(task, res, x), merge_futures
-        )
-        compressed = client.map(dumpKeyByteProcessed, results)
+    # with dask.annotate(priority=1000):
+    results = client.map(lambda x: constructSampleResult(task, res, x), merge_futures)
+    compressed = client.map(dumpKeyByteProcessed, results)
     for f in compressed:
         queue.put(f)
     rejoin()
@@ -170,16 +169,52 @@ def runPrepped(
         to_submit,
         key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
     )
-    with dask.annotate(priority=100):
-        final_futures = reduceResults(
-            client,
-            mergeFutures,
-            futures,
-            reduction_factor=reduction_factor,
-            target_final_count=final_files,
-            key_suffix="-" + str(task.sample_id),
-        )
+    # with dask.annotate(priority=100):
+    final_futures = reduceResults(
+        client,
+        mergeFutures,
+        futures,
+        reduction_factor=reduction_factor,
+        target_final_count=final_files,
+        key_suffix="-" + str(task.sample_id),
+    )
     return final_futures
+
+
+# class DaskExecProgress(Progress):
+#     def __init__(self, table_max_rows: int, *args, **kwargs) -> None:
+#         self.results = deque(maxlen=table_max_rows)
+#         self.update_table()
+#         super().__init__(*args, **kwargs)
+#
+#     def update_table(self, result: tuple[str] | None = None):
+#         if result is not None:
+#             self.results.append(result)
+#         table = Table()
+#         table.add_column("Row ID")
+#         table.add_column("Result", width=20)
+#
+#         for row_cells in self.results:
+#             table.add_row(*row_cells)
+#
+#         self.table = table
+#
+#     def get_renderable(self) -> ConsoleRenderable | RichCast | str:
+#         renderable = Group(self.table, *self.get_renderables())
+#         return renderable
+
+
+class TimeoutDescription(BaseModel):
+    timeout: int
+    pattern: PatternExpression
+
+
+def getTimeout(timeouts, task, default):
+    ret = next((x for x in timeouts if x.pattern.match(task.sample_params)), None)
+    if ret is not None:
+        return ret.timeout
+    else:
+        return default
 
 
 class DaskExecutor(Executor):
@@ -196,7 +231,8 @@ class DaskExecutor(Executor):
 
     use_threads: bool = False
     bulk_mode: bool = False
-    timeout: int = 360
+    default_timeout: int | None = None
+    timeouts: list[TimeoutDescription] = Field(default_factory=list)
 
     reduction_factor: int = 5
     parallel_save: int | None = 8
@@ -219,12 +255,19 @@ class DaskExecutor(Executor):
         queue = Queue()
         run_kwargs = {
             "reduction_factor": self.reduction_factor,
-            "timeout": self.timeout,
+            # "timeout": self.timeout,
         }
+
         prepped_futures = dict(
             zip(
                 client.map(
-                    lambda x, kwargs=run_kwargs: prepWrapper(queue, x, **kwargs),
+                    lambda x, kwargs=run_kwargs, test_mode=self.test_mode, timeouts=self.timeouts, default_timeout=self.default_timeout: prepWrapper(
+                        queue,
+                        x,
+                        prep_kwargs={"test_mode": test_mode},
+                        timeout=getTimeout(timeouts, x, default_timeout),
+                        **kwargs,
+                    ),
                     tasks,
                     key=[f"prep--{t.sample_id}" for t in tasks],
                 ),
@@ -237,6 +280,7 @@ class DaskExecutor(Executor):
 
         total_files_to_prep = sum(t.file_set.nfiles for t in tasks)
         total_events_to_analyze = 0
+        exceptions = 0
 
         saving_tasks = []
         save_queue = Queue()
@@ -276,13 +320,16 @@ class DaskExecutor(Executor):
                                     analyze_bar, total=total_events_to_analyze
                                 )
                             elif f in finalizing_futures:
-                                res, events = f.result()
+                                res = f.result()
+                                if isinstance(res, Exception):
+                                    exceptions += 1
+                                    raise res
+                                res, events = res
                                 saving_tasks.append(
                                     pexec.submit(result_complete_callback, *res)
                                 )
                                 progress.update(analyze_bar, advance=events)
                         except Exception as e:
-                            raise e
                             logger.warn(
                                 f"An exception occurred while processing a future."
                                 f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
