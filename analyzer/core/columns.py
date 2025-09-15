@@ -3,6 +3,7 @@ import copy
 import itertools as it
 import logging
 from dataclasses import dataclass, field
+from analyzer.utils.debugging import jumpIn
 from typing import Any
 import dask_awkward as dak
 from .selection import Selection, SelectionSet
@@ -29,16 +30,17 @@ class Column:
 class Columns:
     events: Any
 
-    parent_columns: Columns | None = None
-    parent_selection: Selection | None = None
-    selection: SelectionSet | None = None
-
     columns: dict[str, Column] = field(default_factory=dict)
     base: Columns | None = None
     syst: tuple[str, str] | None = None
+
     __column_cache: dict[tuple[str, tuple[str, str] | None], Any] = field(
         default_factory=dict
     )
+
+    parent_columns: Columns | None = None
+    parent_selection: Selection | None = None
+    selection: SelectionSet | None = None
 
     # def __hash__(self):
     #     return hash((self.events.name, tuple(self.columns), self.syst))
@@ -108,6 +110,7 @@ class Columns:
         if cname not in self.events.fields:
             logger.debug(f"Adding column to events: {cname}")
             self.events[cname] = value
+        # jumpIn(**locals())
 
     def add(self, name, nominal_value, variations=None, shape_dependent=False):
         if self.syst is not None and variations is not None:
