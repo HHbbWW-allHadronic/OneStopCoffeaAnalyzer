@@ -126,7 +126,7 @@ class MultiPatternExpression(BaseModel):
 
 
 class ComplexNestedPatternExpression(RootModel):
-    root: dict[str, UnaryPatternExpression | MultiPatternExpression]
+    root: dict[str, UnaryPatternExpression | MultiPatternExpression | Pattern]
 
     def match(self, data):
         ret = True
@@ -137,6 +137,9 @@ class ComplexNestedPatternExpression(RootModel):
             except AttributeError:
                 return False
         return ret
+
+    def fields(self):
+        return list(self.root)
 
     def capture(self, data):
         ret = {}
@@ -183,8 +186,8 @@ class UnaryPatternOp(str, Enum):
 
 
 class UnaryPatternExpression(BaseModel):
-    expr: PatternExpression
     op: UnaryPatternOp
+    expr: PatternExpression
 
     def match(self, data):
         if self.op == UnaryPatternOp.NOT:
