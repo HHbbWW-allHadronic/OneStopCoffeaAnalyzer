@@ -6,7 +6,13 @@ from collections import defaultdict, OrderedDict, ChainMap
 import itertools as it
 import string
 from typing import Annotated, Any, ClassVar
-from analyzer.utils.querying import NestedPatternExpression, modelIter, Pattern, PatternExpression, SimpleNestedPatternExpression
+from analyzer.utils.querying import (
+    NestedPatternExpression,
+    modelIter,
+    Pattern,
+    PatternExpression,
+    SimpleNestedPatternExpression,
+)
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams
@@ -220,6 +226,32 @@ class RebinAxes(BaseModel):
         return ret
 
 
+class SliceAxes(BaseModel):
+    slices: list[tuple[int | float | None, int | float | None]]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+            slices = dict(
+                (a.name, slice(*(hist.loc(x) if x else x for x in s)))
+                for a, s in zip(h.axes, self.slices)
+            )
+            h = h[slices]
+            provenance = copy.deepcopy(ph.provenance)
+            provenance.axis_params.update(slices)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
 class FormatTitle(BaseModel):
     title_format: str
 
@@ -246,6 +278,7 @@ AnyPipeline = (
     | MergeAxes
     | SelectAxesValues
     | FormatTitle
+    | SliceAxes
 )
 
 
@@ -257,7 +290,7 @@ def dictToFrozen(d):
 
 
 class SectorPipelineSpec(BaseModel):
-    group_fields: SimpleNestedPatternExpression
+    group_fields: PatternExpression
     pipeline: HistPipeline
 
     def makePipelines(self, sectors):
