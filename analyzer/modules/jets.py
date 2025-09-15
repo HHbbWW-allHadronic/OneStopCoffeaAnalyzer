@@ -77,26 +77,26 @@ def jet_kinematics(events, params, analyzer):
             gj[:, i].pt,
             description=f"$p_T$ of jet {i+1} ",
         )
-        analyzer.H(
-            f"eta_{i+1}",
-            makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
-            gj[:, i].eta,
-            description=f"$\eta$ of jet {i+1}",
-        )
-        analyzer.H(
-            f"phi_{i+1}",
-            makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
-            gj[:, i].phi,
-            description=f"$\phi$ of jet {i+1}",
-        )
-        htratio = masked_jets[:, i].pt / events.HT[mask]
-        analyzer.H(
-            f"pt_ht_ratio_{i}",
-            hist.axis.Regular(50, 0, 1, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
-            htratio,
-            mask=mask,
-            description=rf"Ratio of jet {i} $p_T$ to event HT",
-        )
+        # analyzer.H(
+        #     f"eta_{i+1}",
+        #     makeAxis(50, -5, 5, f"$\eta_{{{i+1}}}$"),
+        #     gj[:, i].eta,
+        #     description=f"$\eta$ of jet {i+1}",
+        # )
+        # analyzer.H(
+        #     f"phi_{i+1}",
+        #     makeAxis(50, -5, 5, f"$\phi_{{{i+1}}}$"),
+        #     gj[:, i].phi,
+        #     description=f"$\phi$ of jet {i+1}",
+        # )
+        # htratio = masked_jets[:, i].pt / events.HT[mask]
+        # analyzer.H(
+        #     f"pt_ht_ratio_{i}",
+        #     hist.axis.Regular(50, 0, 1, name="pt_o_ht", label=r"$\frac{p_{T}}{HT}$"),
+        #     htratio,
+        #     mask=mask,
+        #     description=rf"Ratio of jet {i} $p_T$ to event HT",
+        # )
 
 @MODULE_REPO.register(ModuleType.Histogram)
 def jet_kinematics_detailed(events, params, analyzer):
