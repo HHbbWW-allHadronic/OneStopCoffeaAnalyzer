@@ -6,6 +6,37 @@ from .utils.axes import makeAxis, CommonAxes
 
 
 @MODULE_REPO.register(ModuleType.Histogram)
+def b_quark_counts(events, params, histogram_builder, working_point="M"):
+    mapping = {"M": "med", "L": "loose", "T": "tight"}
+    bjets = events[f"{mapping[working_point]}_bs"]
+
+    histogram_builder.H(
+        f"{working_point}_nb",
+        CommonAxes.b_axis,
+        ak.num(bjets.pt),
+    )
+
+
+@MODULE_REPO.register(ModuleType.Histogram)
+def b_discriminator(events, params, histogram_builder, working_point="M"):
+    jets = events.good_jets
+
+    histogram_builder.H(
+        f"DeepJet_b_Disc_all",
+        makeAxis(100, 0, 1, f"Deepjet b disc"),
+        jets.btagDeepFlavB,
+    )
+    for i in range(0, 5):
+        mask = ak.num(jets, axis=1) > i
+        histogram_builder.H(
+            f"DeepJet_b_Disc_jet_{i+1}",
+            makeAxis(100, 0, 1, f"Deepjet b disc jet {i+1}"),
+            jets[mask][:, i].btagDeepFlavB,
+            mask=mask,
+        )
+
+
+@MODULE_REPO.register(ModuleType.Histogram)
 def b_quark_kinematics(events, params, histogram_builder, working_point="M"):
     mapping = {"M": "med", "L": "loose", "T": "tight"}
     bjets = events[f"{mapping[working_point]}_bs"]
@@ -14,11 +45,6 @@ def b_quark_kinematics(events, params, histogram_builder, working_point="M"):
         f"{working_point}_bjet_pt",
         CommonAxes.pt_axis,
         bjets.pt,
-    )
-    histogram_builder.H(
-        f"{working_point}_nb",
-        CommonAxes.b_axis,
-        ak.num(bjets.pt),
     )
     for i in range(0, 2):
         mask = ak.num(bjets, axis=1) > i
