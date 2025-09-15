@@ -206,6 +206,9 @@ class DaskExecutor(Executor):
             self._cluster.adapt(
                 minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
             )
+    def teardown(self):
+        self._client.close()
+        self._cluster.close()
 
     def runFutured(self, tasks, result_complete_callback=None):
         client = self._client
