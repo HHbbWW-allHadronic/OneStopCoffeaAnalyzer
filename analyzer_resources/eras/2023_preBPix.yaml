@@ -73,6 +73,18 @@
         - SinglePionECAL
         - SinglePionHCAL
         - TimePtEta
+      regrouped_systematics:
+        - Regrouped_Absolute
+        - Regrouped_Absolute_2023
+        - Regrouped_FlavorQCD
+        - Regrouped_BBEC1
+        - Regrouped_BBEC1_2023
+        - Regrouped_EC2
+        - Regrouped_EC2_2023
+        - Regrouped_HF
+        - Regrouped_HF_2023
+        - Regrouped_RelativeSample_2023
+        - Regrouped_RelativeBal
     jer:
       campaign: Summer23Prompt23_RunCv1234
       version: JRV1

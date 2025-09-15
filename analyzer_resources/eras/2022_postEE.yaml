@@ -41,8 +41,8 @@
     jet_names:
       AK4: AK4PFPuppi
     files:
-      AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022EE_Summer22/jet_jerc.json.gz
-      AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022EE_Summer22/fatjet_jerc.json.gz
+      AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022_Summer22EE/jet_jerc.json.gz
+      AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2022_Summer22EE/fatjet_jerc.json.gz
       smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
     jec:
       campaign: Summer22EE_22Sep2023
@@ -75,8 +75,20 @@
         - SinglePionECAL
         - SinglePionHCAL
         - TimePtEta
+      regrouped_systematics:
+        - Regrouped_Absolute
+        - Regrouped_Absolute_2022EE
+        - Regrouped_FlavorQCD
+        - Regrouped_BBEC1
+        - Regrouped_BBEC1_2022EE
+        - Regrouped_EC2
+        - Regrouped_EC2_2022EE
+        - Regrouped_HF
+        - Regrouped_HF_2022EE
+        - Regrouped_RelativeSample_2022EE
+        - Regrouped_RelativeBal
     jer:
-      campaign: Summer22_22Sep2023
+      campaign: Summer22EE_22Sep2023
       version: JRV1
       genjet_idx_col: genJetIdx
       systematics:

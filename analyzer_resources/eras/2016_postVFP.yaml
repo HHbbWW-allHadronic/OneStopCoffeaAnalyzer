@@ -76,6 +76,18 @@
         - SinglePionECAL
         - SinglePionHCAL
         - TimePtEta
+      regrouped_systematics:
+        - Regrouped_Absolute
+        - Regrouped_Absolute_2016
+        - Regrouped_FlavorQCD
+        - Regrouped_BBEC1
+        - Regrouped_BBEC1_2016
+        - Regrouped_EC2
+        - Regrouped_EC2_2016
+        - Regrouped_HF
+        - Regrouped_HF_2016
+        - Regrouped_RelativeSample_2016
+        - Regrouped_RelativeBal
     jer:
       campaign: Summer20UL16
       version: JRV3
