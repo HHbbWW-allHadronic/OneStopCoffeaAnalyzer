@@ -40,9 +40,11 @@ def doFormatting(s, **kwargs):
 
 class HistogramProvenance(BaseModel):
     name: str
+
     sector_parameters: SectorParams = Field(repr=False)
     group_params: dict[str, Any]
     axis_params: dict[str, Any] = Field(default_factory=dict)
+    merged_from: list[HistogramProvenance] | None = None
 
     def allEntries(self):
         return ChainMap(
@@ -53,10 +55,21 @@ class HistogramProvenance(BaseModel):
         )
 
 
+class MergedHistogramProvenance(BaseModel):
+    merged_from: list[HistogramProvenance | MergedHistogramProvenance] | None = None
+
+    def allEntries(self):
+        return ChainMap(*(x.allEntries() for x in self.merged_from))
+
+    @property
+    def sector_parameters(self):
+        return self.merged_from[0].sector_parameters
+
+
 class PackagedHist(BaseModel):
     histogram: Any
     title: str
-    provenance: HistogramProvenance
+    provenance: HistogramProvenance | MergedHistogramProvenance
     style: Style | None = None
 
     @property
@@ -101,11 +114,29 @@ class RemapCategories(BaseModel):
         return histograms
 
 
+def _mergeHists(hists):
+    ret = PackagedHist(
+        histogram=sum(h.histogram for h in hists),
+        provenance=MergedHistogramProvenance(merged_from=[x.provenance for x in hists]),
+        style=hists[0].style,
+        title=hists[0].title,
+    )
+    return ret
+
+
 class Merge(BaseModel):
-    limit: NestedPatternExpression
+    merge_fields: list[str] | None = None
 
     def __call__(self, histograms):
-        return histograms
+        groups = defaultdict(list)
+        if self.merge_fields is not None:
+            for ph in histograms:
+                captured = self.merge_fields.capture(ph.provenance.sector_parameters)
+                groups[dictToFrozen(captured)].append(ph)
+            return [_mergeHists(g) for g in groups.values()]
+        else:
+            return [_mergeHists(histograms)]
+        
 
 
 class SplitAxes(BaseModel):
