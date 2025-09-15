@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+import math
 
 import itertools as it
 import lz4.frame
@@ -62,7 +63,6 @@ class BaseResult(pyd.BaseModel):
         if self._raw_selection_flow is None:
             return self.selection_flow
         return self._raw_selection_flow
-
 
     def includeOnly(self, histograms):
         self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
@@ -162,10 +162,8 @@ class MultiSectorResult(pyd.RootModel):
         return self.root[item]
 
     def __iadd__(self, other):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
         iadd(self.root, other.root)
+        return self
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -235,7 +233,7 @@ class SampleResult(pyd.BaseModel):
         fs = self.file_set_processed.intersect(other.file_set_processed)
         if not fs.empty:
             error = (
-                f"Could not add analysis results because the file sets over which they successfully processed overlap."
+                f"Could not add analysis for results {self.sample_id} and {other.sample_id} because the file sets over which they successfully processed overlap."
                 f"Overlapping files:\n{list(fs.files)}"
             )
             raise ResultIntegrityError(error)
@@ -255,19 +253,33 @@ class SampleResult(pyd.BaseModel):
         self.compatible(other)
         self.file_set_ran += other.file_set_ran
         self.file_set_processed += other.file_set_processed
-        iadd(self.results, other.results)
+        self.results += other.results
         return self
 
-    def scaled(self, scale):
+    def scaled(self, scale, central_weight=None, rescale_weights=None):
+        def getPreW(result):
+            if rescale_weights is None:
+                return 1
+            return self.getReweightScale(result, central_weight, rescale_weights)
+
         return SampleResult(
             sample_id=self.sample_id,
             params=self.params,
             file_set_ran=self.file_set_ran,
             file_set_processed=self.file_set_processed,
-            results={k: v.scaled(scale) for k, v in self.results.items()},
+            results={k: v.scaled(getPreW(v) * scale) for k, v in self.results.items()},
         )
 
-    def scaleToPhysical(self):
+    def getReweightScale(self, result, central, other):
+        c = result.base_result.pre_sel_weight_flow.get(central)
+        if c is None:
+            return 1
+        other_weights = [result.base_result.pre_sel_weight_flow.get(x) for x in other]
+        individual = [(c / x) for x in other_weights if x is not None and x > 0]
+        ret = math.prod(individual)
+        return ret
+
+    def scaleToPhysical(self, central_weight=None, rescale_weights=None):
         """
         Scale MC results to the correct value based on their lumi and cross section
         All results are scaled to remove effect of missing files/failed chunks.
@@ -280,7 +292,10 @@ class SampleResult(pyd.BaseModel):
             )
         else:
             scale = self.params.n_events / self.file_set_processed.events
-        return self.scaled(scale)
+
+        return self.scaled(
+            scale, central_weight=central_weight, rescale_weights=rescale_weights
+        )
 
 
 class ResultFilePeek(RootModel):
@@ -722,7 +737,10 @@ def makeDatasetResults(
             continue
         if result.processed_events > 0:
             scaled_sample_results[result.sample_id.dataset_name].append(
-                result.scaleToPhysical()
+                result.scaleToPhysical(
+                    central_weight="unweighted",
+                    rescale_weights=["pileup_sf", "btag_shape_sf", "puid_sf"],
+                )
             )
     if not include_samples_as_datasets:
         return {
