@@ -123,6 +123,7 @@ class HistogramCollection(BaseModel):
         weight_repo,
         active_shape_systematic=None,
         mask=None,
+        include_individual=True,
     ):
         if not isinstance(fill_data, (list, tuple)):
             fill_data = [fill_data]
@@ -171,6 +172,20 @@ class HistogramCollection(BaseModel):
                 variation_val=weight_variation,
                 mask=mask,
             )
+
+        if include_individual and active_shape_systematic is None:
+            for weight_variation in weight_repo.weight_names:
+                logger.debug(f'Filling histogram with individual "{weight_variation}"')
+                w = weight_repo.weight(include=[weight_variation])
+                real_weight = transformToFill(representative, w, mask)
+                fillHistogram(
+                    self.histogram,
+                    cat_values,
+                    fill_data,
+                    real_weight,
+                    variation_val=f"only_{weight_variation}",
+                    mask=mask,
+                )
 
         if active_shape_systematic is None:
             fillHistogram(
