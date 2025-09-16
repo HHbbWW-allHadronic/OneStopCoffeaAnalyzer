@@ -52,7 +52,7 @@ def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
     j = events.Jet
     j = j[(j.pt > 15) & ((j.jetId & 0b100) != 0) & ((j.chHEF + j.neEmEF) < 0.9)]
     vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
-    selection.add("jet_veto_map", ak.any(vetoes, axis=1))
+    selection.add("jet_veto_map", ak.any((vetoes != 0), axis=1))
 
 
 def getRho(events, path):
