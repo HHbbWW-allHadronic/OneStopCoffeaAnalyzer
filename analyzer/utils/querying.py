@@ -9,12 +9,7 @@ from rich import print
 
 from pydantic import Field
 
-from pydantic import (
-    BaseModel,
-    RootModel,
-    model_validator,
-    TypeAdapter,
-)
+from pydantic import BaseModel, RootModel, model_validator, TypeAdapter, field_validator
 
 
 def modelIter(model: BaseModel) -> Generator[tuple[str, Any], None, None]:
@@ -100,8 +95,8 @@ class MultiPatternOp(str, Enum):
 
 
 class MultiPatternExpression(BaseModel):
-    exprs: list[PatternExpression]
     op: MultiPatternOp
+    exprs: list[PatternExpression]
 
     def match(self, data):
         mapping = {MultiPatternOp.AND: all, MultiPatternOp.OR: any}
@@ -153,32 +148,35 @@ class ComplexNestedPatternExpression(RootModel):
         return ret
 
 
-class SimpleNestedPatternExpression(RootModel):
-    root: dict[str, Pattern]
+SimpleNestedPatternExpression = ComplexNestedPatternExpression
 
-    def match(self, data):
-        ret = True
-        for k, pattern in self.root.items():
-            try:
-                found = deepLookup(data, k)
-                ret = ret and pattern.match(found)
-            except AttributeError:
-                return False
-        return ret
 
-    def capture(self, data):
-        ret = {}
-        for k, pattern in self.root.items():
-            try:
-                found = deepLookup(data, k)
-                captured = pattern.capture(found)
-                ret[k] = captured
-            except AttributeError:
-                ret[k] = None
-        return ret
-
-    def fields(self):
-        return list(self.root)
+# class SimpleNestedPatternExpression(RootModel):
+#     root: dict[str, Pattern]
+#
+#     def match(self, data):
+#         ret = True
+#         for k, pattern in self.root.items():
+#             try:
+#                 found = deepLookup(data, k)
+#                 ret = ret and pattern.match(found)
+#             except AttributeError:
+#                 return False
+#         return ret
+#
+#     def capture(self, data):
+#         ret = {}
+#         for k, pattern in self.root.items():
+#             try:
+#                 found = deepLookup(data, k)
+#                 captured = pattern.capture(found)
+#                 ret[k] = captured
+#             except AttributeError:
+#                 ret[k] = None
+#         return ret
+#
+#     def fields(self):
+#         return list(self.root)
 
 
 class UnaryPatternOp(str, Enum):
@@ -200,12 +198,22 @@ class UnaryPatternExpression(BaseModel):
             return None
 
 
-NestedPatternExpression = SimpleNestedPatternExpression | ComplexNestedPatternExpression
+NestedPatternExpression = ComplexNestedPatternExpression
+
+
+def model_x_discriminator(v: Any) -> str:
+    if isinstance(v, int):
+        return "int"
+    if isinstance(v, (dict, BaseModel)):
+        return "model"
+    else:
+        # return None if the discriminator value isn't found
+        return None
 
 
 PatternExpression = Annotated[
-    Pattern | UnaryPatternExpression | MultiPatternExpression | NestedPatternExpression,
-    Field(),
+    Pattern | MultiPatternExpression | UnaryPatternExpression | NestedPatternExpression,
+    Field()
 ]
 pattern_expr_adapter = TypeAdapter(PatternExpression)
 
