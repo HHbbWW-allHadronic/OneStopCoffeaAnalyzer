@@ -52,6 +52,8 @@ class Era(BaseModel):
     jet_veto_maps: JetVetoMap | None = None
     jet_corrections: JetCorrectionInfo | None = None
 
+    noise_filters: list[str] | None = None
+
     @property
     def params(self):
         return self.model_dump(by_alias=True)
