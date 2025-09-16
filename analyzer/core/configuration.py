@@ -5,7 +5,7 @@ from typing import Any, ClassVar
 
 import yaml
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .analysis_modules import MODULE_REPO
 
@@ -37,6 +37,16 @@ class ModuleDescription(BaseModel):
     config: list[dict[str, Any]] | dict[str, Any] | None = None
 
 
+def flatten(l):
+    ret = []
+    if isinstance(l, list):
+        for item in l:
+            ret.extend(flatten(item))
+    else:
+        ret.append(l)
+    return ret
+
+
 class RegionDescription(BaseModel):
     name: str
     use_region: bool = True
@@ -51,6 +61,22 @@ class RegionDescription(BaseModel):
     categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
+
+    @field_validator(
+        "selection",
+        "objects",
+        "corrections",
+        "preselection_histograms",
+        "preselection",
+        "categories",
+        "histograms",
+        "weights",
+        mode="before",
+    )
+    @classmethod
+    def flatten(cls, value: list[Any]) -> list[Any]:
+        ret = flatten(value)
+        return ret
 
 
 class ExecutionConfig(BaseModel):
@@ -122,7 +148,8 @@ def iterSubsectors(description, dataset_repo, era_repo, filter_samples=None):
                 regions = [r.name for r in description.regions]
             for r in regions:
                 by_dataset[dataset_name].append(r)
-    
+
+    # jumpIn(**locals())
     for dataset_name, regions in by_dataset.items():
         # logger.debug(
         #     f'Getting analyzer for dataset "{dataset_name}" and regions "{regions}"'
@@ -130,7 +157,7 @@ def iterSubsectors(description, dataset_repo, era_repo, filter_samples=None):
         dataset = dataset_repo[dataset_name]
         for sample in dataset.samples:
             if filter_samples is not None and not any(
-                f.match(sample.name) for f in filter_samples
+                f.match(str(sample.sample_id)) for f in filter_samples
             ):
                 continue
 
