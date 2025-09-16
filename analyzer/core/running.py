@@ -5,7 +5,7 @@ from pathlib import Path
 import lz4.frame
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
-from analyzer.core.configuration import getSubSectors, loadDescription, iterSubsectors
+from analyzer.core.configuration import loadDescription, iterSubsectors
 from analyzer.core.executors import AnalysisTask
 from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
@@ -75,11 +75,13 @@ def runFromPath(path, output, executor_name, test_mode=False, filter_samples=Non
 
     dataset_repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
-    subsectors = iterSubsectors(description, dataset_repo, era_repo)
-    if filter_samples is not None:
-        subsectors = (
-            x for x in subsectors if any(f.match(str(x[0])) for f in filter_samples)
-        )
+    subsectors = iterSubsectors(
+        description, dataset_repo, era_repo, filter_samples=filter_samples
+    )
+    # if filter_samples is not None:
+    #     subsectors = (
+    #         x for x in subsectors if any(f.match(str(x[0])) for f in filter_samples)
+    #     )
 
     tasks = iterTasks(
         subsectors, dataset_repo, era_repo, description.file_config.model_dump()
@@ -182,3 +184,19 @@ def patchFromPath(
     callback = Saver(output)
     with executor:
         results = executor.run(final_tasks, result_complete_callback=callback)
+
+
+def describeFromPath(path, output, executor_name, test_mode=False, filter_samples=None):
+    import analyzer.modules  # noqa
+
+    output = Path(output)
+    description = loadDescription(path)
+
+    dataset_repo = DatasetRepo.getConfig()
+    era_repo = EraRepo.getConfig()
+    subsectors = iterSubsectors(
+        description, dataset_repo, era_repo, filter_samples=filter_samples
+    )
+    print(list(subsectors))
+    print(f"Saving to {output}")
+    print(f"Running using executor {executor_name}")
