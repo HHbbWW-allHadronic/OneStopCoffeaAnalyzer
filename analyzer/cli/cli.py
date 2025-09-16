@@ -360,6 +360,7 @@ def addSubparserRun(subparsers):
     subparser = subparsers.add_parser(
         "run", help="Run analyzer based on provided configuration"
     )
+    addCommonArgsRunDescribe(subparser)
     subparser.set_defaults(func=handleRun)
 
 
