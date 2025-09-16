@@ -1,15 +1,20 @@
 # The name of analysis to be run
 name: Complete
 # Samples and in which regions they should be processed
-samples:
-  # qcd_inclusive_.*: [Control, Signal313, Signal312]
-  # data_JetHT_.*: [Control,BlindedSignal313, BlindedSignal312]
-  # tt_to_hadronic_2018: [Signal313, Signal312]
-  # signal_.+_312_.+official: [Signal312]
-  # signal_.+_313_.+official: [Signal313]
-  tt_to_hadronic_2016_preVFP: [Control]
-  qcd_inclusive_2016_preVFP: [Control]
-  data_JetHT_2016pre: [Control]
+datasets:
+  - dataset: 'qcd_inclusive_*'
+    regions: [Control, Signal313, Signal312]
+  - dataset: 'tt_to_hadronic*'
+    regions: [Signal313, Signal312]
+  - dataset: 'data_JetHT_*'
+    regions: [Control,BlindedSignal313, BlindedSignal312]
+  - dataset: 'signal_*_312_*official'
+    regions: [Signal312]
+  - dataset: 'signal_*_313_*official'
+    regions: [Signal313]
+  # tt_to_hadronic_2016_preVFP: [Control]
+  # qcd_inclusive_2016_preVFP: [Control]
+  # data_JetHT_2016pre: [Control]
   # signal_2018_312_.+: [Signal312]
   # signal_2023_preBPix_312_1500_600_official: [Signal312]
   # signal_2016_preVFP_312_1100_600_official: [Signal312]
@@ -60,19 +65,18 @@ file_config:
   # location_priority_regex: [".*(T0|T1|T2).*","eos"]
   use_replicas: True
 
-# You can use yaml anchors to reduce the amount of duplication in the configuration file
 common_items:
     common_corrections:  &common_corrections 
       - name: corrected_jets
         config:
           input_col: Jet
           output_col: CorrectedJet
-          do_smearing: true
+          # do_smearing: true
+          do_smearing: false
+          include_systematics: false
         constraint:
-          op: AND
-          exprs:
-            - sample_type: MC
-            - name: "*signal*"
+          sample_type: MC
+          name: "*signal*"
       
       - name: corrected_jets
         config:
@@ -81,12 +85,10 @@ common_items:
           do_smearing: true
           include_systematics: false
         constraint:
-          op: AND
-          exprs:
-            - sample_type: MC
-            - name:
-                op: NOT
-                expr: "*signal*"
+          sample_type: MC
+          name:
+            op: NOT
+            expr: "*signal*"
 
     common_signal_histograms: &common_signal
       - name: njets
@@ -112,32 +114,66 @@ common_items:
 
     common_objects: &common_objects
 
-      - name: jets_and_ht
+      - name: jets
         config:
-          jet_name: Jet
+          jet_in: Jet
+          jet_out: good_jets
         constraint:
           sample_type: Data
+          era.name: '202*'
 
-      - name: jets_and_ht
+      - name: jets
         config:
-          jet_name: CorrectedJet
+          jet_in: CorrectedJet
+          jet_out: good_jets
         constraint:
           sample_type: MC
+          era.name: '202*'
+
+      - name: jets
+        config:
+          jet_in: Jet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: Data
+          era.name: '201*'
+
+      - name: jets
+        config:
+          jet_in: CorrectedJet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: MC
+          era.name: '201*'
+
+      - name: jetmap_vetoed_jets
+        config:
+          jet_in: temp_good_jets
+          jet_out: good_jets
+        constraint:
+          era.name: '201*'
+
+      - name: ht
+        config:
+          jet_in: good_jets
 
       - name: core_objects
+
+    common_selection:  &common_selection
+      - name: jet_veto_maps
+        constraint:
+          "era.name": '202*'
+
+      - name: noise_filters
 
     common_preselection: &common_preselection 
       - name: golden_lumi_filter
         constraint:
           sample_type: Data
 
+
+
     common_weights: &common_weights
-      # - name: L1_prefiring_sf
-      #   sample_spec:
-      #     era: ["2016", "2017", "2018"]
-      #     sample_type: MC
-      #   config:
-      #     variations: All
 
       - name: sign_gen_weight
         constraint:
@@ -165,9 +201,10 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      - *common_preselection
       - name: signal_hlt
     selection: 
+      - *common_selection
       - name: general_selection
       - name: partial_signal312_selection
     histograms: *common_signal
@@ -178,9 +215,10 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      - *common_preselection
       - name: signal_hlt
     selection: 
+      - *common_selection
       - name: general_selection
       - name: partial_signal313_selection
     histograms: *common_signal
@@ -190,9 +228,10 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      - *common_preselection
       - name: signal_hlt
     selection: 
+      - name: jet_veto_maps
       - name: general_selection
       # - name: partial_cr_selection
     histograms: *common_signal
@@ -202,9 +241,10 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      - *common_preselection
       - name: signal_hlt
     selection: 
+      - *common_selection
       - name: general_selection
       - name: partial_signal313_selection
     histograms: 
@@ -216,9 +256,10 @@ regions:
     objects: *common_objects
     corrections: *common_corrections
     preselection:
-      - <<: *common_preselection
+      - *common_preselection
       - name: signal_hlt
     selection: 
+      - *common_selection
       - name: general_selection
       - name: partial_signal312_selection
     histograms: 
