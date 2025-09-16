@@ -83,6 +83,11 @@ class ConfiguredAnalyzerModule(BaseModel):
     def identity(self):
         return self.module.identity + (self.config,)
 
+    def __rich_repr__(self):
+        yield self.module.name
+        yield self.config
+        
+
 
 @dataclass
 class ModuleRepo:
