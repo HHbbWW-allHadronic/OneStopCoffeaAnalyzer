@@ -11,7 +11,7 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23BPix/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
-  jet_veto_maps:
+  jet_veto_map:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23BPix/jetvetomaps.json.gz
     name: "Summer23BPixPrompt23_RunD_V1"
 

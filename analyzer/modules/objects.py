@@ -41,7 +41,7 @@ def jetmap_vetoed_jets(columns, params, jet_in, jet_out, veto_type="jetvetomap")
     import correctionlib
 
     jets = columns.get(jet_in)
-    veto_params = params.dataset.era.jet_veto_maps
+    veto_params = params.dataset.era.jet_veto_map
     fname = veto_params.file
     name = veto_params.name
     cset = correctionlib.CorrectionSet.from_file(fname)

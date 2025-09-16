@@ -40,7 +40,9 @@
     working_point: {L: 4, M: 6, T: 7}
     name: PUJetID_eff
 
-  jet_veto_maps: null
+  jet_veto_map:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2017_UL/jetvetomaps.json.gz
+    name: Summer19UL17_V1
 
   pileup_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2017_UL/puWeights.json.gz

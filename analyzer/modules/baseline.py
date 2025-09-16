@@ -9,7 +9,7 @@ from analyzer.utils.debugging import jumpIn
 
 @MODULE_REPO.register(ModuleType.Selection)
 def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
-    veto_params = params.dataset.era.jet_veto_maps
+    veto_params = params.dataset.era.jet_veto_map
     fname = veto_params.file
     name = veto_params.name
     cset = correctionlib.CorrectionSet.from_file(fname)

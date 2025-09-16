@@ -49,7 +49,7 @@ class Era(BaseModel):
     pileup_scale_factors: dict[str, str]
     btag_scale_factors: dict[str, Any]
     jet_pileup_id: dict[str, Any] | None = None
-    jet_veto_maps: JetVetoMap | None = None
+    jet_veto_map: JetVetoMap | None = None
     jet_corrections: JetCorrectionInfo | None = None
 
     noise_filters: list[str] | None = None
