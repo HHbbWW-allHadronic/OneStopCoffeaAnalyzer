@@ -12,7 +12,7 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
-  jet_veto_map:
+  jet_veto_maps:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23/jetvetomaps.json.gz
     name: "Summer23Prompt23_RunC_V1"
 
@@ -94,6 +94,14 @@
         - down
 
 
+  noise_filters:
+    - goodVertices
+    - globalSuperTightHalo2016Filter
+    - EcalDeadCellTriggerPrimitiveFilter
+    - BadPFMuonFilter
+    - BadPFMuonDzFilter
+    - hfNoisyHitsFilter
+    - eeBadScFilter
 
 
   

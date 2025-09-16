@@ -95,3 +95,25 @@
       systematics:
         - up
         - down
+
+  noise_filters:
+    - goodVertices
+    - globalSuperTightHalo2016Filter
+    - EcalDeadCellTriggerPrimitiveFilter
+    - BadPFMuonFilter
+    - BadPFMuonDzFilter
+    - hfNoisyHitsFilter
+    - eeBadScFilter
+    - ecalBadCalibFilter
+    
+
+  noise_filters:
+    - goodVertices
+    - globalSuperTightHalo2016Filter
+    - EcalDeadCellTriggerPrimitiveFilter
+    - BadPFMuonFilter
+    - BadPFMuonDzFilter
+    - hfNoisyHitsFilter
+    - eeBadScFilter
+    - ecalBadCalibFilter
+    

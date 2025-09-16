@@ -225,3 +225,10 @@ def partial_cr_selection(events, params, selector):
     """
     loose_b = events.loose_bs
     selector.add("0looseb", (ak.num(loose_b) == 0))
+
+
+@MODULE_REPO.register(ModuleType.Selection)
+def noise_filters(events, params, selector, flags=None):
+    noise_flags = params.dataset.era.noise_filters
+    sel = ft.reduce(op.and_, [events.Flag[x] for x in noise_flags])
+    selector.add("noise_filters", sel)
