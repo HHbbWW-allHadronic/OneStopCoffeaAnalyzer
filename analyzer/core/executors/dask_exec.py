@@ -89,7 +89,6 @@ def dumpKeyByteProcessed(result):
     if isinstance(result, Exception):
         return result
     data = core_results.MultiSampleResult.model_validate({result.sample_id: result})
-    # data = lz4.frame.compress(pkl.dumps(data.model_dump()))
     return ((result.sample_id, data.toBytes()), result.file_set_processed.events)
 
 
