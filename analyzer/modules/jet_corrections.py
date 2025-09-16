@@ -42,18 +42,6 @@ def getEvaluator(path, key):
     return cset[key]
 
 
-@MODULE_REPO.register(ModuleType.Selection)
-def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
-    veto_params = params.dataset.era.jet_veto_maps
-    fname = veto_params.file
-    name = veto_params.name
-    cset = correctionlib.CorrectionSet.from_file(fname)
-    eval_veto = cset[name]
-    j = events.Jet
-    j = j[(j.pt > 15) & ((j.jetId & 0b100) != 0) & ((j.chHEF + j.neEmEF) < 0.9)]
-    vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
-    selection.add("jet_veto_map", ak.any((vetoes != 0), axis=1))
-
 
 def getRho(events, path):
     if isinstance(path, str):
