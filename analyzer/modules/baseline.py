@@ -1,6 +1,28 @@
 import awkward as ak
+import operator as op
 from analyzer.core import MODULE_REPO, ModuleType
+import functools as ft
 import hist
+import correctionlib
+from analyzer.utils.debugging import jumpIn
+
+
+@MODULE_REPO.register(ModuleType.Selection)
+def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
+    veto_params = params.dataset.era.jet_veto_maps
+    fname = veto_params.file
+    name = veto_params.name
+    cset = correctionlib.CorrectionSet.from_file(fname)
+    eval_veto = cset[name]
+    j = events.Jet
+    j = j[
+        (abs(j.eta) < 2.4)
+        & (j.pt > 15)
+        & ((j.jetId & 0b100) != 0)
+        & ((j.chEmEF + j.neEmEF) < 0.9)
+    ]
+    vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
+    selection.add("jet_veto_map", ak.all((vetoes == 0), axis=1))
 
 
 @MODULE_REPO.register(ModuleType.Selection)
