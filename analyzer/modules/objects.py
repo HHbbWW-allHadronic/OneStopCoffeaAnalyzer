@@ -10,17 +10,18 @@ def makeCutSet(x, s, args):
 
 
 @MODULE_REPO.register(ModuleType.Producer)
-def jets_and_ht(
+def jets(
     columns,
     params,
-    jet_name,
+    jet_in,
+    jet_out,
     min_pt=30,
     min_eta=2.4,
     include_puid=True,
     include_jetid=True,
 ):
 
-    jets = columns.get(jet_name)
+    jets = columns.get(jet_in)
     gj = jets[(jets.pt > min_pt) & (abs(jets.eta) < min_eta)]
 
     if include_jetid:
@@ -31,9 +32,42 @@ def jets_and_ht(
             gj = gj[(gj.pt > 50) | ((gj.puId & 0b10) != 0)]
 
     good_jets = gj
-    ht = ak.sum(good_jets.pt, axis=1)
+    columns.add(jet_out, good_jets, shape_dependent=True)
 
-    columns.add("good_jets", good_jets, shape_dependent=True)
+
+@MODULE_REPO.register(ModuleType.Producer)
+def jetmap_vetoed_jets(columns, params, jet_in, jet_out, veto_type="jetvetomap"):
+
+    import correctionlib
+
+    jets = columns.get(jet_in)
+    veto_params = params.dataset.era.jet_veto_maps
+    fname = veto_params.file
+    name = veto_params.name
+    cset = correctionlib.CorrectionSet.from_file(fname)
+    eval_veto = cset[name]
+    j = columns[jet_in]
+    j = j[
+        (abs(j.eta) < 2.4)
+        & (j.pt > 15)
+        & ((j.jetId & 0b100) != 0)
+        & ((j.chEmEF + j.neEmEF) < 0.9)
+    ]
+    vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
+    good_jets = j[(vetoes == 0)]
+
+    columns.add(jet_out, good_jets, shape_dependent=True)
+
+
+@MODULE_REPO.register(ModuleType.Producer)
+def ht(
+    columns,
+    params,
+    jet_in,
+):
+
+    jets = columns.get(jet_in)
+    ht = ak.sum(jets.pt, axis=1)
     columns.add("HT", ht)
 
 
