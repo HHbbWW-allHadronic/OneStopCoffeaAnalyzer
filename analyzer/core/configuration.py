@@ -13,7 +13,10 @@ import logging
 
 import analyzer.core.region_analyzer as ra
 import analyzer.core.executors as executors
-from analyzer.utils.querying import PatternExpression
+from analyzer.utils.querying import PatternExpression, Pattern
+from analyzer.utils.debugging import jumpIn
+
+from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
@@ -72,12 +75,17 @@ class FileConfig(BaseModel):
     use_replicas: bool = True
 
 
+class DatasetRegionElement(BaseModel):
+    dataset: Pattern
+    regions: list[str]
+
+
 class AnalysisDescription(BaseModel):
     name: str
     executors: dict[str, executors.AnyExecutor]
     # execution_config: ExecutionConfig = Field(default_factory=ExecutionConfig)
     file_config: FileConfig = Field(default_factory=FileConfig)
-    samples: dict[str, list[str] | str]
+    datasets: dict[str, list[str] | str] | list[DatasetRegionElement]
     regions: list[RegionDescription]
     general_config: dict[str, Any] = Field(default_factory=dict)
     special_region_names: ClassVar[tuple[str]] = ("All",)
@@ -101,56 +109,31 @@ def loadDescription(input_path):
     return AnalysisDescription(**data)
 
 
-def getSubSectors(description, dataset_repo, era_repo):
-    s_pairs = []
-    ret = defaultdict(list)
-    for dataset_name, regions in description.samples.items():
-        if any(x in dataset_name for x in [".", "*"]):
-            todo = [(x, regions) for x in dataset_repo if re.match(dataset_name, x)]
-        else:
-            todo = [(dataset_name, regions)]
-        for dataset_name, regions in todo:
-            if isinstance(regions, str) and regions == "All":
-                regions = [r.name for r in description.regions]
-            for r in regions:
-                s_pairs.append((dataset_name, r))
-    for dataset_name, region_name in s_pairs:
-        logger.debug(
-            f'Getting analyzer for dataset "{dataset_name}" and region "{region_name}"'
-        )
-        dataset = dataset_repo[dataset_name]
-        region = description.getRegion(region_name)
-        for sample in dataset.samples:
-            subsector = ra.RegionAnalyzer.fromRegion(
-                region,
-                sample,
-                MODULE_REPO,
-                era_repo,
-            )
-            ret[sample.sample_id].append(subsector)
-
-    return ret
-
-
-def iterSubsectors(description, dataset_repo, era_repo):
+def iterSubsectors(description, dataset_repo, era_repo, filter_samples=None):
     by_dataset = defaultdict(list)
-    for dataset_name, regions in description.samples.items():
-        if any(x in dataset_name for x in [".", "*"]):
-            todo = [(x, regions) for x in dataset_repo if re.match(dataset_name, x)]
+    for e in description.datasets:
+        if isinstance(e, DatasetRegionElement):
+            todo = [(x, e.regions) for x in dataset_repo if e.dataset.match(x)]
         else:
+            dataset_name, regions = e, description.datasets[e]
             todo = [(dataset_name, regions)]
         for dataset_name, regions in todo:
             if isinstance(regions, str) and regions == "All":
                 regions = [r.name for r in description.regions]
             for r in regions:
                 by_dataset[dataset_name].append(r)
-
+    
     for dataset_name, regions in by_dataset.items():
-        logger.debug(
-            f'Getting analyzer for dataset "{dataset_name}" and regions "{regions}"'
-        )
+        # logger.debug(
+        #     f'Getting analyzer for dataset "{dataset_name}" and regions "{regions}"'
+        # )
         dataset = dataset_repo[dataset_name]
         for sample in dataset.samples:
+            if filter_samples is not None and not any(
+                f.match(sample.name) for f in filter_samples
+            ):
+                continue
+
             logger.info(
                 f"Constructing {len(regions)} region analyzers for {sample.sample_id} "
             )
