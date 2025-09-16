@@ -72,8 +72,8 @@ common_items:
           input_col: Jet
           output_col: CorrectedJet
           # do_smearing: true
-          do_smearing: false
-          include_systematics: false
+          do_smearing: true
+          include_systematics: true
         constraint:
           sample_type: MC
           name: "*signal*"
