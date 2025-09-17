@@ -128,6 +128,19 @@ class AnalysisDescription(BaseModel):
 
         return asTuple(self) == asTuple(other)
 
+    def getAllSamples(self,dataset_repo):
+        ret = []
+        for e in self.datasets:
+            if isinstance(e, DatasetRegionElement):
+                todo = [x for x in dataset_repo if e.dataset.match(x)]
+            else:
+                todo = [e]
+            for dataset in todo:
+                ret.extend([x.sample_id for x in dataset_repo[dataset].samples])
+        return ret
+
+        
+
 
 def loadDescription(input_path):
     with open(input_path, "rb") as config_file:
