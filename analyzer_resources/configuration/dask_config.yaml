@@ -3,10 +3,10 @@ distributed:
     link:  "{scheme}://{host}:{port}/status"
   worker:
     daemon: false
-    # memory:
-    #   spill: 0.6  # default: 0.7
-    #   target: 0.7  # default: 0.6
-    #   terminate: 0.98  # default: 0.95
+    memory:
+      spill: 0.6  # default: 0.7
+      target: 0.5  # default: 0.6
+      terminate: 0.95  # default: 0.95
     # profile:
     #   enabled: true
     # memory:
