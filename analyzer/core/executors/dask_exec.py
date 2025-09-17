@@ -99,9 +99,11 @@ def prepWrapper(queue, task, prep_kwargs=None, **kwargs):
     secede()
     res = preprocess(task, **prep_kwargs)
     merge_futures = runPrepped(client, task, res, **kwargs)
-    # with dask.annotate(priority=1000):
-    results = client.map(lambda x: constructSampleResult(task, res, x), merge_futures)
-    compressed = client.map(dumpKeyByteProcessed, results)
+    with dask.annotate(priority=1000):
+        results = client.map(
+            lambda x: constructSampleResult(task, res, x), merge_futures
+        )
+        compressed = client.map(dumpKeyByteProcessed, results)
     for f in compressed:
         queue.put(f)
     rejoin()
@@ -168,15 +170,15 @@ def runPrepped(
         to_submit,
         key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
     )
-    # with dask.annotate(priority=100):
-    final_futures = reduceResults(
-        client,
-        mergeFutures,
-        futures,
-        reduction_factor=reduction_factor,
-        target_final_count=final_files,
-        key_suffix="-" + str(task.sample_id),
-    )
+    with dask.annotate(priority=100):
+        final_futures = reduceResults(
+            client,
+            mergeFutures,
+            futures,
+            reduction_factor=reduction_factor,
+            target_final_count=final_files,
+            key_suffix="-" + str(task.sample_id),
+        )
     return final_futures
 
 
@@ -241,6 +243,7 @@ class DaskExecutor(Executor):
             self._cluster.adapt(
                 minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
             )
+
     def teardown(self):
         self._client.close()
         self._cluster.close()
@@ -322,7 +325,7 @@ class DaskExecutor(Executor):
                                 res = f.result()
                                 if isinstance(res, Exception):
                                     exceptions += 1
-                                    raise res
+                                    # raise res
                                 res, events = res
                                 saving_tasks.append(
                                     pexec.submit(result_complete_callback, *res)
