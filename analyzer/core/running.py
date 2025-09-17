@@ -171,13 +171,17 @@ def patchFromPath(
                 "location_priority_regex": [".*(T0|T1|T2).*", ".*"]
             }
 
-    subsectors = getSubSectors(description, dataset_repo, era_repo)
-    unknown_sample_tasks = makeTasks(
-        {x: y for x, y in subsectors.items() if x not in raw_loaded},
-        dataset_repo,
-        era_repo,
-        description.file_config.model_dump(),
-    )
+    #subsectors = getSubSectors(description, dataset_repo, era_repo)
+    subsectors = list(iterSubsectors(description, dataset_repo, era_repo))
+    #unknown_sample_tasks = makeTasks(
+    #    {x: y for x, y in subsectors.items() if x not in raw_loaded},
+    #    dataset_repo,
+    #    era_repo,
+    #    description.file_config.model_dump(),
+    #)
+    unknown_sample_tasks = list(iterTasks(
+        [x for x in subsectors if x[0] not in raw_loaded], dataset_repo, era_repo, description.file_config.model_dump()
+    ))
 
     final_tasks = unknown_sample_tasks + patches
 

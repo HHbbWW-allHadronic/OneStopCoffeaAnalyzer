@@ -784,12 +784,7 @@ def checkResult(
 
         description = loadDescription(configuration)
         dataset_repo = DatasetRepo.getConfig()
-        config_samples = set(
-            s.sample_id
-            for n in description.samples
-            for x in dataset_repo.getRegex(n)
-            for s in x.samples
-        )
+        config_samples = set(description.getAllSamples(dataset_repo))
         missing_samples = sorted(list(config_samples - set(loaded)))
 
     table = Table(title="Missing Events")
