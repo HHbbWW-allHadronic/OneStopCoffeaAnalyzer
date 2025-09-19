@@ -104,6 +104,7 @@ def handleQuickEvents(args):
     try:
         sname = args.sample_name or args.dataset_name
         sample = ds[sname]
+        sample.useFilesFromReplicaCache()
     except KeyError as e:
         print(
             f"Could not find sample '{sname}'. Available samples are {[x.name for x in ds]}"
@@ -112,7 +113,7 @@ def handleQuickEvents(args):
 
     fname = random.choice(sample.files).getFile()
 
-    print(f"Loading events...")
+    print(f"Loading events from file {fname}...")
     events = NanoEventsFactory.from_root(
         {fname: args.tree_name},
         schemaclass=NanoAODSchema,
@@ -121,7 +122,7 @@ def handleQuickEvents(args):
         delayed=False,
     ).events()
 
-
+    
     jumpIn(events=events)
 
 
