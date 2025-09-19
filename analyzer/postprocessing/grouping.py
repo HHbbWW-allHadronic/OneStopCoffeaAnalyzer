@@ -61,9 +61,14 @@ class MergedHistogramProvenance(BaseModel):
     def allEntries(self):
         return ChainMap(*(x.allEntries() for x in self.merged_from))
 
+
     @property
     def sector_parameters(self):
         return self.merged_from[0].sector_parameters
+
+    @property
+    def axis_params(self):
+        return self.merged_from[0].axis_params
 
 
 class PackagedHist(BaseModel):
