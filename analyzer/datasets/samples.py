@@ -386,7 +386,7 @@ class DatasetRepo:
                 )
             self.datasets[s.name] = s
 
-    def load(self, directory, use_replicas=True):
+    def load(self, directory):
         directory = Path(directory)
         files = list(directory.rglob("*.yaml"))
         for f in track(files, description="Loading Datasets"):
@@ -396,8 +396,6 @@ class DatasetRepo:
                     continue
                 self.__loadOne(data)
 
-        # if use_replicas:
-        #     self.useReplicaCache()
 
     def buildReplicaCache(self, force=False):
         for dataset in track(self.datasets.values()):
