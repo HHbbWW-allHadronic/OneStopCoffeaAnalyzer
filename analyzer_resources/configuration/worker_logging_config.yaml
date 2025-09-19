@@ -18,5 +18,5 @@ handlers:
 
 loggers:
   analyzer:
-    level: INFO
+    level: WARNING
     handlers: [console]
