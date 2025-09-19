@@ -305,41 +305,38 @@ class DaskExecutor(Executor):
                 analyze_bar = progress.add_task(
                     "Analyzing", total=total_events_to_analyze
                 )
-                for batch in completed.batches():
-                    for f in batch:
-                        try:
-                            if f in prepped_futures:
-                                i = 0
-                                while queue.qsize() > 0:
-                                    x = queue.get()
-                                    finalizing_futures.add(x)
-                                    i += 1
-                                    completed.add(x)
-                                nfiles, nevents = f.result()
-                                total_events_to_analyze += nevents
-                                progress.update(prep_bar, advance=nfiles)
-                                progress.update(
-                                    analyze_bar, total=total_events_to_analyze
-                                )
-                            elif f in finalizing_futures:
-                                res = f.result()
-                                if isinstance(res, Exception):
-                                    exceptions += 1
-                                    # raise res
-                                res, events = res
-                                saving_tasks.append(
-                                    pexec.submit(result_complete_callback, *res)
-                                )
-                                progress.update(analyze_bar, advance=events)
-                        except Exception as e:
-                            logger.warn(
-                                f"An exception occurred while processing a future."
-                                f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                                f"{e}"
+                for f in completed:
+                    try:
+                        if f in prepped_futures:
+                            i = 0
+                            while queue.qsize() > 0:
+                                x = queue.get()
+                                finalizing_futures.add(x)
+                                i += 1
+                                completed.add(x)
+                            nfiles, nevents = f.result()
+                            total_events_to_analyze += nevents
+                            progress.update(prep_bar, advance=nfiles)
+                            progress.update(analyze_bar, total=total_events_to_analyze)
+                        elif f in finalizing_futures:
+                            res = f.result()
+                            if isinstance(res, Exception):
+                                exceptions += 1
+                                # raise res
+                            res, events = res
+                            saving_tasks.append(
+                                pexec.submit(result_complete_callback, *res)
                             )
-                            logger.warn(traceback.format_exc())
-                        finally:
-                            f.cancel()
+                            progress.update(analyze_bar, advance=events)
+                    except Exception as e:
+                        logger.warn(
+                            f"An exception occurred while processing a future."
+                            f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+                            f"{e}"
+                        )
+                        logger.warn(traceback.format_exc())
+                    finally:
+                        f.cancel()
                 pexec.shutdown(wait=True)
 
     def run(self, *args, **kwargs):
