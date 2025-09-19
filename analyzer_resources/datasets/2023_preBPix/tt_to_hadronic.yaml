@@ -1,7 +1,7 @@
 - name: tt_to_hadronic_2023_preBPix
   title: "$t\\overline{t}$"
   sample_type: MC
-  era: '2016_preBPix'
+  era: '2023_preBPix'
   samples:
     - name: TTto4Q_TuneCP5_13p6TeV_powheg-pythia8
       cms_dataset_regex: /TTto4Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM
