@@ -117,6 +117,8 @@ class RatioPlot(BasePostprocessor):
 
     plot_configuration: PlotConfiguration | None = None
 
+    to_stack: PatternExpression | None = None
+
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     ratio_ylim: tuple[float, float] = (0, 2)
@@ -133,6 +135,8 @@ class RatioPlot(BasePostprocessor):
     def getExe(self, results):
         num_pipelines = self.numerator.makePipelines(results)
         den_pipelines = self.denominator.makePipelines(results)
+        print(num_pipelines)
+        print(den_pipelines)
         joined = joinOnFields(
             self.match_fields,
             num_pipelines,
@@ -141,12 +145,12 @@ class RatioPlot(BasePostprocessor):
         )
 
         for name, (num, den) in it.product(self.histogram_names, joined):
-            if len(den) != 1:
-                raise RuntimeError()
+            # if len(den) != 1:
+            #     raise RuntimeError()
             den_hists = den[0].getHists(name)
             num_hists = [x for y in num for x in y.getHists(name)]
-            if len(den_hists) != 1:
-                raise RuntimeError()
+            # if len(den_hists) != 1:
+            #     raise RuntimeError()
             den_hist = den_hists[0]
             output_path = doFormatting(
                 self.output_name,
@@ -158,7 +162,7 @@ class RatioPlot(BasePostprocessor):
             )
             yield ft.partial(
                 plotRatio,
-                den_hist,
+                den_hists,
                 num_hists,
                 output_path,
                 self.style_set,
