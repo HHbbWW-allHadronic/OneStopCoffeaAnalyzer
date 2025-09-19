@@ -1,6 +1,6 @@
 import numpy as np
 from collections import defaultdict
-
+import functools as ft
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
@@ -231,16 +231,18 @@ def plotRatio(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
+    den_total = ft.reduce(sum, (x.histogram for x in denominator))
+
     gs_kw = dict(height_ratios=[1, ratio_height])
 
     fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True, gridspec_kw=gs_kw)
     # ratio_ax = addAxeshToHist(ax, size=ratio_height, pad=0.3)
 
-    den_hist = denominator.histogram
+    den_hist = denominator[0].histogram
 
     fixBadLabels(den_hist)
 
-    style = styler.getStyle(denominator.sector_parameters)
+    style = styler.getStyle(den_hist.sector_parameters)
 
     den_hist.plot1d(
         ax=ax,
@@ -248,6 +250,26 @@ def plotRatio(
         density=normalize,
         yerr=True,
         **style.get(),
+    )
+    den_to_plot = sorted(denominator, key=lambda x: x.histogram.sum().value)
+    style_kwargs = defaultdict(list)
+    hists = []
+    titles = []
+    for x in den_to_plot:
+        hists.append(x.histogram)
+        titles.append(x.title)
+        style = styler.getStyle(x.sector_parameters)
+        for k, v in style.get().items():
+            style_kwargs[k].append(v)
+
+    style_kwargs["histtype"] = style_kwargs["histtype"][0]
+
+    mplhep.histplot(
+        hists,
+        ax=ax,
+        stack=True,
+        **style_kwargs,
+        label=titles,  # sort="yield"
     )
 
     x_values = den_hist.axes[0].centers
@@ -263,7 +285,7 @@ def plotRatio(
         num.sector_parameters
         s = styler.getStyle(num.sector_parameters)
 
-        n, d = h.values(), den_hist.values()
+        n, d = h.values(), den_total.values()
         ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
         if normalize:
             with np.errstate(divide="ignore", invalid="ignore"):
