@@ -152,6 +152,17 @@ def offline_ht_category(events, params, categories):
 
 
 @MODULE_REPO.register(ModuleType.Categorization)
+def zero_loose_b_category(events, params, categories):
+    categories.add(
+        name=f"ZeroLooseB",
+        axis=hist.axis.Integer(
+            0, 2, underflow=False, overflow=False, name="ZeroLooseB"
+        ),
+        values=(ak.num(events.loose_bs, axis=1) == 0),
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
 def hlt_ht_trigger_category(events, params, categories):
     era_info = params.dataset.era
     ht_trigger_name = era_info.trigger_names["HT"]
@@ -246,7 +257,7 @@ def partial_cr_selection(events, params, selector):
     Requires 0 loose bs.
     """
     loose_b = events.loose_bs
-    selector.add("0looseb", (ak.num(loose_b) == 0))
+    # selector.add("0looseb", (ak.num(loose_b) == 0))
 
 
 @MODULE_REPO.register(ModuleType.Selection)
