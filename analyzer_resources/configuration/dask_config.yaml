@@ -31,13 +31,13 @@ distributed:
     # worker-saturation: 1.0
     # no-workers-timeout: true
 
-  admin:
-      log-length: 0
-      low-level-log-length: 0
-
-  diagnostics:
-    computations:
-      max-history: 0
+  # admin:
+  #     log-length: 0
+  #     low-level-log-length: 0
+  # 
+  # diagnostics:
+  #   computations:
+  #     max-history: 0
 
 # optimization: {}
   # fuse:
