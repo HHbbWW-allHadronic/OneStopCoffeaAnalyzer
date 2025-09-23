@@ -1,4 +1,6 @@
 import numpy as np
+from rich import print
+import operator as op
 from collections import defaultdict
 import functools as ft
 import matplotlib as mpl
@@ -231,26 +233,13 @@ def plotRatio(
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
-    den_total = ft.reduce(sum, (x.histogram for x in denominator))
+    den_total = ft.reduce(op.add, (x.histogram for x in denominator))
 
     gs_kw = dict(height_ratios=[1, ratio_height])
 
     fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True, gridspec_kw=gs_kw)
     # ratio_ax = addAxeshToHist(ax, size=ratio_height, pad=0.3)
 
-    den_hist = denominator[0].histogram
-
-    fixBadLabels(den_hist)
-
-    style = styler.getStyle(den_hist.sector_parameters)
-
-    den_hist.plot1d(
-        ax=ax,
-        label=denominator.title,
-        density=normalize,
-        yerr=True,
-        **style.get(),
-    )
     den_to_plot = sorted(denominator, key=lambda x: x.histogram.sum().value)
     style_kwargs = defaultdict(list)
     hists = []
@@ -264,6 +253,7 @@ def plotRatio(
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
 
+
     mplhep.histplot(
         hists,
         ax=ax,
@@ -272,6 +262,7 @@ def plotRatio(
         label=titles,  # sort="yield"
     )
 
+    den_hist = denominator[0].histogram
     x_values = den_hist.axes[0].centers
     left_edge = den_hist.axes.edges[0][0]
     right_edge = den_hist.axes.edges[-1][-1]
@@ -284,9 +275,11 @@ def plotRatio(
         fixBadLabels(h)
         num.sector_parameters
         s = styler.getStyle(num.sector_parameters)
-
         n, d = h.values(), den_total.values()
+
         ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
+
+
         if normalize:
             with np.errstate(divide="ignore", invalid="ignore"):
                 ratio = (n / np.sum(n)) / (d / np.sum(d))
@@ -334,7 +327,10 @@ def plotRatio(
 
     addCMSBits(
         ax,
-        [denominator.sector_parameters, *(x.sector_parameters for x in numerators)],
+        [
+            *(x.sector_parameters for x in denominator),
+            *(x.sector_parameters for x in numerators),
+        ],
         plot_configuration=pc,
     )
 
