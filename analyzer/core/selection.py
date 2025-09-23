@@ -30,8 +30,6 @@ class SelectionFlow(BaseModel):
     def selection_efficiency(self):
         return self.cutflow[-1][1] / self.cutflow[0][1]
 
-
-
     def scaled(self, scale):
         def mult(tuples, v):
             return [(x, v * y) for x, y in tuples]
@@ -106,12 +104,18 @@ class SelectionSet:
             return None
 
     def getSelectionFlow(self, names):
-        nmo = self.selection.nminusone(*names).result()
-        cutflow = self.selection.cutflow(*names).result()
-        onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
-        cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
-        nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
-        ret = SelectionFlow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
+        logger.info(
+            f"Getting selection flow for {names}, from available selection {self.allNames()}"
+        )
+        if not names:
+            ret = SelectionFlow(cutflow=[], one_cut=[], n_minus_one=[])
+        else:
+            nmo = self.selection.nminusone(*names).result()
+            cutflow = self.selection.cutflow(*names).result()
+            onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
+            cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
+            nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
+            ret = SelectionFlow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
         if self.parent_selection is not None:
             parent_cutflow = self.parent_selection.getSelectionFlow()
             ret = parent_cutflow.concatChild(ret)
