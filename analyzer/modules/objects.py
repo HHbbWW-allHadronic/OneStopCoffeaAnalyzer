@@ -126,7 +126,7 @@ def semilep_objects(columns, params):
     mu = columns.get("Muon")
     good_electrons = el[(el.cutBased >= 3) & (el.pt > 30) & (abs(el.eta) < 2.4)]
     good_muons = mu[
-        (mu.pt > 30) & (mu.mediumId) & (mu.pfIsoId == 3) & (abs(mu.eta) < 2.4)
+        (mu.pt > 30) & (mu.mediumId) & (mu.pfIsoId >= 3) & (abs(mu.eta) < 2.4)
     ]
 
     columns.add("good_fatjets", good_fatjets)
