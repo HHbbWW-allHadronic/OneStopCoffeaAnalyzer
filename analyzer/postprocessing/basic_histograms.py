@@ -1,4 +1,5 @@
 import functools as ft
+from rich import print
 import logging
 import itertools as it
 from typing import Literal
@@ -117,8 +118,6 @@ class RatioPlot(BasePostprocessor):
 
     plot_configuration: PlotConfiguration | None = None
 
-    to_stack: PatternExpression | None = None
-
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     ratio_ylim: tuple[float, float] = (0, 2)
@@ -135,8 +134,6 @@ class RatioPlot(BasePostprocessor):
     def getExe(self, results):
         num_pipelines = self.numerator.makePipelines(results)
         den_pipelines = self.denominator.makePipelines(results)
-        print(num_pipelines)
-        print(den_pipelines)
         joined = joinOnFields(
             self.match_fields,
             num_pipelines,
