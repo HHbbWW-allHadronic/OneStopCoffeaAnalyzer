@@ -1,5 +1,6 @@
 import logging
 
+import copy
 import matplotlib as mpl
 import matplotlib.typing as mplt
 from analyzer.utils.querying import NestedPatternExpression
@@ -111,6 +112,10 @@ class Styler:
     def getStyle(self, sector_params):
         found = self.style_set.getStyle(sector_params)
         if found is not None:
+            if found.color is None:
+                found = copy.deepcopy(found)
+                c = next(self.cycle_iter)
+                found.color = c['color']
             return found
 
         c = next(self.cycle_iter)
