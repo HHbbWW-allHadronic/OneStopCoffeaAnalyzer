@@ -85,24 +85,22 @@ def handleQuickDataset(args):
     run(args.input, args.output_dir, args.limit_regex)
 
 
-def handleQuickEvents(args):
+def quickEvents(dataset_name, sample_name, nevents=10000, tree_name="Events"):
+    from analyzer.datasets import DatasetRepo, EraRepo
     from analyzer.utils.debugging import jumpIn
     import awkward as ak
     from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-    from analyzer.datasets import DatasetRepo, EraRepo
     import random
 
     repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
-
-
     try:
-        ds = repo[args.dataset_name]
+        ds = repo[dataset_name]
     except KeyError as e:
-        print(f"Could not find dataset '{args.dataset_name}'")
+        print(f"Could not find dataset '{dataset_name}'")
         return
     try:
-        sname = args.sample_name or args.dataset_name
+        sname = sample_name or dataset_name
         sample = ds[sname]
         sample.useFilesFromReplicaCache()
     except KeyError as e:
@@ -115,15 +113,23 @@ def handleQuickEvents(args):
 
     print(f"Loading events from file {fname}...")
     events = NanoEventsFactory.from_root(
-        {fname: args.tree_name},
+        {fname: tree_name},
         schemaclass=NanoAODSchema,
         entry_start=0,
-        entry_stop=args.nevents,
+        entry_stop=nevents,
         delayed=False,
     ).events()
 
-    
-    jumpIn(events=events)
+    return events
+
+
+def handleQuickEvents(args):
+    events = quickEvents(
+        args.dataset_name, args.sample_name, args.nevents, args.tree_name
+    )
+
+    if events is not None:
+        jumpIn(events=events)
 
 
 def addSubparserQuickEvents(subparsers):
@@ -300,6 +306,7 @@ def handleRun(args):
         filter_samples=args.filter_samples,
     )
 
+
 def handleDescribe(args):
     from analyzer.core.running import describeFromPath
 
@@ -325,6 +332,7 @@ def handleStartCluster(args):
 
 def addCommonArgsRunDescribe(subparser):
     from analyzer.utils.querying import Pattern
+
     subparser.add_argument("input", type=Path, help="Input data path.")
     subparser.add_argument(
         "-o", "--output", type=Path, help="Output path", required=True
@@ -357,7 +365,6 @@ def addCommonArgsRunDescribe(subparser):
 def addSubparserRun(subparsers):
     """Update an existing results file with missing info"""
 
-
     subparser = subparsers.add_parser(
         "run", help="Run analyzer based on provided configuration"
     )
@@ -376,9 +383,7 @@ def addSubparserStartCluster(subparsers):
 
 def addSubparserDescribe(subparsers):
     """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "describe", help="Describe analysis"
-    )
+    subparser = subparsers.add_parser("describe", help="Describe analysis")
     addCommonArgsRunDescribe(subparser)
     subparser.set_defaults(func=handleDescribe)
 
