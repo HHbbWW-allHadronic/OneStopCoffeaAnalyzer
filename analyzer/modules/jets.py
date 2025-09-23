@@ -74,8 +74,9 @@ def jet_kinematics(events, params, analyzer):
         analyzer.H(
             rf"pt_{i+1}",
             makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-            gj[:, i].pt,
+            masked_jets[:, i].pt,
             description=f"$p_T$ of jet {i+1} ",
+            mask=mask,
         )
         # analyzer.H(
         #     f"eta_{i+1}",
@@ -97,6 +98,7 @@ def jet_kinematics(events, params, analyzer):
         #     mask=mask,
         #     description=rf"Ratio of jet {i} $p_T$ to event HT",
         # )
+
 
 @MODULE_REPO.register(ModuleType.Histogram)
 def jet_kinematics_detailed(events, params, analyzer):
