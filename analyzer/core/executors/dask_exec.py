@@ -238,6 +238,8 @@ class DaskExecutor(Executor):
     reduction_factor: int = 5
     parallel_save: int | None = 8
 
+    input_events_per_output: int = 10**7
+
     def setup(self):
         if self.adapt:
             self._cluster.adapt(
@@ -257,6 +259,7 @@ class DaskExecutor(Executor):
         queue = Queue()
         run_kwargs = {
             "reduction_factor": self.reduction_factor,
+            "input_events_per_output": self.input_events_per_output,
             # "timeout": self.timeout,
         }
 
