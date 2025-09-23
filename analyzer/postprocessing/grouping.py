@@ -5,6 +5,7 @@ from rich import print
 from collections import defaultdict, OrderedDict, ChainMap
 import itertools as it
 import string
+from analyzer.utils.structure_tools import doFormatting
 from typing import Annotated, Any, ClassVar
 from analyzer.utils.querying import (
     NestedPatternExpression,
@@ -26,25 +27,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def doFormatting(s, **kwargs):
-    parsed = string.Formatter().parse(s)
-    s = ""
-    for x in parsed:
-        s += x[0]
-        if x[1] is not None:
-            s += str(kwargs[x[1]])
-            # else:
-            #     s += str(getNested(all_data, x[1]))
-    return s
-
-
 class HistogramProvenance(BaseModel):
     name: str
 
     sector_parameters: SectorParams = Field(repr=False)
     group_params: dict[str, Any]
     axis_params: dict[str, Any] = Field(default_factory=dict)
-    merged_from: list[HistogramProvenance] | None = None
+    merged_fro: list[HistogramProvenance] | None = None
 
     def allEntries(self):
         return ChainMap(
@@ -60,7 +49,6 @@ class MergedHistogramProvenance(BaseModel):
 
     def allEntries(self):
         return ChainMap(*(x.allEntries() for x in self.merged_from))
-
 
     @property
     def sector_parameters(self):
@@ -141,7 +129,6 @@ class Merge(BaseModel):
             return [_mergeHists(g) for g in groups.values()]
         else:
             return [_mergeHists(histograms)]
-        
 
 
 class SplitAxes(BaseModel):
@@ -154,6 +141,7 @@ class SplitAxes(BaseModel):
             h = ph.histogram
 
             split_axes = [h.axes[a] for a in self.split_axis_names]
+
 
             def passedPattern(name, val):
                 if self.pattern is not None:
@@ -202,6 +190,35 @@ class MergeAxes(BaseModel):
             h = h[merging]
             provenance = copy.deepcopy(ph.provenance)
             provenance.axis_params.update(merging)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
+class OrBinaryAxes(BaseModel):
+    or_axis_names: list[str]
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            h = ph.histogram
+
+            to_add = []
+            sor = set(self.or_axis_names)
+            for i in range(1, 1 + len(self.or_axis_names)):
+                for c in it.combinations(self.or_axis_names, i):
+                    d = {x: 1 for x in c} | {x: 0 for x in sor - set(c)}
+                    to_add.append(h[d])
+            h = sum(to_add)
+            provenance = copy.deepcopy(ph.provenance)
+            provenance.axis_params.update({x: "OR" for x in self.or_axis_names})
             ret.append(
                 PackagedHist(
                     histogram=h,
@@ -314,6 +331,7 @@ AnyPipeline = (
     | MergeAxes
     | SelectAxesValues
     | FormatTitle
+    | OrBinaryAxes
     | SliceAxes
 )
 
