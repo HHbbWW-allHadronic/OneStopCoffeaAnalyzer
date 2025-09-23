@@ -1,5 +1,6 @@
 import awkward as ak
 import numpy as np
+from rich import print
 from analyzer.core import MODULE_REPO, ModuleType
 import hist
 
@@ -11,7 +12,14 @@ def one_lep_hlt(events, params, selector):
     if tn["EleCaloIdVT"] is not None:
         pass_el = pass_el | events.HLT[tn["EleCaloIdVT"]]
     pass_mu = events.HLT[tn["SingleMuon"]] | events.HLT[tn["IsoMuon"]]
-    selector.add(f"Single Lep", pass_mu | (pass_el & ~pass_mu))
+    if params.dataset.sample_type == "Data":
+        if "egamma" in str(params.sample.sample_id).lower():
+            sel = (~pass_mu) & pass_el
+        else:
+            sel = pass_mu
+    else:
+        sel = pass_mu | pass_el
+    selector.add(f"Single Lep", sel)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
