@@ -1,6 +1,7 @@
 import logging
 import pickle as pkl
 from pathlib import Path
+import fsspec
 
 import awkward as ak
 import correctionlib
@@ -9,10 +10,39 @@ from analyzer.core import MODULE_REPO, ModuleType
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 from correctionlib.convert import from_histogram
 from analyzer.core.exceptions import AnalysisConfigurationError
+from analyzer.utils.structure_tools import doFormatting
+import re
+
+from analyzer.utils.querying import modelIter
+
 
 from .utils.btag_points import getBTagWP
 
 logger = logging.getLogger(__name__)
+
+
+@MODULE_REPO.register(ModuleType.Weight)
+def trigger_weight(events, params, weight_manager, correction_path_template):
+    r = re.search(r'(\d+)_(p(re|ost)).+', params.dataset.era.name)
+    era_short = "_" + r.group(1) + r.group(2)
+
+    path = doFormatting(correction_path_template, **dict(modelIter(params)), era_name_short=era_short)
+
+    with fsspec.open(path, "r") as f:
+        data = f.read()
+        corrs = correctionlib.CorrectionSet.from_string(data)
+    e = corrs["trigger_eff"]
+    fj0 = events.good_fatjets[:, 0]
+    nom = e.evaluate(events.HT, fj0.pt, fj0.msoftdrop)
+    weight_manager.add(f"trigger_weight", nom, {})
+
+
+@MODULE_REPO.register(ModuleType.Weight)
+def trigger_eff_sf(events, params, weight_manager, correction_path_template):
+    raise NotImplementedError()
+    path = doFormatting(correction_path_template, dict(modelIter(params)))
+    corrs = correctionlib.CorrectionSet.from_file(path)
+    weight_manager.add(f"trigger_eff_sf", nom, {"inclusive": (up, down)})
 
 
 @MODULE_REPO.register(ModuleType.Weight)
@@ -105,7 +135,9 @@ def btagging_wp_sf(
 
 
 @MODULE_REPO.register(ModuleType.Weight)
-def pileup_sf(events, params, weight_manager, variations=None):
+def pileup_sf(
+    events, params, weight_manager, variations=None, include_systematics=True
+):
     pu_info = params.dataset.era.pileup_scale_factors
     path = pu_info["file"]
     name = pu_info["name"]
@@ -114,9 +146,12 @@ def pileup_sf(events, params, weight_manager, variations=None):
     corr = csset[name]
     n_pu = events.Pileup.nTrueInt
     nom = corr.evaluate(n_pu, "nominal")
-    up = corr.evaluate(n_pu, "up")
-    down = corr.evaluate(n_pu, "down")
-    weight_manager.add(f"pileup_sf", nom, {"inclusive": (up, down)})
+    if include_systematics:
+        up = corr.evaluate(n_pu, "up")
+        down = corr.evaluate(n_pu, "down")
+        weight_manager.add(f"pileup_sf", nom, {"inclusive": (up, down)})
+    else:
+        weight_manager.add(f"pileup_sf", nom, {})
 
 
 @MODULE_REPO.register(ModuleType.Weight)
@@ -129,7 +164,12 @@ def L1_prefiring_sf(events, params, weight_manager, variations=None):
 
 @MODULE_REPO.register(ModuleType.Weight)
 def btagging_shape_sf(
-    events, params, weight_manager, variations=None, working_points=None
+    events,
+    params,
+    weight_manager,
+    variations=None,
+    working_points=None,
+    include_systematics=True,
 ):
     bparams = params.dataset.era.btag_scale_factors
 
@@ -163,19 +203,23 @@ def btagging_shape_sf(
         variations_axis = {}
     else:
         central_name = "central"
-        variations = {
-            syst_name: (
-                computeForSyst("up_" + syst_name),
-                computeForSyst("down_" + syst_name),
-            )
-            for syst_name in systematics
-        }
+        variations = {}
+        if include_systematics:
+            variations = {
+                syst_name: (
+                    computeForSyst("up_" + syst_name),
+                    computeForSyst("down_" + syst_name),
+                )
+                for syst_name in systematics
+            }
 
     weight_manager.add(f"btag_shape_sf", computeForSyst(central_name), variations)
 
 
 @MODULE_REPO.register(ModuleType.Weight)
-def puid_sf(events, params, weight_manager, working_point=None):
+def puid_sf(
+    events, params, weight_manager, working_point=None, include_systematics=True
+):
     if not working_point:
         raise AnalysisConfigurationError(f"Must specify a working point")
 
@@ -209,11 +253,13 @@ def puid_sf(events, params, weight_manager, working_point=None):
 
     nom = computeWeight(inputs_matched, None)
 
-    syst = {
-        "variation": [
-            computeWeight(inputs_matched | {"systematic": s}, None)
-            for s in ("up", "down")
-        ]
-    }
+    syst = {}
+    if include_systematics:
+        syst = {
+            "variation": [
+                computeWeight(inputs_matched | {"systematic": s}, None)
+                for s in ("up", "down")
+            ]
+        }
 
     weight_manager.add(f"puid_sf", nom, syst)
