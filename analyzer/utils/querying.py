@@ -5,6 +5,7 @@ import re
 from typing import Annotated
 from collections.abc import Generator
 from rich import print
+import string
 
 
 from pydantic import Field
@@ -54,7 +55,7 @@ class Pattern(BaseModel):
     mode: PatternMode = PatternMode.GLOB
     pattern: str | int | float
 
-    def match(self, data):
+    def match(self, data, strict=True):
         if self.mode == PatternMode.ANY:
             return True
         elif self.mode == PatternMode.REGEX:
@@ -98,9 +99,9 @@ class MultiPatternExpression(BaseModel):
     op: MultiPatternOp
     exprs: list[PatternExpression]
 
-    def match(self, data):
+    def match(self, data, strict=True):
         mapping = {MultiPatternOp.AND: all, MultiPatternOp.OR: any}
-        return mapping[self.op](x.match(data) for x in self.exprs)
+        return mapping[self.op](x.match(data,strict=strict) for x in self.exprs)
 
     def capture(self, data):
         captures = [x.capture(data) for x in self.exprs]
@@ -123,14 +124,15 @@ class MultiPatternExpression(BaseModel):
 class ComplexNestedPatternExpression(RootModel):
     root: dict[str, UnaryPatternExpression | MultiPatternExpression | Pattern]
 
-    def match(self, data):
+    def match(self, data, strict=True):
         ret = True
         for k, pattern in self.root.items():
             try:
                 found = deepLookup(data, k)
-                ret = ret and pattern.match(found)
+                ret = ret and pattern.match(found, strict=strict)
             except AttributeError:
-                return False
+                if strict:
+                    return False
         return ret
 
     def fields(self):
