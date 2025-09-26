@@ -85,31 +85,33 @@ def handleQuickDataset(args):
     run(args.input, args.output_dir, args.limit_regex)
 
 
-def quickEvents(dataset_name, sample_name, nevents=10000, tree_name="Events"):
+def quickEvents(name, sample_name=None, nevents=10000, tree_name="Events"):
     from analyzer.datasets import DatasetRepo, EraRepo
-    from analyzer.utils.debugging import jumpIn
     import awkward as ak
     from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
     import random
 
     repo = DatasetRepo.getConfig()
     era_repo = EraRepo.getConfig()
+    ds = None
     try:
-        ds = repo[dataset_name]
+        ds = repo[name]
     except KeyError as e:
-        print(f"Could not find dataset '{dataset_name}'")
-        return
-    try:
-        sname = sample_name or dataset_name
-        sample = ds[sname]
-        sample.useFilesFromReplicaCache()
-    except KeyError as e:
-        print(
-            f"Could not find sample '{sname}'. Available samples are {[x.name for x in ds]}"
-        )
-        return
+        print(f"Could not find dataset '{name}', treating as file path")
+    if ds is not None:
+        try:
+            sname = sample_name or name
+            sample = ds[sname]
+            sample.useFilesFromReplicaCache()
+        except KeyError as e:
+            print(
+                f"Could not find sample '{sname}'. Available samples are {[x.name for x in ds]}"
+            )
+            return
+        fname = random.choice(sample.files).getFile()
+    else:
+        fname = name
 
-    fname = random.choice(sample.files).getFile()
 
     print(f"Loading events from file {fname}...")
     events = NanoEventsFactory.from_root(
@@ -124,6 +126,7 @@ def quickEvents(dataset_name, sample_name, nevents=10000, tree_name="Events"):
 
 
 def handleQuickEvents(args):
+    from analyzer.utils.debugging import jumpIn
     events = quickEvents(
         args.dataset_name, args.sample_name, args.nevents, args.tree_name
     )
