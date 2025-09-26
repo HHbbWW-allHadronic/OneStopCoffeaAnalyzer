@@ -263,3 +263,32 @@
   era: '2016_preVFP'
   sample_type: MC
   cms_regex: '/Zto2Q-2Jets_PTQQ-*_TuneCP5_13TeV_amcatnloFXFX-pythia8/RunIISummer20UL16NanoAODv9-106X_mcRun2_asymptotic_v17-v2/NANOAODSIM'
+
+- name: wjetslnu_2023_preBPix
+  title: WLNu
+  era: '2023_preBPix'
+  sample_type: MC
+  cms_regex: '/WtoLNu-2Jets_PT*_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v3/NANOAODSIM'
+
+- name: diboson_2023_preBPix
+  title: VV
+  era: '2023_preBPix'
+  sample_type: MC
+  cms_regex: '/*_TuneCP5_13p6TeV_pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM'
+  filter_regex: '/[WZ][WZ]_TuneCP5'
+
+
+- name: single_top_2023_preBPix
+  title: ST
+  era: '2023_preBPix'
+  sample_type: MC
+  cms_regex:
+    - /TWminustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v14-v2/NANOAODSIM
+    - /TbarWplustoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v6/NANOAODSIM
+
+    - /TBbartoLplusNuBbar-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+    - /TbarBtoLminusNuB-s-channel-4FS_TuneCP5_13p6TeV_amcatnlo-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+
+    - /TQbartoLNu-t-channel_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+    - /TbarQtoLNu-t-channel_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv12-130X_mcRun3_2023_realistic_v15-v2/NANOAODSIM
+    
