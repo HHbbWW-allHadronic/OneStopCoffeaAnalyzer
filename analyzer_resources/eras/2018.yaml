@@ -111,8 +111,8 @@
     - HBHENoiseIsoFilter
     - EcalDeadCellTriggerPrimitiveFilter
     - BadPFMuonFilter
-    - BadPFMuonDzFilter
-    - hfNoisyHitsFilter
+    # - BadPFMuonDzFilter
+    # - hfNoisyHitsFilter
     - eeBadScFilter
     - ecalBadCalibFilter
     
