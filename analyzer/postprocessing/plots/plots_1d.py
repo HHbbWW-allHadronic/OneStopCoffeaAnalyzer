@@ -82,9 +82,11 @@ def plotOne(
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
+    region_name = (packaged_hists + stacked_hists)[0].sector_parameters.region_name
     addCMSBits(
         ax,
         [x.provenance.sector_parameters for x in packaged_hists + stacked_hists],
+        extra_text=f"{region_name}",
         plot_configuration=pc,
     )
     if style.legend:
@@ -325,12 +327,14 @@ def plotRatio(
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
 
+    region_name = denominator[0].sector_parameters.region_name
     addCMSBits(
         ax,
         [
             *(x.sector_parameters for x in denominator),
             *(x.sector_parameters for x in numerators),
         ],
+        extra_text=f"{region_name}",
         plot_configuration=pc,
     )
 

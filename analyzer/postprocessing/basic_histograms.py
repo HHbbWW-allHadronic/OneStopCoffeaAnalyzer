@@ -1,4 +1,5 @@
 import functools as ft
+from .utils import gatherByPattern
 from rich import print
 import logging
 import itertools as it
@@ -34,8 +35,12 @@ class Histogram1D(BasePostprocessor):
     def getFileFields(self):
         return set(self.input.group_fields.fields())
 
+    def neededFileSets(self, params_mapping):
+        return gatherByPattern(params_mapping, self.input.group_fields)
+
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)
+
 
         for name, sector_pipeline in it.product(self.histogram_names, pipelines):
             histograms = sector_pipeline.getHists(name)
@@ -128,6 +133,18 @@ class RatioPlot(BasePostprocessor):
     def getFileFields(self):
         return set(self.match_fields)
 
+    def neededFileSets(self, params_mapping):
+        from analyzer.utils.querying import MultiPatternExpression
+
+        return gatherByPattern(
+            params_mapping,
+            MultiPatternExpression(
+                op="OR",
+                exprs=[self.numerator.group_fields, self.denominator.group_fields],
+            ),
+            limit_capture_fields=self.match_fields,
+        )
+
     def getNeededHistograms(self):
         return self.histogram_names
 
@@ -140,6 +157,7 @@ class RatioPlot(BasePostprocessor):
             den_pipelines,
             key=lambda x: x.sector_group.field_values,
         )
+
 
         for name, (num, den) in it.product(self.histogram_names, joined):
             # if len(den) != 1:

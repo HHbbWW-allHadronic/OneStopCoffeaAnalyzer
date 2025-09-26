@@ -3,10 +3,10 @@ from pathlib import Path
 import lz4.frame
 
 
-
 def exportHist(
     packaged_hist,
     output_path,
+    overwrite=False,
 ):
     ret = {}
     p = packaged_hist.sector_parameters
@@ -19,7 +19,10 @@ def exportHist(
         "params": p.model_dump(),
         "hist": h,
     }
-    Path(output_path).parent.mkdir(exist_ok=True, parents=True)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
     print(f"Saving {output_path}")
+    if output_path.exists() and not overwrite:
+        return
     with lz4.frame.open(output_path, "wb") as f:
         pkl.dump(ret, f)

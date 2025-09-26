@@ -1,6 +1,7 @@
 import functools as ft
 import itertools as it
 
+from .utils import gatherByPattern
 
 from pydantic import BaseModel
 
@@ -23,12 +24,16 @@ class ExportHists(BasePostprocessor):
     histogram_names: list[str]
     input: SectorPipelineSpec
     output_name: str
+    overwrite: bool = True
 
     def getNeededHistograms(self):
         return self.histogram_names
 
     def getFileFields(self):
         return set(self.input.group_fields.fields())
+
+    def neededFileSets(self, params_mapping):
+        return gatherByPattern(params_mapping, self.input.group_fields)
 
     def getExe(self, results):
         pipelines = self.input.makePipelines(results)
@@ -39,9 +44,7 @@ class ExportHists(BasePostprocessor):
             if len(histograms) != 1:
                 raise RuntimeError()
             yield ft.partial(
-                exportHist,
-                histograms[0],
-                output_path,
+                exportHist, histograms[0], output_path, overwrite=self.overwrite
             )
 
     def init(self):

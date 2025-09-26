@@ -10,6 +10,7 @@ from analyzer.core.results import (
     gatherFilesByPattern,
     combineResults,
     openAndLoad,
+    makeFilePeekMap,
 )
 from rich import print
 from rich.progress import Progress, track
@@ -146,11 +147,14 @@ def runPostprocessors(config, input_files, parallel=8):
 
     all_fields = set()
     by_fields = defaultdict(list)
+    mp = makeFilePeekMap(input_files)
+    to_run = defaultdict(list)
     for processor in loaded:
-        f = processor.getFileFields()
-        all_fields |= f
-        by_fields[frozenset(f)].append(processor)
-    gathered = gatherFilesByPattern(input_files, all_fields)
+        p = processor.neededFileSets(mp)
+        for s in p:
+            to_run[s].append(processor)
+    # print(to_run)
+
     queue = Queue()
     futures = []
     if parallel:
@@ -159,19 +163,17 @@ def runPostprocessors(config, input_files, parallel=8):
             preload=["analyzer.postprocessing.style"],
         ) as cluster, Client(cluster) as client:
             client.register_plugin(LoadStyles())
-            for keys, processors in by_fields.items():
-                fgroups = assembleFileGroup(gathered, keys)
-                for files in fgroups.values():
-                    futures.append(
-                        client.submit(
-                            processFileGroup,
-                            queue,
-                            files,
-                            processors,
-                            use_samples_as_datasets=use_samples_as_datasets,
-                            drops=drops,
-                        )
+            for fset, processors in to_run.items():
+                futures.append(
+                    client.submit(
+                        processFileGroup,
+                        queue,
+                        fset,
+                        processors,
+                        use_samples_as_datasets=use_samples_as_datasets,
+                        drops=drops,
                     )
+                )
             completed = as_completed(futures)
             for f in track(completed):
                 while queue.qsize() > 0:
@@ -180,13 +182,11 @@ def runPostprocessors(config, input_files, parallel=8):
                 f.result()
                 f.cancel()
     else:
-        for keys, processors in by_fields.items():
-            fgroups = assembleFileGroup(gathered, keys)
-            for files in fgroups.values():
-                processFileGroup(
-                    None,
-                    files,
-                    processors,
-                    use_samples_as_datasets=use_samples_as_datasets,
-                    drops=drops,
-                )
+        for fset, processors in to_run.items():
+            processFileGroup(
+                None,
+                fset,
+                processors,
+                use_samples_as_datasets=use_samples_as_datasets,
+                drops=drops,
+            )
