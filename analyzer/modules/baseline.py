@@ -25,18 +25,22 @@ def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
     selection.add("jet_veto_map", ak.all((vetoes == 0), axis=1))
 
 
-
 @MODULE_REPO.register(ModuleType.Selection)
 def min_one_fatjet(events, params, selector):
     fat_jets = events.FatJet
     good_fatjets = fat_jets[(fat_jets.pt > 150) & (abs(fat_jets.eta) < 2.4)]
     selector.add("NFatJet", ak.num(good_fatjets, axis=1) > 0)
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def signal_hlt(events, params, selector):
     era_info = params.dataset.era
 
-    if "signal" in params.dataset.name and "official" in params.dataset.name:
+    if (
+        "signal" in params.dataset.name
+        and "official" in params.dataset.name
+        and "2023" not in params.dataset.name
+    ):
         ht_cutoffs = {
             "2016_preVFP": 900,
             "2016_postVFP": 900,
@@ -221,7 +225,6 @@ def general_selection(events, params, selector):
 
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     selector.add("0Lep", passes_0Lep)
-
 
 
 @MODULE_REPO.register(ModuleType.Selection)
