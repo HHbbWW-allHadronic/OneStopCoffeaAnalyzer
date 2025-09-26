@@ -32,7 +32,7 @@ AUTH_REALM = "cern"
 class ProtoDataset(BaseModel):
     name: str
     title: str
-    cms_regex: str
+    cms_regex: str | list[str]
     era: str
     sample_type: str
     filter_regex: str | None = None
@@ -207,8 +207,13 @@ def getFiles(sample):
     return [x["file"][0]["name"] for x in q]
 
 
-def getSamples(dataset):
-    return sorted(set([x["dataset"][0]["name"] for x in query(f"dataset={dataset}")]))
+def getSamples(datasets):
+    if isinstance(datasets,str):
+        datasets = [datasets]
+    all_samples = []
+    for d in datasets:
+        all_samples += [x["dataset"][0]["name"] for x in query(f"dataset={d}")]
+    return sorted(set(all_samples))
 
 
 def buildDatasetFromProto(protoset, output, xsec_db, skip_existing=True):
@@ -250,7 +255,7 @@ def buildDataset(
     dataset_title,
     era,
     sample_type,
-    query,
+    queries,
     xsec_database,
     include_xsec=True,
     token_file=None,
@@ -267,7 +272,7 @@ def buildDataset(
         "era": str(era),
         "samples": [],
     }
-    samples = sorted(getSamples(query))
+    samples = sorted(getSamples(queries))
 
     if filter_extra:
         samples = [s for s in samples if re.search(filter_extra, s)]
@@ -332,7 +337,6 @@ def getArgs():
 
 
 def run(input_path, output_dir, limit_regex=None):
-    # token = getToken()
     f = None
     with open(input_path) as f:
         data = yaml.safe_load(f)
