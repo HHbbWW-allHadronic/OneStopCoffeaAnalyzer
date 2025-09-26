@@ -160,8 +160,8 @@ class RatioPlot(BasePostprocessor):
 
 
         for name, (num, den) in it.product(self.histogram_names, joined):
-            # if len(den) != 1:
-            #     raise RuntimeError()
+            if len(den) != 1:
+                raise RuntimeError("The denominator of the ratio must contain a single sector group")
             den_hists = den[0].getHists(name)
             num_hists = [x for y in num for x in y.getHists(name)]
             # if len(den_hists) != 1:
