@@ -258,7 +258,6 @@ class SampleResult(pyd.BaseModel):
 
     def scaled(self, scale, central_weight=None, rescale_weights=None):
         def getPreW(result):
-            return 1
             if rescale_weights is None:
                 return 1
             return self.getReweightScale(result, central_weight, rescale_weights)
