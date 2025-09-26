@@ -258,6 +258,7 @@ class SampleResult(pyd.BaseModel):
 
     def scaled(self, scale, central_weight=None, rescale_weights=None):
         def getPreW(result):
+            return 1
             if rescale_weights is None:
                 return 1
             return self.getReweightScale(result, central_weight, rescale_weights)
@@ -382,9 +383,11 @@ class MultiSampleResult(BaseModel):
                 + peek_size
             ]
             core_data = data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
-            return cls.model_validate(pkl.loads(core_data))
+            ret = cls.model_validate(pkl.loads(core_data))
         else:
-            return cls.model_validate(pkl.loads(data))
+            ret = cls.model_validate(pkl.loads(data))
+        ret.decompress()
+        return ret
 
     def toBytes(self, packed_mode=True) -> bytes:
         with self.ensureCompressed():
@@ -477,7 +480,7 @@ class MultiSampleResult(BaseModel):
         """Two SubSector results may be added if they have the same parameters
         We simply sum the histograms and cutflow data.
         """
-        with self.ensureDecompressed():
+        with self.ensureDecompressed(), other.ensureDecompressed():
             iadd(self.root, other.root)
         return self
 
@@ -557,7 +560,6 @@ def openAndLoad(path, include=None, decompress=False, peek_only=False):
                 ret.includeOnly(include)
 
     gc.enable()
-
     return ret
 
 
@@ -591,12 +593,12 @@ def combineResults(results):
 def loadSampleResultFromPaths(
     paths,
     include=None,
-    parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES,
+    parallel=None,  # CONFIG.DEFAULT_PARALLEL_PROCESSES,
     show_progress=False,
     decompress=False,
     peek_only=False,
 ):
-    ret = {}
+    ret = MultiSampleResult.model_validate({})
 
     if not parallel:
         paths = list(paths)
@@ -612,11 +614,12 @@ def loadSampleResultFromPaths(
                 r = openAndLoad(
                     p, include=include, decompress=decompress, peek_only=peek_only
                 )
-                for k in list(r.keys()):
-                    if k not in ret:
-                        ret[k] = r[k]
-                    else:
-                        ret[k] += r[k]
+                ret += r
+                # for k in list(r.keys()):
+                #     if k not in ret:
+                #         ret[k] = r[k]
+                #     else:
+                #         ret[k] += r[k]
             except Exception:
                 print(f"An error occurred while trying to load file {p}")
                 raise
@@ -683,6 +686,18 @@ def gatherFilesByPattern(paths, fields):
     return params_dict
 
 
+def makeFilePeekMap(paths):
+    from analyzer.cli.quicklook import quicklookSample
+
+    params_list = []
+    for p in track(paths, total=len(paths)):
+        with open(p, "rb") as f:
+            data = MultiSampleResult.peekFile(f)
+        for sample in data.values():
+            params_list.append((sample.params, p))
+    return params_list
+
+
 def merge(paths, outdir, fields=None):
     from analyzer.cli.quicklook import quicklookSample
 
@@ -701,14 +716,7 @@ def merge(paths, outdir, fields=None):
             print("Aborting")
             return
 
-    group_paths = defaultdict(dict)
-
-    params_dict = defaultdict(list)
-    for p in track(paths, total=len(paths)):
-        data = openAndLoad(p)
-        for sample in data.values():
-            params = dictToFrozen(pattern.capture(sample.params))
-            params_dict[params].append(p)
+    params_dict = gatherFilesByPattern(paths, fields)
 
     for params, paths in track(params_dict.items(), total=len(params_dict)):
         output_name = "_".join(x[1] for x in params)
