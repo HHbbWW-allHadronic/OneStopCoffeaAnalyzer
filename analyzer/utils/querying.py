@@ -101,7 +101,7 @@ class MultiPatternExpression(BaseModel):
 
     def match(self, data, strict=True):
         mapping = {MultiPatternOp.AND: all, MultiPatternOp.OR: any}
-        return mapping[self.op](x.match(data,strict=strict) for x in self.exprs)
+        return mapping[self.op](x.match(data, strict=strict) for x in self.exprs)
 
     def capture(self, data):
         captures = [x.capture(data) for x in self.exprs]
@@ -189,7 +189,7 @@ class UnaryPatternExpression(BaseModel):
     op: UnaryPatternOp
     expr: PatternExpression
 
-    def match(self, data):
+    def match(self, data, strict=True):
         if self.op == UnaryPatternOp.NOT:
             return not self.expr.match(data)
 
@@ -215,7 +215,7 @@ def model_x_discriminator(v: Any) -> str:
 
 PatternExpression = Annotated[
     Pattern | MultiPatternExpression | UnaryPatternExpression | NestedPatternExpression,
-    Field()
+    Field(),
 ]
 pattern_expr_adapter = TypeAdapter(PatternExpression)
 
