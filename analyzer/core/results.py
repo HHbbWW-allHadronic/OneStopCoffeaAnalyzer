@@ -258,6 +258,7 @@ class SampleResult(pyd.BaseModel):
 
     def scaled(self, scale, central_weight=None, rescale_weights=None):
         def getPreW(result):
+            return 1
             if rescale_weights is None:
                 return 1
             return self.getReweightScale(result, central_weight, rescale_weights)
@@ -310,6 +311,10 @@ class ResultFilePeek(RootModel):
     def items(self):
         return self.root.items()
 
+    def addFromFile(self, f):
+        for x in self.root.values():
+            x._from_files.add(f)
+
     def __getitem__(self, item):
         return self.root[item]
 
@@ -320,9 +325,9 @@ class ResultFilePeek(RootModel):
         iadd(self.root, other.root)
         return self
 
-    def addFromFile(self, f):
-        for x in self.root.values():
-            x._from_files.add(f)
+    def __contains__(self, key):
+        return key in self.root
+
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -597,7 +602,10 @@ def loadSampleResultFromPaths(
     decompress=False,
     peek_only=False,
 ):
-    ret = MultiSampleResult.model_validate({})
+    if peek_only:
+        ret = ResultFilePeek({})
+    else:
+        ret = MultiSampleResult.model_validate({})
 
     if not parallel:
         paths = list(paths)
@@ -792,7 +800,7 @@ def checkResult(
         description = loadDescription(configuration)
         dataset_repo = DatasetRepo.getConfig()
         config_samples = set(description.getAllSamples(dataset_repo))
-        missing_samples = sorted(list(config_samples - set(loaded)))
+        missing_samples = sorted(list(config_samples - set(loaded.keys())))
 
     table = Table(title="Missing Events")
     for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
