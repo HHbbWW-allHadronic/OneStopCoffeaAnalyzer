@@ -183,7 +183,6 @@ def hlt_ht_trigger_category(events, params, categories):
         values=events.HLT[ht_trigger_name],
     )
 
-
 @MODULE_REPO.register(ModuleType.Categorization)
 def hlt_singlejet_trigger_category(events, params, categories):
     era_info = params.dataset.era
@@ -223,6 +222,14 @@ def general_selection(events, params, selector):
     passes_jets = (ak.num(good_jets) >= 4) & (ak.num(good_jets) <= 6)
     selector.add("njets", passes_jets)
 
+    passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
+    selector.add("0Lep", passes_0Lep)
+
+@MODULE_REPO.register(ModuleType.Selection)
+def zero_lepton(events, params, selector):
+    """Signal selection without b cuts"""
+    good_muons = events.good_muons
+    good_electrons = events.good_electrons
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     selector.add("0Lep", passes_0Lep)
 
@@ -268,7 +275,7 @@ def partial_cr_selection(events, params, selector):
     Requires 0 loose bs.
     """
     loose_b = events.loose_bs
-    # selector.add("0looseb", (ak.num(loose_b) == 0))
+    selector.add("0looseb", (ak.num(loose_b) == 0))
 
 
 @MODULE_REPO.register(ModuleType.Selection)
