@@ -9,6 +9,7 @@ from pathlib import Path
 from rich import print
 import pickle as pkl
 from functools import cached_property
+import abc
 from rich.prompt import Confirm
 from collections import defaultdict
 from typing import Any
@@ -47,6 +48,28 @@ from .common_types import Scalar
 logger = logging.getLogger(__name__)
 
 
+class ResultABC(abc.ABC, BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+    keep_unscaled: ClassVar[bool] = False
+
+    @abc.abstractmethod
+    def __iadd__(self, other):
+        pass
+
+    @abc.abstractmethod
+    def iscale(self, value):
+        pass
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
+
+    def scale(self, value):
+        ret = copy.deepcopy(self)
+        return ret.iscale(value)
+
+
 class BaseResult(pyd.BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
@@ -57,6 +80,9 @@ class BaseResult(pyd.BaseModel):
     pre_sel_weight_flow: dict[str, Scalar] | None = None
 
     _raw_selection_flow: ans.SelectionFlow | None = None
+
+    def getResult(key):
+        return self.histograms[key]
 
     @property
     def raw_selection_flow(self):
@@ -256,12 +282,16 @@ class SampleResult(pyd.BaseModel):
         self.results += other.results
         return self
 
-    def scaled(self, scale, central_weight=None, rescale_weights=None):
+    def scaled(
+        self, scale, handle_reweighting=True, central_weight=None, rescale_weights=None
+    ):
         def getPreW(result):
-            return 1
-            if rescale_weights is None:
-                return 1
-            return self.getReweightScale(result, central_weight, rescale_weights)
+            if not handle_reweighting or rescale_weights is None:
+                ret = 1
+            else:
+                ret = self.getReweightScale(result, central_weight, rescale_weights)
+            return ret
+
 
         return SampleResult(
             sample_id=self.sample_id,
@@ -295,7 +325,10 @@ class SampleResult(pyd.BaseModel):
             scale = self.params.n_events / self.file_set_processed.events
 
         return self.scaled(
-            scale, central_weight=central_weight, rescale_weights=rescale_weights
+            scale,
+            handle_reweighting=False, #(self.params.dataset.sample_type == SampleType.MC),
+            central_weight=central_weight,
+            rescale_weights=rescale_weights,
         )
 
 
@@ -327,7 +360,6 @@ class ResultFilePeek(RootModel):
 
     def __contains__(self, key):
         return key in self.root
-
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
