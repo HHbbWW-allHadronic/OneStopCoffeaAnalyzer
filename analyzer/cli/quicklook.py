@@ -47,10 +47,10 @@ def quicklookHist(result, region, hist_name, variation=None, rebin=None):
     return h
 
 
-def quicklookFiles(paths):
+def quicklookFiles(paths,include_hists=False):
     results = loadSampleResultFromPaths(paths,decompress=True,show_progress=True)
     for k, v in results.items():
-        quicklookSample(v)
+        quicklookSample(v,include_hists=include_hists)
 
 
 def quicklookHistsPath(paths, region, hist_name, interact=False, variation=None, rebin=None):
