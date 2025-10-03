@@ -85,7 +85,9 @@ def handleQuickDataset(args):
     run(args.input, args.output_dir, args.limit_regex)
 
 
-def quickEvents(name, sample_name=None, nevents=10000, tree_name="Events"):
+def quickEvents(
+    name, sample_name=None, nevents=10000, tree_name="Events", delayed=False
+):
     from analyzer.datasets import DatasetRepo, EraRepo
     import awkward as ak
     from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
@@ -112,14 +114,13 @@ def quickEvents(name, sample_name=None, nevents=10000, tree_name="Events"):
     else:
         fname = name
 
-
     print(f"Loading events from file {fname}...")
     events = NanoEventsFactory.from_root(
         {fname: tree_name},
         schemaclass=NanoAODSchema,
         entry_start=0,
         entry_stop=nevents,
-        delayed=False,
+        delayed=delayed,
     ).events()
 
     return events
@@ -127,6 +128,7 @@ def quickEvents(name, sample_name=None, nevents=10000, tree_name="Events"):
 
 def handleQuickEvents(args):
     from analyzer.utils.debugging import jumpIn
+
     events = quickEvents(
         args.dataset_name, args.sample_name, args.nevents, args.tree_name
     )
@@ -209,9 +211,9 @@ def handleSamples(args):
     era_repo = EraRepo.getConfig()
     repo.populateEras(era_repo)
     if args.dataset_only:
-        table = createDatasetTable(repo, pattern=filter_pattern)
+        table = createDatasetTable(repo, pattern=filter_pattern, as_csv=args.csv)
     else:
-        table = createSampleTable(repo, pattern=filter_pattern)
+        table = createSampleTable(repo, pattern=filter_pattern,as_csv=args.csv)
     print(table)
 
 
@@ -230,6 +232,12 @@ def addSubparserSampleReport(subparsers):
     subparser.add_argument(
         "-d",
         "--dataset-only",
+        action="store_true",
+        default=False,
+    )
+
+    subparser.add_argument(
+        "--csv",
         action="store_true",
         default=False,
     )
@@ -423,7 +431,7 @@ def handleQuicklook(args):
             args.rebin,
         )
     else:
-        quicklookFiles(args.input)
+        quicklookFiles(args.input, include_hists=args.include_hists)
 
 
 def addSubparserQuicklookFile(subparsers):
@@ -432,6 +440,7 @@ def addSubparserQuicklookFile(subparsers):
         "quicklook", help="Quick information about a result."
     )
     subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
+    subparser.add_argument("--include-hists", action=argparse.BooleanOptionalAction)
     subparser.add_argument(
         "-r", "--region-name", default=None, type=str, help="Region name"
     )
