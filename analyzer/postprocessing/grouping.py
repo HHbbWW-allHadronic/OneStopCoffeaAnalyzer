@@ -1,4 +1,5 @@
 from __future__ import annotations
+import numpy as np
 import copy
 import hist
 from rich import print
@@ -17,7 +18,7 @@ from analyzer.utils.querying import (
 
 from analyzer.core.results import SectorResult
 from analyzer.core.specifiers import SectorParams
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from .split_histogram import Mode
 from .style import Style
@@ -142,7 +143,6 @@ class SplitAxes(BaseModel):
 
             split_axes = [h.axes[a] for a in self.split_axis_names]
 
-
             def passedPattern(name, val):
                 if self.pattern is not None:
                     if isinstance(self.pattern, dict):
@@ -202,6 +202,65 @@ class MergeAxes(BaseModel):
         return ret
 
 
+class NormalizeSystematicByProjection(BaseModel):
+    projection_axis: str
+    unweighted_name: str
+    other_name: str
+    target_name: str
+    variation_axis: str = "variation"
+
+    def __call__(self, histograms):
+        ret = []
+        for ph in histograms:
+            hold = ph.histogram
+            h = ph.histogram.copy(deep=True)
+
+            pa = h.axes[self.projection_axis]
+            for i in [hist.underflow, *range(len(pa)), hist.overflow]:
+                # print(i, pa.bin(i))
+                hu = (
+                    hold[
+                        {
+                            pa.name: i,
+                            self.variation_axis: self.unweighted_name,
+                        }
+                    ]
+                    .sum()
+                    .value
+                )
+                hv = (
+                    hold[{pa.name: i, self.variation_axis: self.other_name}].sum().value
+                )
+
+                if hv == 0:
+                    continue
+
+                scale = hu / hv
+                vals = (
+                    scale
+                    * h[{pa.name: i, self.variation_axis: self.target_name}].values()
+                )
+                weights = (
+                    scale**2
+                    * h[{pa.name: i, self.variation_axis: self.target_name}].variances()
+                )
+
+                h[{pa.name: i, self.variation_axis: self.target_name}] = np.stack(
+                    [vals, weights], axis=-1
+                )
+            provenance = copy.deepcopy(ph.provenance)
+            ret.append(
+                PackagedHist(
+                    histogram=h,
+                    provenance=provenance,
+                    style=ph.style,
+                    title=ph.title,
+                )
+            )
+
+        return ret
+
+
 class OrBinaryAxes(BaseModel):
     or_axis_names: list[str]
 
@@ -216,6 +275,7 @@ class OrBinaryAxes(BaseModel):
                 for c in it.combinations(self.or_axis_names, i):
                     d = {x: 1 for x in c} | {x: 0 for x in sor - set(c)}
                     to_add.append(h[d])
+
             h = sum(to_add)
             provenance = copy.deepcopy(ph.provenance)
             provenance.axis_params.update({x: "OR" for x in self.or_axis_names})
@@ -232,23 +292,39 @@ class OrBinaryAxes(BaseModel):
 
 
 class SelectAxesValues(BaseModel):
-    select_axes_values: dict[str, str | int | float]
+    select_axes_values: dict[
+        str,  list[str] | list[int] | list[float]
+    ]
+
+    @field_validator('select_axes_values',  mode='before')
+    @classmethod
+    def convertToList(cls, value):
+        ret = {}
+        for k,v in value.items():
+            if isinstance(v,list):
+                ret[k] = v
+            else:
+                ret[k] = [v]
+        return ret
 
     def __call__(self, histograms):
         ret = []
         for ph in histograms:
             h = ph.histogram
-            h = h[self.select_axes_values]
-            provenance = copy.deepcopy(ph.provenance)
-            provenance.axis_params.update(self.select_axes_values)
-            ret.append(
-                PackagedHist(
-                    histogram=h,
-                    provenance=provenance,
-                    style=ph.style,
-                    title=ph.title,
+            keys_vals = list(self.select_axes_values.items())
+            keys,vals = list(zip(*keys_vals))
+            for p in it.product(*vals):
+                u = dict(zip(keys,p))
+                provenance = copy.deepcopy(ph.provenance)
+                provenance.axis_params.update(u)
+                ret.append(
+                    PackagedHist(
+                        histogram=h[u],
+                        provenance=provenance,
+                        style=ph.style,
+                        title=ph.title,
+                    )
                 )
-            )
 
         return ret
 
@@ -333,6 +409,7 @@ AnyPipeline = (
     | FormatTitle
     | OrBinaryAxes
     | SliceAxes
+    | NormalizeSystematicByProjection
 )
 
 
