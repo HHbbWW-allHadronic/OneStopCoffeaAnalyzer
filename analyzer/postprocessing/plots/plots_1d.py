@@ -97,6 +97,7 @@ def plotOne(
         mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
     mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
     else:
@@ -347,6 +348,7 @@ def plotRatio(
 
     ax.set_yscale(scale)
     mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_anchored_text(ax, soft_fail=True)
 
     labelAxis(ratio_ax, "x", den_hist.axes)
     # ratio_ax.set_xlabel("Ratio", loc="center")
