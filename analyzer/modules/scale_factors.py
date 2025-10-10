@@ -178,7 +178,8 @@ def btagging_shape_sf(
         current_syst = current_syst.replace("Regrouped_", "")
 
     gj = events.good_jets
-    jets = gj[gj.hadronFlavour == 5]
+    jets = gj
+    # jets = gj[gj.hadronFlavour != 4]
 
     corrs = correctionlib.CorrectionSet.from_file(bparams["file"])
     shape_corr = corrs["deepJet_shape"]
@@ -186,12 +187,9 @@ def btagging_shape_sf(
 
     systematics = bparams["systematics"]
 
-    def computeForSyst(syst):
+    def computeForSyst(j, syst):
         return ak.prod(
-            sf_eval(
-                syst, jets.hadronFlavour, abs(jets.eta), jets.pt, jets.btagDeepFlavB
-            ),
-            axis=1,
+            sf_eval(syst, j.hadronFlavour, abs(j.eta), j.pt, j.btagDeepFlavB), axis=1,
         )
 
     if (
@@ -207,13 +205,13 @@ def btagging_shape_sf(
         if include_systematics:
             variations = {
                 syst_name: (
-                    computeForSyst("up_" + syst_name),
-                    computeForSyst("down_" + syst_name),
+                    computeForSyst(jets, "up_" + syst_name),
+                    computeForSyst(jets, "down_" + syst_name),
                 )
                 for syst_name in systematics
             }
 
-    weight_manager.add(f"btag_shape_sf", computeForSyst(central_name), variations)
+    weight_manager.add(f"btag_shape_sf", computeForSyst(jets, central_name), variations)
 
 
 @MODULE_REPO.register(ModuleType.Weight)
