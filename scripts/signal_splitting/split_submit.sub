@@ -24,4 +24,4 @@ preserve_relative_paths = true
 
 arguments=$(FILE) split_signals/$(YEAR)
 
-queue FILE,YEAR from scripts/signal_splitting/all_signals.txt
+queue FILE,YEAR from scripts/signal_splitting/2022_signals.txt
