@@ -230,13 +230,13 @@ def plotRatio(
     ratio_type="poisson",
     scale="linear",
     plot_configuration=None,
+        no_stack=False,
     ratio_hlines=(1.0,),
     ratio_height=0.3,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
-    den_total = ft.reduce(op.add, (x.histogram for x in denominator))
 
     gs_kw = dict(height_ratios=[1, ratio_height])
 
@@ -247,53 +247,94 @@ def plotRatio(
     style_kwargs = defaultdict(list)
     hists = []
     titles = []
-    for x in den_to_plot:
-        hists.append(x.histogram)
-        titles.append(x.title)
-        style = styler.getStyle(x.sector_parameters)
-        for k, v in style.get().items():
-            style_kwargs[k].append(v)
-
-    style_kwargs["histtype"] = style_kwargs["histtype"][0]
-
-
-    mplhep.histplot(
-        hists,
-        ax=ax,
-        stack=True,
-        **style_kwargs,
-        label=titles,  # sort="yield"
-    )
 
     den_hist = denominator[0].histogram
     x_values = den_hist.axes[0].centers
     left_edge = den_hist.axes.edges[0][0]
     right_edge = den_hist.axes.edges[-1][-1]
 
+    if not no_stack:
+        for x in den_to_plot:
+            hists.append(x.histogram)
+            titles.append(x.title)
+            style = styler.getStyle(x.sector_parameters)
+            for k, v in style.get().items():
+                style_kwargs[k].append(v)
+        style_kwargs["histtype"] = style_kwargs["histtype"][0]
+        mplhep.histplot(
+            hists,
+            ax=ax,
+            stack=True,
+            density=normalize,
+            **style_kwargs,
+            label=titles,  # sort="yield"
+        )
+        den_total = ft.reduce(op.add, (x.histogram for x in denominator))
+    else:
+        den_styles=[]
+        for den in den_to_plot:
+            title = den.title
+            h = den.histogram
+            style = styler.getStyle(den.provenance.sector_parameters)
+            den_styles.append(style)
+            h.plot1d(
+                ax=ax,
+                label=title,
+                density=normalize,
+                yerr=style.yerr,
+                flow="none",
+                **style.get(),
+            )
+
     all_ratios, all_uncertainties = [], []
 
-    for num in numerators:
-        title = num.title
+    if not no_stack:
+        for num in numerators:
+            title = num.title
+            h = num.histogram
+            fixBadLabels(h)
+            num.sector_parameters
+            s = styler.getStyle(num.sector_parameters)
+            n, d = h.values(), den_total.values()
+
+            ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
+
+
+            if normalize:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    ratio = (n / np.sum(n)) / (d / np.sum(d))
+            all_ratios.append(ratio)
+            all_uncertainties.append(unc)
+
+            if normalize:
+                hplot = h / h.sum(flow=False).value
+            else:
+                hplot = h
+
+            h.plot1d(
+                ax=ax,
+                label=title,
+                density=normalize,
+                yerr=True,
+                **s.get(),
+            )
+
+            ratio[ratio == 0] = np.nan
+            ratio[np.isinf(ratio)] = np.nan
+            all_opts = {**s.get("errorbar", include_type=False), **dict(linestyle="none")}
+            ratio_ax.errorbar(
+                x_values,
+                ratio,
+                yerr=unc,
+                **all_opts,
+            )
+            # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
+    else:
+        num = numerators[0]
         h = num.histogram
-        fixBadLabels(h)
-        num.sector_parameters
+        title = num.title
         s = styler.getStyle(num.sector_parameters)
-        n, d = h.values(), den_total.values()
-
-        ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
-
-
-        if normalize:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                ratio = (n / np.sum(n)) / (d / np.sum(d))
-        all_ratios.append(ratio)
-        all_uncertainties.append(unc)
-
-        if normalize:
-            hplot = h / h.sum(flow=False).value
-        else:
-            hplot = h
-
+        fixBadLabels(h)
         h.plot1d(
             ax=ax,
             label=title,
@@ -301,17 +342,34 @@ def plotRatio(
             yerr=True,
             **s.get(),
         )
+        for den,style in zip(den_to_plot,den_styles):
+            n, d = h.values(), den.histogram.values()
+            ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
 
-        ratio[ratio == 0] = np.nan
-        ratio[np.isinf(ratio)] = np.nan
-        all_opts = {**s.get("errorbar", include_type=False), **dict(linestyle="none")}
-        ratio_ax.errorbar(
-            x_values,
-            ratio,
-            yerr=unc,
-            **all_opts,
-        )
-        # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
+
+            if normalize:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    ratio = (n / np.sum(n)) / (d / np.sum(d))
+            all_ratios.append(ratio)
+            all_uncertainties.append(unc)
+
+            if normalize:
+                hplot = h / h.sum(flow=False).value
+            else:
+                hplot = h
+
+
+            ratio[ratio == 0] = np.nan
+            ratio[np.isinf(ratio)] = np.nan
+
+            all_opts = {**style.get("errorbar", include_type=False), **dict(linestyle="none")}
+            ratio_ax.errorbar(
+                x_values,
+                ratio,
+                yerr=unc,
+                **all_opts,
+            )
+            # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
 
     for l in ratio_hlines:
         ratio_ax.axhline(l, color="black", linestyle="dashed", linewidth=1.0)
@@ -347,7 +405,7 @@ def plotRatio(
     mplhep.sort_legend(ax=ax)
 
     ax.set_yscale(scale)
-    mplhep.yscale_legend(ax, soft_fail=True)
+    # mplhep.yscale_legend(ax, soft_fail=True)
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
 
     labelAxis(ratio_ax, "x", den_hist.axes)

@@ -203,11 +203,18 @@ class MergeAxes(BaseModel):
 
 
 class NormalizeSystematicByProjection(BaseModel):
-    projection_axis: str
+    projection_axes: list[str]
     unweighted_name: str
     other_name: str
     target_name: str
     variation_axis: str = "variation"
+
+    @field_validator("projection_axes", mode="before")
+    @classmethod
+    def makeList(cls, data):
+        if isinstance(data, str):
+            return [data]
+        return data
 
     def __call__(self, histograms):
         ret = []
@@ -215,39 +222,42 @@ class NormalizeSystematicByProjection(BaseModel):
             hold = ph.histogram
             h = ph.histogram.copy(deep=True)
 
-            pa = h.axes[self.projection_axis]
-            for i in [hist.underflow, *range(len(pa)), hist.overflow]:
+            proj_axes = [h.axes[x] for x in self.projection_axes]
+            for idxs in it.product(
+                *((hist.underflow, *range(len(x)), hist.overflow) for x in proj_axes)
+            ):
                 # print(i, pa.bin(i))
+                d = dict(zip((x.name for x in proj_axes), idxs))
                 hu = (
                     hold[
                         {
-                            pa.name: i,
+                            **d,
                             self.variation_axis: self.unweighted_name,
                         }
                     ]
                     .sum()
                     .value
                 )
-                hv = (
-                    hold[{pa.name: i, self.variation_axis: self.other_name}].sum().value
-                )
+                hv = hold[{**d, self.variation_axis: self.other_name}].sum().value
 
                 if hv == 0:
                     continue
 
+
                 scale = hu / hv
                 vals = (
                     scale
-                    * h[{pa.name: i, self.variation_axis: self.target_name}].values()
+                    * h[{**d, self.variation_axis: self.target_name}].values()
                 )
                 weights = (
                     scale**2
-                    * h[{pa.name: i, self.variation_axis: self.target_name}].variances()
+                    * h[{**d, self.variation_axis: self.target_name}].variances()
                 )
 
-                h[{pa.name: i, self.variation_axis: self.target_name}] = np.stack(
+                h[{**d, self.variation_axis: self.target_name}] = np.stack(
                     [vals, weights], axis=-1
                 )
+
             provenance = copy.deepcopy(ph.provenance)
             ret.append(
                 PackagedHist(
@@ -292,16 +302,14 @@ class OrBinaryAxes(BaseModel):
 
 
 class SelectAxesValues(BaseModel):
-    select_axes_values: dict[
-        str,  list[str] | list[int] | list[float]
-    ]
+    select_axes_values: dict[str, list[str] | list[int] | list[float]]
 
-    @field_validator('select_axes_values',  mode='before')
+    @field_validator("select_axes_values", mode="before")
     @classmethod
     def convertToList(cls, value):
         ret = {}
-        for k,v in value.items():
-            if isinstance(v,list):
+        for k, v in value.items():
+            if isinstance(v, list):
                 ret[k] = v
             else:
                 ret[k] = [v]
@@ -312,9 +320,9 @@ class SelectAxesValues(BaseModel):
         for ph in histograms:
             h = ph.histogram
             keys_vals = list(self.select_axes_values.items())
-            keys,vals = list(zip(*keys_vals))
+            keys, vals = list(zip(*keys_vals))
             for p in it.product(*vals):
-                u = dict(zip(keys,p))
+                u = dict(zip(keys, p))
                 provenance = copy.deepcopy(ph.provenance)
                 provenance.axis_params.update(u)
                 ret.append(
@@ -422,9 +430,11 @@ def dictToFrozen(d):
 
 class SectorPipelineSpec(BaseModel):
     group_fields: PatternExpression
-    pipeline: HistPipeline
+    pipeline: HistPipeline  | None = None
+    pipelines:  list[HistPipeline] | None = None
 
     def makePipelines(self, sectors):
+
         groups = defaultdict(list)
         for s in sectors:
             if self.group_fields.match(s.sector_params):
@@ -435,6 +445,7 @@ class SectorPipelineSpec(BaseModel):
             SectorHistPipeline(
                 sector_group=SectorGroup(field_values=dict(k), sectors=s),
                 pipeline=self.pipeline,
+                pipelines=self.pipelines,
             )
             for k, s in groups.items()
         ]
@@ -442,7 +453,8 @@ class SectorPipelineSpec(BaseModel):
 
 class SectorHistPipeline(BaseModel):
     sector_group: SectorGroup
-    pipeline: HistPipeline
+    pipeline: HistPipeline | None = None
+    pipelines:  list[HistPipeline] | None = None
 
     def getHists(self, name):
         ret = []
@@ -466,9 +478,20 @@ class SectorHistPipeline(BaseModel):
             )
             ret.append(ph)
 
-        for p in self.pipeline:
-            ret = p(ret)
-        return ret
+        final = []
+
+        if self.pipelines is None:
+            pipelines = [self.pipeline]
+        else:
+            pipelines = self.pipelines
+
+
+        for pipeline in pipelines:
+            temp = copy.deepcopy(ret)
+            for p in pipeline:
+                temp = p(temp)
+            final.extend(temp)
+        return final
 
 
 class SectorGroup(BaseModel):

@@ -123,6 +123,8 @@ class RatioPlot(BasePostprocessor):
 
     plot_configuration: PlotConfiguration | None = None
 
+    no_stack: bool = False
+
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     ratio_ylim: tuple[float, float] = (0, 2)
@@ -160,8 +162,8 @@ class RatioPlot(BasePostprocessor):
 
 
         for name, (num, den) in it.product(self.histogram_names, joined):
-            if len(den) != 1:
-                raise RuntimeError("The denominator of the ratio must contain a single sector group")
+            # if len(den) != 1:
+            #     raise RuntimeError()
             den_hists = den[0].getHists(name)
             num_hists = [x for y in num for x in y.getHists(name)]
             # if len(den_hists) != 1:
@@ -187,6 +189,7 @@ class RatioPlot(BasePostprocessor):
                 scale=self.scale,
                 ratio_hlines=self.ratio_hlines,
                 ratio_height=self.ratio_height,
+                no_stack=self.no_stack,
                 plot_configuration=pc,
             )
 
