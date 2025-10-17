@@ -149,6 +149,7 @@ def runPrepped(
     timeout=120,
     input_events_per_output=10**7,
     reduction_factor=5,
+    catch_exceptions=True,
 ):
     total_events = file_set_prepped.events
     final_files = math.ceil(total_events / input_events_per_output)
@@ -166,6 +167,7 @@ def runPrepped(
             task.sample_params,
             known_form=maybe_base_form,
             timeout=timeout,
+            return_exceptions_as_values=catch_exceptions,
         ),
         to_submit,
         key=[f"{task.sample_id}-{i}" for i in range(len(to_submit))],
@@ -240,6 +242,8 @@ class DaskExecutor(Executor):
 
     input_events_per_output: int = 10**7
 
+    catch_exceptions: bool = True
+
     def setup(self):
         if self.adapt:
             self._cluster.adapt(
@@ -260,6 +264,7 @@ class DaskExecutor(Executor):
         run_kwargs = {
             "reduction_factor": self.reduction_factor,
             "input_events_per_output": self.input_events_per_output,
+            "catch_exceptions": self.catch_exceptions,
             # "timeout": self.timeout,
         }
 

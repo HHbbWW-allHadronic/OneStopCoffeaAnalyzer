@@ -29,6 +29,7 @@ class AnalysisStage(str, enum.Enum):
     Weights = "Weights"
     Categorization = "Categorization"
     Histogramming = "Histogramming"
+    OtherResults = "OtherResults"
 
 
 class ModuleDescription(BaseModel):
@@ -61,6 +62,7 @@ class RegionDescription(BaseModel):
     categories: list[ModuleDescription] = Field(default_factory=list)
     histograms: list[ModuleDescription] = Field(default_factory=list)
     weights: list[ModuleDescription] = Field(default_factory=list)
+    other_results: list[ModuleDescription] = Field(default_factory=list)
 
     @field_validator(
         "selection",
@@ -71,6 +73,7 @@ class RegionDescription(BaseModel):
         "categories",
         "histograms",
         "weights",
+        "other_results",
         mode="before",
     )
     @classmethod
@@ -173,7 +176,7 @@ def iterSubsectors(description, dataset_repo, era_repo, filter_samples=None):
                 f.match(str(sample.sample_id)) for f in filter_samples
             ):
                 continue
-
+            
             logger.info(
                 f"Constructing {len(regions)} region analyzers for {sample.sample_id} "
             )

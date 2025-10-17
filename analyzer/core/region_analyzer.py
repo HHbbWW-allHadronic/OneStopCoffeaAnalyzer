@@ -53,6 +53,7 @@ class RegionAnalyzer(BaseModel):
     categories: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
     histograms: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
     weights: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
+    other_results: list[ConfiguredAnalyzerModule] = Field(default_factory=list)
 
     def ensureFunction(self, module_repo):
         """
@@ -65,6 +66,7 @@ class RegionAnalyzer(BaseModel):
             self.selection,
             self.categories,
             self.histograms,
+            self.other_results,
             self.weights,
         ]
         for item in todo:
@@ -124,6 +126,10 @@ class RegionAnalyzer(BaseModel):
             region_desc.histograms, ModuleType.Histogram
         )
 
+        other_results = resolveModules(
+            region_desc.other_results, ModuleType.OtherResults
+        )
+
         return RegionAnalyzer(
             region_name=name,
             description=region_desc.description,
@@ -135,6 +141,7 @@ class RegionAnalyzer(BaseModel):
             histograms=postselection_histograms,
             categories=categories,
             weights=weights,
+            other_results=other_results
         )
 
     def getSectorParams(self, sample_params):
@@ -218,6 +225,7 @@ class RegionAnalyzer(BaseModel):
         for module in self.histograms:
             module(columns, params, histogrammer)
 
+
         if weight_storage is not None:
             names = weighter.weight_names
             if "pos_neg" in names:
@@ -237,6 +245,11 @@ class RegionAnalyzer(BaseModel):
                     ),
                     axis=0,
                 )
+        if active_shape is None:
+            ret = {}
+            for module in self.other_results:
+                ret |= module(columns, params)
+            return ret
 
 
 __subsector_param_cache = {}

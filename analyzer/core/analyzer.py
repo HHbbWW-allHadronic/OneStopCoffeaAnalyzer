@@ -121,11 +121,13 @@ class Analyzer:
             # Once the final selection has been performed for a region
             # we can run the remainder of the analyzer
             if variation is None:
-                ra.runPostSelection(
+                ret = ra.runPostSelection(
                     new_cols, params, hs, w, weight_storage[ra.region_name]
                 )
+                return ret
             else:
                 ra.runPostSelection(new_cols, params, hs, w)
+                return None
 
     def _runPreselectionGroup(
         self, events, params, region_analyzers, preselection, preselection_set
@@ -156,7 +158,7 @@ class Analyzer:
         # Run over each shape variation in the analysis
         for variation in branches:
             logger.info(f'Running branch for variation "{variation}"')
-            self._runBranch(
+            this_run = self._runBranch(
                 region_analyzers,
                 columns,
                 params,
@@ -168,16 +170,18 @@ class Analyzer:
                 pre_sel_weight_storage,
                 variation=variation,
             )
+            if variation is None:
+                other_results = this_run
 
         ret = {
             ra.region_name: results.SubSectorResult(
                 region=ra,
                 base_result=results.BaseResult(
                     histograms=histogram_storage[ra.region_name],
-                    other_data={},
                     selection_flow=cutflow_storage[ra.region_name],
                     post_sel_weight_flow=weight_storage[ra.region_name],
                     pre_sel_weight_flow=pre_sel_weight_storage[ra.region_name],
+                    other_data=other_results,
                 ),
             )
             for ra in region_analyzers
@@ -228,11 +232,11 @@ def runAnalyzerChunks(
     params,
     known_form=None,
     treepath="Events",
-    timeout=120,
+    timeout=None,
     return_exceptions_as_values=True,
 ):
     try:
-        if timeout:
+        if timeout and False:
             logger.info(f"Starting run of analyzer using file set: {fileset}")
             return callTimeout(
                 timeout,
@@ -266,6 +270,14 @@ def runAnalyzerChunks(
             result = dask.compute(result, scheduler="threads")[0]
             logger.info(f"Analysis completed successfully for {fileset}")
             result = results.MultiSectorResult(**result)
+
+            for sector_result in result.values():
+                for k in sector_result.base_result.other_data:
+                    v = sector_result.base_result.other_data[k]
+                    if isinstance(v, ak.Array):
+                        sector_result.base_result.other_data[k] = ak.to_numpy(v)
+                    else:
+                        sector_result.base_result.other_data[k] = v
 
             return (fileset, result)
 

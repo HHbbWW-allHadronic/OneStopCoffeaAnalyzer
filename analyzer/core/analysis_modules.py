@@ -35,6 +35,7 @@ hist_manager.add(
 import enum
 from collections import defaultdict
 from dataclasses import dataclass, field
+import abc
 from typing import Callable, Any
 from pydantic import BaseModel, Field
 import inspect
@@ -50,6 +51,23 @@ class ModuleType(str, enum.Enum):
     Weight = "Weight"
     Histogram = "Histogram"
     Producer = "Producer"
+    OtherResults = "OtherResults"
+
+
+# class _AnalyzerModule(abc.ABC, BaseModel):
+#     parent: _AnalyzerModule | None = None
+#     input_columns: list[str]
+# 
+#     def shouldRun(self, parameters):
+#         return True
+# 
+#     @abc.abstractmethod
+#     def run(self, columns, parameters):
+#         pass
+# 
+#     def init(self, possible_parameters):
+#         pass
+        
 
 
 class AnalyzerModule(BaseModel):
@@ -86,7 +104,6 @@ class ConfiguredAnalyzerModule(BaseModel):
     def __rich_repr__(self):
         yield self.module.name
         yield self.config
-        
 
 
 @dataclass
