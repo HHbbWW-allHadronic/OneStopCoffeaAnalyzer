@@ -20,7 +20,7 @@ def topfatjet_plots(events, params, analyzer):
     top_fj = events.good_fatjets[mask][:, 0]
     analyzer.H(
         f"ak8_pt",
-        makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
+        makeAxis(20, 0, 1000, "$p_{T}$", unit="GeV"),
         top_fj.pt,
         description="pt of the leading ak8 jet",
         mask=mask,
@@ -29,8 +29,8 @@ def topfatjet_plots(events, params, analyzer):
     analyzer.H(
         f"ak8_pt_vs_sdmass",
         [
-            makeAxis(100, 0, 1000, "$p_{T}$", unit="GeV"),
-            makeAxis(30, 0, 300, "$m_{\\text{SD}}$", unit="GeV"),
+            makeAxis(20, 0, 1000, "$p_{T}$", unit="GeV"),
+            makeAxis(12, 0, 300, "$m_{\\text{SD}}$", unit="GeV"),
         ],
         [top_fj.pt, top_fj.msoftdrop],
         description="2D plot of pt and softdrop mass",
@@ -73,7 +73,7 @@ def jet_kinematics(events, params, analyzer):
 
         analyzer.H(
             rf"pt_{i+1}",
-            makeAxis(100, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+            makeAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
             masked_jets[:, i].pt,
             description=f"$p_T$ of jet {i+1} ",
             mask=mask,
@@ -143,29 +143,29 @@ def jet_combo_kinematics(events, params, analyzer):
     for (i, j), title in jet_combos:
         jets = gj[:, i:j].sum()
         masses[(i, j)] = jets.mass
-        analyzer.H(
-            f"m{i+1}{j}_pt",
-            makeAxis(
-                100,
-                0,
-                1000,
-                f"$p_T ( \sum_{{n={i+1}}}^{{{j}}} jet_{{n}})$ ",
-                unit="GeV",
-            ),
-            jets.pt,
-            description=f"$p_T$ of the sum of jets {i+1} to {j}",
-        )
-        analyzer.H(
-            f"m{i+1}{j}_eta",
-            makeAxis(20, -5, 5, f"$\eta ( \\sum_{{n={i+1}}}^{{{j}}} ) jet_{{n}}$"),
-            jets.eta,
-            description=rf"$\eta$ of the sum of jets {i+1} to {j}",
-        )
+        # analyzer.H(
+        #     f"m{i+1}{j}_pt",
+        #     makeAxis(
+        #         100,
+        #         0,
+        #         1000,
+        #         f"$p_T ( \sum_{{n={i+1}}}^{{{j}}} jet_{{n}})$ ",
+        #         unit="GeV",
+        #     ),
+        #     jets.pt,
+        #     description=f"$p_T$ of the sum of jets {i+1} to {j}",
+        # )
+        # analyzer.H(
+        #     f"m{i+1}{j}_eta",
+        #     makeAxis(20, -5, 5, f"$\eta ( \\sum_{{n={i+1}}}^{{{j}}} ) jet_{{n}}$"),
+        #     jets.eta,
+        #     description=rf"$\eta$ of the sum of jets {i+1} to {j}",
+        # )
 
         mtitle = 4 if j - i == 4 else 3
         analyzer.H(
             rf"m{i+1}{j}_m",
-            makeAxis(300, 0, 3000, f"$m_{{{title}}}$", unit="GeV"),
+            makeAxis(60, 0, 3000, f"$m_{{{title}}}$", unit="GeV"),
             jets.mass,
             description=rf"Mass of the sum of jets {i+1} to {j}",
         )
@@ -185,25 +185,25 @@ def jet_combo_kinematics(events, params, analyzer):
         analyzer.H(
             f"m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
             [
-                makeAxis(200, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
-                makeAxis(200, 0, 3000, rf"$m_{{{title1}}}$", unit="GeV"),
+                makeAxis(60, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
+                makeAxis(60, 0, 3000, rf"$m_{{{title1}}}$", unit="GeV"),
             ],
             [masses[p2], masses[p1]],
         )
 
-        analyzer.H(
-            f"ratio_m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
-            [
-                makeAxis(200, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
-                makeAxis(
-                    200,
-                    0,
-                    1,
-                    rf"$\frac{{m_{{ {title1} }} }}{{ m_{{ {title2} }} }}$",
-                ),
-            ],
-            [masses[p2], masses[p1] / masses[p2]],
-        )
+        # analyzer.H(
+        #     f"ratio_m{p1_1+1}{p1_2}_vs_m{p2_1+1}{p2_2}",
+        #     [
+        #         makeAxis(200, 0, 3000, rf"$m_{{{title2}}}$", unit="GeV"),
+        #         makeAxis(
+        #             200,
+        #             0,
+        #             1,
+        #             rf"$\frac{{m_{{ {title1} }} }}{{ m_{{ {title2} }} }}$",
+        #         ),
+        #     ],
+        #     [masses[p2], masses[p1] / masses[p2]],
+        # )
 
 
 @MODULE_REPO.register(ModuleType.Histogram)

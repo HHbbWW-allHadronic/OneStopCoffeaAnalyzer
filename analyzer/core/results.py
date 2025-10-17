@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from rich import print
 import pickle as pkl
+import numpy as np
 from functools import cached_property
 import abc
 from rich.prompt import Confirm
@@ -48,27 +49,6 @@ from .common_types import Scalar
 logger = logging.getLogger(__name__)
 
 
-class ResultABC(abc.ABC, BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    keep_unscaled: ClassVar[bool] = False
-
-    @abc.abstractmethod
-    def __iadd__(self, other):
-        pass
-
-    @abc.abstractmethod
-    def iscale(self, value):
-        pass
-
-    def __add__(self, other):
-        ret = copy.deepcopy(self)
-        ret += other
-        return ret
-
-    def scale(self, value):
-        ret = copy.deepcopy(self)
-        return ret.iscale(value)
-
 
 class BaseResult(pyd.BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
@@ -104,15 +84,20 @@ class BaseResult(pyd.BaseModel):
         """
 
         new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
+        # new_other = accumulate([self.other_data, other.other_data])
         new_post_weight = accumulate(
             [self.post_sel_weight_flow, other.post_sel_weight_flow]
         )
         new_pre_weight = accumulate(
             [self.post_sel_weight_flow, other.post_sel_weight_flow]
         )
+        for k,v in self.other_data.items():
+            if isinstance(v, np.ndarray):
+                self.other_data[k] = np.concatenate((v,other.other_data[k]), axis=0)
+            else:
+                v += other.other_data[k]
+            
         self.histograms = new_hists
-        self.other_data = new_other
         self.post_sel_weight_flow = new_post_weight
         self.pre_sel_weight_flow = new_pre_weight
         self.selection_flow = self.selection_flow + other.selection_flow
@@ -580,8 +565,7 @@ class DatasetResult(pyd.BaseModel):
         ]
 
 
-def openAndLoad(path, include=None, decompress=False, peek_only=False):
-    gc.disable()
+def openAndLoad(path, include=None, decompress=True, peek_only=False):
 
     with open(path, "rb") as f:
         if peek_only:
@@ -595,7 +579,6 @@ def openAndLoad(path, include=None, decompress=False, peek_only=False):
             if include is not None:
                 ret.includeOnly(include)
 
-    gc.enable()
     return ret
 
 
@@ -738,9 +721,8 @@ def makeFilePeekMap(paths):
 
 
 def merge(paths, outdir, fields=None):
-    from analyzer.cli.quicklook import quicklookSample
-
     fields = fields or ["dataset.name"]
+    print(fields)
     pattern = SimpleNestedPatternExpression.model_validate(
         {x: Pattern.Any() for x in fields}
     )
@@ -756,8 +738,10 @@ def merge(paths, outdir, fields=None):
             return
 
     params_dict = gatherFilesByPattern(paths, fields)
+    print(params_dict)
 
-    for params, paths in track(params_dict.items(), total=len(params_dict)):
+    #for params, paths in track(params_dict.items(), total=len(params_dict)):
+    for params, paths in params_dict.items():
         output_name = "_".join(x[1] for x in params)
         output = outdir / f"{output_name}.result"
         print(f'Saving "{output}"')
@@ -765,8 +749,11 @@ def merge(paths, outdir, fields=None):
         if output.exists():
             raise ResultIntegrityError("Cannot overwrite when merging!")
 
+
         with open(output, "wb") as f:
             f.write(loaded.toBytes())
+
+        del loaded
 
 
 def makeDatasetResults(

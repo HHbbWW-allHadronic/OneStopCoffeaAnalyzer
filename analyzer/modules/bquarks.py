@@ -23,14 +23,14 @@ def b_discriminator(events, params, histogram_builder, working_point="M"):
 
     histogram_builder.H(
         f"DeepJet_b_Disc_all",
-        makeAxis(100, 0, 1, f"Deepjet b disc"),
+        makeAxis(50, 0, 1, f"Deepjet b disc"),
         jets.btagDeepFlavB,
     )
-    for i in range(0, 5):
+    for i in range(0, 2):
         mask = ak.num(jets, axis=1) > i
         histogram_builder.H(
             f"DeepJet_b_Disc_jet_{i+1}",
-            makeAxis(100, 0, 1, f"Deepjet b disc jet {i+1}"),
+            makeAxis(50, 0, 1, f"Deepjet b disc jet {i+1}"),
             jets[mask][:, i].btagDeepFlavB,
             mask=mask,
         )
