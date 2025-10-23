@@ -3,7 +3,7 @@ from rich import print, inspect
 import hist
 
 
-def quicklookSample(result, include_hists=False):
+def quicklookSample(result, include_hists=False, include_other=False):
     res = result.results or {}
     data = {
         "sample_name": result.sample_id.sample_name,
@@ -20,6 +20,14 @@ def quicklookSample(result, include_hists=False):
     else:
         data["region_hists"] = {
             x: len(y.base_result.histograms) for x, y in res.items()
+        }
+    if include_other:
+        data["region_other"] = {
+            x: list(y.base_result.other_data) for x, y in res.items()
+        }
+    else:
+        data["region_other"] = {
+            x: len(y.base_result.other_data) for x, y in res.items()
         }
 
     data.update(
@@ -47,10 +55,11 @@ def quicklookHist(result, region, hist_name, variation=None, rebin=None):
     return h
 
 
-def quicklookFiles(paths,include_hists=False):
+def quicklookFiles(paths,**kwargs):
+    print(kwargs)
     results = loadSampleResultFromPaths(paths,decompress=True,show_progress=True)
     for k, v in results.items():
-        quicklookSample(v,include_hists=include_hists)
+        quicklookSample(v,**kwargs)
 
 
 def quicklookHistsPath(paths, region, hist_name, interact=False, variation=None, rebin=None):
