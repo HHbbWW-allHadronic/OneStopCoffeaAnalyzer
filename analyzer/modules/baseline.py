@@ -25,11 +25,17 @@ def jet_veto_maps(events, params, selection, veto_type="jetvetomap"):
     selection.add("jet_veto_map", ak.all((vetoes == 0), axis=1))
 
 
+
 @MODULE_REPO.register(ModuleType.Selection)
 def min_one_fatjet(events, params, selector):
     fat_jets = events.FatJet
-    good_fatjets = fat_jets[(fat_jets.pt > 150) & (abs(fat_jets.eta) < 2.4)]
-    selector.add("NFatJet", ak.num(good_fatjets, axis=1) > 0)
+    good_fatjets = fat_jets[(fat_jets.pt > 200) & (abs(fat_jets.eta) < 2.4)]
+    selector.add("LeastOneFatjet", ak.num(good_fatjets, axis=1) > 0)
+
+
+@MODULE_REPO.register(ModuleType.Selection)
+def ht_cut(events, params, selector):
+    selector.add("HT>400", events.HT > 400)
 
 
 @MODULE_REPO.register(ModuleType.Selection)
@@ -174,6 +180,33 @@ def zero_loose_b_category(events, params, categories):
 
 
 @MODULE_REPO.register(ModuleType.Categorization)
+def njet_category(events, params, categories):
+    categories.add(
+        name=f"NJets",
+        axis=hist.axis.Integer(0, 8, underflow=True, overflow=True, name="NJets"),
+        values=ak.num(events.good_jets, axis=1),
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def ht_category(events, params, categories):
+    categories.add(
+        name=f"_HT",
+        axis=hist.axis.Regular(50, 500, 3000, underflow=True, overflow=True, name="_HT"),
+        values=events.HT,
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
+def zero_med_b_category(events, params, categories):
+    categories.add(
+        name=f"ZeroMedB",
+        axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="ZeroMedB"),
+        values=(ak.num(events.loose_bs, axis=1) == 0),
+    )
+
+
+@MODULE_REPO.register(ModuleType.Categorization)
 def hlt_ht_trigger_category(events, params, categories):
     era_info = params.dataset.era
     ht_trigger_name = era_info.trigger_names["HT"]
@@ -182,6 +215,7 @@ def hlt_ht_trigger_category(events, params, categories):
         axis=hist.axis.Integer(0, 2, underflow=False, overflow=False, name="PassHLTHT"),
         values=events.HLT[ht_trigger_name],
     )
+
 
 @MODULE_REPO.register(ModuleType.Categorization)
 def hlt_singlejet_trigger_category(events, params, categories):
@@ -224,6 +258,7 @@ def general_selection(events, params, selector):
 
     passes_0Lep = (ak.num(good_electrons) == 0) & (ak.num(good_muons) == 0)
     selector.add("0Lep", passes_0Lep)
+
 
 @MODULE_REPO.register(ModuleType.Selection)
 def zero_lepton(events, params, selector):
