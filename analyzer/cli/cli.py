@@ -431,7 +431,7 @@ def handleQuicklook(args):
             args.rebin,
         )
     else:
-        quicklookFiles(args.input, include_hists=args.include_hists)
+        quicklookFiles(args.input, include_hists=args.include_hists, include_other=args.include_other)
 
 
 def addSubparserQuicklookFile(subparsers):
@@ -440,7 +440,8 @@ def addSubparserQuicklookFile(subparsers):
         "quicklook", help="Quick information about a result."
     )
     subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
-    subparser.add_argument("--include-hists", action=argparse.BooleanOptionalAction)
+    subparser.add_argument("--include-hists", action=argparse.BooleanOptionalAction, type=bool)
+    subparser.add_argument("--include-other", action=argparse.BooleanOptionalAction, type=bool)
     subparser.add_argument(
         "-r", "--region-name", default=None, type=str, help="Region name"
     )
@@ -514,7 +515,7 @@ def addSubparserMerge(subparsers):
     subparser.add_argument(
         "-f",
         "--fields",
-        type=list,
+        type=str,
         nargs="*",
         default=None,
     )
