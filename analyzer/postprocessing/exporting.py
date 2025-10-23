@@ -1,6 +1,8 @@
 import functools as ft
+from pathlib import Path
 import itertools as it
 
+import numpy as np
 from .utils import gatherByPattern
 
 from pydantic import BaseModel
@@ -46,6 +48,41 @@ class ExportHists(BasePostprocessor):
             yield ft.partial(
                 exportHist, histograms[0], output_path, overwrite=self.overwrite
             )
+
+    def init(self):
+        return
+
+
+def writeOutput(path, data):
+    path = Path(path)
+    path.parent.mkdir(exist_ok=True, parents=True)
+    with open(path, 'wb') as f:
+        np.save(f, data)
+
+
+@registerPostprocessor
+class ExtractOtherData(BasePostprocessor):
+    other_names: list[str]
+    input: SectorPipelineSpec
+    output_name: str
+
+    def getNeededHistograms(self):
+        return []
+
+    def getFileFields(self):
+        return set(self.input.group_fields.fields())
+
+    def neededFileSets(self, params_mapping):
+        return gatherByPattern(params_mapping, self.input.group_fields)
+
+    def getExe(self, results):
+        pipelines = self.input.makePipelines(results)
+        for name, sector_pipeline in it.product(self.other_names, pipelines):
+            output = doFormatting(
+                self.output_name, **sector_pipeline.sector_group.field_values, name=name
+            )
+            data = sector_pipeline.sector_group.sectors[0].result.other_data[name]
+            yield ft.partial(writeOutput, output, data)
 
     def init(self):
         return
