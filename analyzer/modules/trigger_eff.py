@@ -1,4 +1,5 @@
 import awkward as ak
+import numpy as np
 from analyzer.core import MODULE_REPO, ModuleType
 import hist
 
@@ -36,17 +37,18 @@ def trigger_eff_objects(columns, params):
     fat_jets = columns.get("FatJet")
     good_fj_mask = (fat_jets.pt > 175) & (abs(fat_jets.eta) < 2.4)
 
-    params.dataset.era
+    era_info = params.dataset.era
+    # jet_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
     # if (
-    #     "TrimMass" in jet_trigger_name
-    #     or "SoftDrop" in jet_trigger_name
-    #     or "MassSD" in jet_trigger_name
+    #    "TrimMass" in jet_trigger_name
+    #    or "SoftDrop" in jet_trigger_name
+    #    or "MassSD" in jet_trigger_name
     # ):
-    #     good_fj_mask = good_fj_mask & (fat_jets.msoftdrop > 50)
+    #    good_fj_mask = good_fj_mask & (fat_jets.msoftdrop > 50)
 
     good_fatjets = fat_jets[good_fj_mask]
-    fatnear_muon = good_fatjets.nearest(good_muons, threshold=0.4)
-    good_fatjets = good_fatjets[ak.is_none(fatnear_muon, axis=1)]
+    # fatnear_muon = good_fatjets.nearest(good_muons, threshold=0.4)
+    # good_fatjets = good_fatjets[ak.is_none(fatnear_muon, axis=1)]
 
     bwps = getBTagWP(params)
     logger.debug(f"B-tagging workign points are:\n {bwps}")
@@ -114,3 +116,21 @@ def pass_SingleJet_category(events, params, categories):
         ),
         values=events.HLT[jet_trigger_name],
     )
+
+
+@MODULE_REPO.register(ModuleType.OtherResults)
+def save_trigger_info(events, params):
+    era_info = params.dataset.era
+    jet_trigger_name = era_info.trigger_names["AK8SingleJetPt"]
+    ht_trigger_name = era_info.trigger_names["HT"]
+    cols = ak.concatenate(
+        (
+            events.HT[:,np.newaxis],
+            events.good_fatjets[:, 0].pt[:,np.newaxis],
+            events.good_fatjets[:, 0].msoftdrop[:,np.newaxis],
+            events.HLT[ht_trigger_name][:,np.newaxis],
+            events.HLT[jet_trigger_name][:,np.newaxis],
+        ),
+        axis=1,
+    )
+    return {"trigger_info": cols}
