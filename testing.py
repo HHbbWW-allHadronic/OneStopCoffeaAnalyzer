@@ -1,14 +1,17 @@
 from __future__ import annotations
+
 import numbers
 import itertools as it
 import dask_awkward as dak
 import hist
+from attrs import asdict, define, make_class, Factory, field
+import cattrs
+from cattrs import structure, unstructure, Converter
+from cattrs.strategies import include_subclasses, configure_tagged_union
 
 from collections.abc import Collection
 from collections import deque
 
-from pydantic import BaseModel, model_validator, RootModel, Field, ConfigDict
-from dataclasses import dataclass, field
 
 import contextlib
 import uuid
@@ -42,6 +45,18 @@ log = logging.getLogger("my_app")
 logger = logging.getLogger(__name__)
 
 
+def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any], path=[]):
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                mergeUpdate(a[key], b[key], path + [str(key)])
+            else:
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
+
 @ft.singledispatch
 def freeze(data):
     return data
@@ -62,21 +77,19 @@ def _(data: list):
     return frozenset(x for x in data)
 
 
-@dataclass
+def coerceFields(data):
+    if isinstance(data, str):
+        fields = tuple(data.split("."))
+    elif isinstance(data, Column):
+        fields = data.fields
+    else:
+        fields = data
+    return tuple(fields)
+
+
+@define(frozen=True)
 class Column:
-    fields: tuple[str, ...]
-
-    def __init__(self, data):
-        if isinstance(data, str):
-            self.fields = Column.fieldsFromString(data)
-        elif isinstance(data, Column):
-            self.fields = data.fields
-        else:
-            self.fields = data
-
-    @staticmethod
-    def fieldsFromString(data):
-        return tuple(data.split("."))
+    fields: tuple[str, ...] = field(converter=coerceFields)
 
     def parts(self):
         return tuple(self.path)
@@ -124,9 +137,16 @@ class Column:
         return hash(self.fields)
 
 
-class AnalyzerResult(abc.ABC, BaseModel):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+def daskFinalizer(data):
+    if isinstance(data, list | dict):
+        data = dask.compute(data)[0]
+    elif isinstance(data, ak.Array):
+        data = data.to_numpy()
+    return data
 
+
+@define
+class AnalyzerResult(abc.ABC):
     identity: str
 
     @abc.abstractmethod
@@ -150,8 +170,9 @@ class AnalyzerResult(abc.ABC, BaseModel):
         return ret.iscale(value)
 
 
+@define
 class ResultContainer(AnalyzerResult):
-    results: dict[str, AnalyzerResult] = Field(default_factory=dict)
+    results: dict[str, AnalyzerResult] = field(factory=dict)
 
     def __iadd__(self, other):
         for k in self.results:
@@ -173,11 +194,15 @@ class ResultContainer(AnalyzerResult):
             self.results[k].iscale(value)
 
     def finalize(self, finalizer):
-        self.results = finalizer(results)
+        uns = unstructure(self.results)
+        results = finalizer(results)
+        self.results = structure(results, dict[str, AnalyzerResult])
+
         for result in self.results.values():
             result.finalize(finalizer)
 
 
+@define
 class Histogram(AnalyzerResult):
     histogram: hist.Hist
 
@@ -188,6 +213,7 @@ class Histogram(AnalyzerResult):
         self.hist *= value
 
 
+@define
 class ScalableArray(AnalyzerResult):
     array: ak.Array | dak.Array | np.ndarray
 
@@ -199,14 +225,10 @@ class ScalableArray(AnalyzerResult):
         self.array *= value
 
     def finalize(self, finalizer):
-        if isinstance(self.array, np.ndarray):
-            pass
-        elif isinstance(self.array, ak.Array):
-            self.array = self.array.to_numpy()
-        elif isinstance(self.array, dak.Array):
-            self.array = dask.compute(self.array).to_numpy()
+        self.array = finalizer(self.array)
 
 
+@define
 class RawArray(AnalyzerResult):
     array: ak.Array | dak.Array | np.ndarray
 
@@ -218,17 +240,13 @@ class RawArray(AnalyzerResult):
         pass
 
     def finalize(self, finalizer):
-        if isinstance(self.array, np.ndarray):
-            pass
-        elif isinstance(self.array, ak.Array):
-            self.array = self.array.to_numpy()
-        elif isinstance(self.array, dak.Array):
-            self.array = dask.compute(self.array).to_numpy()
+        self.array = finalizer(self.array)
 
 
 Scalar = dak.Scalar | numbers.Real
 
 
+@define
 class SelectionFlow(AnalyzerResult):
     cuts: list[str]
 
@@ -254,7 +272,11 @@ class SelectionFlow(AnalyzerResult):
         for x in self.one_cut:
             self.one_cut[x] = value * self.one_cut[x]
 
+    def finalize(self, finalizer):
+        pass
 
+
+@define
 class RawSelectionFlow(AnalyzerResult):
     cuts: list[str]
 
@@ -275,8 +297,11 @@ class RawSelectionFlow(AnalyzerResult):
     def iscale(self, value):
         return
 
+    def finalize(self, finalizer):
+        pass
 
-@dataclass
+
+@define
 class ColumnCollection:
     columns: set[Column]
 
@@ -312,12 +337,15 @@ def getAllColumns(events, cur_col=None):
 NanoAODSchema.warn_missing_crossrefs = False
 
 
-@dataclass(frozen=True)
+@define(frozen=True)
 class ModuleParameterValues:
     param_values: frozenset[tuple[str, Any]]
-    spec: ModuleParameterSpec | None = field(
-        compare=False, default_factory=lambda: None
-    )
+    spec: ModuleParameterSpec | None = field(eq=False, default=None)
+
+    def withNewValues(self, values):
+        d = dict(self.param_values)
+        d.update(values)
+        return self.spec.getWithValues(d)
 
     @ft.lru_cache()
     def asdict(self):
@@ -339,18 +367,25 @@ class ModuleParameterValues:
         return f"ModuleParameterValues({self.asdict()})"
 
 
-@dataclass(frozen=True)
-class AnalyzerParameterValues:
+@define(frozen=True)
+class PipelineParameterValues:
     values: frozenset[tuple[str, ModuleParameterValues]]
-    spec: AnalyzerParameterSpec
-
+    spec: PipelineParameterSpec
 
     def __hash__(self):
         return hash(self.values)
 
+    def asdict(self):
+        return {x: y.asdict() for x, y in self.values}
+
     def __getitem__(self, key):
         found = next(x[1] for x in self.values if x[0] == key)
         return ModuleParameterValues(found.param_values, self)
+
+    def withNewValues(self, new_data):
+        d = self.asdict()
+        mergeUpdate(d, new_data)
+        return self.spec.getWithValues(d)
 
     def __rich_repr__(self):
         yield "values", self.values
@@ -361,35 +396,35 @@ class AnalyzerParameterValues:
     def __repr__(self):
         return str(self)
 
+
 # def mergeAnalyzerValues(first, *rest):
 #     while rest:
-# 
+#
 # def moduleValues(first, *rest):
 #     while rest:
-        
-        
-        
 
 
-@dataclass
+@define
 class ParameterSpec:
     default_value: Any | None = None
     possible_values: Collection | None = None
-    tags: set[str] = field(default_factory=set)
+    tags: set[str] = field(factory=set)
 
 
-@dataclass
+@define
 class NodeParameterSpec:
     node_id: str
     parameter_spec: ParameterSpec
 
 
-@dataclass
+@define
 class ModuleParameterSpec:
-    param_specs: dict[str, ParameterSpec] = field(default_factory=dict)
+    param_specs: dict[str, ParameterSpec] = field(factory=dict)
 
-    def getTags(self, tag):
-        return {x:y for x,y in self.param_specs.items() if tag in y.tags}
+    def getTags(self, *tags):
+        return {
+            x: y for x, y in self.param_specs.items() if any(t in y.tags for t in tags)
+        }
 
     def __getitem__(self, key):
         return self.param_specs[key]
@@ -412,9 +447,17 @@ class ModuleParameterSpec:
         return ModuleParameterValues(frozenset(ret.items()), self)
 
 
-@dataclass
-class AnalyzerParameterSpec:
+@define
+class PipelineParameterSpec:
     node_specs: dict[str, ModuleParameterSpec]
+
+    def __getitem__(self, key):
+        return self.node_specs[key]
+
+    def __setitem__(self, key, value):
+        if key in self.node_specs:
+            raise RuntimeError()
+        self.node_specs[key] = value
 
     def getWithValues(self, values: dict[str, dict[str, Any]]):
         ret = {}
@@ -423,52 +466,50 @@ class AnalyzerParameterSpec:
                 ret[nid] = spec.getWithValues(values[nid])
             else:
                 ret[nid] = spec.getWithValues({})
-        return AnalyzerParameterValues(frozenset(ret.items()), self)
+        return PipelineParameterValues(frozenset(ret.items()), self)
 
-    def getTags(self, tag):
-        tags = {x: y.getTags(tag) for x, y in self.node_specs.items()}
+    def getTags(self, *tag):
+        tags = {x: y.getTags(*tag) for x, y in self.node_specs.items()}
         return tags
 
 
+@define
 class AnalyzerModule(abc.ABC):
+    __cache: dict = field(factory=dict, init=False, repr=False)
+
     @abc.abstractmethod
-    def run(self, columns, analyzer, params: ModuleParameterValues):
+    def run(self, columns, params: ModuleParameterValues, **kwargs):
         pass
 
     # @abc.abstractmethod
 
     @abc.abstractmethod
-    def getInputs(self) -> ColumnCollection:
+    def getInputs(self, metadata) -> ColumnCollection:
         pass
 
-    def init(self, params):
-        pass
+    def wantsPipelineSpec(self, metadata) -> bool:
+        return False
 
-    def inputs(self) -> ColumnCollection:
-        return self.getInputs()
+    def inputs(self, metadata) -> ColumnCollection:
+        return self.getInputs(metadata)
 
     def getParameterSpec(self) -> ModuleParameterSpec:
         return ModuleParameterSpec()
 
-    def baseInit(self, params):
-        self.init(params)
-        self._cache = {}
-
-    def getProvenance(self, columns, params):
-        ret = ModuleProvenance(
-            name=self.name(),
-            parameters=params,
-            column_key=self.getColumnProvenance(columns),
-        )
-        return ret
+    def preloadForMeta(self, metadata):
+        pass
 
     def getColumnProvenance(self, columns):
         if isinstance(columns, ColumnView):
-            return columns.getKeyForColumns(self.inputs())
+            return columns.getKeyForColumns(self.inputs(columns.metadata))
         else:
             return frozenset(self.getColumnProvenance(x) for x in (columns or []))
 
-    def __call__(self, columns, params):
+    def getKey(self, columns, params):
+        ret = hash((self.name(), params, self.getColumnProvenance(columns)))
+        return ret
+
+    def __call__(self, columns, params, pipeline_spec):
         if isinstance(columns, ColumnView):
             columns = columns.copy()
             just_cols = [columns]
@@ -478,24 +519,27 @@ class AnalyzerModule(abc.ABC):
         else:
             just_cols = columns
 
-        logger.info(f"Running analyzer module {self} ({id(self)})")
-        prov = self.getProvenance(just_cols, params)
+        logger.info(f"Running analyzer module {self}")
+        key = self.getKey(just_cols, params)
 
-        logger.info(f"Provenance is {prov}")
-        if prov in self._cache:
-            logger.info(f"Found provenance, using cached result")
-            return self._cache[prov]
-        logger.info(f"Did not find provenance, running module {self.name()}")
+        logger.info(f"Execution key is {key}")
+        if key in self.__cache:
+            logger.info(f"Found key, using cached result")
+            return self.__cache[key]
+        logger.info(f"Did not find key, running module {self.name()}")
 
         if columns is None:
             ret = self.run(columns, params)
         else:
             with contextlib.ExitStack() as stack:
                 for c in just_cols:
-                    stack.enter_context(c.useProvenance(prov))
-                    stack.enter_context(c.allowedInputs(self.inputs()))
-                ret = self.run(columns, params)
-        self._cache[prov] = ret
+                    stack.enter_context(c.useKey(key))
+                    stack.enter_context(c.allowedInputs(self.inputs(columns.metadata)))
+                if self.wantsPipelineSpec(columns.metadata):
+                    ret = self.run(columns, params, pipeline_spec=pipeline_spec)
+                else:
+                    ret = self.run(columns, params)
+        self.__cache[key] = ret
         return ret
 
     @classmethod
@@ -503,7 +547,7 @@ class AnalyzerModule(abc.ABC):
         return cls.__name__
 
 
-@dataclass(frozen=True)
+@define(frozen=True)
 class ModuleProvenance:
     name: str
     parameters: ModuleParameterValues
@@ -640,9 +684,9 @@ class Node:
             and self.analyzer_module == other.analyzer_module
         )
 
-    def __call__(self, columns, params):
+    def __call__(self, columns, params, pipeline_spec):
         params = params[self.node_id]
-        return self.analyzer_module(columns, params)
+        return self.analyzer_module(columns, params, pipeline_spec)
 
     def __rich_repr__(self):
         yield "node_id", self.node_id
@@ -650,122 +694,25 @@ class Node:
         yield "analyzer_module", self.analyzer_module
 
 
-@dataclass
+@define
 class ModuleAddition:
     analyzer_module: AnalyzerModule
-    parameter_runs: list[AnalyzerParameterValues]
+    parameter_runs: list[PipelineParameterValues]
     this_module_parameters: ModuleParameterValues
 
 
-class Analyzer:
-    def __init__(self):
-        self.all_modules = []
-        self.base_pipelines: dict[str, list[Node]] = {}
-
-    def initModules(self, metadata):
-        for m in self.all_modules:
-            m.baseInit(metadata)
-
-    def getUniqueNode(self, pipeline, module):
-        base = module.name()
-        to_use = base
-        i = 0
-        while any(
-            x.node_id == to_use
-            for x in it.chain(pipeline, *self.base_pipelines.values())
-        ):
-            i += 1
-            to_use = base + "-" + str(i)
-        found = next((x for x in self.all_modules if x == module), None)
-        if found is not None:
-            return Node(to_use, found)
-        else:
-            n = Node(to_use, module)
-            self.all_modules.append(module)
-            return n
-
-    def addPipeline(self, name, pipeline):
-        ret = []
-        for module in pipeline:
-            ret.append(self.getUniqueNode(ret, module))
-        self.base_pipelines[name] = ret
-
-    def runPipelineWithParameters(
-        self,
-        columns,
-        pipeline,
-        params,
-        start=None,
-        freeze_pipeline=False,
-        handle_results=True,
-    ):
-        complete_pipeline = []
-        logger.info(f"Running pipeline {pipeline} with parameters {params}")
-        to_add = deque(pipeline)
-        previous = None
-        if handle_results:
-            result_container = ResultContainer(identity="container")
-
-        while to_add:
-            head = to_add.popleft()
-            complete_pipeline.append(head)
-            logger.info(f"Running node {head}")
-            columns, results = head(columns, params)
-            logger.info(f"Node produced {len(results)} results")
-            if not handle_results:
-                continue
-            results = deque(results)
-            while results:
-                res = results.popleft()
-                if isinstance(res, AnalyzerResult):
-                    result_container.addResult(res)
-                if isinstance(res, ModuleAddition) and not freeze_pipeline:
-                    logger.info(f"Adding new node {res} to pipeline")
-                    module = res.analyzer_module
-                    module.baseInit(None)
-                    param_req = res.parameter_runs
-                    if not param_req:
-                        all_results.append(results)
-                        to_add.appendleft(self.getUniqueNode(complete_pipeline, module))
-                    else:
-                        everything = []
-                        logger.info(f"Running multi-parameter pipeline")
-                        for params_set in param_req:
-                            c, _ = self.runPipelineWithParameters(
-                                None,
-                                complete_pipeline,
-                                params_set,
-                                freeze_pipeline=True,
-                                handle_results=False,
-                            )
-                            everything.append((params_set, c))
-                        logger.info(
-                            f"Running node {res} with {len(everything)} parameter sets"
-                        )
-                        _, r = module(everything, res.this_module_parameters)
-                        results.extendleft(r)
-        return columns, results
-
-    def __rich_repr__(self):
-        yield "all_modules", self.all_modules
-        yield "base_pipelines", self.base_pipelines
-
-    def run(self, column_source):
-        pass
-
-
-@dataclass
+@define
 class ColumnView:
     _events: Any
-    _column_provenance: dict[Column, ModuleProvenance]
-    _current_provenance: ModuleProvenance | None = None
+    _column_provenance: dict[Column, int]
+    _current_provenance: int | None = None
     _allowed_inputs: ColumnCollection | None = None
     _allowed_outputs: ColumnCollection | None = None
     _allow_filter: bool = True
     metadata: Any | None = None
-    pipeline_data: dict[str, Any] = field(default_factory=dict)
+    pipeline_data: dict[str, Any] = field(factory=dict)
 
-    @dataclass(frozen=True)
+    @define(frozen=True)
     class Key:
         metadata: Any
         pipeline_data: dict[str, Any]
@@ -773,8 +720,8 @@ class ColumnView:
 
     def copy(self):
         return ColumnView(
-            _events=copy.copy(self._events),
-            _column_provenance=copy.copy(self._column_provenance),
+            events=copy.copy(self._events),
+            column_provenance=copy.copy(self._column_provenance),
             metadata=copy.copy(self.metadata),
             pipeline_data=copy.copy(self.pipeline_data),
         )
@@ -782,9 +729,9 @@ class ColumnView:
     @staticmethod
     def fromEvents(events, provenance):
         return ColumnView(
-            _events=events,
-            _column_provenance={x: provenance for x in getAllColumns(events)},
-            _current_provenance=provenance,
+            events=events,
+            column_provenance={x: provenance for x in getAllColumns(events)},
+            current_provenance=provenance,
         )
 
     def getKeyForColumns(self, columns):
@@ -824,12 +771,12 @@ class ColumnView:
         self._column_provenance = {
             x: y for x, y in self._column_provenance.items() if x in all_columns
         }
-        logger.info(
-            f"Adding column {column} to events with provenance {self._current_provenance}"
-        )
         for c in all_columns:
             if column.contains(c):
                 self._column_provenance[c] = self._current_provenance
+                logger.info(
+                    f"Adding column {c} to events with provenance {self._current_provenance}"
+                )
 
     def setColumnProvenance(self, column, provenance):
         columns = Column(column)
@@ -850,7 +797,7 @@ class ColumnView:
 
     def addColumnsFrom(self, other, columns):
         for column in columns:
-            with self.useProvenance(other.getProvenance(column)[column]):
+            with self.useKey(other.getProvenance(column)[column]):
                 self[column] = other[column]
 
     def withColumnFrom(self, other, columns):
@@ -868,7 +815,7 @@ class ColumnView:
         return new_cols
 
     @contextlib.contextmanager
-    def useProvenance(self, provenance: ModuleProvenance):
+    def useKey(self, provenance: ModuleProvenance):
         old_provenance = self._current_provenance
         self._current_provenance = provenance
         yield
@@ -905,7 +852,7 @@ def mergeColumns(column_views):
     return ret
 
 
-@dataclass
+@define
 class GoodJetMaker(AnalyzerModule):
     input_col: Column
     output_col: Column
@@ -920,11 +867,11 @@ class GoodJetMaker(AnalyzerModule):
         columns[self.output_col] = good_jets
         return columns, {}
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_col]
 
 
-@dataclass
+@define
 class BQuarkMaker(AnalyzerModule):
     input_jets: Column
     output_col: Column
@@ -936,11 +883,11 @@ class BQuarkMaker(AnalyzerModule):
         columns[self.output_col] = bjets
         return columns, {}
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_jets]
 
 
-@dataclass
+@define
 class SomeScaleFactor(AnalyzerModule):
     input_jets: Column
 
@@ -965,14 +912,20 @@ class SomeScaleFactor(AnalyzerModule):
                     tags={
                         "weight_variation",
                     },
-                )
+                ),
+                "other_parameter": ParameterSpec(
+                    default_value=1,
+                    possible_values=[1, 2, 3],
+                    tags={},
+                ),
             }
         )
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_jets]
 
-@dataclass
+
+@define
 class SomeOtherScaleFactor(AnalyzerModule):
     input_jets: Column
 
@@ -1001,16 +954,18 @@ class SomeOtherScaleFactor(AnalyzerModule):
             }
         )
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_jets]
 
-@dataclass
+
+@define
 class SomeShapeScaleFactor(AnalyzerModule):
     input_jets: Column
     output_jets: Column
 
     def run(self, columns, params):
         variation = params["variation"]
+        columns[self.output_jets] = columns[self.input_jets]
         return columns, {}
 
     def getParameterSpec(self):
@@ -1018,7 +973,13 @@ class SomeShapeScaleFactor(AnalyzerModule):
             {
                 "variation": ParameterSpec(
                     default_value="central",
-                    possible_values=["central", "shape_up_1", "shape_down_1", "shape_up_2", "shape_down_2"],
+                    possible_values=[
+                        "central",
+                        "shape_up_1",
+                        "shape_down_1",
+                        "shape_up_2",
+                        "shape_down_2",
+                    ],
                     tags={
                         "shape_variation",
                     },
@@ -1026,14 +987,14 @@ class SomeShapeScaleFactor(AnalyzerModule):
             }
         )
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_jets]
 
 
-@dataclass
+@define
 class NObjFilter(AnalyzerModule):
-    out_name: str
-    input_col: str
+    selection_name: str
+    input_col: Column
     min_count: int | None = None
     max_count: int | None = None
 
@@ -1048,16 +1009,16 @@ class NObjFilter(AnalyzerModule):
                 sel = sel & (count <= self.max_count)
             else:
                 sel = count <= self.max_count
-        columns["Selection", self.out_name] = sel
+        columns["Selection", self.selection_name] = sel
         return columns, {}
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.input_col]
 
 
-@dataclass
+@define
 class LoadColumns(AnalyzerModule):
-    def getInputs(self):
+    def getInputs(self, metadata):
         return []
 
     def getParameterSpec(self):
@@ -1069,10 +1030,7 @@ class LoadColumns(AnalyzerModule):
             {fname: "Events"},
             schemaclass=NanoAODSchema,
         ).events()
-        ret = ColumnView.fromEvents(
-            events,
-            self.getProvenance(None, params),
-        )
+        ret = ColumnView.fromEvents(events, self.getKey(None, params))
         return ret, []
 
 
@@ -1080,10 +1038,10 @@ def getPipelineSpecs(pipeline):
     ret = {}
     for node in pipeline:
         ret[node.node_id] = node.getModuleSpec()
-    return AnalyzerParameterSpec(ret)
+    return PipelineParameterSpec(ret)
 
 
-@dataclass
+@define
 class HLTPass(AnalyzerModule):
     out_name: str
     hlt_trigger_names: list[str]
@@ -1098,16 +1056,16 @@ class HLTPass(AnalyzerModule):
     def init(self, config):
         pass
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [Column("HLT")]
 
 
-@dataclass
+@define
 class SelectOnColumns(AnalyzerModule):
-    column_names: list[Column]
+    column_names: list[str]
 
     def run(self, columns, params):
-        cols = self.getInputs()
+        cols = self.getInputs(columns.metadata)
         ret = columns[cols[0]]
         for name in cols[1:]:
             ret = ret & columns[name]
@@ -1117,25 +1075,30 @@ class SelectOnColumns(AnalyzerModule):
     def init(self, config):
         pass
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [Column("Selection") + x for x in self.column_names]
 
 
-@dataclass
+@define
 class HistogramBuilder(AnalyzerModule):
     product_name: str
     columns: list[Column]
     axes: list[Any]
 
-    def run(self, columns_set, params):
+    def run(self, columns_set, params, pipeline_spec):
         breakpoint()
         return None, []
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [*self.columns, Column("Categories")]
 
+    def wantsPipelineSpec(self):
+        return True
 
-def makeHistogram(columns, params, name, axes, data, description, want_variations=None):
+
+def makeHistogram(
+    histbuilder, columns, params, name, axes, data, description, want_variations=None
+):
     if not isinstance(data, (list, tuple)):
         data = [data]
         axes = [axes]
@@ -1152,7 +1115,7 @@ def makeHistogram(columns, params, name, axes, data, description, want_variation
     )
 
 
-@dataclass
+@define
 class TestHistogram(AnalyzerModule):
     col: Column
 
@@ -1164,7 +1127,7 @@ class TestHistogram(AnalyzerModule):
     def init(self, config):
         pass
 
-    def getInputs(self):
+    def getInputs(self, metadata):
         return [self.col]
 
 
@@ -1227,6 +1190,131 @@ class TestHistogram(AnalyzerModule):
 #     pass
 #
 #
+converter = Converter()
+union_strategy = ft.partial(configure_tagged_union, tag_name="type_name")
+include_subclasses(AnalyzerModule, converter, union_strategy=union_strategy)
+
+
+class Analyzer:
+    def __init__(self):
+        self.all_modules = []
+        self.base_pipelines: dict[str, list[Node]] = {}
+
+    def initModules(self, metadata):
+        for m in self.all_modules:
+            m.preloadForMeta(metadata)
+
+    def getUniqueNode(self, pipeline, module):
+        base = module.name()
+        to_use = base
+        i = 0
+        while any(
+            x.node_id == to_use
+            for x in it.chain(pipeline, *self.base_pipelines.values())
+        ):
+            i += 1
+            to_use = base + "-" + str(i)
+        found = next((x for x in self.all_modules if x == module), None)
+        if found is not None:
+            return Node(to_use, found)
+        else:
+            n = Node(to_use, module)
+            self.all_modules.append(module)
+            return n
+
+    def addPipeline(self, name, pipeline):
+        ret = []
+        for module in pipeline:
+            ret.append(self.getUniqueNode(ret, module))
+        self.base_pipelines[name] = ret
+
+    def runPipelineWithParameters(
+        self,
+        columns,
+        pipeline,
+        params,
+        start=None,
+        freeze_pipeline=False,
+        handle_results=True,
+    ):
+        complete_pipeline = []
+        logger.info(f"Running pipeline {pipeline} with parameters {params}")
+        to_add = deque(pipeline)
+        previous = None
+        if handle_results:
+            result_container = ResultContainer(identity="container")
+
+        while to_add:
+            head = to_add.popleft()
+            complete_pipeline.append(head)
+            current_spec = getPipelineSpecs(complete_pipeline)
+            logger.info(f"Running node {head}")
+            columns, results = head(columns, params, current_spec)
+            logger.info(f"Node produced {len(results)} results")
+            if not handle_results:
+                continue
+            results = deque(results)
+
+            while results:
+                res = results.popleft()
+                if isinstance(res, AnalyzerResult):
+                    result_container.addResult(res)
+                if isinstance(res, ModuleAddition) and not freeze_pipeline:
+                    logger.info(f"Adding new node {res} to pipeline")
+                    module = res.analyzer_module
+                    param_req = res.parameter_runs
+                    if not param_req:
+                        all_results.append(results)
+                        to_add.appendleft(self.getUniqueNode(complete_pipeline, module))
+                    else:
+                        everything = []
+                        logger.info(f"Running multi-parameter pipeline")
+                        for params_set in param_req:
+                            c, _ = self.runPipelineWithParameters(
+                                None,
+                                complete_pipeline,
+                                params_set,
+                                freeze_pipeline=True,
+                                handle_results=False,
+                            )
+                            everything.append((params_set, c))
+                        logger.info(
+                            f"Running node {res} with {len(everything)} parameter sets"
+                        )
+                        _, r = module(
+                            everything, res.this_module_parameters, current_spec
+                        )
+                        results.extendleft(r)
+        return columns, results
+
+    def __rich_repr__(self):
+        yield "all_modules", self.all_modules
+        yield "base_pipelines", self.base_pipelines
+
+    def run(self, column_source):
+        pass
+
+
+module_unstr = converter.get_unstructure_hook(AnalyzerModule)
+module_str = converter.get_structure_hook(AnalyzerModule)
+
+
+@converter.register_structure_hook
+def deserialize(data, t) -> Analyzer:
+    analyzer = t()
+    for k, v in data.items():
+        analyzer.addPipeline(k, converter.structure(v, list[AnalyzerModule]))
+    return analyzer
+
+
+@converter.register_unstructure_hook
+def serialize(analyzer: Analyzer):
+    return {
+        x: converter.unstructure([z.analyzer_module for z in y], list[AnalyzerModule])
+        for x, y in analyzer.base_pipelines.items()
+    }
+
+
 if __name__ == "__main__":
     load = LoadColumns()
     hlt_pass = HLTPass("pass_trigger", ["PFHT1050"])
@@ -1271,9 +1359,29 @@ if __name__ == "__main__":
     analyzer.initModules(None)
     p1 = analyzer.base_pipelines["pipe1"]
     spec = getPipelineSpecs(p1)
-    vals = spec.getWithValues({"LoadColumns": {"chunk": "nano_dy.root"}})
-    print(spec)
+    # print(spec)
+    # print(spec.getTags("shape_variation"))
     print(spec.getTags("weight_variation"))
+
+    def toTuples(d):
+        return {(x,y): v for x,s in d.items() for y,v in s.items() }
+
+    tup = toTuples(spec.getTags("weight_variation"))
+    ret = []
+
+    vals = spec.getWithValues({"LoadColumns": {"chunk": "nano_dy.root"}})
+    print(toTuples(spec.getTags("weight_variation")))
+
+    # us = converter.unstructure(analyzer)
+    # print(us)
+    # a = converter.structure(us, Analyzer)
+    # print(a)
+
+    # print(vals.asdict())
+    # vals = vals.withNewValues({"SomeScaleFactor": {"variation": "up"}})
+    # # print(vals.asdict())
+    # # print(spec)
+    # # print(spec.getTags("weight_variation"))
     # analyzer.runPipelineWithParameters(None, p1, vals)
     #
     # p1 = analyzer.base_pipelines["pipe2"]
