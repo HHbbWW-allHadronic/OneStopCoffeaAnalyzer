@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 import numbers
 import itertools as it
 import dask_awkward as dak
@@ -45,11 +46,11 @@ log = logging.getLogger("my_app")
 logger = logging.getLogger(__name__)
 
 
-def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any], path=[]):
+def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
     for key in b:
         if key in a:
             if isinstance(a[key], dict) and isinstance(b[key], dict):
-                mergeUpdate(a[key], b[key], path + [str(key)])
+                mergeUpdate(a[key], b[key])
             else:
                 a[key] = b[key]
         else:
@@ -347,7 +348,9 @@ class ModuleParameterValues:
         d.update(values)
         return self.spec.getWithValues(d)
 
-    @ft.lru_cache()
+    def __iter__(self):
+        return iter(self.param_values)
+
     def asdict(self):
         return dict(self.param_values)
 
@@ -396,6 +399,12 @@ class PipelineParameterValues:
     def __repr__(self):
         return str(self)
 
+    def __iter__(self):
+        return iter(self.values)
+
+    def getAllByName(self, name):
+        return {(x, y): v for x, u in self for y, v in u if y == name}
+
 
 # def mergeAnalyzerValues(first, *rest):
 #     while rest:
@@ -437,7 +446,9 @@ class ModuleParameterSpec:
                 if spec.possible_values is None or v in spec.possible_values:
                     ret[name] = values[name]
                 else:
-                    raise RuntimeError()
+                    raise RuntimeError(
+                        f"Value {v} not in the list of possible values for parameter {name}. Allowed values are {spec.possible_values}"
+                    )
             else:
                 if spec.default_value is None:
                     raise RuntimeError(
@@ -473,6 +484,41 @@ class PipelineParameterSpec:
         return tags
 
 
+def toTuples(d):
+    return {(x, y): v for x, s in d.items() for y, v in s.items()}
+
+
+def fromTuples(d):
+    ret = defaultdict(dict)
+    for (k1, k2), v in d.items():
+        ret[k1][k2] = v
+    return dict(ret)
+
+
+def buildCombos(spec, tag):
+    ret = []
+    tup = toTuples(spec.getTags(tag))
+    central = {k: v.default_value for k, v in tup.items()}
+    for k, v in tup.items():
+        for p in v.possible_values:
+            if p == "central":
+                continue
+            c = copy.deepcopy(central)
+            c[k] = p
+            ret.append(c)
+
+    ret = [fromTuples(x) for x in ret]
+
+    return ret
+
+
+def buildVariations(spec):
+    weights = buildCombos(spec, "weight_variation")
+    shapes = buildCombos(spec, "shape_variation")
+    all_vars = weights + shapes
+    return all_vars
+
+
 @define
 class AnalyzerModule(abc.ABC):
     __cache: dict = field(factory=dict, init=False, repr=False)
@@ -486,9 +532,6 @@ class AnalyzerModule(abc.ABC):
     @abc.abstractmethod
     def getInputs(self, metadata) -> ColumnCollection:
         pass
-
-    def wantsPipelineSpec(self, metadata) -> bool:
-        return False
 
     def inputs(self, metadata) -> ColumnCollection:
         return self.getInputs(metadata)
@@ -534,11 +577,8 @@ class AnalyzerModule(abc.ABC):
             with contextlib.ExitStack() as stack:
                 for c in just_cols:
                     stack.enter_context(c.useKey(key))
-                    stack.enter_context(c.allowedInputs(self.inputs(columns.metadata)))
-                if self.wantsPipelineSpec(columns.metadata):
-                    ret = self.run(columns, params, pipeline_spec=pipeline_spec)
-                else:
-                    ret = self.run(columns, params)
+                    stack.enter_context(c.allowedInputs(self.inputs(c.metadata)))
+                ret = self.run(columns, params)
         self.__cache[key] = ret
         return ret
 
@@ -1084,9 +1124,25 @@ class HistogramBuilder(AnalyzerModule):
     product_name: str
     columns: list[Column]
     axes: list[Any]
+    variation_name: str = "variation"
+    central_name: str = "central"
 
-    def run(self, columns_set, params, pipeline_spec):
-        breakpoint()
+    def run(self, column_sets, params):
+        for cset in column_sets:
+            params = cset[0]
+            noncentral = {
+                k: v
+                for k, v in params.getAllByName(self.variation_name).items()
+                if v != self.central_name
+            }
+            if len(noncentral) == 0:
+                name ="central"
+            elif len(noncentral) == 1:
+                name = next(iter(noncentral.values()))
+            else:
+                raise RuntimeError(f"Multiple active systematics {noncentral}")
+            print(name)
+
         return None, []
 
     def getInputs(self, metadata):
@@ -1096,9 +1152,7 @@ class HistogramBuilder(AnalyzerModule):
         return True
 
 
-def makeHistogram(
-    histbuilder, columns, params, name, axes, data, description, want_variations=None
-):
+def makeHistogram(columns, params, name, axes, data, description, want_variations=None):
     if not isinstance(data, (list, tuple)):
         data = [data]
         axes = [axes]
@@ -1110,9 +1164,7 @@ def makeHistogram(
         columns[name] = d
 
     b = HistogramBuilder(names, names, axes)
-    return ModuleAddition(
-        b, [params.all_parameters], b.getParameterSpec().getWithValues({})
-    )
+    return ModuleAddition(b, buildVariations, b.getParameterSpec().getWithValues({}))
 
 
 @define
@@ -1269,7 +1321,11 @@ class Analyzer:
                     else:
                         everything = []
                         logger.info(f"Running multi-parameter pipeline")
-                        for params_set in param_req:
+                        param_dicts = param_req(current_spec)
+                        print(param_dicts)
+                        to_run = [params.withNewValues(x) for x in param_dicts]
+
+                        for params_set in to_run:
                             c, _ = self.runPipelineWithParameters(
                                 None,
                                 complete_pipeline,
@@ -1341,6 +1397,7 @@ if __name__ == "__main__":
         SomeOtherScaleFactor(Column("CorrectedJets")),
         SomeOtherScaleFactor(Column("CorrectedJets")),
         test_h,
+        TestHistogram(Column("MedBJet")),
     ]
     only_trigger = [
         load,
@@ -1359,32 +1416,5 @@ if __name__ == "__main__":
     analyzer.initModules(None)
     p1 = analyzer.base_pipelines["pipe1"]
     spec = getPipelineSpecs(p1)
-    # print(spec)
-    # print(spec.getTags("shape_variation"))
-    print(spec.getTags("weight_variation"))
-
-    def toTuples(d):
-        return {(x,y): v for x,s in d.items() for y,v in s.items() }
-
-    tup = toTuples(spec.getTags("weight_variation"))
-    ret = []
-
     vals = spec.getWithValues({"LoadColumns": {"chunk": "nano_dy.root"}})
-    print(toTuples(spec.getTags("weight_variation")))
-
-    # us = converter.unstructure(analyzer)
-    # print(us)
-    # a = converter.structure(us, Analyzer)
-    # print(a)
-
-    # print(vals.asdict())
-    # vals = vals.withNewValues({"SomeScaleFactor": {"variation": "up"}})
-    # # print(vals.asdict())
-    # # print(spec)
-    # # print(spec.getTags("weight_variation"))
-    # analyzer.runPipelineWithParameters(None, p1, vals)
-    #
-    # p1 = analyzer.base_pipelines["pipe2"]
-    # spec = getPipelineSpecs(p1)
-    # vals = spec.getWithValues({"LoadColumns-1": {"chunk": "nano_dy.root"}})
-    # analyzer.runPipelineWithParameters(None, p1, vals)
+    analyzer.runPipelineWithParameters(None, p1, vals)
