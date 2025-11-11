@@ -15,7 +15,7 @@ class Executor(abc.ABC, BaseModel):
     def run(self, tasks: list[AnalysisTask], result_complete_callback=None):
         pass
 
-    def setup(self):
+    def setup(self, needed_resources):
         pass
 
     def teardown(self):

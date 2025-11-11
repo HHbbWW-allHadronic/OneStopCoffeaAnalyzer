@@ -1,288 +1,201 @@
+from __future__ import annotations
+import numpy as np
+import cProfile, pstats, io
+
+import timeit
+import uproot
+from superintervals import IntervalMap
+import enum
+import math
+import random
+
+import numbers
 import itertools as it
-import awkward as ak
+import dask_awkward as dak
+import hist
+from attrs import asdict, define, make_class, Factory, field
+from cattrs import structure, unstructure, Converter
+import hist
+from coffea.nanoevents import NanoAODSchema
+from attrs import asdict, define, make_class, Factory, field
+import cattrs
+from cattrs import structure, unstructure, Converter
+from cattrs.strategies import include_subclasses, configure_tagged_union
+import cattrs
+from attrs import make_class
+
+from collections.abc import Collection, Iterable
+from collections import deque, defaultdict
+
+import contextlib
+import uuid
+import functools as ft
+
+from rich import print
+import copy
 import dask
+import abc
+import awkward as ak
+from typing import Any, Literal
+from functools import cached_property
+import awkward as ak
+from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 import logging
-from dataclasses import dataclass
-from collections.abc import Sequence
+from rich.logging import RichHandler
+from analyzer.core.serialization import converter
+from analyzer.core.analyzer_modules import AnalyzerModule
+from analyzer.core.columns import ColumnView
+from analyzer.core.results import WrappedResult
 
 
-from analyzer.core.region_analyzer import RegionAnalyzer
-
-from analyzer.datasets import SampleParams
-from analyzer.core.columns import Columns
-from analyzer.core.selection import SelectionSet, Selection, SelectionFlow
-import analyzer.core.results as results
-from .weights import Weighter
-from analyzer.core.histograms import Hist
-from concurrent.futures import ProcessPoolExecutor, TimeoutError
-
-logger = logging.getLogger(__name__)
+def getPipelineSpecs(pipeline):
+    ret = {}
+    for node in pipeline:
+        ret[node.node_id] = node.getModuleSpec()
+    return PipelineParameterSpec(ret)
 
 
-def callTimeout(process_timeout, function, *args, **kwargs):
-    with ProcessPoolExecutor(max_workers=1) as executor:
-        try:
-            future = executor.submit(function, *args, **kwargs)
-            return future.result(timeout=process_timeout)
-        except TimeoutError:
-            for pid, process in executor._processes.items():
-                process.terminate()
-            raise
-
-
-def checkProcess(process, max_mem):
-    try:
-        memory = psutil.Process(process.pid).memory_info().rss
-    except (ProcessLookupError, psutil.NoSuchProcess, psutil.AccessDenied):
-        return
-
-    if memory / self.memory_limit <= self.memory_terminate_fraction:
-        return
-    else:
-        process.terminate()
-
-
-@dataclass
 class Analyzer:
-    """
-    Contains a list of RegionAnalyzers, which are run in a way to limit duplicated processing.
-    """
+    def __init__(self):
+        self.all_modules = []
+        self.base_pipelines: dict[str, list[Node]] = {}
 
-    region_analyzers: list[RegionAnalyzer]
+    def initModules(self, metadata):
+        for m in self.all_modules:
+            m.preloadForMeta(metadata)
 
-    def _runBranch(
+    def getUniqueNode(self, pipeline, module):
+        base = module.name()
+        to_use, i = base, 0
+        while any(
+            x.node_id == to_use
+            for x in it.chain(pipeline, *self.base_pipelines.values())
+        ):
+            i += 1
+            to_use = base + "-" + str(i)
+        found = next((x for x in self.all_modules if x == module), None)
+        if found is not None:
+            return Node(to_use, found)
+        else:
+            n = Node(to_use, module)
+            self.all_modules.append(module)
+            return n
+
+    def addPipeline(self, name, pipeline):
+        ret = []
+        ret.append(self.getUniqueNode(ret, LoadColumns()))
+        for module in pipeline:
+            ret.append(self.getUniqueNode(ret, module))
+        self.base_pipelines[name] = ret
+
+    def runPipelineWithParameters(
         self,
-        region_analyzers: Sequence[RegionAnalyzer],
-        columns: Columns,
-        params: SampleParams,
-        preselection: Selection,
-        preselection_set: SelectionSet,
-        histogram_storage: dict[str, Hist],
-        cutflow_storage: dict[str, SelectionFlow],
-        weight_storage: dict[str, float],
-        pre_sel_weight_storage: dict[str, float],
-        variation=None,
-    ) -> dict[tuple[str, str], results.SubSectorResult]:
-        """
-        Run a "Branch" for a given shape variation
-        """
-        logger.info(f"Running analysis branch for variation {variation}")
-        selection_set = SelectionSet(parent_selection=preselection)
-        # Set columns to use variation
-        columns = columns.withSyst(variation)
-        if columns.delayed:
-            size = None
-        else:
-            size = ak.num(columns.events, axis=0)
-        # Scale systematics are included only on the nominal branch
-        weighter = Weighter(size=size, ignore_systematics=variation is not None)
-        for ra in region_analyzers:
-            ra.runObjects(columns, params)
-
-        for ra in region_analyzers:
-            ra.runWeights(columns, params, weighter)
-
-        for ra in region_analyzers:
-            hs = histogram_storage[ra.region_name]
-            selection = ra.runSelection(columns, params, selection_set)
-            if variation is None:
-                # Only save cutflow if we are on the nominal path
-                cutflow_storage[ra.region_name] = selection.getSelectionFlow()
-
-            if pre_sel_weight_storage is not None and variation is None:
-                names = weighter.weight_names
-                if "pos_neg" in names:
-                    pre_sel_weight_storage[ra.region_name]["unweighted"] = ak.sum(
-                        weighter.weight(
-                            include=["pos_neg"],
-                        ),
-                        axis=0,
-                    )
-                else:
-                    pre_sel_weight_storage[ra.region_name]["unweighted"] = ak.num(
-                        columns.events, axis=0
-                    )
-                for name in names:
-                    pre_sel_weight_storage[ra.region_name][name] = ak.sum(
-                        weighter.weight(
-                            include=[name],
-                        ),
-                        axis=0,
-                    )
-
-            mask = selection.getMask()
-            # Only apply mask if there is something to mask
-            if mask is not None:
-                new_cols = columns.withEvents(columns.events[mask])
-            else:
-                new_cols = columns
-            w = weighter.withMask(mask)
-
-            # Once the final selection has been performed for a region
-            # we can run the remainder of the analyzer
-            if variation is None:
-                ret = ra.runPostSelection(
-                    new_cols, params, hs, w, weight_storage[ra.region_name]
-                )
-                return ret
-            else:
-                ra.runPostSelection(new_cols, params, hs, w)
-                return None
-
-    def _runPreselectionGroup(
-        self, events, params, region_analyzers, preselection, preselection_set
+        columns,
+        pipeline,
+        params,
+        pipeline_meta=None,
+        freeze_pipeline=False,
+        handle_results=True,
     ):
-        # Each region has its own histograms
-        histogram_storage = {ra.region_name: {} for ra in region_analyzers}
-        # Each region has its own cutflow
-        cutflow_storage = {ra.region_name: {} for ra in region_analyzers}
-        # Each region has its own weights
-        weight_storage = {ra.region_name: {} for ra in region_analyzers}
-
-        # Each region has its own weights
-        pre_sel_weight_storage = {ra.region_name: {} for ra in region_analyzers}
-
-        mask = preselection.getMask()
-        if mask is not None:
-            events = events[mask]
-        # Events are wrapped to allow for dyanamic selection of columns
-        # based on the active shape systematic
-        columns = Columns(events)
-        for ra in region_analyzers:
-            # Generate corrections, at this point the analyzer will have
-            # branches corresponding to shape variations
-            ra.runCorrections(events, params, columns)
-
-        branches = [None] + columns.allShapes()
-        logger.info(f"Known variations are {branches}")
-        # Run over each shape variation in the analysis
-        for variation in branches:
-            logger.info(f'Running branch for variation "{variation}"')
-            this_run = self._runBranch(
-                region_analyzers,
-                columns,
-                params,
-                preselection,
-                preselection_set,
-                histogram_storage,
-                cutflow_storage,
-                weight_storage,
-                pre_sel_weight_storage,
-                variation=variation,
-            )
-            if variation is None:
-                other_results = this_run
-
-        ret = {
-            ra.region_name: results.SubSectorResult(
-                region=ra,
-                base_result=results.BaseResult(
-                    histograms=histogram_storage[ra.region_name],
-                    selection_flow=cutflow_storage[ra.region_name],
-                    post_sel_weight_flow=weight_storage[ra.region_name],
-                    pre_sel_weight_flow=pre_sel_weight_storage[ra.region_name],
-                    other_data=other_results,
-                ),
-            )
-            for ra in region_analyzers
-        }
-        return ret
-
-    def run(self, events, params):
-        """
-        Run analyzer over a collection of events, given some parameters.
-        """
-        preselection_set = SelectionSet()
-        region_preselections = []
-        for analyzer in self.region_analyzers:
-            # Get the analyzer and the preselection for each region
-            region_preselections.append(
-                (analyzer, analyzer.runPreselection(events, params, preselection_set))
-            )
-        k = lambda x: x[1].names
-
-        # Group regions that share the same preselection.
-        presel_regions = it.groupby(sorted(region_preselections, key=k), key=k)
-        presel_regions = {x: list(y) for x, y in presel_regions}
-        ret = {}
-        for presels, items in presel_regions.items():
-            # Separately run each collection of regions sharing a preselection
-            logger.info(
-                f'Running over preselection region "{presels}" containing "{len(items)}" regions.'
-            )
-            sel = items[0][1]
-            ret.update(
-                self._runPreselectionGroup(
-                    events, params, [x[0] for x in items], sel, preselection_set
-                )
-            )
-        return results.MultiSectorResult(ret)
-
-    def runDelayed(self, *args, **kwargs):
-        return dask.delayed(self.run)(*args, **kwargs)
-
-    def ensureFunction(self, module_repo):
-        for ra in self.region_analyzers:
-            ra.ensureFunction(module_repo)
-
-
-def runAnalyzerChunks(
-    analyzer,
-    fileset,
-    params,
-    known_form=None,
-    treepath="Events",
-    timeout=None,
-    return_exceptions_as_values=True,
-):
-    try:
-        if timeout and False:
-            logger.info(f"Starting run of analyzer using file set: {fileset}")
-            return callTimeout(
-                timeout,
-                runAnalyzerChunks,
-                analyzer,
-                fileset,
-                params,
-                known_form=known_form,
-                treepath=treepath,
-                timeout=None,
-            )
+        complete_pipeline = []
+        column_metadata = columns.metadata
+        pipeline_metadata = pipeline_meta or {}
+        to_add = deque(pipeline)
+        if handle_results:
+            result_container = ResultContainer()
         else:
-            from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-            from analyzer.logging import setup_logging
+            result_container = None
 
-            setup_logging()
+        while to_add:
+            head = to_add.popleft()
+            complete_pipeline.append(head)
+            current_spec = getPipelineSpecs(complete_pipeline)
+            logger.info(f"Running node {head}")
+            columns = columns.copy()
+            columns, results = head(columns, params)
+            logger.info(f"Node produced {len(results)} results")
 
-            chunks = fileset.toCoffeaDataset()["files"]
+            if not handle_results:
+                continue
+            results = deque(results)
 
-            logger.info(f"Loading events from {fileset}")
-            events = NanoEventsFactory.from_root(
-                chunks,
-                schemaclass=NanoAODSchema,
-                known_base_form=known_form,
-                delayed=True,
-                uproot_options=dict(use_threads=False),
-            ).events()
-
-            result = analyzer.run(events, params)
-            result = result.model_dump()
-            result = dask.compute(result, scheduler="threads")[0]
-            logger.info(f"Analysis completed successfully for {fileset}")
-            result = results.MultiSectorResult(**result)
-
-            for sector_result in result.values():
-                for k in sector_result.base_result.other_data:
-                    v = sector_result.base_result.other_data[k]
-                    if isinstance(v, ak.Array):
-                        sector_result.base_result.other_data[k] = ak.to_numpy(v)
+            while results:
+                res = results.popleft()
+                if isinstance(res, AnalyzerResult):
+                    result_container.addResult(
+                        WrappedResult(column_metadata, pipeline_metadata, res)
+                    )
+                elif isinstance(res, ModuleAddition) and not freeze_pipeline:
+                    module = res.analyzer_module
+                    if res.run_builder is None:
+                        logger.info(f"Adding new module {module} to pipeline")
+                        to_add.appendleft(self.getUniqueNode(complete_pipeline, module))
                     else:
-                        sector_result.base_result.other_data[k] = v
+                        logger.info(f"Running multi-parameter pipeline")
 
-            return (fileset, result)
+                        param_dicts = res.run_builder(current_spec, columns.metadata)
+                        to_run = [params.withNewValues(x) for x in param_dicts]
 
-    except Exception as e:
-        if return_exceptions_as_values:
-            return e
-        else:
-            raise e
+                        everything = []
+                        for params_set in to_run:
+                            c, _ = self.runPipelineWithParameters(
+                                orig_columns,
+                                complete_pipeline,
+                                params_set,
+                                pipeline_name="NONE",
+                                freeze_pipeline=True,
+                                handle_results=False,
+                            )
+                            everything.append((params_set, c))
+                        logger.info(
+                            f"Running node {module} with {len(everything)} parameter sets"
+                        )
+                        _, r = module(
+                            everything, params.withNewValues(res.this_module_parameters)
+                        )
+                        results.extendleft(r)
+                else:
+                    raise RuntimeError(
+                        f"Invalid object type returned from analyzer module."
+                    )
+        return columns, result_container
+
+    def __rich_repr__(self):
+        yield "all_modules", self.all_modules
+        yield "base_pipelines", self.base_pipelines
+
+    def run(self, chunk, pipelines=None):
+        pipelines = pipelines or list(self.base_pipelines)
+
+        result_container = ResultContainer("ChunkResult")
+
+        for k, pipeline in self.base_pipelines.items():
+            if k not in pipelines:
+                continue
+            spec = getPipelineSpecs(pipeline)
+            vals = spec.getWithValues({"chunk": chunk})
+            _, ret = self.runPipelineWithParameters(
+                None, pipeline, vals, pipeline_name=k
+            )
+            result_container.addResult(ret)
+        return result_container
+
+
+module_unstr = converter.get_unstructure_hook(AnalyzerModule)
+module_str = converter.get_structure_hook(AnalyzerModule)
+
+
+@converter.register_structure_hook
+def deserialize(data, t) -> Analyzer:
+    analyzer = t()
+    for k, v in data.items():
+        analyzer.addPipeline(k, converter.structure(v, list[AnalyzerModule]))
+    return analyzer
+
+
+@converter.register_unstructure_hook
+def serialize(analyzer: Analyzer):
+    return {
+        x: converter.unstructure([z.analyzer_module for z in y], list[AnalyzerModule])
+        for x, y in analyzer.base_pipelines.items()
+    }

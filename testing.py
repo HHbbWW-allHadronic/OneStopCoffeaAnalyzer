@@ -1,22 +1,36 @@
 from __future__ import annotations
+import numpy as np
+import cProfile, pstats, io
 
-from collections import defaultdict
+import timeit
+import uproot
+from superintervals import IntervalMap
+import enum
+import math
+import random
+
 import numbers
 import itertools as it
 import dask_awkward as dak
 import hist
 from attrs import asdict, define, make_class, Factory, field
+from cattrs import structure, unstructure, Converter
+import hist
+from coffea.nanoevents import NanoAODSchema
+from attrs import asdict, define, make_class, Factory, field
 import cattrs
 from cattrs import structure, unstructure, Converter
 from cattrs.strategies import include_subclasses, configure_tagged_union
+import cattrs
+from attrs import make_class
 
-from collections.abc import Collection
-from collections import deque
-
+from collections.abc import Collection, Iterable
+from collections import deque, defaultdict
 
 import contextlib
 import uuid
 import functools as ft
+
 from rich import print
 import copy
 import dask
@@ -34,7 +48,7 @@ FORMAT = "%(message)s"
 
 # Configure basic logging with RichHandler
 logging.basicConfig(
-    level="NOTSET",  # Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR)
+    level="WARNING",  # Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR)
     format=FORMAT,
     handlers=[RichHandler()],
 )
@@ -44,6 +58,9 @@ log = logging.getLogger("my_app")
 
 
 logger = logging.getLogger(__name__)
+
+
+EVENTS = "EVENTS"
 
 
 def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
@@ -56,6 +73,228 @@ def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
         else:
             a[key] = b[key]
     return a
+
+
+class EventBackend(str, enum.Enum):
+    coffea_virtual = "coffea_virtual"
+    coffea_dask = "coffea_dask"
+    coffea_imm = "coffea_eager"
+    rdf = "rdf"
+
+
+class DataType(str, enum.Enum):
+    mc = "mc"
+    data = "data"
+
+
+def register_module(input_columns, output_columns, configuration=None, params=None):
+    configuration = configuration or {}
+    params = params or {}
+
+    def wrapper(func):
+        getParameterSpec = lambda x: ModuleParameterSpec(params)
+        run = func
+        if callable(input_columns):
+            inputs = input_columns
+        else:
+            inputs = lambda self, metadata: [Column(x) for x in input_columns]
+        if callable(output_columns):
+            outputs = output_columns
+        else:
+            output = lambda self, metadata: [Column(x) for x in output_columns]
+        cls = make_class(
+            func.__name__,
+            configuration,
+            bases=(AnalyzerModule,),
+            class_body=dict(
+                getParameterSpec=getParameterSpec,
+                run=run,
+                inputs=inputs,
+                outputs=outputs,
+            ),
+        )
+        return cls
+
+    return wrapper
+
+
+@define
+class SourceCollection(abc.ABC):
+    nevents: int
+
+    @abc.abstractmethod
+    def getSources(self, sources: Iterable[EventSource]) -> SourceCollection: ...
+
+    @abc.abstractmethod
+    def preprocess(self): ...
+
+
+@frozen
+class LocatedPath:
+    complete_path: str
+    location: str
+
+
+class DasCollection(SourceCollection):
+    das_path: str
+    tree_name: str = "Events"
+    schema_name: str | None = None
+
+    _files: set[frozenset[LocatedPath]] | None = None
+
+    def preprocess(self):
+        self._files = getFilesDas(self.das_path)
+
+    def getSources(self):
+        if self._files is None:
+            self.preprocess()
+        return [
+            FileSource(
+                file_path=next(iter(x)),
+                tree_name=self.tree_name,
+                schema_name=self.schema_name,
+            )
+            for x in self._files
+        ]
+
+
+@define
+class EventSource(abc.ABC):
+    @abc.abstractmethod
+    def loadEvents(
+        self, backend, metadata, event_start=None, event_stop=None, view_kwargs=None
+    ) -> ColumnView: ...
+
+    @abc.abstractmethod
+    def chunks(self, chunk_size, max_chunks=None) -> Iterable[SourceChunk]: ...
+
+
+def getFileEvents(file_path, tree_name):
+    tree = uproot.open({file_path: None}, **kwargs)[tree_name]
+    nevents = tree.num_entries
+    return nevents
+
+
+class FileSource(EventSource):
+    file_path: str
+    tree_name: str = "Events"
+    schema_name: str | None = None
+
+    _nevents: int | None = field(default=None, eq=False)
+
+    def getNumEvents(self, **kwargs):
+        if self._nevents is not none:
+            return self._nevents
+        self._nevents = getFileEvents(self.file_path, self.tree_name)
+        return nevents
+
+    def chunks(self, chunk_size, max_chunks=None, exec_function=None, **kwargs):
+        nevents = self.getNumEvents(**kwargs)
+        nchunks = max(round(nevents / chunk_size), 1)
+        chunk_size = math.ceil(nevents / nchunks)
+        chunks = [
+            [
+                i * chunk_size,
+                min((i + 1) * chunk_size, nevents),
+            ]
+            for i in range(nchunks)
+        ]
+        for start, stop in chunks:
+            yield ChunkedRootFile(source_file=self, event_start=start, event_stop=stop)
+
+    def loadEvents(self, backend, start=None, stop=None, view_kwargs=None):
+        view_kwargs = view_kwargs or {}
+        view_kwargs["backend"] = backend
+        if backend == "coffea-virtual":
+            events = NanoEventsFactory.from_root(
+                {self.source_file.file_path: self.source_file.tree_name},
+                schemaclass=NanoAODSchema,
+                entry_start=start,
+                entry_stop=stop,
+                mode="virtual",
+            ).events()
+        elif backend == "coffea-dask":
+            events = NanoEventsFactory.from_root(
+                {self.source_file.file_path: self.source_file.tree_name},
+                schemaclass=NanoAODSchema,
+                entry_start=start,
+                entry_stop=stop,
+                mode="dask",
+            ).events()
+        elif backend == "coffea-eager":
+            events = NanoEventsFactory.from_root(
+                {self.source_file.file_path: self.source_file.tree_name},
+                schemaclass=NanoAODSchema,
+                entry_start=start,
+                entry_stop=stop,
+                mode="eager",
+            ).events()
+        elif backend == "RDF":
+            pass
+
+        return ColumnView.fromEvents(events, **view_kwargs)
+
+
+class Sample:
+    name: str
+    x_sec: float | None = None
+    event_source: SourceCollection
+
+
+class Dataset:
+    name: str
+    era: str | Any
+    data_type: DataType
+    samples: list[Sample] = field(factory=list)
+
+
+class SourceChunk(EventSource):
+    source: EventSource
+    event_start: int
+    event_stop: int
+
+    @property
+    def metadata(self):
+        return self.source.metadata
+
+    def chunks(self, chunk_size, max_chunks=None, **kwargs):
+        nevents = end - start
+        nchunks = max(round(nevents / chunk_size), 1)
+        chunk_size = math.ceil(nevents / nchunks)
+        chunks = [
+            [
+                i * chunk_size,
+                min((i + 1) * chunk_size, nevents),
+            ]
+            for i in range(nchunks)
+        ]
+        for start, stop in chunks:
+            yield ChunkedRootFile(source_file=self, event_start=start, event_stop=stop)
+
+    def loadEvents(self, backend, view_kwargs=None):
+        return self.source_file.loadEvents(
+            backend,
+            start=self.event_start,
+            stop=self.event_stop,
+            view_kwargs=view_kwargs,
+        )
+
+    def overlaps(self, other):
+        same_file = self.source_file.file_id == other.source_file.file_id
+        if not same_file:
+            return False
+        return (
+            self.event_start <= other.event_stop
+            and other.event_start <= self.event_stop
+        )
+
+
+@define
+class EventMultiSet(EventCollection):
+    events_collections: list[EventCollection]
+
+    def iterChunks(self, chunk_size):
+        pass
 
 
 @ft.singledispatch
@@ -80,17 +319,20 @@ def _(data: list):
 
 def coerceFields(data):
     if isinstance(data, str):
-        fields = tuple(data.split("."))
+        return tuple(data.split("."))
     elif isinstance(data, Column):
-        fields = data.fields
+        return data.fields
     else:
-        fields = data
-    return tuple(fields)
+        return data
 
 
 @define(frozen=True)
 class Column:
     fields: tuple[str, ...] = field(converter=coerceFields)
+
+    @property
+    def parent(self):
+        return self[:-1]
 
     def parts(self):
         return tuple(self.path)
@@ -102,7 +344,7 @@ class Column:
 
     def commonParent(self, other):
         l = []
-        for x, y in zip(self.iterParts(), other.iterParts()):
+        for x, y in zip(self, other):
             if x == y:
                 l.append(x)
             else:
@@ -113,9 +355,6 @@ class Column:
     def extract(self, events):
         return ft.reduce(lambda x, y: x[y], self.fields, events)
 
-    def iterParts(self):
-        return iter(self.fields)
-
     def __eq__(self, other):
         return self.fields == other.fields
 
@@ -123,7 +362,10 @@ class Column:
         return len(self.fields)
 
     def __getitem__(self, key):
-        return Column(self.fields.__getitem__(key))
+        if isinstance(key, slice):
+            return Column(self.fields.__getitem__(key))
+        else:
+            return self.fields[key]
 
     def __add__(self, other):
         return Column(self.fields + Column(other).fields)
@@ -132,7 +374,7 @@ class Column:
         return Column(Column(other).fields + self.fields)
 
     def __iter__(self):
-        return (Column(x) for x in self.fields)
+        return iter(self.fields)
 
     def __hash__(self):
         return hash(self.fields)
@@ -146,9 +388,18 @@ def daskFinalizer(data):
     return data
 
 
+def daskFinalizer(data):
+    if isinstance(data, list | dict):
+        data = dask.compute(data)[0]
+    elif isinstance(data, ak.Array):
+        data = data.to_numpy()
+    return data
+
+
 @define
 class AnalyzerResult(abc.ABC):
-    identity: str
+    name: str
+    metadata: dict[str, Any] = field(factory=dict)
 
     @abc.abstractmethod
     def __iadd__(self, other):
@@ -157,6 +408,14 @@ class AnalyzerResult(abc.ABC):
     @abc.abstractmethod
     def iscale(self, value):
         pass
+
+    # @abc.abstractmethod
+    # def summary(self):
+    #     pass
+    #
+    # @abc.abstractmethod
+    # def getApproxSize(self):
+    #     pass
 
     def finalize(self, finalizer):
         return
@@ -172,7 +431,80 @@ class AnalyzerResult(abc.ABC):
 
 
 @define
-class ResultContainer(AnalyzerResult):
+class ExecutionResult(AnalyzerResult):
+    _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
+    _HEADER_SIZE: ClassVar[Literal[4]] = 4
+
+    results: ResultContainer = field(factory=ResultContainer)
+
+    result_provenance: ResultProvenance
+
+    @classmethod
+    def peekFile(cls, f):
+        maybe_magic = f.read(len(cls._MAGIC_ID))
+        if maybe_magic == cls._MAGIC_ID:
+            peek_size = int.from_bytes(f.read(cls._HEADER_SIZE), byteorder="big")
+            ret = converter.unstructure(pkl.loads(f.read(peek_size)), cls.SummaryClass)
+            return ret
+        else:
+            return converter.structure(pkl.loads(maybe_magic + f.read())).summary()
+
+    @classmethod
+    def peekBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            peek = data[
+                len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            return converter.structure(pkl.loads(peek), cls.SummaryClass)
+        else:
+            return converter.structure(pkl.loads(data)).summary()
+
+    @classmethod
+    def fromBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            peek = data[
+                len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            core_data = data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
+            ret = converter.structure(pkl.loads(core_data), cls)
+        else:
+            ret = converter.structure(pkl.loads(data), cls)
+        return ret
+
+    def toBytes(self, packed_mode=True) -> bytes:
+        if packed_mode:
+            peek = pkl.dumps(converter.unstructure(self.summary()))
+            core_data = pkl.dumps(converter.unstructure(self))
+            pl = len(peek)
+            plb = (pl.bit_length() + 7) // 8
+            if plb > self._HEADER_SIZE:
+                raise RuntimeError
+            return (
+                self._MAGIC_ID
+                + pl.to_bytes(self._HEADER_SIZE, byteorder="big")
+                + peek
+                + core_data
+            )
+        else:
+            return pkl.dumps(converter.unstructure(self))
+
+
+@define
+class ResultGroup(AnalyzerResult):
     results: dict[str, AnalyzerResult] = field(factory=dict)
 
     def __iadd__(self, other):
@@ -180,15 +512,15 @@ class ResultContainer(AnalyzerResult):
             self.results[k] += other.results[k]
 
     def addResult(self, result):
-        name = result.name
-        if name in self.results:
+        if result.name in self.results:
             raise KeyError(
-                f"Result container already contains a result with name {name}"
+                f"Result container already contains a result with name {result.name}"
             )
-        self.results[name] = result
+        self.results[result.name] = result
 
-    def getResult(self, name):
-        return self.results[name]
+    def summary(self):
+        return
+
 
     def iscale(self, value):
         for k in self.results:
@@ -201,6 +533,49 @@ class ResultContainer(AnalyzerResult):
 
         for result in self.results.values():
             result.finalize(finalizer)
+
+
+class Executor(abc.ABC):
+    @abc.abstractmethod
+    def run(self, analyzer, tasks: list[AnalysisTask], result_complete_callback=None):
+        pass
+
+    def setup(self):
+        pass
+
+    def teardown(self):
+        pass
+
+    def __exit__(self, type, value, traceback):
+        self.teardown()
+
+    def __enter__(self):
+        self.setup()
+
+
+Pipeline = list[AnalyzerModule]
+
+
+@define
+class CollectionDesc:
+    pipelines: list[str]
+    collection: EventCollection
+
+
+@define
+class Analysis:
+    """
+    Complete description of an Analysis
+    """
+
+    analyzer: Analyzer
+    event_collections: list[CollectionDesc]
+
+    ignore_builtin_modules: bool = False
+    ignore_builtin_datasets: bool = False
+    extra_module_paths: list[str] = field(factory=list)
+    extra_source_paths: list[str] = field(factory=list)
+    extra_excutors: dict[str, Executor] = field(factory=dict)
 
 
 @define
@@ -278,6 +653,34 @@ class SelectionFlow(AnalyzerResult):
 
 
 @define
+class RawEventCount(AnalyzerResult):
+    count: float
+
+    def __iadd__(self, other):
+        self.count += other.count
+
+    def iscale(self, value):
+        pass
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
+class ScaledEventCount(AnalyzerResult):
+    count: float
+
+    def __iadd__(self, other):
+        self.count += other.count
+
+    def iscale(self, value):
+        self.count *= value
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
 class RawSelectionFlow(AnalyzerResult):
     cuts: list[str]
 
@@ -310,7 +713,6 @@ class ColumnCollection:
         return iter(columns)
 
     def contains(self, other: Column):
-        # breakpoint()
         return any(x.contains(other) for x in self.columns)
 
     def intersect(self, other: ColumnCollection):
@@ -330,12 +732,81 @@ def getAllColumns(events, cur_col=None):
             else:
                 n = Column(f)
             ret |= getAllColumns(events[f], n)
+
+        if cur_col is not None:
+            ret.add(cur_col)
         return ret
     else:
         return {cur_col}
 
 
 NanoAODSchema.warn_missing_crossrefs = False
+
+
+@define(frozen=True)
+class ModuleParameterValues:
+    param_values: frozenset[tuple[str, Any]]
+    spec: ModuleParameterSpec | None = field(eq=False, default=None)
+
+    def withNewValues(self, values):
+        d = dict(self.param_values)
+        d.update(values)
+        return self.spec.getWithValues(d)
+
+    def asdict(self):
+        return dict(self.param_values)
+
+    def __hash__(self):
+        return hash(self.param_values)
+
+    def __getitem__(self, key):
+        return self.asdict()[key]
+
+    def __rich_repr__(self):
+        yield "param_values", self.asdict()
+
+    def __repr__(self):
+        return f"ModuleParameterValues({self.asdict()})"
+
+    def __str__(self):
+        return f"ModuleParameterValues({self.asdict()})"
+
+
+@define(frozen=True)
+class PipelineParameterValues:
+    values: frozenset[tuple[str, ModuleParameterValues]]
+    spec: PipelineParameterSpec
+
+    def __hash__(self):
+        return hash(self.values)
+
+    def asdict(self):
+        return {x: y.asdict() for x, y in self.values}
+
+    def __getitem__(self, key):
+        found = next(x[1] for x in self.values if x[0] == key)
+        return ModuleParameterValues(found.param_values, self)
+
+    def withNewValues(self, new_data):
+        d = self.asdict()
+        mergeUpdate(d, new_data)
+        return self.spec.getWithValues(d)
+
+    def __rich_repr__(self):
+        yield "values", self.values
+
+    def __str__(self):
+        return f"values: {self.values}"
+
+    def __repr__(self):
+        return str(self)
+
+
+# def mergeAnalyzerValues(first, *rest):
+#     while rest:
+#
+# def moduleValues(first, *rest):
+#     while rest:
 
 
 @define(frozen=True)
@@ -418,6 +889,7 @@ class ParameterSpec:
     default_value: Any | None = None
     possible_values: Collection | None = None
     tags: set[str] = field(factory=set)
+    param_type: type | None = None
 
 
 @define
@@ -443,7 +915,9 @@ class ModuleParameterSpec:
         for name, spec in self.param_specs.items():
             if name in values:
                 v = values[name]
-                if spec.possible_values is None or v in spec.possible_values:
+                if (spec.possible_values is None or v in spec.possible_values) and (
+                    spec.param_type is None or isinstance(v, spec.param_type)
+                ):
                     ret[name] = values[name]
                 else:
                     raise RuntimeError(
@@ -512,29 +986,59 @@ def buildCombos(spec, tag):
     return ret
 
 
-def buildVariations(spec):
+def buildVariations(spec, metadata=None):
     weights = buildCombos(spec, "weight_variation")
     shapes = buildCombos(spec, "shape_variation")
-    all_vars = weights + shapes
+    all_vars = [{}] + weights + shapes
     return all_vars
+
+
+@define(frozen=True)
+class ModuleProvenance:
+    name: str
+    parameters: ModuleParameterValues
+    column_key: int
+
+
+@define
+class MetadataExpr(abc.ABC):
+    @abc.abstractmethod
+    def __call__(self, metadata): ...
+
+
+@define
+class MetadataFieldMatch(MetadataExpr):
+    pattern: str
+
+    def __call__(self, metadata):
+        return patternMatch(pattern, metadata)
+
+
+@define
+class FileResource:
+    path: str
 
 
 @define
 class AnalyzerModule(abc.ABC):
     __cache: dict = field(factory=dict, init=False, repr=False)
 
-    @abc.abstractmethod
-    def run(self, columns, params: ModuleParameterValues, **kwargs):
-        pass
-
-    # @abc.abstractmethod
+    # should_run: MetadataExpr | bool = True
 
     @abc.abstractmethod
-    def getInputs(self, metadata) -> ColumnCollection:
+    def run(
+        self, columns, params: ModuleParameterValues
+    ) -> tuple[ColumnView, list[AnalyzerResult | ModuleAddition]]:
         pass
 
-    def inputs(self, metadata) -> ColumnCollection:
-        return self.getInputs(metadata)
+    @abc.abstractmethod
+    def inputs(self, metadata): ...
+
+    @abc.abstractmethod
+    def outputs(self, metadata): ...
+
+    @abc.abstractmethod
+    def neededResources(self, metadata): ...
 
     def getParameterSpec(self) -> ModuleParameterSpec:
         return ModuleParameterSpec()
@@ -548,159 +1052,94 @@ class AnalyzerModule(abc.ABC):
         else:
             return frozenset(self.getColumnProvenance(x) for x in (columns or []))
 
+    def neededResources(self, metadata):
+        return []
+
     def getKey(self, columns, params):
         ret = hash((self.name(), params, self.getColumnProvenance(columns)))
         return ret
 
-    def __call__(self, columns, params, pipeline_spec):
-        if isinstance(columns, ColumnView):
-            columns = columns.copy()
-            just_cols = [columns]
-        elif isinstance(columns, list):
-            columns = [(x, y.copy()) for x, y in columns]
-            just_cols = [x[1] for x in columns]
-        else:
-            just_cols = columns
-
-        logger.info(f"Running analyzer module {self}")
-        key = self.getKey(just_cols, params)
-
+    def __runNoInputs(self, params):
+        key = self.getKey(None, params)
         logger.info(f"Execution key is {key}")
+        logger.info(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
             logger.info(f"Found key, using cached result")
-            return self.__cache[key]
-        logger.info(f"Did not find key, running module {self.name()}")
+            cached_cols, r = self.__cache[key]
+            return cached_cols, r
+        logger.info(f"Did not find cached result, running module {self}")
+        ret = self.run(None, params)
+        self.__cache[key] = ret
+        return ret[0].copy(), ret[1]
 
-        if columns is None:
+    def __runStandard(self, columns, params):
+        orig_columns = columns
+        columns = columns.copy()
+        key = self.getKey(columns, params)
+        logger.info(f"Execution key is {key}")
+        logger.info(f"Cached keys are {list(self.__cache)}")
+        if key in self.__cache:
+            logger.info(f"Found key, using cached result")
+            cached_cols, r, internal = self.__cache[key]
+            outputs = self.outputs(columns.metadata)
+            # if "INTERNAL_USE" in cached_cols.fields:
+            #     outputs.append(Column(("INTERNAL_USE",)))
+            if outputs == EVENTS:
+                return cached_cols, r
+            outputs += internal
+            columns.addColumnsFrom(cached_cols, outputs)
+            columns.pipeline_data = cached_cols.pipeline_data
+            return columns, r
+        logger.info(f"Did not find cached result, running module {self}")
+        with (
+            columns.useKey(key),
+            columns.allowedInputs(self.inputs(columns.metadata)),
+            columns.allowedOutputs(self.outputs(columns.metadata)),
+        ):
+            cols, res = self.run(columns, params)
+            internal = cols.updatedColumns(orig_columns, Column("INTERNAL_USE"))
+        self.__cache[key] = (cols, res, internal)
+        return cols, res
+
+    def __runMulti(self, columns, params):
+        orig_columns = columns
+        columns = [(x, y.copy()) for x, y in columns]
+        just_cols = [x[1] for x in columns]
+        key = self.getKey(just_cols, params)
+        logger.info(f"Execution key is {key}")
+        logger.info(f"Cached keys are {list(self.__cache)}")
+        if key in self.__cache:
+            logger.info(f"Found key, using cached result")
+            ret = self.__cache[key]
+            # columns.addColumnsFrom(cached_cols, self.ouputs(columns.metadata))
+            return ret
+        logger.info(f"Did not find cached result, running module {self}")
+        with contextlib.ExitStack() as stack:
+            for c in just_cols:
+                stack.enter_context(c.useKey(key))
+                stack.enter_context(c.allowedOutputs(self.outputs(c.metadata)))
+                stack.enter_context(c.allowedInputs(self.inputs(c.metadata)))
             ret = self.run(columns, params)
-        else:
-            with contextlib.ExitStack() as stack:
-                for c in just_cols:
-                    stack.enter_context(c.useKey(key))
-                    stack.enter_context(c.allowedInputs(self.inputs(c.metadata)))
-                ret = self.run(columns, params)
+
         self.__cache[key] = ret
         return ret
+
+    def __call__(self, columns, params):
+        logger.info(f"Running analyzer module {self}")
+        # if not self.should_run(columns.metadata):
+        #     returncolumns, {}
+        if isinstance(columns, ColumnView):
+            return self.__runStandard(columns, params)
+        elif isinstance(columns, list):
+            return self.__runMulti(columns, params)
+        elif columns is None:
+            return self.__runNoInputs(params)
+        else:
+            raise RuntimeError()
 
     @classmethod
     def name(cls):
         return cls.__name__
-
-
-@define(frozen=True)
-class ModuleProvenance:
-    name: str
-    parameters: ModuleParameterValues
-    column_key: ColumnView.Key
-
-
-# class Node:
-#     def __init__(
-#         self,
-#         analyzer_module: AnalyzerModule,
-#         previous: Node | None = None,
-#     ):
-#         self.node_id = node_id
-#         self.analyzer_module = analyzer_module
-#         self.previous = previous
-#
-#     def run
-
-# def getParameterSpec(self):
-#     specs = self.analyzer_module.getParameterSpecs()
-#     return NodeParameterSpec(
-#         node_id=self.node_id, param_specs={x.name: x for x in specs}
-#     )
-#
-# def getDependentParents(self):
-#     inputs = self.analyzer_module.inputs()
-#     previous = self.previous
-#     ret = []
-#     while previous is not None:
-#         if previous.analyzer_module.inputs().intersect(inputs):
-#             ret.append(previous)
-#     return ret
-#
-# def getKey(self, parameters):
-#     hparam = hash(parameters)
-#     if hparam in self.__key_cache:
-#         return self.__key_cache[hparam]
-#     parents = getDependentParents()
-#     my_params = parameters[self.node_id]
-#     ret = hash(my_params)
-#     for parent in parents:
-#         ret = hash((ret, parents.getKey(parameters)))
-#
-#     self.__key_cache[hparam] = ret
-#     return ret
-#
-# def executeSingle(
-#     self,
-#     params: ModuleParameterValues,
-#     result_handler,
-# ):
-#
-#     to_merge = []
-#     for p in parents:
-#         to_merge.append(self.parent.executeSingle(params))
-#     my_params = parameters[self.node_id]
-#     cols = mergeColumns(to_merge)
-#     with cols.allowedInputs(self.analyzer_module.inputs), cols.allowedOutputs(
-#         self.analyzer_module.outputs
-#     ):
-#         cols, results = self.analyzer_module(cols, my_params)
-#     return cols
-#
-# def executeMulti(
-#     self,
-#     params: frozenset[ModuleParameterValues],
-#     result_storage,
-# ):
-#     my_params = set(p[self.node_id] for p in params)
-#     if len(my_params) != 1:
-#         raise RuntimeError()
-#     my_params = next(iter(my_params))
-#     all_sets = []
-#     for param in params:
-#         to_merge = []
-#         for p in parents:
-#             to_merge.append(self.parent.execute(params))
-#         cols = mergeColumns(to_merge)
-#         all_sets.append((param, cols))
-#
-#     with cols.allowedInputs(self.analyzer_module.inputs), cols.allowedOutputs(
-#         self.analyzer_module.outputs
-#     ):
-#         cols, results = self.analyzer_module(all_sets, my_params)
-#     return cols
-#
-# def execute(
-#     self,
-#     params: ModuleParameterValues | list[ModuleParameterValues],
-#     result_storage,
-# ):
-#     key = getKey(params)
-#     if key in self.__key_cache:
-#         return self._run_cache[key]
-#     if isinstance(params, list):
-#         return self.executeMulti(params, result_storage)
-#     else:
-#         return self.executeSingle(params, result_storage)
-
-# def getLastDependency(self):
-#     products = copy.copy(self.analyzer_module.products)
-#     p = self.parent
-#     ret = []
-#     while products:
-#         dependent_inputs = self.analyzer_module.getDependentInputs(
-#             p.analyzer_module
-#         )
-#         if dependent_inputs:
-#             ret.append(p)
-#             products -= dependent_inputs
-#         p = p.parent
-#
-#     return ret
 
 
 class Node:
@@ -724,9 +1163,9 @@ class Node:
             and self.analyzer_module == other.analyzer_module
         )
 
-    def __call__(self, columns, params, pipeline_spec):
+    def __call__(self, columns, params):
         params = params[self.node_id]
-        return self.analyzer_module(columns, params, pipeline_spec)
+        return self.analyzer_module(columns, params)
 
     def __rich_repr__(self):
         yield "node_id", self.node_id
@@ -737,14 +1176,35 @@ class Node:
 @define
 class ModuleAddition:
     analyzer_module: AnalyzerModule
-    parameter_runs: list[PipelineParameterValues]
-    this_module_parameters: ModuleParameterValues
+    run_builder: Any | None = None
+    this_module_parameters: dict = field(factory=dict)
+    # parameter_runs: list[PipelineParameterValues]
+
+
+# @define
+# class ProvenanceTrie:
+#     elements: dict[str, ColumnTrie | int] = field(factory=dict)
+
+
+def setColumn(events, column, value):
+    column = Column(column)
+    if len(column) == 1:
+        return ak.with_field(events, value, column.fields)
+    head, *rest = tuple(column)
+    if head not in events.fields:
+        for c in reversed(list(rest)):
+            value = ak.zip({c: value})
+        return ak.with_field(events, value, head)
+    else:
+        return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
 
 
 @define
 class ColumnView:
+    INTERNAL_USE_COL: ClassVar[Column] = Column("INTERNAL_USE")
     _events: Any
     _column_provenance: dict[Column, int]
+    backend: EventBackend
     _current_provenance: int | None = None
     _allowed_inputs: ColumnCollection | None = None
     _allowed_outputs: ColumnCollection | None = None
@@ -752,78 +1212,80 @@ class ColumnView:
     metadata: Any | None = None
     pipeline_data: dict[str, Any] = field(factory=dict)
 
-    @define(frozen=True)
-    class Key:
-        metadata: Any
-        pipeline_data: dict[str, Any]
-        provenance: frozenset[tuple[Column, ModuleProvenance]]
+    @property
+    def fields(self):
+        return self._events.fields
+
+    def updatedColumns(self, old, limit):
+        cols_to_consider = {
+            x: y for x, y in self._column_provenance.items() if limit.contains(x)
+        }
+        old_to_consider = {
+            x: y for x, y in old._column_provenance.items() if limit.contains(x)
+        }
+        return [
+            x
+            for x, y in cols_to_consider.items()
+            if x not in old_to_consider or y != old_to_consider[x]
+        ]
 
     def copy(self):
         return ColumnView(
             events=copy.copy(self._events),
             column_provenance=copy.copy(self._column_provenance),
             metadata=copy.copy(self.metadata),
-            pipeline_data=copy.copy(self.pipeline_data),
+            pipeline_data=copy.deepcopy(self.pipeline_data),
+            backend=self.backend,
         )
 
     @staticmethod
-    def fromEvents(events, provenance):
+    def fromEvents(events, metadata, backend, provenance):
         return ColumnView(
             events=events,
             column_provenance={x: provenance for x in getAllColumns(events)},
             current_provenance=provenance,
+            backend=backend,
+            metadata=metadata,
         )
 
     def getKeyForColumns(self, columns):
+        """
+        Get an excecution key for the column.
+        Returns a hash dependent on the provenance of all the columns contains in the input.
+        """
         ret = []
         for column in columns:
             for c, v in self._column_provenance.items():
                 if column.contains(c):
                     ret.append((c, v))
-        return hash(
-            ColumnView.Key(
-                freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)
-            )
-        )
 
-    def setColumn(self, events, column, value):
-        column = Column(column)
-        if len(column) == 1:
-            return ak.with_field(events, value, column.fields)
-        all_columns = list(self._column_provenance)
-        max_col = max((column.commonParent(x) for x in all_columns), key=len)
-        common = column[: len(max_col) + 1]
-        rest = column[len(max_col) + 1 :]
-        for c in reversed(list(rest.iterParts())):
-            value = ak.zip({c: value})
-        return ak.with_field(events, value, common.fields)
+        logger.info(f"Relevant columns for {columns} are :\n {ret}")
+        return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
 
     def __setitem__(self, column, value):
         column = Column(column)
-        if self._allowed_outputs is not None and not self._allowed_outputs.contains(
-            column
+        if (
+            self._allowed_outputs is not None
+            and not ColumnView.INTERNAL_USE_COL.contains(column)
+            and not self._allowed_outputs.contains(column)
         ):
             raise RuntimeError(
                 f"Column {column} is not in the list of outputs {self._allowed_outputs}"
             )
-        self._events = self.setColumn(self._events, column, value)
-        all_columns = getAllColumns(self._events)
-        self._column_provenance = {
-            x: y for x, y in self._column_provenance.items() if x in all_columns
-        }
+        self._events = setColumn(self._events, column, value)
+        self._column_provenance[column] = self._current_provenance
+        all_columns = getAllColumns(value, column)
         for c in all_columns:
-            if column.contains(c):
+            self._column_provenance[c] = self._current_provenance
+            logger.info(
+                f"Adding column {c} to events with provenance {self._current_provenance}"
+            )
+        for c in self._column_provenance:
+            if c.contains(column):
                 self._column_provenance[c] = self._current_provenance
                 logger.info(
-                    f"Adding column {c} to events with provenance {self._current_provenance}"
+                    f"Updating parent column {c} to events with provenance {self._current_provenance}"
                 )
-
-    def setColumnProvenance(self, column, provenance):
-        columns = Column(column)
-        all_columns = getAllColumns(self._events)
-        for c in all_columns:
-            if column.contains(c):
-                self._column_provenance[c] = provenance
 
     def __getitem__(self, column):
         column = Column(column)
@@ -837,13 +1299,11 @@ class ColumnView:
 
     def addColumnsFrom(self, other, columns):
         for column in columns:
-            with self.useKey(other.getProvenance(column)[column]):
+            with self.useKey(other._column_provenance[column]):
                 self[column] = other[column]
-
-    def withColumnFrom(self, other, columns):
-        new = copy.copy(self)
-        new.addColumnsFrom(other, columns)
-        return new
+            # self._setIndividualColumnWithProvenance(
+            #     column, other[column], other._column_provenance[column]
+            # )
 
     def filter(self, mask):
         if not self._allow_filter:
@@ -905,10 +1365,13 @@ class GoodJetMaker(AnalyzerModule):
         jets = columns[self.input_col]
         good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
         columns[self.output_col] = good_jets
-        return columns, {}
+        return columns, []
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
 
 
 @define
@@ -917,14 +1380,22 @@ class BQuarkMaker(AnalyzerModule):
     output_col: Column
     working_point: float = 0.5
 
+    __corrections: dict[str, Any] = field(factory=dict, eq=False)
+
     def run(self, columns, params):
         disc = columns[self.input_jets].btagDeepFlavB
         bjets = columns[self.input_jets][disc > self.working_point]
         columns[self.output_col] = bjets
-        return columns, {}
+        return columns, []
 
-    def getInputs(self, metadata):
+    def preloadForMeta(self, metdata):
+        pass
+
+    def inputs(self, metadata):
         return [self.input_jets]
+
+    def outputs(self, metadata):
+        return [self.output_col]
 
 
 @define
@@ -941,7 +1412,7 @@ class SomeScaleFactor(AnalyzerModule):
         elif variation == "up":
             columns["Weight.some_scale_factor"] = 2 * ak.ones_like(j.pt)
 
-        return columns, {}
+        return columns, []
 
     def getParameterSpec(self):
         return ModuleParameterSpec(
@@ -961,8 +1432,11 @@ class SomeScaleFactor(AnalyzerModule):
             }
         )
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.input_jets]
+
+    def outputs(self, metadata):
+        return [Column("Weight.some_scale_factor")]
 
 
 @define
@@ -979,7 +1453,7 @@ class SomeOtherScaleFactor(AnalyzerModule):
         elif variation == "up":
             columns["Weight.some_scale_factor"] = 2 * ak.ones_like(j.pt)
 
-        return columns, {}
+        return columns, []
 
     def getParameterSpec(self):
         return ModuleParameterSpec(
@@ -994,8 +1468,11 @@ class SomeOtherScaleFactor(AnalyzerModule):
             }
         )
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.input_jets]
+
+    def outputs(self, metadata):
+        return [Column("Weight.some_scale_factor")]
 
 
 @define
@@ -1006,7 +1483,7 @@ class SomeShapeScaleFactor(AnalyzerModule):
     def run(self, columns, params):
         variation = params["variation"]
         columns[self.output_jets] = columns[self.input_jets]
-        return columns, {}
+        return columns, []
 
     def getParameterSpec(self):
         return ModuleParameterSpec(
@@ -1017,8 +1494,25 @@ class SomeShapeScaleFactor(AnalyzerModule):
                         "central",
                         "shape_up_1",
                         "shape_down_1",
-                        "shape_up_2",
-                        "shape_down_2",
+                        # "shape_up_2",
+                        # "shape_down_2",
+                        # "shape_down_3",
+                        # "shape_down_4",
+                        # "shape_down_5",
+                        # "shape_down_6",
+                        # "shape_down_7",
+                        # "shape_down_8",
+                        # "shape_down_9",
+                        # "shape_down_10",
+                        # "shape_down_11",
+                        # "shape_down_12",
+                        # "shape_down_13",
+                        # # "shape_down_14",
+                        # "shape_down_15",
+                        # "shape_down_16",
+                        # "shape_down_17",
+                        # "shape_down_18",
+                        # "shape_down_20",
                     ],
                     tags={
                         "shape_variation",
@@ -1027,8 +1521,11 @@ class SomeShapeScaleFactor(AnalyzerModule):
             }
         )
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.input_jets]
+
+    def outputs(self, metadata):
+        return [self.output_jets]
 
 
 @define
@@ -1050,27 +1547,35 @@ class NObjFilter(AnalyzerModule):
             else:
                 sel = count <= self.max_count
         columns["Selection", self.selection_name] = sel
-        return columns, {}
+        return columns, []
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
 
 
 @define
 class LoadColumns(AnalyzerModule):
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return []
 
+    def outputs(self, metadata):
+        return None
+
     def getParameterSpec(self):
-        return ModuleParameterSpec({"chunk": ParameterSpec()})
+        return ModuleParameterSpec(
+            {
+                "chunk": ParameterSpec(param_type=EventSource, tags={"column-input"}),
+            }
+        )
 
     def run(self, columns, params):
-        fname = "nano_dy.root"
-        events = NanoEventsFactory.from_root(
-            {fname: "Events"},
-            schemaclass=NanoAODSchema,
-        ).events()
-        ret = ColumnView.fromEvents(events, self.getKey(None, params))
+        key = self.getKey(None, params)
+        ret = params["chunk"].loadEvents(
+            "coffea-virtual", view_kwargs=dict(metadata=None, provenance=key)
+        )
         return ret, []
 
 
@@ -1087,17 +1592,31 @@ class HLTPass(AnalyzerModule):
     hlt_trigger_names: list[str]
 
     def run(self, columns, params):
-        ret = columns["HLT"][self.hlt_trigger_names[0]]
+        ret = columns["HLT", self.hlt_trigger_names[0]]
         for name in self.hlt_trigger_names[1:]:
             ret &= columns["HLT"][name]
         columns["Selection", self.out_name] = ret
-        return columns, {}
+        return columns, []
 
     def init(self, config):
         pass
 
-    def getInputs(self, metadata):
-        return [Column("HLT")]
+    def inputs(self, metadata):
+        return [Column(("HLT", x)) for x in self.hlt_trigger_names]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.out_name))]
+
+
+# @register_module(
+#     ["HLT"], dict(out_name=field(type=str), hlt_trigger_names=field(type=list[str]))
+# )
+# def HLTPass(self, columns, params):
+#     ret = columns["HLT"][self.hlt_trigger_names[0]]
+#     for name in self.hlt_trigger_names[1:]:
+#         ret &= columns["HLT"][name]
+#     columns["Selection", self.out_name] = ret
+#     return columns, {}
 
 
 @define
@@ -1105,66 +1624,236 @@ class SelectOnColumns(AnalyzerModule):
     column_names: list[str]
 
     def run(self, columns, params):
-        cols = self.getInputs(columns.metadata)
+        cols = self.inputs(columns.metadata)
         ret = columns[cols[0]]
         for name in cols[1:]:
             ret = ret & columns[name]
         columns = columns.filter(ret)
-        return columns, {}
+        return columns, []
 
     def init(self, config):
         pass
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [Column("Selection") + x for x in self.column_names]
+
+    def outputs(self, metadata):
+        return EVENTS
+
+
+@define(frozen=True)
+class IntegerAxis:
+    name: str
+    start: int
+    stop: int
+    unit: str | None = None
+
+    def toHist(self):
+        return hist.axis.Integer(self.start, self.stop, name=self.name)
+
+
+@define(frozen=True)
+class RegularAxis:
+    name: str
+    bins: int
+    start: float
+    stop: float
+    unit: str | None = None
+
+    def toHist(self):
+        return hist.axis.Regular(self.bins, self.start, self.stop, name=self.name)
+
+
+Axis = RegularAxis | IntegerAxis
+
+
+@define(frozen=True)
+class CategoryDesc:
+    column: Column
+    axis: Any
 
 
 @define
 class HistogramBuilder(AnalyzerModule):
     product_name: str
     columns: list[Column]
-    axes: list[Any]
-    variation_name: str = "variation"
+    axes: list[Axis]
     central_name: str = "central"
+    storage: str = "weight"
+    mask_col: Column | None = None
+
+    @staticmethod
+    def transformToFill(fill_data, per_event_value, mask=None):
+        """
+        Perform transformations to bring fill data to correct shape
+        """
+        if mask is None:
+            if fill_data.ndim == 2:
+                fill_data = ak.ones_like(fill_data, dtype=np.int32)
+                fill_data = ak.fill_none(fill_data, 0)
+                r = ak.flatten(fill_data * per_event_value)
+                return r
+            else:
+                return per_event_value
+
+        if mask.ndim == 1 and not (fill_data is None) and fill_data.ndim == 2:
+            fill_data = ak.ones_like(fill_data, dtype=np.int32)
+            fill_data = ak.fill_none(fill_data, 0)
+            return ak.flatten(fill_data * per_event_value[mask])
+
+        elif mask.ndim == 2:
+            return ak.flatten((ak.ones_like(mask) * per_event_value)[mask])
+
+        else:
+            return per_event_value[mask]
+
+    @staticmethod
+    def maybeFlatten(data):
+        if data.ndim == 2:
+            return ak.flatten(data)
+        else:
+            return data
+
+    @staticmethod
+    def fillHistogram(
+        histogram,
+        cat_values,
+        fill_data,
+        weight=None,
+        variation="central",
+        mask=None,
+    ):
+        all_values = (
+            [variation]
+            + cat_values
+            + [HistogramBuilder.maybeFlatten(x) for x in fill_data]
+        )
+        if weight is not None:
+            histogram.fill(*all_values, weight=weight)
+        else:
+            histogram.fill(*all_values)
+        return histogram
+
+    @staticmethod
+    def create(backend, categories, axes, storage):
+        variations_axis = hist.axis.StrCategory([], name="variation", growth=True)
+        all_axes = (
+            [variations_axis]
+            + [x.axis.toHist() for x in categories]
+            + [x.axes.toHist() for x in axes]
+        )
+        if backend == EventBackend.coffea_dask:
+            histogram = dah.Hist(*all_axes, storage=storage)
+        else:
+            histogram = hist.Hist(*all_axes, storage=storage)
+        return histogram
 
     def run(self, column_sets, params):
+        backend = column_sets[0][1].backend
+        pipeline_data = column_sets[0][1].pipeline_data
+        categories = pipeline_data.get("categories", {})
+        histogram = HistogramBuilder.create(
+            backend, categories, self.axes, self.storage
+        )
         for cset in column_sets:
             params = cset[0]
             noncentral = {
                 k: v
-                for k, v in params.getAllByName(self.variation_name).items()
+                for k, v in params.getAllByName("variation").items()
                 if v != self.central_name
             }
             if len(noncentral) == 0:
-                name ="central"
+                variation_name = "central"
             elif len(noncentral) == 1:
-                name = next(iter(noncentral.values()))
+                variation_name = next(iter(noncentral.values()))
             else:
                 raise RuntimeError(f"Multiple active systematics {noncentral}")
-            print(name)
+            columns = cset[1]
+            data_to_fill = [columns[x] for x in self.columns]
+            represenative = data_to_fill[0]
+            mask = None
+            if self.mask_col is not None:
+                mask = columns[self.mask_col]
 
-        return None, []
+            if "Weights" in columns.fields:
+                weights = columns["Weights"]
+                total_weight = ak.prod([weights[x] for x in weights.fields], axis=1)
+                total_weight = HistogramBuilder.transformToFill(
+                    represenative, weight, mask
+                )
+            else:
+                total_weight = None
 
-    def getInputs(self, metadata):
-        return [*self.columns, Column("Categories")]
+            cat_to_fill = [
+                HistogramBuilder.transformToFill(represenative, columns[x.column], mask)
+                for x in categories
+            ]
+            HistogramBuilder.fillHistogram(
+                histogram,
+                cat_to_fill,
+                data_to_fill,
+                weight=total_weight,
+                variation=variation_name,
+            )
 
-    def wantsPipelineSpec(self):
-        return True
+        return None, [Histogram(name=self.product_name, histogram=histogram)]
+
+    def inputs(self, metadata):
+        return [*self.columns, Column("Categories"), Column("Weights")]
+
+    def outputs(self, metadata):
+        return []
 
 
-def makeHistogram(columns, params, name, axes, data, description, want_variations=None):
+def makeHistogram(product_name, columns, axes, data, description, want_variations=None):
     if not isinstance(data, (list, tuple)):
         data = [data]
         axes = [axes]
 
     names = []
     for i, d in enumerate(data):
-        name = Column(f"auto-col-{name}-{i}")
+        name = Column(f"INTERNAL_USE.auto-col-{product_name}-{i}")
         names.append(name)
         columns[name] = d
 
-    b = HistogramBuilder(names, names, axes)
-    return ModuleAddition(b, buildVariations, b.getParameterSpec().getWithValues({}))
+    b = HistogramBuilder(product_name, names, axes, axes)
+    return ModuleAddition(b, buildVariations)
+
+
+def addCategory(columns, name, data, axis):
+    col = Column(fields=("Categories", name))
+    columns[col] = data
+    to_add = CategoryDesc(column=col, axis=axis)
+    if "categories" not in columns.pipeline_data:
+        columns.pipeline_data["categories"] = []
+    columns.pipeline_data["categories"].append(to_add)
+    return columns
+
+
+@define
+class NObjCategory(AnalyzerModule):
+    input_col: Column
+    category_name: str
+    ax_min: int = 0
+    ax_max: int = 10
+
+    def run(self, columns, params):
+        addCategory(
+            columns,
+            self.category_name,
+            ak.num(columns[self.input_col]),
+            IntegerAxis(self.category_name, self.ax_min, self.ax_max),
+        )
+        return columns, []
+
+    def init(self, config):
+        pass
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(("Categories", self.category_name))]
 
 
 @define
@@ -1173,78 +1862,19 @@ class TestHistogram(AnalyzerModule):
 
     def run(self, columns, params):
         j = columns[self.col]
-        h = makeHistogram(columns, params, "pt_1", None, j[:, 0].pt, None)
-        return columns, [1, h]
+        h = makeHistogram(
+            "pt_1", columns, hist.axis.Regular(10, 0, 10), j.pt, None, None
+        )
+        return columns, [h]
 
     def init(self, config):
         pass
 
-    def getInputs(self, metadata):
+    def inputs(self, metadata):
         return [self.col]
 
-
-# class HTSelection(AnalyzerModule):
-#     def getInputs(self):
-#         return {"good_jets"}
-#
-#     def getProducts(self):
-#         return {"HT"}
-#
-#     def run(self, columns, analyzer, **kwargs):
-#         pass
-#
-#
-# class GoodJets(AnalyzerModule):
-#     def getInputs(self):
-#         return {"Jet"}
-#
-#     def getProducts(self):
-#         return {"good_jets"}
-#
-#     def run(self, columns, analyzer, **kwargs):
-#         pass
-#
-#
-# class JetSysts(AnalyzerModule):
-#     def getInputs(self):
-#         return {"Jet"}
-#
-#     def getProducts(self):
-#         return {"CorrectedJet"}
-#
-#     def run(self, columns, analyzer, **kwargs):
-#         pass
-#
-#
-# class PuReweight(AnalyzerModule):
-#     def getInputs(self):
-#         return {}
-#
-#     def getProducts(self):
-#         return {"Weights.PU_Weight"}
-#
-#     def run(self, columns, analyzer, **kwargs):
-#         pass
-#
-#
-# class HTHistogram(AnalyzerModule):
-#     def getInputs(self):
-#         return {"Weights", "HT"}
-#
-#     def run(self, columns, analyzer, **kwargs):
-#         pass
-#
-
-#
-#
-# def main():
-#     print("HERE")
-#     pass
-#
-#
-converter = Converter()
-union_strategy = ft.partial(configure_tagged_union, tag_name="type_name")
-include_subclasses(AnalyzerModule, converter, union_strategy=union_strategy)
+    def outputs(self, metadata):
+        return []
 
 
 class Analyzer:
@@ -1285,24 +1915,27 @@ class Analyzer:
         columns,
         pipeline,
         params,
-        start=None,
+        pipeline_name,
         freeze_pipeline=False,
         handle_results=True,
     ):
+        orig_columns = columns.copy()
         complete_pipeline = []
-        logger.info(f"Running pipeline {pipeline} with parameters {params}")
         to_add = deque(pipeline)
-        previous = None
         if handle_results:
-            result_container = ResultContainer(identity="container")
+            result_container = ResultContainer(pipeline_name)
+        else:
+            result_container = None
 
         while to_add:
             head = to_add.popleft()
             complete_pipeline.append(head)
             current_spec = getPipelineSpecs(complete_pipeline)
             logger.info(f"Running node {head}")
-            columns, results = head(columns, params, current_spec)
+            columns = columns.copy()
+            columns, results = head(columns, params)
             logger.info(f"Node produced {len(results)} results")
+
             if not handle_results:
                 continue
             results = deque(results)
@@ -1311,110 +1944,153 @@ class Analyzer:
                 res = results.popleft()
                 if isinstance(res, AnalyzerResult):
                     result_container.addResult(res)
-                if isinstance(res, ModuleAddition) and not freeze_pipeline:
-                    logger.info(f"Adding new node {res} to pipeline")
+                elif isinstance(res, ModuleAddition) and not freeze_pipeline:
                     module = res.analyzer_module
-                    param_req = res.parameter_runs
-                    if not param_req:
-                        all_results.append(results)
+                    if not res.run_builder:
+                        logger.info(f"Adding new module {module} to pipeline")
                         to_add.appendleft(self.getUniqueNode(complete_pipeline, module))
                     else:
                         everything = []
                         logger.info(f"Running multi-parameter pipeline")
-                        param_dicts = param_req(current_spec)
-                        print(param_dicts)
+                        param_dicts = res.run_builder(current_spec, columns.metadata)
                         to_run = [params.withNewValues(x) for x in param_dicts]
 
                         for params_set in to_run:
                             c, _ = self.runPipelineWithParameters(
-                                None,
+                                orig_columns,
                                 complete_pipeline,
                                 params_set,
+                                pipeline_name="NONE",
                                 freeze_pipeline=True,
                                 handle_results=False,
                             )
                             everything.append((params_set, c))
                         logger.info(
-                            f"Running node {res} with {len(everything)} parameter sets"
+                            f"Running node {module} with {len(everything)} parameter sets"
                         )
                         _, r = module(
-                            everything, res.this_module_parameters, current_spec
+                            everything, params.withNewValues(res.this_module_parameters)
                         )
                         results.extendleft(r)
-        return columns, results
+                else:
+                    raise RuntimeError(
+                        f"Invalid object type returned from analyzer module."
+                    )
+        return columns, result_container
 
     def __rich_repr__(self):
         yield "all_modules", self.all_modules
         yield "base_pipelines", self.base_pipelines
 
-    def run(self, column_source):
-        pass
+    def run(self, chunk, pipelines=None):
+        pipelines = pipelines or list(self.base_pipelines)
+        loader = LoadColumns()
+        columns, _ = loader(
+            None,
+            ModuleParameterValues(
+                frozenset((("chunk", chunk),)),
+            ),
+        )
+        result_container = ResultContainer("ChunkResult")
+        for k, pipeline in self.base_pipelines.items():
+            if k not in pipelines:
+                continue
+            columns = columns.copy()
+            spec = getPipelineSpecs(pipeline)
+            vals = spec.getWithValues({})
+            _, ret = self.runPipelineWithParameters(
+                columns, pipeline, vals, pipeline_name=k
+            )
+            result_container.addResult(ret)
+        return result_container
 
 
-module_unstr = converter.get_unstructure_hook(AnalyzerModule)
-module_str = converter.get_structure_hook(AnalyzerModule)
+# module_unstr = converter.get_unstructure_hook(AnalyzerModule)
+# module_str = converter.get_structure_hook(AnalyzerModule)
+#
+# @converter.register_structure_hook
+# def deserialize(data, t) -> Analyzer:
+#     analyzer = t()
+#     for k, v in data.items():
+#         analyzer.addPipeline(k, converter.structure(v, list[AnalyzerModule]))
+#     return analyzer
+#
+#
+# @converter.register_unstructure_hook
+# def serialize(analyzer: Analyzer):
+#     return {
+#         x: converter.unstructure([z.analyzer_module for z in y], list[AnalyzerModule])
+#         for x, y in analyzer.base_pipelines.items()
+#     }
 
 
-@converter.register_structure_hook
-def deserialize(data, t) -> Analyzer:
-    analyzer = t()
-    for k, v in data.items():
-        analyzer.addPipeline(k, converter.structure(v, list[AnalyzerModule]))
-    return analyzer
+def naiveIntersect(s1, s2):
+    for i in s1:
+        for j in s2:
+            if i.intersects(j):
+                return True
+    return False
 
 
-@converter.register_unstructure_hook
-def serialize(analyzer: Analyzer):
-    return {
-        x: converter.unstructure([z.analyzer_module for z in y], list[AnalyzerModule])
-        for x, y in analyzer.base_pipelines.items()
-    }
+def main2():
+    rf = [RootFile(f"{i}" * 40, "nano_dy.root") for i in range(10000)]
+    chunked = []
+    for i in rf:
+        for j in range(0, 5000000, 10000):
+            chunked.append(ChunkedRootFile(i, j, j + 100000))
+
+    s1 = random.sample(chunked, 6000)
+    s2 = random.sample(chunked, 100)
+
+    start_time = timeit.default_timer()
+    ret = naiveIntersect(s1, s2)
+    elapsed = timeit.default_timer() - start_time
 
 
-if __name__ == "__main__":
+def main():
+    f = RootFile("1", "signal_312_900_600_plus.root")
+    # f = RootFile("1", "nano_dy.root")
+    chunks = f.chunks(100000000000)
     load = LoadColumns()
-    hlt_pass = HLTPass("pass_trigger", ["PFHT1050"])
-    good_jets = GoodJetMaker(Column("Jet"), Column("GoodJet"))
-    b_jets = BQuarkMaker(Column("GoodJet"), Column("MedBJet"))
-    b_jets2 = BQuarkMaker(Column("GoodJet"), Column("TightBJet"))
+    # hlt_pass = HLTPass("pass_trigger", ["PFHT1050"])
+    # good_jets = GoodJetMaker(Column("Jet"), Column("GoodJet"))
+    b_jets = BQuarkMaker(Column("CorrectedJets"), Column("MedBJet"))
+    # b_jets2 = BQuarkMaker(Column("CorrectedJets"), Column("TightBJet"))
     n_obj_filter = NObjFilter("med_b_jets", Column("MedBJet"), None, 1)
-    trigger_filter = SelectOnColumns(["pass_trigger", "med_b_jets"])
-    smaller_filter = SelectOnColumns(["pass_trigger"])
-    some_sf = SomeScaleFactor(Column("GoodJet"))
-    test_h = TestHistogram(Column("GoodJet"))
+    # trigger_filter = SelectOnColumns(["pass_trigger", "med_b_jets"])
+    # smaller_filter = SelectOnColumns(["pass_trigger"])
+    # some_sf = SomeScaleFactor(Column("GoodJet"))
+    test_h = TestHistogram(Column("CorrectedJets"))
 
     pipeline = [
-        load,
-        hlt_pass,
-        good_jets,
-        b_jets,
-        b_jets,
-        b_jets2,
-        n_obj_filter,
-        SomeShapeScaleFactor(Column("GoodJet"), Column("CorrectedJets")),
-        trigger_filter,
-        some_sf,
-        SomeOtherScaleFactor(Column("CorrectedJets")),
-        SomeOtherScaleFactor(Column("CorrectedJets")),
-        test_h,
-        TestHistogram(Column("MedBJet")),
-    ]
-    only_trigger = [
-        load,
-        hlt_pass,
-        good_jets,
+        SomeShapeScaleFactor(Column("Jet"), Column("CorrectedJets")),
+        # HLTPass("pass_trigger", ["PFHT1050"]),
         b_jets,
         n_obj_filter,
-        smaller_filter,
-        some_sf,
+        SelectOnColumns(["med_b_jets"]),
+        NObjCategory(Column("CorrectedJets"), "Njets"),
         test_h,
     ]
+
+    # pipeline2 = [
+    #     SomeShapeScaleFactor(Column("Jet"), Column("CorrectedJets")),
+    #     # HLTPass("pass_trigger", ["PFHT1050"]),
+    #     b_jets,
+    #     n_obj_filter,
+    #     test_h,
+    # ]
 
     analyzer = Analyzer()
     analyzer.addPipeline("pipe1", pipeline)
-    analyzer.addPipeline("pipe2", only_trigger)
+    analyzer.addPipeline("pipe2", pipeline)
     analyzer.initModules(None)
     p1 = analyzer.base_pipelines["pipe1"]
     spec = getPipelineSpecs(p1)
-    vals = spec.getWithValues({"LoadColumns": {"chunk": "nano_dy.root"}})
-    analyzer.runPipelineWithParameters(None, p1, vals)
+    vals = spec.getWithValues({"LoadColumns": {"chunk": chunks[0]}})
+    spec.getTags("column-input")
+    ret = analyzer.run(chunks[0])
+    print(ret)
+
+
+if __name__ == "__main__":
+    main()

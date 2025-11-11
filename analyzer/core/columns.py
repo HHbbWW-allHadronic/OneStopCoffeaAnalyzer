@@ -1,164 +1,283 @@
 from __future__ import annotations
-import copy
+
+import numbers
 import itertools as it
-import logging
-from dataclasses import dataclass, field
-from analyzer.utils.debugging import jumpIn
-from typing import Any
 import dask_awkward as dak
-from .selection import Selection, SelectionSet
-from functools import lru_cache
+import hist
+from attrs import asdict, define, make_class, Factory, field
+import cattrs
+from cattrs import structure, unstructure, Converter
+from cattrs.strategies import include_subclasses, configure_tagged_union
+
+from collections.abc import Collection
+from collections import deque
 
 
-logger = logging.getLogger(__name__)
+import contextlib
+import uuid
+import functools as ft
+from rich import print
+import copy
+import dask
+import abc
+import awkward as ak
+from typing import Any, Literal
+from functools import cached_property
+import awkward as ak
+from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
+import logging
+from rich.logging import RichHandler
 
-SHAPE_VAR_SEPARATOR = "__"
+def coerceFields(data):
+    if isinstance(data, str):
+        return tuple(data.split("."))
+    elif isinstance(data, Column):
+        return data.fields
+    else:
+        return data
 
-
-@dataclass
+@define(frozen=True)
 class Column:
-    name: str
-    shape_variations: list[str] = field(default_factory=list)
+    fields: tuple[str, ...] = field(converter=coerceFields)
 
-    def getColumnName(self, shape_var=None):
-        if shape_var is None:
-            return self.name
-        return self.name + SHAPE_VAR_SEPARATOR + shape_var
+    def parts(self):
+        return tuple(self.path)
 
+    def contains(self, other):
+        if len(self) > len(other):
+            return False
+        return other[: len(self)] == self
 
-@dataclass
-class Columns:
-    events: Any
+    def commonParent(self, other):
+        l = []
+        for x, y in zip(self.iterParts(), other.iterParts()):
+            if x == y:
+                l.append(x)
+            else:
+                break
+        ret = Column(tuple(l))
+        return ret
 
-    columns: dict[str, Column] = field(default_factory=dict)
-    base: Columns | None = None
-    syst: tuple[str, str] | None = None
+    def extract(self, events):
+        return ft.reduce(lambda x, y: x[y], self.fields, events)
 
-    __column_cache: dict[tuple[str, tuple[str, str] | None], Any] = field(
-        default_factory=dict
-    )
+    def iterParts(self):
+        return iter(self.fields)
 
-    parent_columns: Columns | None = None
-    parent_selection: Selection | None = None
-    selection: SelectionSet | None = None
+    def __eq__(self, other):
+        return self.fields == other.fields
 
-    # def __hash__(self):
-    #     return hash((self.events.name, tuple(self.columns), self.syst))
-    @lru_cache
-    def filterBySelector(self, names):
-        new_events = self.selection.all(*names)
-        return Columns(
-            new_events,
-            parent_columns=self,
-            columns=self.colummns,
-            base=self.base,
-            selection=SelectionSet(parent_selection=self.parent_selection),
-            parent_selection=Selection(
-                select_from=self.parent_selection, names=tuple(name)
-            ),
-        )
+    def __len__(self):
+        return len(self.fields)
 
-    def addSelectorMask(self, name, mask):
-        self.selection.addMask(name, mask)
+    def __getitem__(self, key):
+        return Column(self.fields.__getitem__(key))
 
-    @property
-    def delayed(self):
-        return isinstance(self.events, dak.Array)
+    def __add__(self, other):
+        return Column(self.fields + Column(other).fields)
 
-    def __getattr__(self, attr):
-        if attr in self.columns:
-            return self.get(attr)
-        return getattr(self.events, attr)
-
-    def __getitem__(self, item):
-        if item in self.columns:
-            return self.get(item)
-        return getattr(self.events, item)
+    def __radd__(self, other):
+        return Column(Column(other).fields + self.fields)
 
     def __iter__(self):
-        return iter(self.events.fields)
+        return (Column(x) for x in self.fields)
 
-    def colnames(self):
-        return list(events.fields)
+    def __hash__(self):
+        return hash(self.fields)
 
-    def allShapes(self):
-        return list(
-            it.chain.from_iterable(
-                [(x.name, y) for y in x.shape_variations] for x in self.columns.values()
-            )
-        )
+def setColumn(events, column, value):
+    column = Column(column)
+    if len(column) == 1:
+        return ak.with_field(events, value, column.fields)
+    head, *rest = tuple(column)
+    if head not in events.fields:
+        for c in reversed(list(rest)):
+            value = ak.zip({c: value})
+        return ak.with_field(events, value, head)
+    else:
+        return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
 
-    def getSystName(self):
-        if self.syst is not None:
-            return self.syst[1]
-        return None
+class ColumnCollection:
+    columns: set[Column]
 
-    def getSystColumn(self):
-        if self.syst is not None:
-            return self.syst[0]
-        return None
+    def __iter__(self):
+        return iter(columns)
 
-    def addVariation(self, name, value, syst=None):
-        if name not in self.columns:
-            col = Column(name=name)
-            self.columns[name] = col
-        col = self.columns[name]
-        if syst is not None and syst not in col.shape_variations:
-            col.shape_variations.append(syst)
+    def contains(self, other: Column):
+        return any(x.contains(other) for x in self.columns)
 
-        cname = col.getColumnName(syst)
-        if cname not in self.events.fields:
-            logger.debug(f"Adding column to events: {cname}")
-            self.events[cname] = value
-        # jumpIn(**locals())
+    def intersect(self, other: ColumnCollection):
+        ret = {
+            x
+            for x in self.columns
+            if any((x.contains(o) or o.contains(x)) for o in other)
+        }
 
-    def add(self, name, nominal_value, variations=None, shape_dependent=False):
-        if self.syst is not None and variations is not None:
-            raise RuntimeError()
-
-        variations = variations or {}
-
-        if self.syst is not None:
-            if shape_dependent:
-                self.addVariation(
-                    name, nominal_value, syst=self.syst[0] + "__" + self.syst[1]
-                )
+def getAllColumns(events, cur_col=None):
+    if fields := getattr(events, "fields"):
+        ret = set()
+        for f in fields:
+            if cur_col is not None:
+                n = cur_col + f
             else:
-                self.addVariation(name, nominal_value)
-        else:
-            self.addVariation(name, nominal_value)
-            for syst, val in variations.items():
-                self.addVariation(name, val, syst=syst)
+                n = Column(f)
+            ret |= getAllColumns(events[f], n)
 
-    def get(self, name):
-        # if (name,self.syst) in self.__column_cache:
-        #     return self.__column_cache[(name,self.syst)]
-        if name in self.columns:
-            col = self.columns[name]
-            if self.syst is None:
-                n = name
-            elif self.syst and name == self.syst[0]:
-                n = col.getColumnName(self.syst[1])
-            else:
-                real_syst = "__".join(self.syst)
-                if real_syst in col.shape_variations:
-                    n = col.getColumnName(real_syst)
-                else:
-                    n = col.getColumnName()
-        else:
-            n = name
-        logger.debug(
-            'Getting column "%s" with variation "%s" = "%s"', name, self.syst, n
-        )
-        # self.__column_cache[(name,self.syst)] = self.events[n]
-        return self.events[n]
+        if cur_col is not None:
+            ret.add(cur_col)
+        return ret
+    else:
+        return {cur_col}
 
-    def withSyst(self, syst):
-        return Columns(self.events, copy.deepcopy(self.columns), self.base, syst)
 
-    def withEvents(self, events):
-        return Columns(events, copy.deepcopy(self.columns), self.base, self.syst)
+@define
+class ColumnView:
+    INTERNAL_USE_COL: ClassVar[Column] = Column("INTERNAL_USE")
+    _events: Any
+    _column_provenance: dict[Column, int]
+    backend: EventBackend
+    _current_provenance: int | None = None
+    _allowed_inputs: ColumnCollection | None = None
+    _allowed_outputs: ColumnCollection | None = None
+    _allow_filter: bool = True
+    metadata: Any | None = None
+    pipeline_data: dict[str, Any] = field(factory=dict)
 
     @property
     def fields(self):
-        return self.events.fields
+        return self._events.fields
+
+    def updatedColumns(self, old, limit):
+        cols_to_consider = {
+            x: y for x, y in self._column_provenance.items() if limit.contains(x)
+        }
+        old_to_consider = {
+            x: y for x, y in old._column_provenance.items() if limit.contains(x)
+        }
+        return [
+            x
+            for x, y in cols_to_consider.items()
+            if x not in old_to_consider or y != old_to_consider[x]
+        ]
+
+    def copy(self):
+        return ColumnView(
+            events=copy.copy(self._events),
+            column_provenance=copy.copy(self._column_provenance),
+            metadata=copy.copy(self.metadata),
+            pipeline_data=copy.deepcopy(self.pipeline_data),
+            backend=self.backend,
+        )
+
+    @staticmethod
+    def fromEvents(events, metadata, backend, provenance):
+        return ColumnView(
+            events=events,
+            column_provenance={x: provenance for x in getAllColumns(events)},
+            current_provenance=provenance,
+            backend=backend,
+            metadata=metadata,
+        )
+
+    def getKeyForColumns(self, columns):
+        """
+        Get an excecution key for the column.
+        Returns a hash dependent on the provenance of all the columns contains in the input.
+        """
+        ret = []
+        for column in columns:
+            for c, v in self._column_provenance.items():
+                if column.contains(c):
+                    ret.append((c, v))
+
+        logger.info(f"Relevant columns for {columns} are :\n {ret}")
+        return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
+
+    def __setitem__(self, column, value):
+        column = Column(column)
+        if (
+            self._allowed_outputs is not None
+            and not ColumnView.INTERNAL_USE_COL.contains(column)
+            and not self._allowed_outputs.contains(column)
+        ):
+            raise RuntimeError(
+                f"Column {column} is not in the list of outputs {self._allowed_outputs}"
+            )
+        self._events = setColumn(self._events, column, value)
+        self._column_provenance[column] = self._current_provenance
+        all_columns = getAllColumns(value, column)
+        for c in all_columns:
+            self._column_provenance[c] = self._current_provenance
+            logger.info(
+                f"Adding column {c} to events with provenance {self._current_provenance}"
+            )
+        for c in self._column_provenance:
+            if c.contains(column):
+                self._column_provenance[c] = self._current_provenance
+                logger.info(
+                    f"Updating parent column {c} to events with provenance {self._current_provenance}"
+                )
+
+    def __getitem__(self, column):
+        column = Column(column)
+        if self._allowed_inputs is not None and not self._allowed_inputs.contains(
+            column
+        ):
+            raise RuntimeError(
+                f"Column {column} is not in the list of inputs {self._allowed_inputs}"
+            )
+        return column.extract(self._events)
+
+    def addColumnsFrom(self, other, columns):
+        for column in columns:
+            with self.useKey(other._column_provenance[column]):
+                self[column] = other[column]
+            # self._setIndividualColumnWithProvenance(
+            #     column, other[column], other._column_provenance[column]
+            # )
+
+    def filter(self, mask):
+        if not self._allow_filter:
+            raise RuntimeError()
+        new_cols = copy.copy(self)
+        new_cols._events = new_cols._events[mask]
+        for c in self._column_provenance:
+            self._column_provenance[c] = self._current_provenance
+        return new_cols
+
+    @contextlib.contextmanager
+    def useKey(self, provenance: ModuleProvenance):
+        old_provenance = self._current_provenance
+        self._current_provenance = provenance
+        yield
+        self._current_provenance = old_provenance
+
+    @contextlib.contextmanager
+    def allowedInputs(self, columns):
+        columns = ColumnCollection(columns)
+        old_inputs = self._allowed_inputs
+        self._allowed_inputs = columns
+        yield
+        self._allowed_inputs = old_inputs
+
+    @contextlib.contextmanager
+    def allowedOutputs(self, columns):
+        columns = ColumnCollection(columns)
+        old_outputs = self._allowed_outputs
+        self._allowed_outputs = columns
+        yield
+        self._allowed_outputs = old_outputs
+
+    @contextlib.contextmanager
+    def allowFilter(self, allow):
+        old_allow = self._allowed_filter
+        self._allow_filter = allow
+        yield
+        self._allow_filter = old_allow
+
+
+def mergeColumns(column_views):
+    ret = copy.copy(column_views[0])
+    for other in column_views[1:]:
+        ret = ret.addColumnsFrom(other)
+    return ret
