@@ -1,64 +1,59 @@
 from __future__ import annotations
-import numpy as np
-import cProfile, pstats, io
 
-import timeit
-import uproot
-from superintervals import IntervalMap
-import enum
-import math
-import random
+from attrs import define, field
 
-import numbers
 import itertools as it
-import dask_awkward as dak
-import hist
-from attrs import asdict, define, make_class, Factory, field
-from cattrs import structure, unstructure, Converter
-import hist
-from coffea.nanoevents import NanoAODSchema
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
-from cattrs.strategies import include_subclasses, configure_tagged_union
-import cattrs
-from attrs import make_class
 
-from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
+from collections import deque
 
-import contextlib
-import uuid
-import functools as ft
 
-from rich import print
-import copy
-import dask
-import abc
-import awkward as ak
-from typing import Any, Literal
-from functools import cached_property
-import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
 from analyzer.core.serialization import converter
-from analyzer.core.analyzer_modules import AnalyzerModule
-from analyzer.core.columns import ColumnView
-from analyzer.core.results import WrappedResult
+from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.results import AnalyzerResult
+from analyzer.modules.universal.load_columns import LoadColumns
 
 
-def getPipelineSpecs(pipeline):
+def getPipelineSpecs(pipeline, metadata):
     ret = {}
     for node in pipeline:
-        ret[node.node_id] = node.getModuleSpec()
+        ret[node.node_id] = node.getModuleSpec(metadata)
     return PipelineParameterSpec(ret)
 
+class Node:
+    def __init__(
+        self,
+        node_id: str,
+        analyzer_module: AnalyzerModule,
+        parent: Node | None = None,
+    ):
+        self.node_id = node_id
+        self.parent = parent
+        self.analyzer_module = analyzer_module
+        self.request_parameter_runs = []
 
+    def getModuleSpec(self, metadata):
+        return self.analyzer_module.getParameterSpec(metadata)
+
+    def __eq__(self, other):
+        return (
+            self.node_id == other.node_id
+            and self.analyzer_module == other.analyzer_module
+        )
+
+    def __call__(self, columns, params):
+        params = params[self.node_id]
+        return self.analyzer_module(columns, params)
+
+    def __rich_repr__(self):
+        yield "node_id", self.node_id
+        yield "module_id", id(self.analyzer_module)
+        yield "analyzer_module", self.analyzer_module
+
+
+@define
 class Analyzer:
-    def __init__(self):
-        self.all_modules = []
-        self.base_pipelines: dict[str, list[Node]] = {}
+    all_modules: list = field(factory=list)
+    base_pipelines: dict[str, list[Node]] = field(factory=dict)
 
     def initModules(self, metadata):
         for m in self.all_modules:
@@ -109,7 +104,7 @@ class Analyzer:
         while to_add:
             head = to_add.popleft()
             complete_pipeline.append(head)
-            current_spec = getPipelineSpecs(complete_pipeline)
+            current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
             logger.info(f"Running node {head}")
             columns = columns.copy()
             columns, results = head(columns, params)
@@ -122,9 +117,7 @@ class Analyzer:
             while results:
                 res = results.popleft()
                 if isinstance(res, AnalyzerResult):
-                    result_container.addResult(
-                        WrappedResult(column_metadata, pipeline_metadata, res)
-                    )
+                    result_container.addResult(AnalyzerResult(res))
                 elif isinstance(res, ModuleAddition) and not freeze_pipeline:
                     module = res.analyzer_module
                     if res.run_builder is None:
@@ -180,22 +173,15 @@ class Analyzer:
             result_container.addResult(ret)
         return result_container
 
+    @classmethod
+    def _structure(cls, data: dict, conv) -> Analyzer:
+        analyzer = cls()
+        for k, v in data.items():
+            analyzer.addPipeline(k, [conv.structure(x, AnalyzerModule) for x in v])
+        return analyzer
 
-module_unstr = converter.get_unstructure_hook(AnalyzerModule)
-module_str = converter.get_structure_hook(AnalyzerModule)
-
-
-@converter.register_structure_hook
-def deserialize(data, t) -> Analyzer:
-    analyzer = t()
-    for k, v in data.items():
-        analyzer.addPipeline(k, converter.structure(v, list[AnalyzerModule]))
-    return analyzer
-
-
-@converter.register_unstructure_hook
-def serialize(analyzer: Analyzer):
-    return {
-        x: converter.unstructure([z.analyzer_module for z in y], list[AnalyzerModule])
-        for x, y in analyzer.base_pipelines.items()
-    }
+    def _unstructure(self, conv) -> dict:
+        return {
+            x: conv.unstructure([z.analyzer_module for z in y])
+            for x, y in self.base_pipelines.items()
+        }

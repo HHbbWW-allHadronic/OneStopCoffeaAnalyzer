@@ -1,52 +1,23 @@
 from __future__ import annotations
-import numpy as np
-import cProfile, pstats, io
-
-import timeit
-import uproot
-from superintervals import IntervalMap
-import enum
-import math
-import random
-
-import numbers
-import itertools as it
-import dask_awkward as dak
-import hist
-from attrs import asdict, define, make_class, Factory, field
-from cattrs import structure, unstructure, Converter
-import hist
-from coffea.nanoevents import NanoAODSchema
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
+import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
-import cattrs
-from attrs import make_class
 
-from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
+
+from attrs import define, field, make_class
+from attrs import define, field
+from analyzer.utils.structure_tools import freeze
+
+from collections.abc import Collection
 
 import contextlib
-import uuid
-import functools as ft
 
-from rich import print
-import copy
-import dask
 import abc
-import awkward as ak
-from typing import Any, Literal
-from functools import cached_property
-import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
+from typing import Any
 
 
 @define(frozen=True)
 class ModuleParameterValues:
-    param_values: frozenset[tuple[str, Any]] = factory(converter=freeze)
+    param_values: frozenset[tuple[str, Any]] = field(converter=freeze)
     spec: ModuleParameterSpec | None = field(eq=False, repr=False, default=None)
 
     def withNewValues(self, values):
@@ -337,7 +308,6 @@ class AnalyzerModule(abc.ABC):
         return cols, res
 
     def __runMulti(self, columns, params):
-        orig_columns = columns
         columns = [(x, y.copy()) for x, y in columns]
         just_cols = [x[1] for x in columns]
         key = self.getKey(just_cols, params)
@@ -374,3 +344,41 @@ class AnalyzerModule(abc.ABC):
     @classmethod
     def name(cls):
         return cls.__name__
+
+
+def register_module(input_columns, output_columns, configuration=None, params=None):
+    configuration = configuration or {}
+    params = params or {}
+
+    def wrapper(func):
+        getParameterSpec = lambda x: ModuleParameterSpec(params)
+        run = func
+        if callable(input_columns):
+            inputs = input_columns
+        else:
+            inputs = lambda self, metadata: [Column(x) for x in input_columns]
+        if callable(output_columns):
+            outputs = output_columns
+        else:
+            output = lambda self, metadata: [Column(x) for x in output_columns]
+        cls = make_class(
+            func.__name__,
+            configuration,
+            bases=(AnalyzerModule,),
+            class_body=dict(
+                getParameterSpec=getParameterSpec,
+                run=run,
+                inputs=inputs,
+                outputs=outputs,
+            ),
+        )
+        return cls
+
+    return wrapper
+
+
+def configureConverter(conv):
+    import analyzer.modules
+
+    union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
+    include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)

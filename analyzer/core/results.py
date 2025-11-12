@@ -1,47 +1,21 @@
 from __future__ import annotations
 import numpy as np
-import cProfile, pstats, io
 
-import timeit
-import uproot
-from superintervals import IntervalMap
-import enum
-import math
-import random
 
 import numbers
-import itertools as it
 import dask_awkward as dak
 import hist
-from attrs import asdict, define, make_class, Factory, field
-from cattrs import structure, unstructure, Converter
+from attrs import define, field
 import hist
-from coffea.nanoevents import NanoAODSchema
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
-from cattrs.strategies import include_subclasses, configure_tagged_union
-import cattrs
-from attrs import make_class
+from attrs import define, field
 
-from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
 
-import contextlib
-import uuid
-import functools as ft
 
-from rich import print
 import copy
-import dask
 import abc
 import awkward as ak
 from typing import Any, Literal
-from functools import cached_property
 import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
 
 @define
 class ResultBase(abc.ABC):
@@ -81,11 +55,54 @@ class AnalyzerResult(ResultBase):
         self.result += other.result
 
 @define
+class ResultContainer(ResultBase):
+    results: dict[str, AnalyzerResult] = field(factory=dict)
+
+    @define
+    class Summary:
+        results: dict[str, Any] = field(factory=dict)
+        
+
+    def summary(self):
+        return ResultContainer.Summary(results={x:y.summary() for x,y in self.results.items()})
+
+
+    def __setitem__(self,key,value):
+        self.results[key]=value
+
+    def __getitem__(self,key):
+        return self.results[key]
+
+    def __iter__(self,key):
+        return iter(self.results)
+
+    def keys(self):
+        return self.results.keys()
+
+    def __iadd__(self, other):
+        for k in self.results:
+            self.results[k] += other.results[k]
+
+    def iscale(self, value):
+        for k in self.results:
+            self.results[k].iscale(value)
+
+    def finalize(self, finalizer):
+        converter = getConverter()
+        converter.unstructure(self.results)
+        results = finalizer(results)
+        self.results = converter.structure(results, dict[str, AnalyzerResult])
+
+        for result in self.results.values():
+            result.finalize(finalizer)
+
+
+@define
 class TrackedResult(AnalyzerResult):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
-    result: ResultContainer
+    result: ResultContainer = field(factory=ResultContainer)
 
     @classmethod
     def peekFile(cls, f):
@@ -152,37 +169,6 @@ class TrackedResult(AnalyzerResult):
 
 
 @define
-class ResultContainer(ResultBase):
-    results: dict[str, AnalyzerResult] = field(factory=list)
-
-
-    def __setitem__(self,key,value):
-        self.results[key]=value
-
-    def __getitem__(self,key):
-        return self.results[key]
-
-    def __iter__(self,key):
-        return iter(self.results)
-
-    def __iadd__(self, other):
-        for k in self.results:
-            self.results[k] += other.results[k]
-
-    def iscale(self, value):
-        for k in self.results:
-            self.results[k].iscale(value)
-
-    def finalize(self, finalizer):
-        converter = getConverter()
-        uns = converter.unstructure(self.results)
-        results = finalizer(results)
-        self.results = converter.structure(results, dict[str, AnalyzerResult])
-
-        for result in self.results.values():
-            result.finalize(finalizer)
-
-@define
 class Histogram(ResultBase):
     @define
     class Summary:
@@ -190,6 +176,9 @@ class Histogram(ResultBase):
 
     axes: Any
     histogram: hist.Hist
+
+    def summary(self):
+        return Histogram.Summary(axes=self.axes)
 
     def __iadd__(self, other):
         self.hist += other.hist
@@ -200,7 +189,6 @@ class Histogram(ResultBase):
 
 @define
 class ScalableArray(ResultBase):
-
     array: ak.Array | dak.Array | np.ndarray
 
     def __iadd__(self, other):

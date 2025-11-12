@@ -2,29 +2,15 @@ from __future__ import annotations
 import re
 import dataclasses
 import enum
-from analyzer.utils.caching import runOrCacheMtimePaths
 from rich.progress import track
-import itertools as it
-import json
 import logging
-from functools import cached_property
 from pathlib import Path
-from typing import Any, List
+from typing import Any
+from attrs import define, field
 
-import pydantic as pyd
 import yaml
 from yaml import CLoader as Loader
 from analyzer.configuration import CONFIG
-from pydantic import (
-    BaseModel,
-    Field,
-    field_serializer,
-    field_validator,
-    model_validator,
-    ConfigDict,
-)
-from .fileset import FileSet
-import analyzer.datasets.files as adf
 
 
 from .era import Era
@@ -75,11 +61,10 @@ class DatasetParams(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
     name: str
-    title: str
-    era: str | Era
     sample_type: SampleType
+    title: str
+    era: str | dict
     other_data: dict[str, Any] = Field(default_factory=dict)
-    skimmed_from: str | None = None
 
     _lumi: float | None = None
 
@@ -146,39 +131,9 @@ class Sample(BaseModel):
     """A single sample.
     Each sample has a single weight based on its cross section and number of events.
     """
-
     name: str
-    n_events: int
+    events: SourceCollection
     x_sec: float | None = None  # Only needed if SampleType == MC
-    files: List[adf.SampleFile] = Field(default_factory=list)
-    cms_dataset_regex: str | None = None
-    total_gen_weight: str | None = None
-    _parent_dataset: Dataset | None = None
-    __has_loaded_replicas: bool = False
-
-    @cached_property
-    def fdict(self):
-        if not self.__has_loaded_replicas:
-            self.useFilesFromReplicaCache()
-            self.__has_loaded_replicas = True
-
-        return {f.cmsLocation(): f for f in self.files}
-
-    @property
-    def era(self):
-        return self._parent_dataset.era
-
-    @property
-    def sample_type(self):
-        return self._parent_dataset.sample_type
-
-    @property
-    def other_data(self):
-        return self._parent_dataset.other_data
-
-    @property
-    def sample_id(self):
-        return SampleId(self._parent_dataset.name, self.name)
 
     @property
     def params(self):
@@ -187,77 +142,78 @@ class Sample(BaseModel):
             **self.dict(exclude=["files"]),
         )
 
-    def useFilesFromReplicaCache(self):
-        from analyzer.configuration import CONFIG
+    # def useFilesFromReplicaCache(self):
+    #     from analyzer.configuration import CONFIG
+    # 
+    #     """Add files from the replica cache to the available files for this sample.
+    #     """
+    # 
+    #     replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
+    #     look_for = replica_cache / f"{self.sample_id}.json"
+    #     if not look_for.exists():
+    #         return
+    #     with open(look_for, "r") as f:
+    #         replicas = json.load(f)
+    #     t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
+    #     flat = dict(t)
+    #     if len(flat) != len(self.files):
+    #         raise RuntimeError(
+    #             f"Possible missing files for {self._parent_dataset.name} - {self.name}."
+    #             f"The number of files in the replica cache is {len(flat)}."
+    #             f"The number of files in the dateset is {len(self.files)}."
+    #         )
+    #     for f in self.files:
+    #         cms_loc = f.cmsLocation()
+    #         for l, p in flat[cms_loc].items():
+    #             f.setFile(l, p)
+    # 
+    # def discoverAndCacheReplicas(self, force=False):
+    #     """Use rucio to identify replicas for this sample, and store them for later use."""
+    # 
+    #     from analyzer.configuration import CONFIG
+    #     from coffea.dataset_tools import rucio_utils
+    # 
+    #     if not self.cms_dataset_regex:
+    #         raise RuntimeError(
+    #             "Cannot call discoverReplicas on a sample with no CMS dataset"
+    #         )
+    # 
+    #     replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
+    #     look_for = replica_cache / f"{self.sample_id}.json"
+    # 
+    #     if look_for.exists() and not force:
+    #         return
+    # 
+    #     client = rucio_utils.get_rucio_client()
+    #     datasets = getDatasets(self.cms_dataset_regex, client)
+    #     replicas = {dataset: getReplicas(dataset, client) for dataset in datasets}
+    #     look_for.parent.mkdir(exist_ok=True, parents=True)
+    #     with open(look_for, "w") as f:
+    #         json.dump(replicas, f, indent=2)
+    # 
+    # def getFileSet(self, file_retrieval_kwargs):
+    #     ret = {
+    #         f: (
+    #             d,
+    #             {
+    #                 "object_path": d.object_path,
+    #                 "num_entries": None,
+    #                 "uuid": None,
+    #                 "steps": None,
+    #             },
+    #         )
+    #         for f, d in self.fdict.items()
+    #     }
+    #     return FileSet(
+    #         files=ret,
+    #         step_size=None,
+    #         form=None,
+    #         file_retrieval_kwargs=file_retrieval_kwargs,
+    #     )
 
-        """Add files from the replica cache to the available files for this sample.
-        """
 
-        replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
-        look_for = replica_cache / f"{self.sample_id}.json"
-        if not look_for.exists():
-            return
-        with open(look_for, "r") as f:
-            replicas = json.load(f)
-        t = list(it.chain.from_iterable(x.items() for x in replicas.values()))
-        flat = dict(t)
-        if len(flat) != len(self.files):
-            raise RuntimeError(
-                f"Possible missing files for {self._parent_dataset.name} - {self.name}."
-                f"The number of files in the replica cache is {len(flat)}."
-                f"The number of files in the dateset is {len(self.files)}."
-            )
-        for f in self.files:
-            cms_loc = f.cmsLocation()
-            for l, p in flat[cms_loc].items():
-                f.setFile(l, p)
-
-    def discoverAndCacheReplicas(self, force=False):
-        """Use rucio to identify replicas for this sample, and store them for later use."""
-
-        from analyzer.configuration import CONFIG
-        from coffea.dataset_tools import rucio_utils
-
-        if not self.cms_dataset_regex:
-            raise RuntimeError(
-                "Cannot call discoverReplicas on a sample with no CMS dataset"
-            )
-
-        replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
-        look_for = replica_cache / f"{self.sample_id}.json"
-
-        if look_for.exists() and not force:
-            return
-
-        client = rucio_utils.get_rucio_client()
-        datasets = getDatasets(self.cms_dataset_regex, client)
-        replicas = {dataset: getReplicas(dataset, client) for dataset in datasets}
-        look_for.parent.mkdir(exist_ok=True, parents=True)
-        with open(look_for, "w") as f:
-            json.dump(replicas, f, indent=2)
-
-    def getFileSet(self, file_retrieval_kwargs):
-        ret = {
-            f: (
-                d,
-                {
-                    "object_path": d.object_path,
-                    "num_entries": None,
-                    "uuid": None,
-                    "steps": None,
-                },
-            )
-            for f, d in self.fdict.items()
-        }
-        return FileSet(
-            files=ret,
-            step_size=None,
-            form=None,
-            file_retrieval_kwargs=file_retrieval_kwargs,
-        )
-
-
-class Dataset(BaseModel):
+@define
+class Dataset:
     """A single physics dataset.
     It may be comprised of one or more samples.
     For example the QCDInclusive sample is comprised of several HT binned samples.
@@ -265,11 +221,11 @@ class Dataset(BaseModel):
 
     name: str
     title: str
+    samples: list[Sample] = field(factory=list)
     era: str | Era
     sample_type: SampleType
-    samples: List[Sample] = Field(default_factory=list)
     lumi: float | None = None
-    other_data: dict[str, Any] = Field(default_factory=dict)
+    other_data: dict[str, Any] = field(factory=dict)
     skimmed_from: str | None = None
 
     @property
@@ -296,58 +252,6 @@ class Dataset(BaseModel):
 
     def __len__(self):
         return len(self.samples)
-
-    @model_validator(mode="before")
-    @classmethod
-    def ifSingleton(cls, values):
-        if "samples" not in values:
-            sample = {
-                "name": values["name"],
-                "n_events": values["n_events"],
-                "x_sec": values.get("x_sec"),
-                "files": values["files"],
-                "cms_dataset_regex": values.get("cms_dataset_regex"),
-            }
-            top_level = {
-                "name": values["name"],
-                "title": values["title"],
-                "era": values["era"],
-                "lumi": values.get("lumi"),
-                "sample_type": values["sample_type"],
-                "other_data": values.get("other_data", {}),
-                "skimmed_from": values.get("skimmed_from"),
-                "samples": [sample],
-            }
-            return top_level
-        else:
-            return values
-
-    @model_validator(mode="after")
-    def refParent(self):
-        for sample in self.samples:
-            sample._parent_dataset = self
-            if (
-                self.skimmed_from
-                and self.sample_type == SampleType.MC
-                and not sample.total_gen_weight
-            ):
-                raise ValueError(
-                    f"Dataset {self.name} is marked as a skim, but "
-                    f'it\'s subsample {sample.name} does not have a "total_gen_weight". '
-                    f"Skimmed samples must contain this field. "
-                    f'You can find the gen weight by running over the parent dataset "{self.skimmed_from}", '
-                    f'and consulting the "total_gen_weight" in the result.'
-                )
-        return self
-
-    @field_serializer("sample_type")
-    def serialize_type(self, sample_type, _info):
-        return sample_type.name
-
-    @field_validator("sample_type")
-    @classmethod
-    def validate_type(cls, v, _info):
-        return SampleType[v]
 
 
 @dataclasses.dataclass

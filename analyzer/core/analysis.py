@@ -1,53 +1,18 @@
 from __future__ import annotations
-import numpy as np
-import cProfile, pstats, io
+from attrs import define, field
+from analyzer.core.serialization import converter
+from analyzer.core.analyzer import Analyzer
+from analyzer.core.executors import Executor
+from analyzer.core.analysis_modules import configureConverter
+from yaml import CLoader as Loader
+import yaml
 
-import timeit
-import uproot
-from superintervals import IntervalMap
-import enum
-import math
-import random
-
-import numbers
-import itertools as it
-import dask_awkward as dak
-import hist
-from attrs import asdict, define, make_class, Factory, field
-from cattrs import structure, unstructure, Converter
-import hist
-from coffea.nanoevents import NanoAODSchema
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
-from cattrs.strategies import include_subclasses, configure_tagged_union
-import cattrs
-from attrs import make_class
-
-from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
-
-import contextlib
-import uuid
-import functools as ft
-
-from rich import print
-import copy
-import dask
-import abc
-import awkward as ak
-from typing import Any, Literal
-from functools import cached_property
-import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
 
 
 @define
-class SampleDescription:
+class DatasetDescription:
     pipelines: list[str]
-    collection: str | SourceCollection
+    collection: str
 
 
 @define
@@ -57,7 +22,7 @@ class Analysis:
     """
 
     analyzer: Analyzer
-    event_collections: list[CollectionDesc]
+    event_collections: list[DatasetDescription]
 
     extra_module_paths: list[str] = field(factory=list)
     extra_dataset_paths: list[str] = field(factory=list)
@@ -86,4 +51,15 @@ def runAnalysis(analysis):
     #     loadRecursive(default_module_paths)
     # for path in analysis.extra_dataset_paths:
     #     loadRecursive(path)
+
+def main():
+    with open("test.yaml") as f:
+        data = yaml.load(f, Loader=Loader)
+    configureConverter(converter)
+    a = converter.structure(data, Analysis)
+    print(a)
+
+
+if __name__ == "__main__":
+    main()
     

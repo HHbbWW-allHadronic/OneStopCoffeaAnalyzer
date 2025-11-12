@@ -1,8 +1,6 @@
 import logging
-import pickle as pkl
 from pathlib import Path
 
-import lz4.frame
 from analyzer.core.analysis_modules import MODULE_REPO
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.configuration import loadDescription, iterSubsectors
@@ -151,7 +149,7 @@ def patchFromPath(
     to_load_real = set()
 
     for peek in loaded:
-        sample_id = peek.params.sample_id
+        peek.params.sample_id
         exp = peek.params.n_events
         val = peek.processed_events
         frac_done = val / exp

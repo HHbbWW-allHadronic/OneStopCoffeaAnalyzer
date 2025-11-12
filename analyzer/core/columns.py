@@ -1,32 +1,15 @@
 from __future__ import annotations
 
-import numbers
-import itertools as it
-import dask_awkward as dak
-import hist
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
-from cattrs.strategies import include_subclasses, configure_tagged_union
-
-from collections.abc import Collection
-from collections import deque
+from attrs import define, field
 
 
 import contextlib
-import uuid
 import functools as ft
-from rich import print
 import copy
-import dask
-import abc
 import awkward as ak
-from typing import Any, Literal
-from functools import cached_property
+from typing import Any
 import awkward as ak
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
+
 
 def coerceFields(data):
     if isinstance(data, str):
@@ -35,6 +18,7 @@ def coerceFields(data):
         return data.fields
     else:
         return data
+
 
 @define(frozen=True)
 class Column:
@@ -85,6 +69,13 @@ class Column:
     def __hash__(self):
         return hash(self.fields)
 
+    @classmethod
+    def _structure(cls, data: str , conv):
+        if isinstance(data, str):
+            return Column(data)
+
+
+
 def setColumn(events, column, value):
     column = Column(column)
     if len(column) == 1:
@@ -96,6 +87,7 @@ def setColumn(events, column, value):
         return ak.with_field(events, value, head)
     else:
         return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
+
 
 class ColumnCollection:
     columns: set[Column]
@@ -112,6 +104,7 @@ class ColumnCollection:
             for x in self.columns
             if any((x.contains(o) or o.contains(x)) for o in other)
         }
+
 
 def getAllColumns(events, cur_col=None):
     if fields := getattr(events, "fields"):
@@ -274,6 +267,8 @@ class ColumnView:
         self._allow_filter = allow
         yield
         self._allow_filter = old_allow
+
+
 
 
 def mergeColumns(column_views):

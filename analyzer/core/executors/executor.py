@@ -1,18 +1,13 @@
 from __future__ import annotations
 
 import abc
-from typing import Any
+from attrs import define
 
-
-from pydantic import BaseModel
-
-
-class Executor(abc.ABC, BaseModel):
-    test_mode: bool = False
-
+@define
+class Executor(abc.ABC):
 
     @abc.abstractmethod
-    def run(self, tasks: list[AnalysisTask], result_complete_callback=None):
+    def run(self, tasks, result_complete_callback=None):
         pass
 
     def setup(self, needed_resources):

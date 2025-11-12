@@ -1,51 +1,23 @@
 from __future__ import annotations
-import numpy as np
-import cProfile, pstats, io
 
-import timeit
 import uproot
-from superintervals import IntervalMap
-import enum
 import math
-import random
 
-import numbers
-import itertools as it
-import dask_awkward as dak
-import hist
-from attrs import asdict, define, make_class, Factory, field
-from cattrs import structure, unstructure, Converter
-import hist
+from attrs import define, field
 from coffea.nanoevents import NanoAODSchema
-from attrs import asdict, define, make_class, Factory, field
-import cattrs
-from cattrs import structure, unstructure, Converter
-from cattrs.strategies import include_subclasses, configure_tagged_union
-import cattrs
-from attrs import make_class
+from attrs import define, field
 
-from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
+from collections.abc import Iterable
 
-import contextlib
-import uuid
-import functools as ft
 
-from rich import print
-import copy
-import dask
 import abc
-import awkward as ak
-from typing import Any, Literal
-from functools import cached_property
-import awkward as ak
+from typing import Any
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-import logging
-from rich.logging import RichHandler
+
 
 @define
 class SourceCollection(abc.ABC):
-    nevents: int
+    nevents: int | None
 
     @abc.abstractmethod
     def getSources(self) -> Iterable[EventSource]: ...
@@ -64,15 +36,6 @@ class EventSource(abc.ABC):
     @abc.abstractmethod
     def chunks(self, chunk_size, max_chunks=None) -> Iterable[SourceChunk]: ...
 
-    # @abc.abstractmethod
-    # def intersect(self, other) -> EventSource: ...
-    #
-    # @abc.abstractmethod
-    # def add(self, other) -> EventSource: ...
-    #
-    # @abc.abstractmethod
-    # def sub(self, other) -> EventSource: ...
-
 
 def getFileEvents(file_path, tree_name):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
@@ -85,7 +48,6 @@ class FileSource(EventSource):
     file_path: str
     tree_name: str = "Events"
     schema_name: str | None = None
-    metadata: str | dict[str, Any] | None = None
 
     _nevents: int | None = field(default=None, eq=False)
 
@@ -109,7 +71,7 @@ class FileSource(EventSource):
         for start, stop in chunks:
             yield ChunkedRootFile(source_file=self, event_start=start, event_stop=stop)
 
-    def loadEvents(self, backend, start=None, stop=None, view_kwargs=None):
+    def loadEvents(self, backend, metadata, start=None, stop=None, view_kwargs=None):
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
         if backend == "coffea-virtual":
@@ -148,9 +110,6 @@ class Sample:
     event_source: EventCollection
 
 
-
-
-
 class Dataset:
     dataset_name: str
     era: str
@@ -160,6 +119,7 @@ class Dataset:
 
 def getFilesDas(das_path):
     pass
+
 
 class DasCollection(EventCollection):
     das_path: str
@@ -196,18 +156,21 @@ class SourceChunk(EventSource):
             for i in range(nchunks)
         ]
         for start, stop in chunks:
-            yield ChunkedRootFile(source_file=self, event_start=start, event_stop=stop)
+            yield SourceChunk(
+                source_file=self.source, event_start=start, event_stop=stop
+            )
 
-    def loadEvents(self, backend, view_kwargs=None):
+    def loadEvents(self, backend, metadata, view_kwargs=None):
         return self.source_file.loadEvents(
             backend,
+            metadata,
             start=self.event_start,
             stop=self.event_stop,
             view_kwargs=view_kwargs,
         )
 
     def overlaps(self, other):
-        same_file = self.source_file.file_id == other.source_file.file_id
+        same_source = self.source == other.source
         if not same_file:
             return False
         return (

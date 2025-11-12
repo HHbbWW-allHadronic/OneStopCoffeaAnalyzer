@@ -1,13 +1,9 @@
 from __future__ import annotations
 import json
-import lz4.frame
-import pickle as pkl
-import cProfile
 import time
 import base64
 import os
 
-import concurrent.futures
 import gc
 import logging
 import os
@@ -17,7 +13,6 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-import uproot
 
 import analyzer.core.results as core_results
 import awkward as ak
@@ -25,10 +20,8 @@ import dask
 from analyzer.configuration import CONFIG
 import math
 from analyzer.utils.structure_tools import iadd
-from analyzer.datasets import FileSet
 from analyzer.core.exceptions import AnalysisRuntimeError
-from coffea.nanoevents import NanoAODSchema, NanoEventsFactory
-from coffea.util import compress_form, decompress_form
+from coffea.util import decompress_form
 from analyzer.utils.querying import PatternExpression
 from distributed import (
     Client,
@@ -38,10 +31,8 @@ from distributed import (
     secede,
     rejoin,
     Queue,
-    Future,
 )
 from pydantic import Field, BaseModel
-from rich import print
 from rich.progress import (
     Progress,
     TextColumn,
@@ -286,14 +277,14 @@ class DaskExecutor(Executor):
         )
         finalizing_futures = set()
         completed = as_completed(prepped_futures)
-        start_time = time.time()
+        time.time()
 
         total_files_to_prep = sum(t.file_set.nfiles for t in tasks)
         total_events_to_analyze = 0
         exceptions = 0
 
         saving_tasks = []
-        save_queue = Queue()
+        Queue()
         if self.parallel_save is not None:
             save_executor = ProcessPoolExecutor
         else:

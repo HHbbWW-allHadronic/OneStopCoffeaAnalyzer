@@ -11,7 +11,6 @@ from .histograms import Histogrammer
 from .specifiers import SectorParams, SubSectorParams
 from .columns import Columns
 from .selection import Selection, SelectionSet, Selector
-from .weights import Weighter
 import logging
 from dataclasses import dataclass
 
@@ -165,7 +164,7 @@ class RegionAnalyzer(BaseModel):
         return selection
 
     def runSelection(self, columns, params, selection_set=None):
-        active_shape = columns.syst
+        columns.syst
         logger.info(f"Running Selection")
         params = self.getSectorParams(params)
         if selection_set is None:

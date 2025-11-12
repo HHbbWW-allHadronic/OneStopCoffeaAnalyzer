@@ -1,6 +1,5 @@
 import enum
 from collections import defaultdict
-import re
 from typing import Any, ClassVar
 
 import yaml
@@ -14,7 +13,6 @@ import logging
 import analyzer.core.region_analyzer as ra
 import analyzer.core.executors as executors
 from analyzer.utils.querying import PatternExpression, Pattern
-from analyzer.utils.debugging import jumpIn
 
 from collections import defaultdict
 

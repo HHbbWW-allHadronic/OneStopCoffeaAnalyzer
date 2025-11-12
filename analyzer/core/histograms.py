@@ -1,6 +1,5 @@
 import logging
 import numpy as np
-from rich import print
 from typing import Any
 
 import awkward as ak
