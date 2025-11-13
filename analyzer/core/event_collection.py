@@ -5,7 +5,7 @@ import math
 
 from attrs import define, field
 from coffea.nanoevents import NanoAODSchema
-from attrs import define, field
+from attrs import define, field, frozen
 
 from collections.abc import Iterable
 
@@ -17,16 +17,28 @@ from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 
 @define
 class SourceCollection(abc.ABC):
-    nevents: int | None
-
     @abc.abstractmethod
-    def getSources(self) -> Iterable[EventSource]: ...
+    def getSources(self) -> Iterable[EventSourceDescription]: ...
 
     @abc.abstractmethod
     def sub(self, sources: Iterable[EventSource]) -> EventCollection: ...
 
+class DasCollection(SourceCollection):
+    das_path: str
+    tree_name: str = "Events"
+    schema_name: str | None = None
 
-@define
+    metadata: str | dict[str, Any] | None = None
+
+    _files: list[set[str]] | None = None
+
+
+@frozen
+class EventSourceDescription(abc.ABC):
+    @abc.abstractmethod
+    def materialize(self): ...
+
+@frozen
 class EventSource(abc.ABC):
     @abc.abstractmethod
     def loadEvents(
@@ -104,34 +116,11 @@ class FileSource(EventSource):
         return ColumnView.fromEvents(events, **view_kwargs)
 
 
-class Sample:
-    sample_name: str
-    x_sec: float | None = None
-    event_source: EventCollection
-
-
-class Dataset:
-    dataset_name: str
-    era: str
-    data_type: DataType
-    samples: list[Sample] = field(factory=list)
-
 
 def getFilesDas(das_path):
     pass
 
 
-class DasCollection(EventCollection):
-    das_path: str
-    tree_name: str = "Events"
-    schema_name: str | None = None
-
-    metadata: str | dict[str, Any] | None = None
-
-    _files: list[RootFile] | None = None
-
-    def preprocess(self):
-        self._files = getFilesDas(self.das_path)
 
 
 @define(frozen=True)
