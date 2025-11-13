@@ -1,40 +1,9 @@
 from attrs import define
 import abc
 
-
-class Axis(abc.ABC):
-    @abc.abstractmethod
-    def toHist(self): ...
-
-
-@define(frozen=True)
-class IntegerAxis(Axis):
-    name: str
-    start: int
-    stop: int
-    unit: str | None = None
-
-    def toHist(self):
-        return hist.axis.Integer(self.start, self.stop, name=self.name)
-
-
-@define(frozen=True)
-class RegularAxis(Axis):
-    name: str
-    bins: int
-    start: float
-    stop: float
-    unit: str | None = None
-
-    def toHist(self):
-        return hist.axis.Regular(self.bins, self.start, self.stop, name=self.name)
-
-
-
-@define(frozen=True)
-class CategoryDesc:
-    column: Column
-    axis: Axis
+from analyzer.core.columns import Column
+from analyzer.core.analysis_modules import AnalyzerModule
+from .axis import Axis
 
 
 @define
@@ -170,7 +139,7 @@ class HistogramBuilder(AnalyzerModule):
 
 
 def makeHistogram(
-    product_name, columns, axes, data, description, want_variations=None, mask=None
+    product_name, columns, axes, data, description, multirun_strategy=None, mask=None
 ):
     if not isinstance(data, (list, tuple)):
         data = [data]

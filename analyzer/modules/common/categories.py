@@ -1,4 +1,6 @@
-
+from attrs import define
+from analyzer.core.columns import Column
+from .axis import Axis
 
 def addCategory(columns, name, data, axis):
     col = Column(fields=("Categories", name))
@@ -8,3 +10,9 @@ def addCategory(columns, name, data, axis):
         columns.pipeline_data["categories"] = []
     columns.pipeline_data["categories"].append(to_add)
     return columns
+
+
+@define(frozen=True)
+class CategoryDesc:
+    column: Column
+    axis: Axis

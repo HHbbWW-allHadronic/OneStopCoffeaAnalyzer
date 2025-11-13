@@ -6,11 +6,10 @@ import itertools as it
 
 from collections import deque
 
-
 from analyzer.core.serialization import converter
 from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.results import AnalyzerResult
-from analyzer.modules.universal.load_columns import LoadColumns
+from analyzer.modules.common.load_columns import LoadColumns
 
 
 def getPipelineSpecs(pipeline, metadata):

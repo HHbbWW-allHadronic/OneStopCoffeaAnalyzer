@@ -2,9 +2,11 @@ from __future__ import annotations
 import re
 import dataclasses
 import enum
+from analyzer.core.event_collection import SourceDescription
 from rich.progress import track
 import logging
 from pathlib import Path
+from analyzer.core.serialization import converter
 from typing import Any
 from attrs import define, field
 
@@ -57,97 +59,93 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
-class DatasetParams(BaseModel):
-    model_config = ConfigDict(use_enum_values=True)
+# @defgine
+# class DatasetParams:
+#     model_config = ConfigDict(use_enum_values=True)
+#
+#     name: str
+#     sample_type: SampleType
+#     title: str
+#     era: str | dict
+#     other_data: dict[str, Any] = Field(default_factory=dict)
+#
+#     _lumi: float | None = None
+#
+#     @property
+#     def lumi(self) -> float:
+#         if isinstance(self.era, str) and not self._lumi:
+#             raise RuntimeError(f"Cannot compute lumi for dataset")
+#         if self._lumi is not None:
+#             return self._lumi
+#         else:
+#             return self.era.lumi
+#
+#     def populateEra(self, era_repo):
+#         if isinstance(self.era, str):
+#             self.era = era_repo[self.era]
 
-    name: str
-    sample_type: SampleType
-    title: str
-    era: str | dict
-    other_data: dict[str, Any] = Field(default_factory=dict)
 
-    _lumi: float | None = None
+# @pyd.dataclasses.dataclass(frozen=True)
+# class SampleId:
+#     dataset_name: str
+#     sample_name: str
+#
+#     def __str__(self):
+#         return self.serialize()
+#
+#     def __lt__(self, other):
+#         return (self.dataset_name, self.sample_name) < (
+#             other.dataset_name,
+#             other.sample_name,
+#         )
+#
+#     @pyd.model_serializer
+#     def serialize(self) -> str:
+#         return self.dataset_name + "___" + self.sample_name
+#
+#     @pyd.model_validator(mode="before")
+#     @classmethod
+#     def isStr(self, value):
+#         if isinstance(value, str):
+#             a, b, *rest = value.split("___")
+#             return {"dataset_name": a, "sample_name": b}
+#         elif len(value.args) == 1:
+#             a, b, *rest = value.args[0].split("___")
+#             return {"dataset_name": a, "sample_name": b}
+#         else:
+#             return value
 
-    @property
-    def lumi(self) -> float:
-        if isinstance(self.era, str) and not self._lumi:
-            raise RuntimeError(f"Cannot compute lumi for dataset")
-        if self._lumi is not None:
-            return self._lumi
-        else:
-            return self.era.lumi
 
-    def populateEra(self, era_repo):
-        if isinstance(self.era, str):
-            self.era = era_repo[self.era]
+# class SampleParams(BaseModel):
+#     dataset: DatasetParams
+#     name: str
+#     n_events: int
+#     x_sec: float | None = None
+#     cms_dataset_regex: str | None = None
+#     total_gen_weight: str | None = None
+#     trigger_list: set[str] | None = None
+#
+#     @property
+#     def sample_id(self):
+#         return SampleId(dataset_name=self.dataset.name, sample_name=self.name)
 
 
-@pyd.dataclasses.dataclass(frozen=True)
-class SampleId:
-    dataset_name: str
+@define
+class Sample:
     sample_name: str
-
-    def __str__(self):
-        return self.serialize()
-
-    def __lt__(self, other):
-        return (self.dataset_name, self.sample_name) < (
-            other.dataset_name,
-            other.sample_name,
-        )
-
-    @pyd.model_serializer
-    def serialize(self) -> str:
-        return self.dataset_name + "___" + self.sample_name
-
-    @pyd.model_validator(mode="before")
-    @classmethod
-    def isStr(self, value):
-        if isinstance(value, str):
-            a, b, *rest = value.split("___")
-            return {"dataset_name": a, "sample_name": b}
-        elif len(value.args) == 1:
-            a, b, *rest = value.args[0].split("___")
-            return {"dataset_name": a, "sample_name": b}
-        else:
-            return value
-
-
-class SampleParams(BaseModel):
-    dataset: DatasetParams
-    name: str
-    n_events: int
-    x_sec: float | None = None
-    cms_dataset_regex: str | None = None
-    total_gen_weight: str | None = None
-    trigger_list: set[str] | None = None
+    source: SourceDescription
+    x_sec: float | None = None 
 
     @property
-    def sample_id(self):
-        return SampleId(dataset_name=self.dataset.name, sample_name=self.name)
-
-
-class Sample(BaseModel):
-    """A single sample.
-    Each sample has a single weight based on its cross section and number of events.
-    """
-    name: str
-    events: SourceCollection
-    x_sec: float | None = None  # Only needed if SampleType == MC
-
-    @property
-    def params(self):
-        return SampleParams(
-            dataset=self._parent_dataset.params,
-            **self.dict(exclude=["files"]),
-        )
+    def metdata(self):
+        return dict(sample_name=self.sample_name, x_sex=self.x_sec)
 
     # def useFilesFromReplicaCache(self):
     #     from analyzer.configuration import CONFIG
-    # 
+    #
     #     """Add files from the replica cache to the available files for this sample.
     #     """
-    # 
+    #
     #     replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
     #     look_for = replica_cache / f"{self.sample_id}.json"
     #     if not look_for.exists():
@@ -166,31 +164,31 @@ class Sample(BaseModel):
     #         cms_loc = f.cmsLocation()
     #         for l, p in flat[cms_loc].items():
     #             f.setFile(l, p)
-    # 
+    #
     # def discoverAndCacheReplicas(self, force=False):
     #     """Use rucio to identify replicas for this sample, and store them for later use."""
-    # 
+    #
     #     from analyzer.configuration import CONFIG
     #     from coffea.dataset_tools import rucio_utils
-    # 
+    #
     #     if not self.cms_dataset_regex:
     #         raise RuntimeError(
     #             "Cannot call discoverReplicas on a sample with no CMS dataset"
     #         )
-    # 
+    #
     #     replica_cache = Path(CONFIG.APPLICATION_DATA) / "replica_cache"
     #     look_for = replica_cache / f"{self.sample_id}.json"
-    # 
+    #
     #     if look_for.exists() and not force:
     #         return
-    # 
+    #
     #     client = rucio_utils.get_rucio_client()
     #     datasets = getDatasets(self.cms_dataset_regex, client)
     #     replicas = {dataset: getReplicas(dataset, client) for dataset in datasets}
     #     look_for.parent.mkdir(exist_ok=True, parents=True)
     #     with open(look_for, "w") as f:
     #         json.dump(replicas, f, indent=2)
-    # 
+    #
     # def getFileSet(self, file_retrieval_kwargs):
     #     ret = {
     #         f: (
@@ -214,125 +212,53 @@ class Sample(BaseModel):
 
 @define
 class Dataset:
-    """A single physics dataset.
-    It may be comprised of one or more samples.
-    For example the QCDInclusive sample is comprised of several HT binned samples.
-    """
-
-    name: str
+    dataset_name: str
     title: str
-    samples: list[Sample] = field(factory=list)
-    era: str | Era
+    samples: list[Sample] 
+    era: str 
     sample_type: SampleType
-    lumi: float | None = None
     other_data: dict[str, Any] = field(factory=dict)
-    skimmed_from: str | None = None
 
     @property
-    def params(self):
-        ds = DatasetParams(**self.model_dump())
-        ds._lumi = self.lumi
-        return ds
+    def metadata(self):
+        return dict(
+            dataset_name=self.dataset_name,
+            title=self.title,
+            era=self.era,
+            other_data=self.other_data,
+        )
 
-    def populateEra(self, era_repo):
-        if isinstance(self.era, str):
-            self.era = era_repo[self.era]
+    def getWithMeta(self, sample_name):
+        current_meta = copy.copy(self.metadata)
+        found = next(x for x in samples if x.sample_name == sample_name)
+        current_meta.update(found.metadata)
+        current_meta["sample_id"] = (
+            self.metadata["dataset_name"] + "__" + found.metadata["sample_name"]
+        )
+        return current_meta, found
 
-    def getSample(self, name):
-        try:
-            return next(x for x in self.samples if x.name == name)
-        except StopIteration:
-            raise KeyError(name)
-
-    def __getitem__(self, item):
-        return self.getSample(item)
-
-    def __iter__(self):
-        return iter(self.samples)
-
-    def __len__(self):
-        return len(self.samples)
-
-
-@dataclasses.dataclass
+@define
 class DatasetRepo:
-    datasets: dict[str, Dataset] = dataclasses.field(default_factory=dict)
+    datasets: dict[str, Dataset] = field(factory=dict)
+    metadata: dist[str,Any] = field(factory=dict)
 
-    def __contains__(self, key):
-        return key in self.datasets
+    def getWithMeta(self, key):
+        found = self.datasets[key]
+        current_meta = copy.copy(self.metadata)
+        current_meta.update(found.metadata)
+        return current_meta, found
 
-    def __iter__(self):
-        return iter(self.datasets)
-
-    def __getitem__(self, key):
-        if isinstance(key, SampleId):
-            return self.datasets[key.dataset_name][key.sample_name]
-        else:
-            return self.datasets[key]
-
-    def getRegex(self, pattern):
-        if any(x in pattern for x in [".", "+"]):
-            return [self[x] for x in self.datasets if re.match(pattern, x)]
-        else:
-            return [self[pattern]]
-
-    def getSample(self, sample_id):
-        dataset = self[sample_id.dataset_name]
-        sample = dataset.getSample(sample_id.sample_name)
-        return sample
-
-    def __loadOne(self, data):
+    def addFromFile(self, path):
+        with open(path, "r") as fo:
+            data = yaml.load(fo, Loader=Loader)
+        data = converter.structure(data, list[Dataset])
         for d in data:
-            s = Dataset(**d)
-            if s.name in self.datasets:
-                raise KeyError(
-                    f"Dataset name '{s.name}' is already use. Please use a different name for this dataset."
-                )
-            self.datasets[s.name] = s
+            if d.dataset_name in self.datasets:
+                raise KeyError(f"A dataset with the name {d.name} already exists")
+            self.datasets[d.dataset_name] = d
 
-    def load(self, directory):
-        directory = Path(directory)
+    def addFromDirectory(self, path):
+        directory = Path(path)
         files = list(directory.rglob("*.yaml"))
-        for f in track(files, description="Loading Datasets"):
-            with open(f, "r") as fo:
-                data = yaml.load(fo, Loader=Loader)
-                if not data:
-                    continue
-                self.__loadOne(data)
-
-
-    def buildReplicaCache(self, force=False):
-        for dataset in track(self.datasets.values()):
-            logger.info(f"Building replicas for {dataset}")
-            for sample in dataset.samples:
-                logger.info(
-                    f'Attempting to build replices for {sample} with regex "{sample.cms_dataset_regex}"'
-                )
-                if sample.cms_dataset_regex:
-                    sample.discoverAndCacheReplicas(force=force)
-
-    # def useReplicaCache(self):
-    #     for dataset in self.datasets.values():
-    #         for sample in dataset.samples:
-    #             if sample.cms_dataset_regex:
-    #                 sample.useFilesFromReplicaCache()
-
-
-    def populateEras(self, era_repo):
-        for d in self.datasets.values():
-            d.populateEra(era_repo)
-
-    @staticmethod
-    def getConfig():
-        paths = CONFIG.DATASET_PATHS
-
-        def internal():
-            repo = DatasetRepo()
-            for path in paths:
-                repo.load(path)
-            return repo
-
-        repo = internal()
-        # for path in paths:
-        #     repo.load(path)
-        return repo
+        for f in files:
+            self.addFromFile(f)

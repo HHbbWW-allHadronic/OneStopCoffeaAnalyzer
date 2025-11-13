@@ -155,6 +155,7 @@ class ParameterSpec:
     default_value: Any | None = None
     possible_values: Collection | None = None
     tags: set[str] = field(factory=set)
+    metadata: dict[str, Any] = field(factory=dict)
     param_type: type | None = None
 
 

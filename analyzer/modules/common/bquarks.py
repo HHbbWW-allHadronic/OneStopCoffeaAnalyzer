@@ -1,13 +1,4 @@
-import logging
-import pickle as pkl
-from pathlib import Path
-import fsspec
-import awkward as ak
-import correctionlib
-import correctionlib.convert
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-from correctionlib.convert import from_histogram
-import re
+from analyzer.core.analysis_modules import AnalyzerModule, register_module
 from analyzer.core.columns import Column
 from attrs import define, field
 from .axis import RegularAxis
@@ -16,24 +7,12 @@ import correctionlib
 
 
 @define
-class BJetShapeSF(AnalyzerModule):
+class BQuarkMaker(AnalyzerModule):
     input_col: Column
-    weight_name: str = "b_tag_disc_shape"
+    output_col: Column
+    working_point: str
 
     __corrections: dict = field(factory=dict)
-
-    def getParameterSpec(self, metadata):
-        return ModuleParameterSpec(
-            {
-                "variation": ParameterSpec(
-                    default_value="central",
-                    possible_values=["central", "up", "down"],
-                    tags={
-                        "weight_variation",
-                    },
-                ),
-            }
-        )
 
     def run(self, columns, params):
         wps = self.getWPs(columns.metadata)
@@ -42,18 +21,19 @@ class BJetShapeSF(AnalyzerModule):
         columns[self.output_col] = bjets
         return columns, []
 
-    def getCorrection(self, metadata):
+    def getWPs(self, metadata):
         file_path = metadata["era"]["btag_scale_factors"]["file"]
         if file_path in self.__corrections:
             return self.__corrections[file_path]
         cset = correctionlib.CorrectionSet.from_file(file_path)
         era_info = params.dataset.era
         cset = getBTagCset(era_info.btag_scale_factors["file"])
+        ret = {p: cset["deepJet_wp_values"].evaluate(p) for p in ("L", "M", "T")}
         self.__corrections[file_path] = ret
         return ret
 
     def preloadForMeta(self, metadata):
-        self.getCorrection(metadata)
+        self.getWPs(metadata)
 
     def inputs(self, metadata):
         return [self.input_col]
