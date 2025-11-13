@@ -1,32 +1,23 @@
-[tool.poetry]
-name = "analyzer"
+[project]
+name = "OneStopCoffea"
 version = "0.1.0"
 description = ""
-authors = ["UMN Stealth Stop Group"]
-license = "MIT"
 readme = "README.md"
+requires-python = ">=3.11"
 
-[tool.poetry.scripts]
-analyzer = 'analyzer.cli:main'
+dependencies = [
+    "attrs>=25.4.0",
+    "cattrs>=25.3.0",
+    "coffea>=2025.11.0",
+    "dask>=2025.3.0",
+    "distributed>=2025.3.0",
+    "mplhep>=0.4.1",
+    "numpy>=2.3.4",
+]
 
-[tool.poetry.dependencies]
-python = "^3.9"
-hist = "^2"
-matplotlib = "^3.7"
-coffea = {version="^2025", extras=["dask"]} 
-jupyter = "*"
-pyyaml = "^6.0"
-lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue", branch = "main"}
-argcomplete='^3.4.0'
-
-[tool.poetry.extras]
-torch=["gpytorch", "pyro-ppl"]
-
-[tool.poetry.group.dev.dependencies]
-black = "^23.3.0"
-mypy = "^1.3.0"
-isort = "^1.3.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[dependency-groups]
+dev = [
+    "pydata-sphinx-theme>=0.15.4",
+    "pytest>=9.0.1",
+    "sphinx>=8.2.3",
+]
