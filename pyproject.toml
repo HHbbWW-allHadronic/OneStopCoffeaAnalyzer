@@ -11,8 +11,11 @@ dependencies = [
     "coffea>=2025.11.0",
     "dask>=2025.3.0",
     "distributed>=2025.3.0",
+    "hist>=2.9.0",
+    "joblib>=1.5.2",
     "mplhep>=0.4.1",
     "numpy>=2.3.4",
+    "scikit-learn>=1.7.2",
 ]
 
 [dependency-groups]
