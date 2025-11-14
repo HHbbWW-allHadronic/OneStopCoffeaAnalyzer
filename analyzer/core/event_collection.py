@@ -1,4 +1,5 @@
 from __future__ import annotations
+from cattrs.strategies import include_subclasses, configure_tagged_union
 
 import uproot
 import math
@@ -13,64 +14,262 @@ from collections.abc import Iterable
 import abc
 from typing import Any
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
+from analyzer.core.caching import makeCached
 
 
 @define
-class SourceCollection(abc.ABC):
+class SourceDescription(abc.ABC):
     @abc.abstractmethod
-    def getSources(self) -> Iterable[EventSourceDescription]: ...
+    def getFileSet(self) -> FileSet: ...
 
     @abc.abstractmethod
-    def sub(self, sources: Iterable[EventSource]) -> EventCollection: ...
+    def getMissing(self, fs: FileSet, **kwargs) -> FileSet: ...
 
-class DasCollection(SourceCollection):
+
+def getDatasets(query, client):
+    from coffea.dataset_tools import rucio_utils
+
+    outlist, outtree = rucio_utils.query_dataset(
+        query,
+        client=client,
+        tree=True,
+        scope="cms",
+    )
+    return outlist
+
+
+def getReplicas(dataset, client):
+    from analyzer.utils.file_tools import extractCmsLocation
+    from coffea.dataset_tools import rucio_utils
+
+    (
+        outfiles,
+        outsites,
+        sites_counts,
+    ) = rucio_utils.get_dataset_files_replicas(
+        dataset,
+        allowlist_sites=[],
+        blocklist_sites=["T3_CH_CERN_OpenData"],
+        regex_sites=[],
+        mode="full",
+        client=client,
+    )
+    ret = [dict(zip(s, f)) for s, f in zip(outfiles, outsites)]
+    return ret
+
+
+@makeCached
+def getDasFileSet(dataset):
+    from coffea.dataset_tools import rucio_utils
+
+    client = rucio_utils.get_rucio_client()
+    return getReplicas(dataset, client)
+
+
+def decideFile(possible_files, location_priorities=None):
+    if location_priorities:
+
+        def rank(val):
+            x = list(
+                (i for i, x in enumerate(location_priority_regex) if re.match(x, val)),
+            )
+            return next(iter(x), len(location_priority_regex))
+
+        sites_ranked = [(rank(site), path) for path, site in possible_files.items()]
+        max_rank = max(x[0] for x in sites_ranked)
+        return random.choice([x[1] for x in sites_ranked if x[0] == max_rank])
+    else:
+        return random.choice(possible_files.keys())
+
+
+@define
+class DasCollection(SourceDescription):
     das_path: str
     tree_name: str = "Events"
     schema_name: str | None = None
 
-    metadata: str | dict[str, Any] | None = None
+    def getFileSet(self, location_priorities=None) -> FileSet:
+        all_files = getDasFileSet(self.das_path)
+        files = [
+            decideFile(x, location_priorities=location_priorities) for x in all_files
+        ]
+        return FileSet(
+            files={x: None for x in files},
+            chunk_size=None,
+            tree_name=self.tree_name,
+            schema_name=self.schema_name,
+        )
 
-    _files: list[set[str]] | None = None
+    def getMissing(self, file_set: FileSet, location_priorities=None):
+        all_files = getDasFileSet(self.das_path)
+        fs_files = set(file_set.files)
+        files = [
+            decideFile(x, location_priorities)
+            for x in all_files
+            if not any(y in fs_files for y in x.keys())
+        ]
+        return FileSet(
+            files={x: None for x in files},
+            chunk_size=file_set.chunk_size,
+            tree_name=file_set.tree_name,
+            schema_name=file_set.schema_name,
+        )
 
 
-@frozen
-class EventSourceDescription(abc.ABC):
-    @abc.abstractmethod
-    def materialize(self): ...
-
-@frozen
-class EventSource(abc.ABC):
-    @abc.abstractmethod
-    def loadEvents(
-        self, backend, metadata, event_start=None, event_stop=None, view_kwargs=None
-    ) -> ColumnView: ...
-
-    @abc.abstractmethod
-    def chunks(self, chunk_size, max_chunks=None) -> Iterable[SourceChunk]: ...
-
-
-def getFileEvents(file_path, tree_name):
-    tree = uproot.open({file_path: None}, **kwargs)[tree_name]
-    nevents = tree.num_entries
-    return nevents
-
-
-@define(frozen=True)
-class FileSource(EventSource):
-    file_path: str
+@define
+class FileListCollection(SourceDescription):
+    files: list[str]
     tree_name: str = "Events"
     schema_name: str | None = None
 
-    _nevents: int | None = field(default=None, eq=False)
+    def getFileSet(self, **kwargs) -> FileSet:
+        return FileSet(
+            files={x: None for x in self.files},
+            chunk_size=None,
+            tree_name=self.tree_name,
+            schema_name=self.schema_name,
+        )
 
-    def getNumEvents(self, **kwargs):
-        if self._nevents is not none:
-            return self._nevents
-        self._nevents = getFileEvents(self.file_path, self.tree_name)
-        return nevents
+    def getMissing(self, file_set: FileSet) -> FileSet:
+        files = [x for x in self.files if x not in self.file_set.files]
+        return FileSet(
+            files={x: None for x in files},
+            chunk_size=file_set.chunk_size,
+            tree_name=file_set.tree_name,
+            schema_name=file_set.schema_name,
+        )
 
-    def chunks(self, chunk_size, max_chunks=None, exec_function=None, **kwargs):
-        nevents = self.getNumEvents(**kwargs)
+
+@define
+class FileSet:
+    files: dict[str, list[tuple[int, int] | None]]
+    chunk_size: int | None = None
+    tree_name: str = "Events"
+    schema_name: str | None = None
+
+    def updateEvents(self, fname, events):
+        self.files[fname] = events
+
+    def intersect(self, other):
+        common_files = set(self.files).intersection(other.files)
+        ret = {}
+        for fname in common_files:
+            steps_self, steps_other = self.files[fname], other.files[fname]
+            if not (data_this["steps"] is None and data_other["steps"] is None):
+                data["steps"] = [
+                    s
+                    for s in (data_this["steps"] or [])
+                    if s in (data_other["steps"] or [])
+                ]
+            ret[fname] = data
+
+        return FileSet(files=ret, step_size=self.step_size)
+
+    def __iadd__(self, other):
+        for fname, steps_other in other.files.items():
+            if fname not in self.files:
+                self.files[fname] = steps_other
+            else:
+                if steps_self is None and steps_other is None:
+                    steps_new = None
+                else:
+                    steps_self = set(self.files[fname] or [])
+                    steps_other = set(steps_other or [])
+                    steps_new = list(sorted(steps_self | steps_other))
+                self.files[fname] = steps_new
+        return self
+
+    def __isub__(self, other):
+        common_files = set(self.files).intersection(other.files)
+
+        for fname in common_files:
+            if self.files[fname] is None != other.files[fname] is None:
+                raise RuntimeError()
+            if self.files[fname] is None and other.files[fname] is None:
+                del self.files[fname]
+
+            steps_self = set(self.files[fname])
+            steps_other = set(other.files[fname])
+            steps_new = list(sorted(steps_self - steps_other))
+            self.files[fname] = steps_new
+
+        return self
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
+
+    def __sub__(self, other):
+        ret = copy.deepcopy(self)
+        ret -= other
+        return ret
+
+    @property
+    def materialized(self):
+        return not any(x is None for x in self.files.values())
+
+    @property
+    def empty(self):
+        ret = not self.files or all(
+            x is not None and not x for x in self.files.values()
+        )
+        return ret
+
+    def justChunked(self):
+        ret = {}
+        for k, v in self.files.items():
+            if v is not None:
+                ret[k] = v
+        return FileSet(files=ret, step_size=self.step_size)
+
+    def justUnchunked(self):
+        ret = {}
+        for k, v in self.files.items():
+            if v is None:
+                ret[k] = v
+        return FileSet(files=ret, step_size=self.step_size)
+
+    def applySliceChunks(self):
+        ret = {}
+        for k, v in self.files.items():
+            if v is None:
+                ret[k] = v
+        return FileSet(files=ret, step_size=self.step_size)
+
+    def splitFiles(self, files_per_set):
+        lst = list(self.files.items())
+        files_split = {(i, i + n): dict(lst[i : i + n]) for i in range(0, len(lst), n)}
+        return {
+            k: FileSet(
+                files=v,
+                step_size=self.step_size,
+            )
+            for k, v in files_split.items()
+        }
+
+
+@makeCached
+def getFileEvents(file_path, tree_name):
+    tree = uproot.open({file_path: None}, **kwargs)[tree_name]
+    nevents = tree.num_entries
+    return file_path, nevents
+
+
+@define(frozen=True)
+class FileChunk(EventSource):
+    file_path: str
+    event_start: int | None = None
+    event_stop: int | None = None
+    tree_name: str = "Events"
+    schema_name: str | None = None
+
+    @property
+    def metadata(self):
+        return self.source.metadata
+
+    def chunks(self, chunk_size, max_chunks=None, **kwargs):
+        nevents = end - start
         nchunks = max(round(nevents / chunk_size), 1)
         chunk_size = math.ceil(nevents / nchunks)
         chunks = [
@@ -81,11 +280,13 @@ class FileSource(EventSource):
             for i in range(nchunks)
         ]
         for start, stop in chunks:
-            yield ChunkedRootFile(source_file=self, event_start=start, event_stop=stop)
+            yield FileChunk(source_file=self.source, event_start=start, event_stop=stop)
 
-    def loadEvents(self, backend, metadata, start=None, stop=None, view_kwargs=None):
+    def loadEvents(self, backend, metadata, view_kwargs=None):
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
+        start = self.start
+        stop = self.stop
         if backend == "coffea-virtual":
             events = NanoEventsFactory.from_root(
                 {self.source_file.file_path: self.source_file.tree_name},
@@ -115,62 +316,11 @@ class FileSource(EventSource):
 
         return ColumnView.fromEvents(events, **view_kwargs)
 
-
-
-def getFilesDas(das_path):
-    pass
-
-
-
-
-@define(frozen=True)
-class SourceChunk(EventSource):
-    source: EventSource
-    event_start: int
-    event_stop: int
-
-    @property
-    def metadata(self):
-        return self.source.metadata
-
-    def chunks(self, chunk_size, max_chunks=None, **kwargs):
-        nevents = end - start
-        nchunks = max(round(nevents / chunk_size), 1)
-        chunk_size = math.ceil(nevents / nchunks)
-        chunks = [
-            [
-                i * chunk_size,
-                min((i + 1) * chunk_size, nevents),
-            ]
-            for i in range(nchunks)
-        ]
-        for start, stop in chunks:
-            yield SourceChunk(
-                source_file=self.source, event_start=start, event_stop=stop
-            )
-
-    def loadEvents(self, backend, metadata, view_kwargs=None):
-        return self.source_file.loadEvents(
-            backend,
-            metadata,
-            start=self.event_start,
-            stop=self.event_stop,
-            view_kwargs=view_kwargs,
-        )
-
-    def overlaps(self, other):
-        same_source = self.source == other.source
+    def overlaps(self, other: FileChunk):
+        same_source = self.file_path == other.file_path
         if not same_file:
             return False
         return (
             self.event_start <= other.event_stop
             and other.event_start <= self.event_stop
         )
-
-
-@define
-class EventMultiSet(EventCollection):
-    events_collections: list[EventCollection]
-
-    def iterChunks(self, chunk_size):
-        pass
