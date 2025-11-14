@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import random
 from cattrs.strategies import include_subclasses, configure_tagged_union
 
 import uproot
@@ -58,7 +60,7 @@ def getReplicas(dataset, client):
     return ret
 
 
-@makeCached
+@makeCached()
 def getDasFileSet(dataset):
     from coffea.dataset_tools import rucio_utils
 
@@ -79,7 +81,7 @@ def decideFile(possible_files, location_priorities=None):
         max_rank = max(x[0] for x in sites_ranked)
         return random.choice([x[1] for x in sites_ranked if x[0] == max_rank])
     else:
-        return random.choice(possible_files.keys())
+        return random.choice(list(possible_files.keys()))
 
 
 @define
@@ -249,7 +251,7 @@ class FileSet:
         }
 
 
-@makeCached
+@makeCached()
 def getFileEvents(file_path, tree_name):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
     nevents = tree.num_entries
@@ -257,7 +259,7 @@ def getFileEvents(file_path, tree_name):
 
 
 @define(frozen=True)
-class FileChunk(EventSource):
+class FileChunk:
     file_path: str
     event_start: int | None = None
     event_stop: int | None = None
@@ -324,3 +326,7 @@ class FileChunk(EventSource):
             self.event_start <= other.event_stop
             and other.event_start <= self.event_stop
         )
+
+def configureConverter(conv):
+    # union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
+    include_subclasses(SourceDescription, conv)#, union_strategy=union_strategy)

@@ -1,6 +1,6 @@
 from joblib import Memory
 
-memory = Memory(location, verbose=0)
+memory = Memory("test_cache", verbose=0)
 
 
 def makeCached():
