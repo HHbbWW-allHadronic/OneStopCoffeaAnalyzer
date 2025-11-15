@@ -89,7 +89,7 @@ class Dataset:
 
     def getWithMeta(self, sample_name):
         current_meta = copy.copy(self.metadata)
-        found = next(x for x in samples if x.sample_name == sample_name)
+        found = next(x for x in self.samples if x.sample_name == sample_name)
         current_meta.update(found.metadata)
         current_meta["sample_id"] = (
             self.metadata["dataset_name"] + "__" + found.metadata["sample_name"]

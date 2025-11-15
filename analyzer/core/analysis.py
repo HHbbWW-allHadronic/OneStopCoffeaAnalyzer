@@ -3,9 +3,10 @@ from attrs import define, field
 from analyzer.core.serialization import converter
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.executors import Executor
-from analyzer.datasets import DatasetRepo
-from analyzer.core.analysis_modules import configureConverter
-from analyzer.core.event_collection import configureConverter as ev_configureConverter
+from analyzer.core.datasets import DatasetRepo
+from analyzer.utils.load import loadModuleFromPath
+import analyzer.core.analysis_modules
+import analyzer.core.event_collection
 from yaml import CLoader as Loader
 import yaml
 
@@ -29,7 +30,8 @@ class Analysis:
     extra_module_paths: list[str] = field(factory=list)
     extra_dataset_paths: list[str] = field(factory=list)
     extra_era_paths: list[str] = field(factory=list)
-    extra_executors: dict[str, Executor] = field(factory=dict)
+    # extra_executors: dict[str, Executor] = field(factory=dict)
+
 
 
 
@@ -51,14 +53,29 @@ def runAnalysis(analysis):
     #     
     for path in analysis.extra_dataset_paths:
         dataset_repo.addFromDirectory(path)
+    breakpoint()
     # for path in analysis.extra_dataset_paths:
     #     loadRecursive(path)
+
+
+
+def setupConverter(conv):
+    analyzer.core.analysis_modules.configureConverter(converter)
+    analyzer.core.event_collection.configureConverter(converter)
+
+
 
 def main():
     with open("test.yaml") as f:
         data = yaml.load(f, Loader=Loader)
-    configureConverter(converter)
-    ev_configureConverter(converter)
+
+    import analyzer.modules
+
+    for path in data.get("extra_module_paths",[]):
+        loadModuleFromPath(path)
+
+    setupConverter(converter)
+
     a = converter.structure(data, Analysis)
     runAnalysis(a)
     print(a)

@@ -2,12 +2,20 @@ from __future__ import annotations
 
 import abc
 from attrs import define
+from analyzer.core.event_collection import FileSet
+
+
+
+@define
+class ExecutionTask:
+    event_source_desc: FileSet
+    metadata: dict
 
 @define
 class Executor(abc.ABC):
 
     @abc.abstractmethod
-    def run(self, tasks, result_complete_callback=None):
+    def run(self, tasks: ExecutionTasks):
         pass
 
     def setup(self, needed_resources):

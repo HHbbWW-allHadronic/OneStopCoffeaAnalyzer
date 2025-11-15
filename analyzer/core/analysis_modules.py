@@ -3,6 +3,7 @@ import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 
 
+
 from attrs import define, field, make_class
 from attrs import define, field
 from analyzer.utils.structure_tools import freeze
@@ -263,7 +264,7 @@ class AnalyzerModule(abc.ABC):
         return []
 
     def getKey(self, columns, params):
-        ret = hash((self.name(), params, self.getColumnKey(columns)))
+        ret = hash((self.name(), freeze(params), self.getColumnKey(columns)))
         return ret
 
     def __runNoInputs(self, params):
@@ -379,7 +380,5 @@ def register_module(input_columns, output_columns, configuration=None, params=No
 
 
 def configureConverter(conv):
-    import analyzer.modules
-
     union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
     include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)

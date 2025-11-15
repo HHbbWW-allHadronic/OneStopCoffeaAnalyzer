@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import copy
 import operator
 import subprocess
 import string
 from collections.abc import MutableMapping, MutableSet
 from typing import Iterable, TypeVar, Any
-from __future__ import annotations
 import numpy as np
 import cProfile, pstats, io
 

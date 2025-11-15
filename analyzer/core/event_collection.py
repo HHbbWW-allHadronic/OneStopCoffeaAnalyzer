@@ -152,6 +152,13 @@ class FileSet:
     def updateEvents(self, fname, events):
         self.files[fname] = events
 
+    def getNeededUpdatesFuncs(self):
+        return [
+            ft.partial(getFileEvents, f, self.tree_name)
+            for f, v in files.items()
+            if v is None
+        ]
+
     def intersect(self, other):
         common_files = set(self.files).intersection(other.files)
         ret = {}
@@ -165,7 +172,7 @@ class FileSet:
                 ]
             ret[fname] = data
 
-        return FileSet(files=ret, step_size=self.step_size)
+        return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def __iadd__(self, other):
         for fname, steps_other in other.files.items():
@@ -223,21 +230,21 @@ class FileSet:
         for k, v in self.files.items():
             if v is not None:
                 ret[k] = v
-        return FileSet(files=ret, step_size=self.step_size)
+        return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def justUnchunked(self):
         ret = {}
         for k, v in self.files.items():
             if v is None:
                 ret[k] = v
-        return FileSet(files=ret, step_size=self.step_size)
+        return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def applySliceChunks(self):
         ret = {}
         for k, v in self.files.items():
             if v is None:
                 ret[k] = v
-        return FileSet(files=ret, step_size=self.step_size)
+        return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def splitFiles(self, files_per_set):
         lst = list(self.files.items())
@@ -245,10 +252,17 @@ class FileSet:
         return {
             k: FileSet(
                 files=v,
-                step_size=self.step_size,
+                chunk_size=self.chunk_size,
             )
             for k, v in files_split.items()
         }
+
+    def iterChunks(self):
+        for f, v in self.files.items():
+            if v is None:
+                continue
+            for chunk in v:
+                yield FileChunk(f, *v, self.tree_name, self.schema_name)
 
 
 @makeCached()
@@ -327,6 +341,7 @@ class FileChunk:
             and other.event_start <= self.event_stop
         )
 
+
 def configureConverter(conv):
     # union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
-    include_subclasses(SourceDescription, conv)#, union_strategy=union_strategy)
+    include_subclasses(SourceDescription, conv)  # , union_strategy=union_strategy)

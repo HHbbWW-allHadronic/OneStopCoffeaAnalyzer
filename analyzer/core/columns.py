@@ -70,10 +70,9 @@ class Column:
         return hash(self.fields)
 
     @classmethod
-    def _structure(cls, data: str , conv):
+    def _structure(cls, data: str, conv):
         if isinstance(data, str):
             return Column(data)
-
 
 
 def setColumn(events, column, value):
@@ -267,8 +266,6 @@ class ColumnView:
         self._allow_filter = allow
         yield
         self._allow_filter = old_allow
-
-
 
 
 def mergeColumns(column_views):
