@@ -51,24 +51,14 @@ import logging
 from rich.logging import RichHandler
 
 
-@ft.singledispatch
 def freeze(data):
-    return data
+    if isinstance(data,dict):
+        return frozenset((freeze(x), freeze(y)) for x, y in data.items())
+    elif isinstance(data,list):
+        return frozenset(freeze(x) for x in data)
+    else:
+        return data
 
-
-@freeze.register
-def _(data: dict):
-    return frozenset(sorted((freeze(x), freeze(y)) for x, y in data.items()))
-
-
-@freeze.register
-def _(data: list):
-    return tuple(freeze(x) for x in data)
-
-
-@freeze.register
-def _(data: list):
-    return frozenset(x for x in data)
 
 
 def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):

@@ -1,12 +1,15 @@
 from __future__ import annotations
 from attrs import define, field
+from rich import print
 from analyzer.core.serialization import converter
 from analyzer.core.analyzer import Analyzer
-from analyzer.core.executors import Executor
+from analyzer.core.executors import Executor , ExecutionTask
 from analyzer.core.datasets import DatasetRepo
 from analyzer.utils.load import loadModuleFromPath
 import analyzer.core.analysis_modules
 import analyzer.core.event_collection
+import analyzer.core.executors.executor
+
 from yaml import CLoader as Loader
 import yaml
 
@@ -16,7 +19,6 @@ import yaml
 class DatasetDescription:
     pipelines: list[str]
     collection: str
-
 
 @define
 class Analysis:
@@ -30,7 +32,7 @@ class Analysis:
     extra_module_paths: list[str] = field(factory=list)
     extra_dataset_paths: list[str] = field(factory=list)
     extra_era_paths: list[str] = field(factory=list)
-    # extra_executors: dict[str, Executor] = field(factory=dict)
+    extra_executors: dict[str, Executor] = field(factory=dict)
 
 
 
@@ -53,15 +55,22 @@ def runAnalysis(analysis):
     #     
     for path in analysis.extra_dataset_paths:
         dataset_repo.addFromDirectory(path)
+    ds=dataset_repo["test"]
+    meta,sample = ds.getWithMeta("test")
+    executor = analysis.extra_executors["test"]
+    fs = sample.source.getFileSet()
+
+    t = ExecutionTask(fs, meta, ["Signal312", "Signal313"])
+    for result in executor.run(analysis.analyzer, [t]):
+        print(result)
     breakpoint()
-    # for path in analysis.extra_dataset_paths:
-    #     loadRecursive(path)
 
 
 
 def setupConverter(conv):
     analyzer.core.analysis_modules.configureConverter(converter)
     analyzer.core.event_collection.configureConverter(converter)
+    analyzer.core.executors.executor.configureConverter(converter)
 
 
 

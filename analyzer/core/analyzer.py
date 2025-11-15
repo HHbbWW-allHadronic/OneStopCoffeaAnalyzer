@@ -7,9 +7,13 @@ import itertools as it
 from collections import deque
 
 from analyzer.core.serialization import converter
-from analyzer.core.analysis_modules import AnalyzerModule
-from analyzer.core.results import AnalyzerResult
+from analyzer.core.analysis_modules import AnalyzerModule, PipelineParameterSpec
+from analyzer.core.results import ResultProvenance, AnalyzerResult, ResultContainer
 from analyzer.modules.common.load_columns import LoadColumns
+import logging
+
+
+logger = logging.getLogger("analyzer.core")
 
 
 def getPipelineSpecs(pipeline, metadata):
@@ -18,17 +22,15 @@ def getPipelineSpecs(pipeline, metadata):
         ret[node.node_id] = node.getModuleSpec(metadata)
     return PipelineParameterSpec(ret)
 
+
 class Node:
     def __init__(
         self,
         node_id: str,
         analyzer_module: AnalyzerModule,
-        parent: Node | None = None,
     ):
         self.node_id = node_id
-        self.parent = parent
         self.analyzer_module = analyzer_module
-        self.request_parameter_runs = []
 
     def getModuleSpec(self, metadata):
         return self.analyzer_module.getParameterSpec(metadata)
@@ -77,7 +79,7 @@ class Analyzer:
 
     def addPipeline(self, name, pipeline):
         ret = []
-        ret.append(self.getUniqueNode(ret, LoadColumns()))
+        ret.append(Node("ENTRYPOINT", LoadColumns()))
         for module in pipeline:
             ret.append(self.getUniqueNode(ret, module))
         self.base_pipelines[name] = ret
@@ -87,29 +89,25 @@ class Analyzer:
         columns,
         pipeline,
         params,
+        execution_name=None,
         pipeline_meta=None,
         freeze_pipeline=False,
-        handle_results=True,
+        result_container=None,
     ):
         complete_pipeline = []
-        column_metadata = columns.metadata
-        pipeline_metadata = pipeline_meta or {}
+        pipeline_metadata = {"execution_name": execution_name}
         to_add = deque(pipeline)
-        if handle_results:
-            result_container = ResultContainer()
-        else:
-            result_container = None
 
         while to_add:
             head = to_add.popleft()
             complete_pipeline.append(head)
-            current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
-            logger.info(f"Running node {head}")
-            columns = columns.copy()
-            columns, results = head(columns, params)
-            logger.info(f"Node produced {len(results)} results")
 
-            if not handle_results:
+            if columns is not None:
+                columns = columns.copy()
+            columns, results = head(columns, params)
+            current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
+
+            if not result_container:
                 continue
             results = deque(results)
 
@@ -136,7 +134,7 @@ class Analyzer:
                                 params_set,
                                 pipeline_name="NONE",
                                 freeze_pipeline=True,
-                                handle_results=False,
+                                result_container=None,
                             )
                             everything.append((params_set, c))
                         logger.info(
@@ -152,24 +150,29 @@ class Analyzer:
                     )
         return columns, result_container
 
-    def __rich_repr__(self):
-        yield "all_modules", self.all_modules
-        yield "base_pipelines", self.base_pipelines
-
-    def run(self, chunk, pipelines=None):
+    def run(self, chunk, metadata, pipelines=None):
         pipelines = pipelines or list(self.base_pipelines)
 
-        result_container = ResultContainer("ChunkResult")
+        root_container = ResultContainer("Dataset")
+        dataset_container = ResultContainer(metadata["dataset_name"])
+        sample_container = ResultContainer(metadata["sample_name"])
+
+        root_container.addResult(dataset_container)
+        dataset_container.addResult(sample_container)
+        sample_container.addResult(ResultProvenance("provenance", chunk.toFileSet()))
 
         for k, pipeline in self.base_pipelines.items():
             if k not in pipelines:
                 continue
-            spec = getPipelineSpecs(pipeline)
-            vals = spec.getWithValues({"chunk": chunk})
-            _, ret = self.runPipelineWithParameters(
-                None, pipeline, vals, pipeline_name=k
+            pipeline_container = ResultContainer(k)
+            spec = getPipelineSpecs(pipeline, metadata)
+            vals = spec.getWithValues(
+                {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
             )
-            result_container.addResult(ret)
+            _, ret = self.runPipelineWithParameters(
+                None, pipeline, vals, result_container=pipeline_container
+            )
+            sample_container.addResult(pipeline_container)
         return result_container
 
     @classmethod

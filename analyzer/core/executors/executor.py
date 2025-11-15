@@ -1,15 +1,18 @@
 from __future__ import annotations
 
 import abc
+import functools as ft 
 from attrs import define
 from analyzer.core.event_collection import FileSet
+from cattrs.strategies import include_subclasses, configure_tagged_union
 
 
 
 @define
 class ExecutionTask:
-    event_source_desc: FileSet
+    file_set: FileSet
     metadata: dict
+    pipelines: list[str]
 
 @define
 class Executor(abc.ABC):
@@ -29,3 +32,7 @@ class Executor(abc.ABC):
 
     def __enter__(self):
         self.setup()
+
+def configureConverter(conv):
+    union_strategy = ft.partial(configure_tagged_union, tag_name="executor_name")
+    include_subclasses(Executor, conv, union_strategy=union_strategy)

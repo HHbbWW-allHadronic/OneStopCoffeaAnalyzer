@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import random
+from analyzer.core.columns import Column, ColumnView
 from cattrs.strategies import include_subclasses, configure_tagged_union
+import functools as ft
 
 import uproot
 import math
@@ -85,6 +87,12 @@ def decideFile(possible_files, location_priorities=None):
 
 
 @define
+class FileInfo:
+    nevents: int | None = None
+    chunks: list[tuple[int, int]] | None = None
+
+
+@define
 class DasCollection(SourceDescription):
     das_path: str
     tree_name: str = "Events"
@@ -96,7 +104,7 @@ class DasCollection(SourceDescription):
             decideFile(x, location_priorities=location_priorities) for x in all_files
         ]
         return FileSet(
-            files={x: None for x in files},
+            files={x: FileInfo() for x in files},
             chunk_size=None,
             tree_name=self.tree_name,
             schema_name=self.schema_name,
@@ -111,7 +119,7 @@ class DasCollection(SourceDescription):
             if not any(y in fs_files for y in x.keys())
         ]
         return FileSet(
-            files={x: None for x in files},
+            files={x: FileInfo() for x in files},
             chunk_size=file_set.chunk_size,
             tree_name=file_set.tree_name,
             schema_name=file_set.schema_name,
@@ -126,7 +134,7 @@ class FileListCollection(SourceDescription):
 
     def getFileSet(self, **kwargs) -> FileSet:
         return FileSet(
-            files={x: None for x in self.files},
+            files={x: FileInfo() for x in self.files},
             chunk_size=None,
             tree_name=self.tree_name,
             schema_name=self.schema_name,
@@ -135,42 +143,65 @@ class FileListCollection(SourceDescription):
     def getMissing(self, file_set: FileSet) -> FileSet:
         files = [x for x in self.files if x not in self.file_set.files]
         return FileSet(
-            files={x: None for x in files},
+            files={x: FileInfo() for x in files},
             chunk_size=file_set.chunk_size,
             tree_name=file_set.tree_name,
             schema_name=file_set.schema_name,
         )
 
 
+def chunkN(nevents, chunk_size):
+    nchunks = max(round(nevents / chunk_size), 1)
+    chunk_size = math.ceil(nevents / nchunks)
+    chunks = [
+        [
+            i * chunk_size,
+            min((i + 1) * chunk_size, nevents),
+        ]
+        for i in range(nchunks)
+    ]
+    return chunks
+
+
 @define
 class FileSet:
-    files: dict[str, list[tuple[int, int] | None]]
+    files: dict[str, FileInfo]
     chunk_size: int | None = None
     tree_name: str = "Events"
     schema_name: str | None = None
 
+    @staticmethod
+    def fromChunk(chunk):
+        return FileSet(
+            files={chunk.file_path: [(chunk.event_start, chunk.event_stop)]},
+            tree_name=chunk.tree_name,
+            schema_name=chunk.schema_name,
+        )
+
     def updateEvents(self, fname, events):
-        self.files[fname] = events
+        self.files[fname].nevents = events
 
     def getNeededUpdatesFuncs(self):
         return [
             ft.partial(getFileEvents, f, self.tree_name)
-            for f, v in files.items()
-            if v is None
+            for f, v in self.files.items()
+            if v.nevents is None
         ]
 
     def intersect(self, other):
-        common_files = set(self.files).intersection(other.files)
+        common_files = set(self.files).intersection(set(other.files))
         ret = {}
         for fname in common_files:
-            steps_self, steps_other = self.files[fname], other.files[fname]
+            steps_self, steps_other = (
+                self.files[fname].chunks,
+                other.files[fname].chunks,
+            )
             if not (data_this["steps"] is None and data_other["steps"] is None):
                 data["steps"] = [
-                    s
-                    for s in (data_this["steps"] or [])
-                    if s in (data_other["steps"] or [])
+                    s for s in (steps_self or []) if s in (steps_other or [])
                 ]
-            ret[fname] = data
+            ret[fname].nevents = self.files[fname].nevents
+            ret[fname].chunks = data
 
         return FileSet(files=ret, chunk_size=self.chunk_size)
 
@@ -182,8 +213,8 @@ class FileSet:
                 if steps_self is None and steps_other is None:
                     steps_new = None
                 else:
-                    steps_self = set(self.files[fname] or [])
-                    steps_other = set(steps_other or [])
+                    steps_self = set(self.files[fname].chunks or [])
+                    steps_other = set(steps_other.chunks or [])
                     steps_new = list(sorted(steps_self | steps_other))
                 self.files[fname] = steps_new
         return self
@@ -197,10 +228,10 @@ class FileSet:
             if self.files[fname] is None and other.files[fname] is None:
                 del self.files[fname]
 
-            steps_self = set(self.files[fname])
-            steps_other = set(other.files[fname])
+            steps_self = set(self.files[fname].chunks)
+            steps_other = set(other.files[fname].chunks)
             steps_new = list(sorted(steps_self - steps_other))
-            self.files[fname] = steps_new
+            self.files[fname].chunks = steps_new
 
         return self
 
@@ -259,14 +290,22 @@ class FileSet:
 
     def iterChunks(self):
         for f, v in self.files.items():
-            if v is None:
+            if v.chunks is None:
                 continue
-            for chunk in v:
-                yield FileChunk(f, *v, self.tree_name, self.schema_name)
+            for chunk in v.chunks:
+                yield FileChunk(f, *chunk, self.tree_name, self.schema_name)
+
+    def toChunked(self, chunk_size):
+        files = {
+            x: FileInfo(y.nevents, chunkN(y.nevents, chunk_size))
+            for x, y in self.files.items()
+            if y.nevents is not None
+        }
+        return FileSet(files, chunk_size, self.tree_name, self.schema_name)
 
 
 @makeCached()
-def getFileEvents(file_path, tree_name):
+def getFileEvents(file_path, tree_name, **kwargs):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
     nevents = tree.num_entries
     return file_path, nevents
@@ -284,28 +323,14 @@ class FileChunk:
     def metadata(self):
         return self.source.metadata
 
-    def chunks(self, chunk_size, max_chunks=None, **kwargs):
-        nevents = end - start
-        nchunks = max(round(nevents / chunk_size), 1)
-        chunk_size = math.ceil(nevents / nchunks)
-        chunks = [
-            [
-                i * chunk_size,
-                min((i + 1) * chunk_size, nevents),
-            ]
-            for i in range(nchunks)
-        ]
-        for start, stop in chunks:
-            yield FileChunk(source_file=self.source, event_start=start, event_stop=stop)
-
-    def loadEvents(self, backend, metadata, view_kwargs=None):
+    def loadEvents(self, backend, view_kwargs=None):
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
-        start = self.start
-        stop = self.stop
+        start = self.event_start
+        stop = self.event_stop
         if backend == "coffea-virtual":
             events = NanoEventsFactory.from_root(
-                {self.source_file.file_path: self.source_file.tree_name},
+                {self.file_path: self.tree_name},
                 schemaclass=NanoAODSchema,
                 entry_start=start,
                 entry_stop=stop,
@@ -313,7 +338,7 @@ class FileChunk:
             ).events()
         elif backend == "coffea-dask":
             events = NanoEventsFactory.from_root(
-                {self.source_file.file_path: self.source_file.tree_name},
+                {self.file_path: self.tree_name},
                 schemaclass=NanoAODSchema,
                 entry_start=start,
                 entry_stop=stop,
@@ -321,7 +346,7 @@ class FileChunk:
             ).events()
         elif backend == "coffea-eager":
             events = NanoEventsFactory.from_root(
-                {self.source_file.file_path: self.source_file.tree_name},
+                {self.file_path: self.tree_name},
                 schemaclass=NanoAODSchema,
                 entry_start=start,
                 entry_stop=stop,
@@ -340,6 +365,9 @@ class FileChunk:
             self.event_start <= other.event_stop
             and other.event_start <= self.event_stop
         )
+
+    def toFileSet(self):
+        return FileSet.fromChunk(self)
 
 
 def configureConverter(conv):

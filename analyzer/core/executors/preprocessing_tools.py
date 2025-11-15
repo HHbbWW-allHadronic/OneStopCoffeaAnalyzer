@@ -16,8 +16,6 @@ def getPrepCachePath(task):
 
 def preprocess(task, test_mode=False):
     unchunked = task.file_set.justUnchunked()
-    if test_mode:
-        unchunked = unchunked.slice(files=slice(0,1))
     if not unchunked.empty:
         to_prep = {task.sample_id: unchunked.toCoffeaDataset()}
         out, all_items = dst.preprocess(

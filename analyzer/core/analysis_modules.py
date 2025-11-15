@@ -9,43 +9,26 @@ from attrs import define, field
 from analyzer.utils.structure_tools import freeze
 
 from collections.abc import Collection
+from analyzer.core.columns import ColumnView
 
 import contextlib
 
 import abc
 from typing import Any
+import logging
+
+logger = logging.getLogger("analyzer.core")
 
 
-@define(frozen=True)
-class ModuleParameterValues:
-    param_values: frozenset[tuple[str, Any]] = field(converter=freeze)
-    spec: ModuleParameterSpec | None = field(eq=False, repr=False, default=None)
-
-    def withNewValues(self, values):
-        d = dict(self.param_values)
-        d.update(values)
-        return self.spec.getWithValues(d)
-
-    def asdict(self):
-        return dict(self.param_values)
-
-    def __hash__(self):
-        return hash(self.param_values)
-
-    def __getitem__(self, key):
-        return self.asdict()[key]
-
-    def __rich_repr__(self):
-        yield "param_values", self.asdict()
-
-
-@define(frozen=True)
+@define
 class PipelineParameterValues:
-    values: frozenset[tuple[str, ModuleParameterValues]]
+    values: dict[str, ModuleParameterValues]
     spec: PipelineParameterSpec
 
-    def __hash__(self):
-        return hash(self.values)
+    @property
+    def key(self):
+        return hash(frozenset((x,y.key) for x,y in self.values))
+
 
     def asdict(self):
         return {x: y.asdict() for x, y in self.values}
@@ -69,17 +52,15 @@ class PipelineParameterValues:
         return str(self)
 
 
-# def mergeAnalyzerValues(first, *rest):
-#     while rest:
-#
-# def moduleValues(first, *rest):
-#     while rest:
-
-
-@define(frozen=True)
+@define
 class ModuleParameterValues:
-    param_values: frozenset[tuple[str, Any]]
+    param_values: dict[str, Any]
     spec: ModuleParameterSpec | None = field(eq=False, default=None)
+
+    @property
+    def key(self):
+        return hash(freeze(self.param_values))
+
 
     def withNewValues(self, values):
         d = dict(self.param_values)
@@ -108,19 +89,20 @@ class ModuleParameterValues:
         return f"ModuleParameterValues({self.asdict()})"
 
 
-@define(frozen=True)
+@define
 class PipelineParameterValues:
-    values: frozenset[tuple[str, ModuleParameterValues]]
+    values: dict[str, ModuleParameterValues]
     spec: PipelineParameterSpec
 
-    def __hash__(self):
-        return hash(self.values)
+    @property
+    def key(self):
+        return hash(frozenset((x,y.key) for x,y in self.values))
 
     def asdict(self):
         return {x: y.asdict() for x, y in self.values}
 
     def __getitem__(self, key):
-        found = next(x[1] for x in self.values if x[0] == key)
+        found = self.values[key]
         return ModuleParameterValues(found.param_values, self)
 
     def withNewValues(self, new_data):
@@ -197,7 +179,7 @@ class ModuleParameterSpec:
                         f"Must provide a value for {spec} -- {name} with no default value"
                     )
                 ret[name] = spec.default_value
-        return ModuleParameterValues(frozenset(ret.items()), self)
+        return ModuleParameterValues(ret, self)
 
 
 @define
@@ -219,7 +201,7 @@ class PipelineParameterSpec:
                 ret[nid] = spec.getWithValues(values[nid])
             else:
                 ret[nid] = spec.getWithValues({})
-        return PipelineParameterValues(frozenset(ret.items()), self)
+        return PipelineParameterValues(ret, self)
 
     def getTags(self, *tag):
         tags = {x: y.getTags(*tag) for x, y in self.node_specs.items()}
@@ -248,7 +230,7 @@ class AnalyzerModule(abc.ABC):
     @abc.abstractmethod
     def outputs(self, metadata): ...
 
-    def getParameterSpec(self) -> ModuleParameterSpec:
+    def getParameterSpec(self, metadata) -> ModuleParameterSpec:
         return ModuleParameterSpec()
 
     def preloadForMeta(self, metadata):
@@ -264,7 +246,7 @@ class AnalyzerModule(abc.ABC):
         return []
 
     def getKey(self, columns, params):
-        ret = hash((self.name(), freeze(params), self.getColumnKey(columns)))
+        ret = hash((self.name(), params.key, self.getColumnKey(columns)))
         return ret
 
     def __runNoInputs(self, params):

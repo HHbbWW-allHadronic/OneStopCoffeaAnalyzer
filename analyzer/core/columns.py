@@ -9,7 +9,10 @@ import copy
 import awkward as ak
 from typing import Any
 import awkward as ak
+import logging
+from analyzer.utils.structure_tools import freeze
 
+logger = logging.getLogger("analyzer.core")
 
 def coerceFields(data):
     if isinstance(data, str):
@@ -88,6 +91,7 @@ def setColumn(events, column, value):
         return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
 
 
+@define
 class ColumnCollection:
     columns: set[Column]
 

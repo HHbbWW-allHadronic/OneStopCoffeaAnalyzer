@@ -66,8 +66,10 @@ class Sample:
     x_sec: float | None = None 
 
     @property
-    def metdata(self):
+    def metadata(self):
         return dict(sample_name=self.sample_name, x_sex=self.x_sec)
+
+
 
 @define
 class Dataset:
@@ -107,6 +109,9 @@ class DatasetRepo:
         current_meta = copy.copy(self.metadata)
         current_meta.update(found.metadata)
         return current_meta, found
+
+    def __getitem__(self, key):
+        return self.datasets[key]
 
     def addFromFile(self, path):
         with open(path, "r") as fo:

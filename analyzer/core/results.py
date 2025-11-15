@@ -4,11 +4,11 @@ import numpy as np
 
 import numbers
 import dask_awkward as dak
+from analyzer.core.event_collection import FileSet
 import hist
 from attrs import define, field
 import hist
 from attrs import define, field
-
 
 
 import copy
@@ -17,8 +17,11 @@ import awkward as ak
 from typing import Any, Literal
 import awkward as ak
 
+
 @define
 class ResultBase(abc.ABC):
+    name: str
+
     @abc.abstractmethod
     def __iadd__(self, other):
         pass
@@ -26,7 +29,6 @@ class ResultBase(abc.ABC):
     @abc.abstractmethod
     def iscale(self, value):
         pass
-
 
     @abc.abstractmethod
     def summary(self):
@@ -41,68 +43,27 @@ class ResultBase(abc.ABC):
         ret = copy.deepcopy(self)
         return ret.iscale(value)
 
+
 @define
 class AnalyzerResult(ResultBase):
     result: ResultBase
-    metadata: dict[str,Any] = field(factory=dict)
+    metadata: dict[str, Any] = field(factory=dict)
 
-    def compatible(self,other):
+    def compatible(self, other):
         return self.metadata == other.metadata
 
-    def __iadd__(self,other):
+    def __iadd__(self, other):
         if not compatible:
             raise ResultIntegrityError()
         self.result += other.result
 
+
 @define
 class ResultContainer(ResultBase):
-    results: dict[str, AnalyzerResult] = field(factory=dict)
-
-    @define
-    class Summary:
-        results: dict[str, Any] = field(factory=dict)
-        
-
-    def summary(self):
-        return ResultContainer.Summary(results={x:y.summary() for x,y in self.results.items()})
-
-
-    def __setitem__(self,key,value):
-        self.results[key]=value
-
-    def __getitem__(self,key):
-        return self.results[key]
-
-    def __iter__(self,key):
-        return iter(self.results)
-
-    def keys(self):
-        return self.results.keys()
-
-    def __iadd__(self, other):
-        for k in self.results:
-            self.results[k] += other.results[k]
-
-    def iscale(self, value):
-        for k in self.results:
-            self.results[k].iscale(value)
-
-    def finalize(self, finalizer):
-        converter = getConverter()
-        converter.unstructure(self.results)
-        results = finalizer(results)
-        self.results = converter.structure(results, dict[str, AnalyzerResult])
-
-        for result in self.results.values():
-            result.finalize(finalizer)
-
-
-@define
-class TrackedResult(AnalyzerResult):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
-    result: ResultContainer = field(factory=ResultContainer)
+    results: dict[str, AnalyzerResult] = field(factory=dict)
 
     @classmethod
     def peekFile(cls, f):
@@ -167,6 +128,65 @@ class TrackedResult(AnalyzerResult):
         else:
             return pkl.dumps(converter.unstructure(self))
 
+    @define
+    class Summary:
+        results: dict[str, Any] = field(factory=dict)
+
+    def summary(self):
+        return ResultContainer.Summary(
+            results={x: y.summary() for x, y in self.results.items()}
+        )
+
+
+    def addResult(self, result):
+        self.results[result.name] = result
+
+
+    # def __setitem__(self, key, value):
+    #     self.results[key] = value
+
+    def __getitem__(self, key):
+        return self.results[key]
+
+    def __iter__(self, key):
+        return iter(self.results)
+
+    def keys(self):
+        return self.results.keys()
+
+    def __iadd__(self, other):
+        for k in other.results:
+            if k in self.results:
+                self.results[k] += other.results[k]
+            else:
+                self.results[k] = other.results[k]
+
+    def iscale(self, value):
+        for k in self.results:
+            self.results[k].iscale(value)
+
+    def finalize(self, finalizer, converter):
+        converter.unstructure(self.results)
+        results = finalizer(results)
+        self.results = converter.structure(results, dict[str, AnalyzerResult])
+
+        for result in self.results.values():
+            result.finalize(finalizer)
+
+
+@define
+class ResultProvenance(ResultBase):
+    file_set: FileSet
+
+    def summary(self):
+        return self
+
+    def __iadd__(self, other):
+        self.file_set += other.file_set
+
+    def iscale(self, value):
+        return
+
 
 @define
 class Histogram(ResultBase):
@@ -198,7 +218,7 @@ class ScalableArray(ResultBase):
     def iscale(self, value):
         self.array *= value
 
-    def finalize(self, finalizer):
+    def finalize(self, finalizer, converter):
         self.array = finalizer(self.array)
 
 
@@ -246,7 +266,7 @@ class SelectionFlow(ResultBase):
         for x in self.one_cut:
             self.one_cut[x] = value * self.one_cut[x]
 
-    def finalize(self, finalizer):
+    def finalize(self, finalizer, converter):
         pass
 
 
@@ -260,7 +280,7 @@ class RawEventCount(ResultBase):
     def iscale(self, value):
         pass
 
-    def finalize(self, finalizer):
+    def finalize(self, finalizer, converter):
         pass
 
 
@@ -274,7 +294,7 @@ class ScaledEventCount(ResultBase):
     def iscale(self, value):
         self.count *= value
 
-    def finalize(self, finalizer):
+    def finalize(self, finalizer, converter):
         pass
 
 
@@ -299,6 +319,5 @@ class RawSelectionFlow(ResultBase):
     def iscale(self, value):
         return
 
-    def finalize(self, finalizer):
+    def finalize(self, finalizer, converter):
         pass
-
