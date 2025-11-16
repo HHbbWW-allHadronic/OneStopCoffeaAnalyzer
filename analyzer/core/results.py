@@ -245,26 +245,29 @@ class SelectionFlow(ResultBase):
     cuts: list[str]
 
     cutflow: dict[str, Scalar]
-    n_minus_one: dict[str, Scalar]
-    one_cut: dict[str, Scalar]
+    # n_minus_one: dict[str, Scalar]
+    # one_cut: dict[str, Scalar]
 
     def __iadd__(self, other):
         if self.cuts != other.cuts:
             raise RuntimeError()
         for x in self.cutflow:
             self.cutflow[x] = self.cutflow[x] + other.cutflow[x]
-        for x in self.n_minus_one:
-            self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
-        for x in self.one_cut:
-            self.one_cut[x] = self.one_cut[x] + other.one_cut[x]
+        # for x in self.n_minus_one:
+        #     self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
+        # for x in self.one_cut:
+        #     self.one_cut[x] = self.one_cut[x] + other.one_cut[x]
 
     def iscale(self, value):
         for x in self.cutflow:
             self.cutflow[x] = value * self.cutflow[x]
-        for x in self.n_minus_one:
-            self.n_minus_one[x] = value * self.n_minus_one[x]
-        for x in self.one_cut:
-            self.one_cut[x] = value * self.one_cut[x]
+        # for x in self.n_minus_one:
+        #     self.n_minus_one[x] = value * self.n_minus_one[x]
+        # for x in self.one_cut:
+        #     self.one_cut[x] = value * self.one_cut[x]
+
+    def summary(self):
+        return self
 
     def finalize(self, finalizer, converter):
         pass

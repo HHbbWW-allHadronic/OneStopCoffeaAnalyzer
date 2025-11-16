@@ -79,7 +79,6 @@ def runAnalysis(analysis):
     t = ExecutionTask(fs, meta, ["Signal312", "Signal313"])
     for result in executor.run(analysis.analyzer, [t]):
         print(result)
-        breakpoint()
 
 
 

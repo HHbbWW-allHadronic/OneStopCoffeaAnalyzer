@@ -127,7 +127,7 @@ class HistogramBuilder(AnalyzerModule):
                 variation=exec_name,
             )
 
-        return [
+        return None, [
             Histogram(name=self.product_name, histogram=histogram, axes=self.axes)
         ]
 

@@ -169,6 +169,7 @@ class Analyzer:
                         )
                         results.extendleft(r)
                 else:
+                    breakpoint()
                     raise RuntimeError(
                         f"Invalid object type returned from analyzer module."
                     )

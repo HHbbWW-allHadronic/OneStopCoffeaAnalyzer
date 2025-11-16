@@ -205,7 +205,7 @@ class AnalyzerModule(abc.ABC):
     @abc.abstractmethod
     def run(
         self, columns, params: ModuleParameterValues
-    ) -> tuple[ColumnView, list[AnalyzerResult | ModuleAddition]]:
+    ) -> ColumnView | list[AnalyzerResult | ModuleAddition]:
         pass
 
     @abc.abstractmethod
@@ -256,8 +256,6 @@ class AnalyzerModule(abc.ABC):
             logger.info(f"Found key, using cached result")
             cached_cols, r, internal = self.__cache[key]
             outputs = self.outputs(columns.metadata)
-            # if "INTERNAL_USE" in cached_cols.fields:
-            #     outputs.append(Column(("INTERNAL_USE",)))
             if outputs == EVENTS:
                 return cached_cols, r
             outputs += internal
@@ -270,7 +268,7 @@ class AnalyzerModule(abc.ABC):
             columns.allowedInputs(self.inputs(columns.metadata)),
             columns.allowedOutputs(self.outputs(columns.metadata)),
         ):
-            res = self.run(columns, params)
+            _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
         self.__cache[key] = (columns, res, internal)
         return columns, res
@@ -291,8 +289,7 @@ class AnalyzerModule(abc.ABC):
                 stack.enter_context(c.useKey(key))
                 stack.enter_context(c.allowedOutputs(self.outputs(c.metadata)))
                 stack.enter_context(c.allowedInputs(self.inputs(c.metadata)))
-            ret = self.run(columns, params)
-
+            columns, ret = self.run(columns, params)
         self.__cache[key] = ret
         return ret
 

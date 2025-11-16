@@ -242,11 +242,9 @@ class ColumnView:
     def filter(self, mask):
         if not self._allow_filter:
             raise RuntimeError()
-        new_cols = copy.copy(self)
-        new_cols._events = new_cols._events[mask]
+        self._events =  self._events[mask]
         for c in self._column_provenance:
             self._column_provenance[c] = self._current_provenance
-        return new_cols
 
     @contextlib.contextmanager
     def useKey(self, provenance: ModuleProvenance):

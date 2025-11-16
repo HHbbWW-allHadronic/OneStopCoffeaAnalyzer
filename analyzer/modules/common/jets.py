@@ -88,7 +88,7 @@ class JetFilter(AnalyzerModule):
             ):
                 good_jets = good_jets[(gj.pt > 50) | ((good_jets.puId & 0b10) != 0)]
         columns[self.output_col] = good_jets
-        return []
+        return columns, []
 
     def inputs(self, metadata):
         return [self.input_col]
@@ -128,4 +128,4 @@ def TopJetHistograms(self, columns, params):
                     mask=mask,
                 )
             )
-    return ret
+    return columns, ret
