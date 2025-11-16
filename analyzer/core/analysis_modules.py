@@ -2,7 +2,6 @@ from __future__ import annotations
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 
-
 from attrs import define, field, make_class
 from attrs import define, field
 from analyzer.utils.structure_tools import freeze,mergeUpdate

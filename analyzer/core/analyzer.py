@@ -178,18 +178,20 @@ class Analyzer:
     def run(self, chunk, metadata, pipelines=None):
         pipelines = pipelines or list(self.base_pipelines)
 
-        root_container = ResultContainer("ROOT")
+        root_container = ResultContainer("Dataset")
         dataset_container = ResultContainer(metadata["dataset_name"])
         sample_container = ResultContainer(metadata["sample_name"])
+        pipeline_container = ResultContainer("pipelines")
 
         root_container.addResult(dataset_container)
         dataset_container.addResult(sample_container)
-        sample_container.addResult(ResultProvenance("provenance", chunk.toFileSet()))
+        sample_container.addResult(ResultProvenance("_provenance", chunk.toFileSet()))
+        sample_container.addResult(pipeline_container)
 
         for k, pipeline in self.base_pipelines.items():
             if k not in pipelines:
                 continue
-            pipeline_container = ResultContainer(k)
+            pipeline_result = ResultContainer(k)
             spec = getPipelineSpecs(pipeline, metadata)
             vals = spec.getWithValues(
                 {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
@@ -198,10 +200,10 @@ class Analyzer:
                 None,
                 pipeline,
                 vals,
-                result_container=pipeline_container,
+                result_container=pipeline_result,
                 execution_name="central",
             )
-            sample_container.addResult(pipeline_container)
+            pipeline_container.addResult(pipeline_result)
         return root_container
 
     @classmethod

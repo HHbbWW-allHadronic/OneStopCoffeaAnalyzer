@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import copy
 from analyzer.core.columns import Column, ColumnView
 from cattrs.strategies import include_subclasses, configure_tagged_union
 import functools as ft
@@ -19,7 +20,6 @@ import abc
 from typing import Any
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 from analyzer.core.caching import makeCached
-
 
 
 @define
@@ -91,6 +91,15 @@ def decideFile(possible_files, location_priorities=None):
 class FileInfo:
     nevents: int | None = None
     chunks: list[tuple[int, int]] | None = None
+
+    def __iadd__(self, other):
+        chunks += other.chunks
+        return self
+
+    def __add__(self, other):
+        ret = copy.deepcopy(self)
+        ret += other
+        return ret
 
 
 @define
@@ -174,7 +183,11 @@ class FileSet:
     @staticmethod
     def fromChunk(chunk):
         return FileSet(
-            files={chunk.file_path: [(chunk.event_start, chunk.event_stop)]},
+            files={
+                chunk.file_path: FileInfo(
+                    chunks=[(chunk.event_start, chunk.event_stop)]
+                )
+            },
             tree_name=chunk.tree_name,
             schema_name=chunk.schema_name,
         )
@@ -197,27 +210,30 @@ class FileSet:
                 self.files[fname].chunks,
                 other.files[fname].chunks,
             )
-            if not (data_this["steps"] is None and data_other["steps"] is None):
-                data["steps"] = [
-                    s for s in (steps_self or []) if s in (steps_other or [])
-                ]
+            new_steps = None
+            if not (steps_self is None and steps_other is None):
+                new_steps = set(steps_self).intersection(set(steps_other))
+            ret[fname] = FileInfo()
             ret[fname].nevents = self.files[fname].nevents
-            ret[fname].chunks = data
-
+            ret[fname].chunks = new_steps
         return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def __iadd__(self, other):
         for fname, steps_other in other.files.items():
+            steps_self, steps_other = (
+                self.files[fname].chunks,
+                other.files[fname].chunks,
+            )
             if fname not in self.files:
                 self.files[fname] = steps_other
             else:
                 if steps_self is None and steps_other is None:
                     steps_new = None
                 else:
-                    steps_self = set(self.files[fname].chunks or [])
-                    steps_other = set(steps_other.chunks or [])
+                    steps_self = set(steps_self or [])
+                    steps_other = set(steps_other or [])
                     steps_new = list(sorted(steps_self | steps_other))
-                self.files[fname] = steps_new
+                self.files[fname].chunks = steps_new
         return self
 
     def __isub__(self, other):
@@ -253,7 +269,7 @@ class FileSet:
     @property
     def empty(self):
         ret = not self.files or all(
-            x is not None and not x for x in self.files.values()
+            x.chunks is not None and not x.chunks for x in self.files.values()
         )
         return ret
 

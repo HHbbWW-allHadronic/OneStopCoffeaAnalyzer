@@ -3,8 +3,13 @@ import numpy as np
 
 
 import numbers
+import pickle as pkl
+import lz4.frame
 import dask_awkward as dak
+import functools as ft
+from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
+from analyzer.core.serialization import converter
 import hist
 from attrs import define, field
 import hist
@@ -14,7 +19,7 @@ from attrs import define, field
 import copy
 import abc
 import awkward as ak
-from typing import Any, Literal
+from typing import Any, Literal, ClassVar
 import awkward as ak
 
 
@@ -105,7 +110,9 @@ class ResultContainer(ResultBase):
                 + cls._HEADER_SIZE
                 + peek_size
             ]
-            core_data = data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
+            core_data = lz4.frame.decompress(
+                data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
+            )
             ret = converter.structure(pkl.loads(core_data), cls)
         else:
             ret = converter.structure(pkl.loads(data), cls)
@@ -114,7 +121,7 @@ class ResultContainer(ResultBase):
     def toBytes(self, packed_mode=True) -> bytes:
         if packed_mode:
             peek = pkl.dumps(converter.unstructure(self.summary()))
-            core_data = pkl.dumps(converter.unstructure(self))
+            core_data = lz4.frame.compress(pkl.dumps(converter.unstructure(self)))
             pl = len(peek)
             plb = (pl.bit_length() + 7) // 8
             if plb > self._HEADER_SIZE:
@@ -137,10 +144,8 @@ class ResultContainer(ResultBase):
             results={x: y.summary() for x, y in self.results.items()}
         )
 
-
     def addResult(self, result):
         self.results[result.name] = result
-
 
     # def __setitem__(self, key, value):
     #     self.results[key] = value
@@ -154,16 +159,30 @@ class ResultContainer(ResultBase):
     def keys(self):
         return self.results.keys()
 
+    def checkOk(self, other):
+        if "provenance" in self.results:
+            if "provenance" not in other.results:
+                raise RuntimeError()
+            if (
+                not self["provenance"]
+                .file_set.intersect(other["provenance"].file_set)
+                .empty
+            ):
+                raise RuntimeError()
+
     def __iadd__(self, other):
+        self.checkOk(other)
         for k in other.results:
             if k in self.results:
                 self.results[k] += other.results[k]
             else:
-                self.results[k] = other.results[k]
+                self.addResult(other.results[k])
+        return self
 
     def iscale(self, value):
         for k in self.results:
             self.results[k].iscale(value)
+        return self
 
     def finalize(self, finalizer, converter):
         converter.unstructure(self.results)
@@ -183,9 +202,10 @@ class ResultProvenance(ResultBase):
 
     def __iadd__(self, other):
         self.file_set += other.file_set
+        return self
 
     def iscale(self, value):
-        return
+        return self
 
 
 @define
@@ -201,10 +221,15 @@ class Histogram(ResultBase):
         return Histogram.Summary(axes=self.axes)
 
     def __iadd__(self, other):
-        self.hist += other.hist
+        self.histogram += other.histogram
+        return self
 
     def iscale(self, value):
-        self.hist *= value
+        self.histogram *= value
+        return self
+
+
+Array = ak.Array | dak.Array | np.ndarray
 
 
 @define
@@ -214,9 +239,11 @@ class ScalableArray(ResultBase):
     def __iadd__(self, other):
         if isinstance(self.array, np.ndarray):
             self.array = np.concatenate(self.array, other.array, axis=0)
+        return self
 
     def iscale(self, value):
         self.array *= value
+        return self
 
     def finalize(self, finalizer, converter):
         self.array = finalizer(self.array)
@@ -229,9 +256,10 @@ class RawArray(ResultBase):
     def __iadd__(self, other):
         if isinstance(self.array, np.ndarray):
             self.array = np.concatenate(self.array, other.array, axis=0)
+        return self
 
     def iscale(self, value):
-        pass
+        return self
 
     def finalize(self, finalizer):
         self.array = finalizer(self.array)
@@ -253,6 +281,7 @@ class SelectionFlow(ResultBase):
             raise RuntimeError()
         for x in self.cutflow:
             self.cutflow[x] = self.cutflow[x] + other.cutflow[x]
+        return self
         # for x in self.n_minus_one:
         #     self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
         # for x in self.one_cut:
@@ -261,6 +290,7 @@ class SelectionFlow(ResultBase):
     def iscale(self, value):
         for x in self.cutflow:
             self.cutflow[x] = value * self.cutflow[x]
+        return self
         # for x in self.n_minus_one:
         #     self.n_minus_one[x] = value * self.n_minus_one[x]
         # for x in self.one_cut:
@@ -279,9 +309,10 @@ class RawEventCount(ResultBase):
 
     def __iadd__(self, other):
         self.count += other.count
+        return self
 
     def iscale(self, value):
-        pass
+        return self
 
     def finalize(self, finalizer, converter):
         pass
@@ -293,9 +324,11 @@ class ScaledEventCount(ResultBase):
 
     def __iadd__(self, other):
         self.count += other.count
+        return self
 
     def iscale(self, value):
         self.count *= value
+        return self
 
     def finalize(self, finalizer, converter):
         pass
@@ -318,9 +351,41 @@ class RawSelectionFlow(ResultBase):
             self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
         for x in self.one_cut:
             self.one_cut[x] = self.one_cut[x] + other.one_cut[x]
+        return self
 
     def iscale(self, value):
-        return
+        return self
 
     def finalize(self, finalizer, converter):
         pass
+
+
+def configureConverter(conv):
+    import hist
+
+    @conv.register_structure_hook
+    def _(val: Any, _) -> hist.Hist:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: hist.Hist) -> hist.Hist:
+        return val
+
+    @conv.register_structure_hook
+    def _(val: Scalar, _) -> Scalar:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: Scalar) -> Scalar:
+        return val
+
+    @conv.register_structure_hook
+    def _(val: Array, _) -> Array:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: Array) -> Array:
+        return val
+
+    union_strategy = ft.partial(configure_tagged_union, tag_name="result_type")
+    include_subclasses(ResultBase, conv, union_strategy=union_strategy)
