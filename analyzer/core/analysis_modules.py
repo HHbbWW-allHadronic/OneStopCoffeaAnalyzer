@@ -3,13 +3,13 @@ import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 
 
-
 from attrs import define, field, make_class
 from attrs import define, field
-from analyzer.utils.structure_tools import freeze
+from analyzer.utils.structure_tools import freeze,mergeUpdate
 
 from collections.abc import Collection
-from analyzer.core.columns import ColumnView
+from analyzer.core.columns import ColumnView, Column, EVENTS
+import copy
 
 import contextlib
 
@@ -27,18 +27,14 @@ class PipelineParameterValues:
 
     @property
     def key(self):
-        return hash(frozenset((x,y.key) for x,y in self.values))
-
-
-    def asdict(self):
-        return {x: y.asdict() for x, y in self.values}
+        return hash(frozenset((x, y.key) for x, y in self.values))
 
     def __getitem__(self, key):
         found = next(x[1] for x in self.values if x[0] == key)
         return ModuleParameterValues(found.param_values, self)
 
     def withNewValues(self, new_data):
-        d = self.asdict()
+        d = copy.deepcopy(values)
         mergeUpdate(d, new_data)
         return self.spec.getWithValues(d)
 
@@ -61,7 +57,6 @@ class ModuleParameterValues:
     def key(self):
         return hash(freeze(self.param_values))
 
-
     def withNewValues(self, values):
         d = dict(self.param_values)
         d.update(values)
@@ -70,23 +65,15 @@ class ModuleParameterValues:
     def __iter__(self):
         return iter(self.param_values)
 
-    def asdict(self):
-        return dict(self.param_values)
 
     def __hash__(self):
         return hash(self.param_values)
 
     def __getitem__(self, key):
-        return self.asdict()[key]
+        return self.param_values[key]
 
-    def __rich_repr__(self):
-        yield "param_values", self.asdict()
 
-    def __repr__(self):
-        return f"ModuleParameterValues({self.asdict()})"
 
-    def __str__(self):
-        return f"ModuleParameterValues({self.asdict()})"
 
 
 @define
@@ -96,17 +83,14 @@ class PipelineParameterValues:
 
     @property
     def key(self):
-        return hash(frozenset((x,y.key) for x,y in self.values))
-
-    def asdict(self):
-        return {x: y.asdict() for x, y in self.values}
+        return hash(frozenset((x, y.key) for x, y in self.values))
 
     def __getitem__(self, key):
         found = self.values[key]
         return ModuleParameterValues(found.param_values, self)
 
     def withNewValues(self, new_data):
-        d = self.asdict()
+        d = copy.deepcopy(self.values)
         mergeUpdate(d, new_data)
         return self.spec.getWithValues(d)
 
@@ -286,10 +270,10 @@ class AnalyzerModule(abc.ABC):
             columns.allowedInputs(self.inputs(columns.metadata)),
             columns.allowedOutputs(self.outputs(columns.metadata)),
         ):
-            cols, res = self.run(columns, params)
-            internal = cols.updatedColumns(orig_columns, Column("INTERNAL_USE"))
-        self.__cache[key] = (cols, res, internal)
-        return cols, res
+            res = self.run(columns, params)
+            internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
+        self.__cache[key] = (columns, res, internal)
+        return columns, res
 
     def __runMulti(self, columns, params):
         columns = [(x, y.copy()) for x, y in columns]
@@ -335,16 +319,22 @@ def register_module(input_columns, output_columns, configuration=None, params=No
     params = params or {}
 
     def wrapper(func):
-        getParameterSpec = lambda x: ModuleParameterSpec(params)
+        getParameterSpec = lambda x, metadata: ModuleParameterSpec(params)
         run = func
         if callable(input_columns):
             inputs = input_columns
         else:
-            inputs = lambda self, metadata: [Column(x) for x in input_columns]
+
+            def inputs(self, metadata):
+                [Column(x) for x in input_columns]
+
         if callable(output_columns):
             outputs = output_columns
         else:
-            output = lambda self, metadata: [Column(x) for x in output_columns]
+
+            def outputs(self, metadata):
+                return [Column(x) for x in output_columns]
+
         cls = make_class(
             func.__name__,
             configuration,
@@ -359,6 +349,16 @@ def register_module(input_columns, output_columns, configuration=None, params=No
         return cls
 
     return wrapper
+
+
+
+@define
+class ModuleAddition:
+    analyzer_module: AnalyzerModule
+    run_builder: Any | None = None
+    this_module_parameters: dict | None = None
+    # parameter_runs: list[PipelineParameterValues]
+
 
 
 def configureConverter(conv):

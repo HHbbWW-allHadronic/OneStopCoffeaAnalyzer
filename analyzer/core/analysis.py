@@ -1,4 +1,19 @@
 from __future__ import annotations
+
+
+from rich.logging import RichHandler
+import logging
+
+# Define the log message format
+FORMAT = "%(message)s"
+
+# Configure basic logging with RichHandler
+logging.basicConfig(
+    level="WARNING",  # Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR)
+    format=FORMAT,
+    handlers=[RichHandler()],
+)
+
 from attrs import define, field
 from rich import print
 from analyzer.core.serialization import converter
@@ -13,6 +28,7 @@ import analyzer.core.executors.executor
 from yaml import CLoader as Loader
 import yaml
 
+# Get a logger instance
 
 
 @define
@@ -55,15 +71,15 @@ def runAnalysis(analysis):
     #     
     for path in analysis.extra_dataset_paths:
         dataset_repo.addFromDirectory(path)
-    ds=dataset_repo["test"]
-    meta,sample = ds.getWithMeta("test")
+    ds=dataset_repo["test_dataset"]
+    meta,sample = ds.getWithMeta("test_sample")
     executor = analysis.extra_executors["test"]
     fs = sample.source.getFileSet()
 
     t = ExecutionTask(fs, meta, ["Signal312", "Signal313"])
     for result in executor.run(analysis.analyzer, [t]):
         print(result)
-    breakpoint()
+        breakpoint()
 
 
 
@@ -87,7 +103,6 @@ def main():
 
     a = converter.structure(data, Analysis)
     runAnalysis(a)
-    print(a)
 
 
 if __name__ == "__main__":

@@ -1,3 +1,4 @@
+from collections import defaultdict
 
 def toTuples(d):
     return {(x, y): v for x, s in d.items() for y, v in s.items()}

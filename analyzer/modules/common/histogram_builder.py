@@ -1,9 +1,11 @@
 from attrs import define
 import abc
 
-from analyzer.core.columns import Column
-from analyzer.core.analysis_modules import AnalyzerModule
-from .axis import Axis
+from analyzer.core.columns import Column, ColumnView, EventBackend
+from analyzer.core.results import Histogram
+from analyzer.core.analysis_modules import AnalyzerModule, ModuleAddition
+from .axis import Axis, RegularAxis
+import hist
 
 
 @define
@@ -72,8 +74,8 @@ class HistogramBuilder(AnalyzerModule):
         variations_axis = hist.axis.StrCategory([], name="variation", growth=True)
         all_axes = (
             [variations_axis]
-            + [x.axis.toHist() for x in categories]
-            + [x.axes.toHist() for x in axes]
+            + [x.toHist() for x in categories]
+            + [x.toHist() for x in axes]
         )
         if backend == EventBackend.coffea_dask:
             histogram = dah.Hist(*all_axes, storage=storage)
@@ -82,6 +84,9 @@ class HistogramBuilder(AnalyzerModule):
         return histogram
 
     def run(self, column_sets, params):
+        if isinstance(column_sets, ColumnView):
+            column_sets = [[None, column_sets]]
+
         backend = column_sets[0][1].backend
         pipeline_data = column_sets[0][1].pipeline_data
         categories = pipeline_data.get("categories", {})
@@ -89,24 +94,17 @@ class HistogramBuilder(AnalyzerModule):
             backend, categories, self.axes, self.storage
         )
         for cset in column_sets:
-            params = cset[0]
-            noncentral = {
-                k: v
-                for k, v in params.getAllByName("variation").items()
-                if v != self.central_name
-            }
-            if len(noncentral) == 0:
-                variation_name = "central"
-            elif len(noncentral) == 1:
-                variation_name = next(iter(noncentral.values()))
-            else:
-                raise RuntimeError(f"Multiple active systematics {noncentral}")
             columns = cset[1]
-            data_to_fill = [columns[x] for x in self.columns]
-            represenative = data_to_fill[0]
-            mask = None
             if self.mask_col is not None:
                 mask = columns[self.mask_col]
+
+            exec_name = columns.pipeline_data["execution_name"]
+            data_to_fill = [columns[x] for x in self.columns]
+            if self.mask_col is not None:
+                data_to_fill = [col[mask] for col in data_to_fill]
+
+            represenative = data_to_fill[0]
+            mask = None
 
             if "Weights" in columns.fields:
                 weights = columns["Weights"]
@@ -126,13 +124,15 @@ class HistogramBuilder(AnalyzerModule):
                 cat_to_fill,
                 data_to_fill,
                 weight=total_weight,
-                variation=variation_name,
+                variation=exec_name,
             )
 
-        return None, [Histogram(name=self.product_name, histogram=histogram)]
+        return [
+            Histogram(name=self.product_name, histogram=histogram, axes=self.axes)
+        ]
 
     def inputs(self, metadata):
-        return [*self.columns, Column("Categories"), Column("Weights")]
+        return [*self.columns, self.mask_col, Column("Categories"), Column("Weights")]
 
     def outputs(self, metadata):
         return []
@@ -153,9 +153,9 @@ def makeHistogram(
 
     if mask is not None:
         mask_col_name = Column(f"INTERNAL_USE.mask-{product_name}-{i}")
-        columns[make_col_name] = mask
+        columns[mask_col_name] = mask
     else:
         mask_col_name = None
 
     b = HistogramBuilder(product_name, names, axes, axes, mask_col=mask_col_name)
-    return ModuleAddition(b, buildVariations)
+    return ModuleAddition(b, None)

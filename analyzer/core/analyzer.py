@@ -1,5 +1,7 @@
 from __future__ import annotations
+import copy
 
+from rich import print
 from attrs import define, field
 
 import itertools as it
@@ -7,12 +9,29 @@ import itertools as it
 from collections import deque
 
 from analyzer.core.serialization import converter
-from analyzer.core.analysis_modules import AnalyzerModule, PipelineParameterSpec
-from analyzer.core.results import ResultProvenance, AnalyzerResult, ResultContainer
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    PipelineParameterSpec,
+    ModuleAddition,
+)
+from analyzer.core.results import (
+    ResultProvenance,
+    AnalyzerResult,
+    ResultContainer,
+    ResultBase,
+)
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
 
 
+# Define the log message format
+FORMAT = "%(message)s"
+
+# Configure basic logging with RichHandler
+logging.basicConfig(
+    level="WARNING",  # Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR)
+    format=FORMAT,
+)
 logger = logging.getLogger("analyzer.core")
 
 
@@ -23,14 +42,10 @@ def getPipelineSpecs(pipeline, metadata):
     return PipelineParameterSpec(ret)
 
 
+@define
 class Node:
-    def __init__(
-        self,
-        node_id: str,
-        analyzer_module: AnalyzerModule,
-    ):
-        self.node_id = node_id
-        self.analyzer_module = analyzer_module
+    node_id: str
+    analyzer_module: AnalyzerModule
 
     def getModuleSpec(self, metadata):
         return self.analyzer_module.getParameterSpec(metadata)
@@ -94,8 +109,8 @@ class Analyzer:
         freeze_pipeline=False,
         result_container=None,
     ):
+        params = copy.deepcopy(params)
         complete_pipeline = []
-        pipeline_metadata = {"execution_name": execution_name}
         to_add = deque(pipeline)
 
         while to_add:
@@ -104,8 +119,12 @@ class Analyzer:
 
             if columns is not None:
                 columns = columns.copy()
-            columns, results = head(columns, params)
-            current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
+                current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
+                columns, results = head(columns, params)
+                pipeline_metadata = {"execution_name": execution_name}
+                columns.pipeline_data = pipeline_metadata
+            else:
+                columns, results = head(columns, params)
 
             if not result_container:
                 continue
@@ -113,13 +132,18 @@ class Analyzer:
 
             while results:
                 res = results.popleft()
-                if isinstance(res, AnalyzerResult):
-                    result_container.addResult(AnalyzerResult(res))
+                if isinstance(res, ResultBase):
+                    result_container.addResult(res)
                 elif isinstance(res, ModuleAddition) and not freeze_pipeline:
                     module = res.analyzer_module
                     if res.run_builder is None:
                         logger.info(f"Adding new module {module} to pipeline")
-                        to_add.appendleft(self.getUniqueNode(complete_pipeline, module))
+                        spec = module.getParameterSpec(columns.metadata)
+                        node = self.getUniqueNode(complete_pipeline, module)
+                        params.values[node.node_id] = spec.getWithValues(
+                            res.this_module_parameters or {}
+                        )
+                        to_add.appendleft(node)
                     else:
                         logger.info(f"Running multi-parameter pipeline")
 
@@ -153,7 +177,7 @@ class Analyzer:
     def run(self, chunk, metadata, pipelines=None):
         pipelines = pipelines or list(self.base_pipelines)
 
-        root_container = ResultContainer("Dataset")
+        root_container = ResultContainer("ROOT")
         dataset_container = ResultContainer(metadata["dataset_name"])
         sample_container = ResultContainer(metadata["sample_name"])
 
@@ -170,10 +194,14 @@ class Analyzer:
                 {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
             )
             _, ret = self.runPipelineWithParameters(
-                None, pipeline, vals, result_container=pipeline_container
+                None,
+                pipeline,
+                vals,
+                result_container=pipeline_container,
+                execution_name="central",
             )
             sample_container.addResult(pipeline_container)
-        return result_container
+        return root_container
 
     @classmethod
     def _structure(cls, data: dict, conv) -> Analyzer:

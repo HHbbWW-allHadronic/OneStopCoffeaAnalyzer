@@ -63,7 +63,7 @@ class ResultContainer(ResultBase):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
-    results: dict[str, AnalyzerResult] = field(factory=dict)
+    results: dict[str, ResultBase] = field(factory=dict)
 
     @classmethod
     def peekFile(cls, f):

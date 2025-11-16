@@ -10,6 +10,7 @@ import awkward as ak
 from typing import Any
 import awkward as ak
 import logging
+import enum
 from analyzer.utils.structure_tools import freeze
 
 logger = logging.getLogger("analyzer.core")
@@ -22,6 +23,14 @@ def coerceFields(data):
     else:
         return data
 
+
+EVENTS=object()
+
+class EventBackend(str, enum.Enum):
+    coffea_virtual = "coffea_virtual"
+    coffea_dask = "coffea_dask"
+    coffea_imm = "coffea_eager"
+    rdf = "rdf"
 
 @define(frozen=True)
 class Column:
@@ -48,7 +57,7 @@ class Column:
     def extract(self, events):
         return ft.reduce(lambda x, y: x[y], self.fields, events)
 
-    def iterParts(self):
+    def __iter__(self):
         return iter(self.fields)
 
     def __eq__(self, other):
@@ -66,8 +75,6 @@ class Column:
     def __radd__(self, other):
         return Column(Column(other).fields + self.fields)
 
-    def __iter__(self):
-        return (Column(x) for x in self.fields)
 
     def __hash__(self):
         return hash(self.fields)

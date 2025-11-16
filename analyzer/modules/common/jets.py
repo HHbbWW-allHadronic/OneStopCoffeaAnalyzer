@@ -44,6 +44,7 @@ class VetoMapFilter(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+
 @define
 class HT(AnalyzerModule):
     input_col: Column
@@ -75,19 +76,19 @@ class JetFilter(AnalyzerModule):
         jets = columns[self.input_col]
         good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
 
-        if self.include_jetid:
+        if self.include_jet_id:
             good_jets = good_jets[
                 ((good_jets.jetId & 0b100) != 0) & ((good_jets.jetId & 0b010) != 0)
             ]
 
-        if self.include_puid:
+        if self.include_pu_id:
             if any(
                 x in metadata["dataset"]["era"]["name"]
                 for x in ["2016", "2017", "2018"]
             ):
                 good_jets = good_jets[(gj.pt > 50) | ((good_jets.puId & 0b10) != 0)]
         columns[self.output_col] = good_jets
-        return columns, []
+        return []
 
     def inputs(self, metadata):
         return [self.input_col]
@@ -105,24 +106,26 @@ class JetFilter(AnalyzerModule):
             type=list[str], factory=lambda: ["pt", "eta", "phi"]
         ),
     },
-    input_columns=lambda self: [self.input_col],
-    output_columns=lambda self: [],
+    input_columns=lambda self, metadata: [self.input_col],
+    output_columns=lambda self, metadata: [],
 )
 def TopJetHistograms(self, columns, params):
     jets = columns[self.input_col]
     ret = []
+    padded = ak.pad_none(jets, self.max_idx, axis=1)
     for i in range(0, self.max_idx):
         mask = ak.num(jets, axis=1) > i
-        masked_jets = jets[mask]
+        # masked_jets = jets[mask]
+
         if "pt" in self.include_properties:
             ret.append(
                 makeHistogram(
                     f"{self.prefix}_pt_{i+1}",
                     columns,
                     RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-                    masked_jets[:, i].pt,
+                    padded[:, i].pt,
                     description=f"$p_T$ of jet {i+1} ",
                     mask=mask,
                 )
             )
-    return columns, ret
+    return ret

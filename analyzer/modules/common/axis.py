@@ -1,5 +1,6 @@
 from attrs import define
 import abc
+import hist
 
 @define
 class Axis(abc.ABC):
