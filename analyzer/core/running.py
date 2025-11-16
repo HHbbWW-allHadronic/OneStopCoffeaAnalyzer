@@ -9,6 +9,7 @@ from analyzer.core.patching import getSamplePatch
 from analyzer.core.results import loadSampleResultFromPaths
 from analyzer.datasets import DatasetRepo, EraRepo
 from rich import print
+from analyzer.core.analysis import loadAnalysis
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,7 @@ class Saver:
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
+
     output = Path(output)
     description = loadDescription(path)
 
@@ -160,3 +162,12 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 #     print(list(subsectors))
 #     print(f"Saving to {output}")
 #     print(f"Running using executor {executor_name}")
+
+
+def main():
+    a = loadAnalysis("test.yaml")
+    runFromPath(a, "", "")
+
+
+if __name__ == "__main__":
+    main()

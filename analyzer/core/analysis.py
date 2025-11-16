@@ -71,14 +71,15 @@ def runAnalysis(analysis):
     executor = analysis.extra_executors["test"]
 
     all_results = None
-    for result in executor.run(analysis.analyzer, [t1,t2]):
+    for result in executor.run(analysis.analyzer, [t1, t2]):
         if all_results is None:
-            all_results=result
+            all_results = result
         else:
             all_results += result
 
-    with open("test.result", 'wb') as f:
+    with open("test.result", "wb") as f:
         f.write(all_results.toBytes())
+
 
 def setupConverter(conv):
     analyzer.core.analysis_modules.configureConverter(converter)
@@ -87,26 +88,16 @@ def setupConverter(conv):
     analyzer.core.results.configureConverter(converter)
 
 
-def main():
-    with open("test.yaml") as f:
+def loadAnalysis(path):
+    with open(path, "r") as f:
         data = yaml.load(f, Loader=Loader)
-
     import analyzer.modules
-
     for path in data.get("extra_module_paths", []):
         loadModuleFromPath(path)
 
     setupConverter(converter)
+    analysis = converter.structure(data, Analysis)
 
-    a = converter.structure(data, Analysis)
-
-    # profiler = cProfile.Profile()
-    # profiler.enable()
-    runAnalysis(a)
-    # profiler.disable()
-    # filename = 'prof.prof'  # You can change this if needed
-    # profiler.dump_stats(filename)
+    return analysis
 
 
-if __name__ == "__main__":
-    main()
