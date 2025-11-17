@@ -17,7 +17,6 @@ from yaml import CLoader as Loader
 from analyzer.configuration import CONFIG
 
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -49,7 +48,7 @@ def getReplicas(dataset, client):
         mode="full",  # full or first. "full"==all the available replicas
         client=client,
     )
-    ret = [dict(zip(s, f)) for s,f in zip(outfiles, outsites)]
+    ret = [dict(zip(s, f)) for s, f in zip(outfiles, outsites)]
     return ret
 
 
@@ -58,42 +57,37 @@ class SampleType(str, enum.Enum):
     Data = "Data"
 
 
-
 @define
 class Sample:
     name: str
     n_events: int
     source: SourceDescription
-    x_sec: float | None = None 
+    x_sec: float | None = None
 
     @property
     def metadata(self):
-        return dict(name=self.name, x_sec=self.x_sec, n_events=self.n_events)
-
+        return dict(sample_name=self.name, x_sec=self.x_sec, n_events=self.n_events)
 
 
 @define
 class Dataset:
     name: str
     title: str
-    samples: list[Sample] 
-    era: str 
+    samples: list[Sample]
+    era: str
     sample_type: SampleType
     other_data: dict[str, Any] = field(factory=dict)
 
     @property
     def metadata(self):
         return dict(
-            name=self.name,
-            title=self.title,
+            dataset_name=self.name,
+            dataset_title=self.title,
             era=self.era,
             other_data=self.other_data,
         )
 
     @property
-    def contains_name(self):
-        return "sample"
-
     def __iter__(self):
         return iter(self.samples)
 
@@ -105,19 +99,17 @@ class Dataset:
         found = next(x for x in self.samples if x.name == sample_name)
         return found
 
+
 @define
 class DatasetRepo:
     datasets: dict[str, Dataset] = field(factory=dict)
-    metadata: dict[str,Any] = field(factory=dict)
+    metadata: dict[str, Any] = field(factory=dict)
 
     def __getitem__(self, key):
         return self.datasets[key]
+
     def __iter__(self):
         return iter(self.datasets)
-
-    @property
-    def contains_name(self):
-        return "dataset"
 
     def addFromFile(self, path):
         with open(path, "r") as fo:
@@ -127,7 +119,6 @@ class DatasetRepo:
             if d.name in self.datasets:
                 raise KeyError(f"A dataset with the name {d.name} already exists")
             self.datasets[d.name] = d
-
 
     def addFromDirectory(self, path):
         directory = Path(path)

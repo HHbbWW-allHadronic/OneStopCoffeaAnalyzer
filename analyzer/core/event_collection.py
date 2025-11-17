@@ -91,12 +91,18 @@ def decideFile(possible_files, location_priorities=None):
 class FileInfo:
     nevents: int | None = None
     chunks: list[tuple[int, int]] | None = None
+    target_chunk_size: int | None = None
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: FileInfo):
+        if (
+            self.target_chunk_size != other.target_chunk_size
+            or self.nevents != other.nevents
+        ):
+            raise RuntimeError()
         chunks += other.chunks
         return self
 
-    def __add__(self, other):
+    def __add__(self, other: FileInfo):
         ret = copy.deepcopy(self)
         ret += other
         return ret
@@ -180,6 +186,14 @@ class FileSet:
     tree_name: str = "Events"
     schema_name: str | None = None
 
+    def checkCompatible(self, other: FileSet):
+        if (
+            self.chunk_size != other.chunk_size
+            or self.tree_name != other.tree_name
+            or self.schema_name != other.schema_name
+        ):
+            raise RuntimeError()
+
     @staticmethod
     def fromChunk(chunk):
         return FileSet(
@@ -187,10 +201,12 @@ class FileSet:
                 chunk.file_path: FileInfo(
                     nevents=chunk.file_nevents,
                     chunks=[(chunk.event_start, chunk.event_stop)],
+                    target_chunk_size=chunk.target_chunk_size,
                 )
             },
             tree_name=chunk.tree_name,
             schema_name=chunk.schema_name,
+            chunk_size=chunk.target_chunk_size,
         )
 
     def updateEvents(self, fname, events):
@@ -239,7 +255,6 @@ class FileSet:
 
     def __isub__(self, other):
         common_files = set(self.files).intersection(other.files)
-
         for fname in common_files:
             if self.files[fname] is None != other.files[fname] is None:
                 raise RuntimeError()
@@ -277,14 +292,14 @@ class FileSet:
     def justChunked(self):
         ret = {}
         for k, v in self.files.items():
-            if v is not None:
+            if v.chunks is not None:
                 ret[k] = v
         return FileSet(files=ret, chunk_size=self.chunk_size)
 
     def justUnchunked(self):
         ret = {}
         for k, v in self.files.items():
-            if v is None:
+            if v.chunks is None:
                 ret[k] = v
         return FileSet(files=ret, chunk_size=self.chunk_size)
 
@@ -315,7 +330,7 @@ class FileSet:
 
     def toChunked(self, chunk_size):
         files = {
-            x: FileInfo(y.nevents, chunkN(y.nevents, chunk_size))
+            x: FileInfo(y.nevents, chunkN(y.nevents, chunk_size), chunk_size)
             for x, y in self.files.items()
             if y.nevents is not None
         }
@@ -335,6 +350,7 @@ class FileChunk:
     event_start: int | None = None
     event_stop: int | None = None
     tree_name: str = "Events"
+    target_chunk_size: int | None = None
     schema_name: str | None = None
     file_nevents: int | None = None
 

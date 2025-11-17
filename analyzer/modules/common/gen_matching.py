@@ -1,5 +1,23 @@
 # From https://github.com/PocketCoffea/PocketCoffea
 
+from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.columns import Column
+import awkward as ak
+import itertools as it
+from attrs import define, field
+from .axis import RegularAxis
+from .histogram_builder import makeHistogram
+import copy
+from rich import print
+import numpy as np
+
+
+import awkward as ak
+import correctionlib
+import pydantic as pyd
+from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
+import correctionlib.schemav2 as cs
+from functools import lru_cache
 from collections.abc import Iterable
 
 import awkward as ak
@@ -175,10 +193,6 @@ def object_matching(obj, obj2, dr_min, dpt_max=None, return_indices=False):
         return matched_obj, matched_obj2, deltaR_padnone
 
 
-##################################################################3
-# Not unique deltaR matching
-
-
 def deltaR_matching_nonunique(obj1, obj2, radius=0.4):  # NxM , NxG arrays
     """
     Doing this you can keep the assignment on the obj2 collection unique,
@@ -193,3 +207,26 @@ def deltaR_matching_nonunique(obj1, obj2, radius=0.4):  # NxM , NxG arrays
     # Cutting on delta R
     obj2 = obj2[obj2.dR < radius]  # Additional cut on delta R, now a NxMxG' array
     return obj2
+
+
+@define
+class VectorMatching(AnalyzerModule):
+    vectors_one_col: Column
+    vectors_two_col: Column
+    output_col: Column
+    max_dpt: float | None = None
+
+    def run(self, columns, params):
+        object_one = columns[self.vectors_one_col]
+        object_two = columns[self.vectors_two_col]
+        names = ["matched_object_1", "matched_object_2", "deltaR"]
+        data = object_matching(object_one, object_two, self.max_dpt)
+        new_info = ak.zip(dict(zip(names, data)))
+        columns[self.output_col] = new_info
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.vectors_one_col, self.vectors_two_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]

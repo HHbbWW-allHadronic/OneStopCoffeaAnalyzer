@@ -47,6 +47,9 @@ def getRepos(analysis):
     return dataset_repo, era_repo
 
 
+
+
+
 def getTasks(dataset_repo, era_repo, dataset_descs):
     todo = []
     for desc in dataset_descs:
@@ -74,7 +77,8 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 
     output = Path(output)
     analysis = loadAnalysis(path)
-    dataset_repo, era_repo = getRepos(analysis)
+    breakpoint()
+    # dataset_repo, era_repo = getRepos(analysis)
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
 
@@ -90,6 +94,8 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     for result in executor.run(analysis.analyzer, tasks):
         print(result)
         saver(result.output_name, result.result)
+
+
 
 
 # def patchFromPath(

@@ -11,7 +11,6 @@ import cProfile, pstats, io
 
 import timeit
 import uproot
-from superintervals import IntervalMap
 import enum
 import math
 import random
@@ -75,14 +74,10 @@ def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
 def getWithMeta(directory, key):
     if isinstance(key, str):
         key = key.split(".")
-    iterator = iter(key)
     current_meta = copy.deepcopy(directory.metadata)
-    base_meta = current_meta
     current = directory
     for k in key:
-        contains_name = current.contains_name
         current = current[k]
-        current_meta[contains_name] = copy.deepcopy(current.metadata)
-        current_meta = current_meta[contains_name]
+        current_meta.update(current.metadata)
 
-    return current, base_meta
+    return current, current_meta

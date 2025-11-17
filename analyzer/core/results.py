@@ -52,15 +52,12 @@ class ResultBase(abc.ABC):
         return ret.iscale(value)
 
 
-@define
-
 
 @define
 class ResultContainer(ResultBase):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
-    contains_name: str
     metadata: dict[str, Any] = field(factory=dict)
     results: dict[str, ResultBase] = field(factory=dict)
 
