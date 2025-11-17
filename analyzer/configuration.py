@@ -1,31 +1,28 @@
 from pathlib import Path
+from attrs import define
+from cattrs import structure
+from importlib import resources
+
 
 
 class Config:
-    FILE_ROOTS = [("store", "store"), "store", "applocal"]
-    APPLICATION_DATA = "/srv/.application_data"
-    PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
-    CACHE_PATH = APPLICATION_DATA + "/object_caches"
-    USE_CACHE = True
-    # APPLICATION_RESOURCES = "/srv/analyzer_resources"
-    APPLICATION_RESOURCES = "analyzer_resources"
+  do_safety_checks: bool
+  default_dataset_paths: list[str] 
+  default_era_paths: list[str]
+  default_style_paths: list[str]
+  default_template_paths: list[str]
+  cache_location: str
+  use_compression: bool
+  compression_lib: str
+  pretty: bool
+  suppress_coffea_warnings: bool
+  warn_ulimit_ratio: int
+    
 
-    DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
-    ERA_PATHS = [str(Path(APPLICATION_RESOURCES) / "eras")]
-    CONFIG_PATH = str(Path(APPLICATION_RESOURCES) / "configuration")
-    DASK_CONFIG_PATH = str(Path(CONFIG_PATH) / "dask_config.yaml")
-    STATIC_PATH = str(Path(APPLICATION_RESOURCES) / "static")
-    STYLE_PATH = str(Path(APPLICATION_RESOURCES) / "styles")
-    TEMPLATE_PATH = str(Path(APPLICATION_RESOURCES) / "templates")
+CONFIG = None
 
-    PRETTY_MODE = True
-
-    DEFAULT_PARALLEL_PROCESSES = None
-    DEFAULT_PARALLEL_THREADS = 8
-
-    WARN_LOAD_FILE_NUMBER = 50
-
-    SUPPRESS_WARNINGS = True
+def initConfig():
+  global CONFIG
 
 
-CONFIG = Config()
+

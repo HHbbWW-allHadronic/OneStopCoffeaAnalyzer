@@ -2,6 +2,7 @@ from __future__ import annotations
 import copy
 import re
 import dataclasses
+from typing import ClassVar
 import enum
 from analyzer.core.event_collection import SourceDescription
 from rich.progress import track
@@ -60,20 +61,20 @@ class SampleType(str, enum.Enum):
 
 @define
 class Sample:
-    sample_name: str
+    name: str
     n_events: int
     source: SourceDescription
     x_sec: float | None = None 
 
     @property
     def metadata(self):
-        return dict(sample_name=self.sample_name, x_sex=self.x_sec)
+        return dict(name=self.name, x_sec=self.x_sec, n_events=self.n_events)
 
 
 
 @define
 class Dataset:
-    dataset_name: str
+    name: str
     title: str
     samples: list[Sample] 
     era: str 
@@ -83,44 +84,50 @@ class Dataset:
     @property
     def metadata(self):
         return dict(
-            dataset_name=self.dataset_name,
+            name=self.name,
             title=self.title,
             era=self.era,
             other_data=self.other_data,
         )
 
-    def getWithMeta(self, sample_name):
-        current_meta = copy.copy(self.metadata)
-        found = next(x for x in self.samples if x.sample_name == sample_name)
-        current_meta.update(found.metadata)
-        current_meta["sample_id"] = (
-            self.metadata["dataset_name"] + "__" + found.metadata["sample_name"]
-        )
-        return current_meta, found
+    @property
+    def contains_name(self):
+        return "sample"
 
+    def __iter__(self):
+        return iter(self.samples)
+
+    def __iter__(self):
+        return iter(self.samples)
+
+    def __getitem__(self, sample_name):
+        current_meta = copy.copy(self.metadata)
+        found = next(x for x in self.samples if x.name == sample_name)
+        return found
 
 @define
 class DatasetRepo:
     datasets: dict[str, Dataset] = field(factory=dict)
-    metadata: dist[str,Any] = field(factory=dict)
-
-    def getWithMeta(self, key):
-        found = self.datasets[key]
-        current_meta = copy.copy(self.metadata)
-        current_meta.update(found.metadata)
-        return current_meta, found
+    metadata: dict[str,Any] = field(factory=dict)
 
     def __getitem__(self, key):
         return self.datasets[key]
+    def __iter__(self):
+        return iter(self.datasets)
+
+    @property
+    def contains_name(self):
+        return "dataset"
 
     def addFromFile(self, path):
         with open(path, "r") as fo:
             data = yaml.load(fo, Loader=Loader)
         data = converter.structure(data, list[Dataset])
         for d in data:
-            if d.dataset_name in self.datasets:
+            if d.name in self.datasets:
                 raise KeyError(f"A dataset with the name {d.name} already exists")
-            self.datasets[d.dataset_name] = d
+            self.datasets[d.name] = d
+
 
     def addFromDirectory(self, path):
         directory = Path(path)

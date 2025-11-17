@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import functools as ft 
 from attrs import define
+from typing import Any
 from analyzer.core.event_collection import FileSet
 from cattrs.strategies import include_subclasses, configure_tagged_union
 
@@ -13,6 +14,13 @@ class ExecutionTask:
     file_set: FileSet
     metadata: dict
     pipelines: list[str]
+    output_name: str
+
+@define
+class CompletedTask:
+    result: Any
+    metadata: dict
+    output_name: str
 
 @define
 class Executor(abc.ABC):

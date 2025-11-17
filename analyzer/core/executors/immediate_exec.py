@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 from typing import Literal
 from analyzer.core.event_collection import getFileEvents
-from .executor import Executor
+from .executor import Executor, CompletedTask
 import logging
 from attrs import define
 
@@ -23,7 +23,5 @@ class ImmediateExecutor(Executor):
 
             chunked = file_set.toChunked(self.chunk_size)
             for chunk in chunked.iterChunks():
-                yield analyzer.run(chunk, task.metadata, task.pipelines)
-
-    
-
+                result = analyzer.run(chunk, task.metadata, task.pipelines)
+                yield CompletedTask(result.toBytes(), task.metadata, task.output_name)

@@ -1,6 +1,9 @@
 from __future__ import annotations
+from pathlib import Path
+
 import numpy as np
 
+import itertools as it
 
 import numbers
 import pickle as pkl
@@ -50,17 +53,6 @@ class ResultBase(abc.ABC):
 
 
 @define
-class AnalyzerResult(ResultBase):
-    result: ResultBase
-    metadata: dict[str, Any] = field(factory=dict)
-
-    def compatible(self, other):
-        return self.metadata == other.metadata
-
-    def __iadd__(self, other):
-        if not compatible:
-            raise ResultIntegrityError()
-        self.result += other.result
 
 
 @define
@@ -68,6 +60,8 @@ class ResultContainer(ResultBase):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
+    contains_name: str
+    metadata: dict[str, Any] = field(factory=dict)
     results: dict[str, ResultBase] = field(factory=dict)
 
     @classmethod
@@ -144,8 +138,8 @@ class ResultContainer(ResultBase):
             results={x: y.summary() for x, y in self.results.items()}
         )
 
-    def addResult(self, result):
-        self.results[result.name] = result
+    def addResult(self, res):
+        self.results[res.name] = res
 
     # def __setitem__(self, key, value):
     #     self.results[key] = value
@@ -187,7 +181,7 @@ class ResultContainer(ResultBase):
     def finalize(self, finalizer, converter):
         converter.unstructure(self.results)
         results = finalizer(results)
-        self.results = converter.structure(results, dict[str, AnalyzerResult])
+        self.results = converter.structure(results, dict[str, ResultBase])
 
         for result in self.results.values():
             result.finalize(finalizer)
@@ -389,3 +383,16 @@ def configureConverter(conv):
 
     union_strategy = ft.partial(configure_tagged_union, tag_name="result_type")
     include_subclasses(ResultBase, conv, union_strategy=union_strategy)
+
+
+def loadResults(paths):
+    all_paths = it.chain.from_iterable((Path(".").rglob(x) for x in paths))
+    ret = None
+    for p in all_paths:
+        with open(p, "rb") as f:
+            result = ResultContainer.fromBytes(f.read())
+        if ret is None:
+            ret = result
+        else:
+            ret += result
+    return ret

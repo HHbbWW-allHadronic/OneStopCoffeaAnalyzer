@@ -1,11 +1,39 @@
+from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.columns import Column
 import operator as op
+import awkward as ak
+import itertools as it
+from attrs import define, field
+from .axis import RegularAxis
+from .histogram_builder import makeHistogram
+import copy
+from rich import print
+import numpy as np
+import functools as ft
 
 
-# @MODULE_REPO.register(ModuleType.Selection)
-# def hlt_selection(events, params, selector, hlt_groups: list[list] = None):
-#     era_info = params.dataset.era
-#     tn = era_info.trigger_names
-# 
-#     groups = [ft.reduce(op.and_, [tn[name] for name in group]) for group in hlt_groups]
-#     final_selection = ft.reduce(lambda x, y: x | ((~x) & y), groups)
-#     selector.add(f"HLT Selection", final_selection)
+import awkward as ak
+import correctionlib
+import pydantic as pyd
+from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
+import correctionlib.schemav2 as cs
+from functools import lru_cache
+
+
+@register_module(
+    configuration={
+        "triggers": field(type=list[str]),
+        "selection_name": field(type=str, default="PassHLT"),
+    },
+    input_columns=["HLT"],
+    output_columns=lambda self, metadata: Column(f"Selection.{self.selection_name}"),
+)
+def SimpleHLT(self, columns, params):
+    metadata = columns.metadata
+    trigger_names = metadata["era"]["trigger_names"]
+    hlt = columns["HLT"]
+    pass_trigger = ft.reduce(
+        op.and_, (hlt[trigger_names[name]] for name in self.triggers)
+    )
+    columns["Selection", self.selection_name] = pass_trigger
+    return columns, []

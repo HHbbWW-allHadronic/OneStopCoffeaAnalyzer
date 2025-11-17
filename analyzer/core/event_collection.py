@@ -185,7 +185,8 @@ class FileSet:
         return FileSet(
             files={
                 chunk.file_path: FileInfo(
-                    chunks=[(chunk.event_start, chunk.event_stop)]
+                    nevents=chunk.file_nevents,
+                    chunks=[(chunk.event_start, chunk.event_stop)],
                 )
             },
             tree_name=chunk.tree_name,
@@ -310,7 +311,7 @@ class FileSet:
             if v.chunks is None:
                 continue
             for chunk in v.chunks:
-                yield FileChunk(f, *chunk, self.tree_name, self.schema_name)
+                yield FileChunk(f, *chunk, self.tree_name, self.schema_name, v.nevents)
 
     def toChunked(self, chunk_size):
         files = {
@@ -335,6 +336,7 @@ class FileChunk:
     event_stop: int | None = None
     tree_name: str = "Events"
     schema_name: str | None = None
+    file_nevents: int | None = None
 
     @property
     def metadata(self):

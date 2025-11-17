@@ -15,6 +15,7 @@ from analyzer.utils.structure_tools import freeze
 
 logger = logging.getLogger("analyzer.core")
 
+
 def coerceFields(data):
     if isinstance(data, str):
         return tuple(data.split("."))
@@ -24,13 +25,15 @@ def coerceFields(data):
         return data
 
 
-EVENTS=object()
+EVENTS = object()
+
 
 class EventBackend(str, enum.Enum):
     coffea_virtual = "coffea_virtual"
     coffea_dask = "coffea_dask"
     coffea_imm = "coffea_eager"
     rdf = "rdf"
+
 
 @define(frozen=True)
 class Column:
@@ -75,7 +78,6 @@ class Column:
     def __radd__(self, other):
         return Column(Column(other).fields + self.fields)
 
-
     def __hash__(self):
         return hash(self.fields)
 
@@ -100,7 +102,7 @@ def setColumn(events, column, value):
 
 @define
 class ColumnCollection:
-    columns: set[Column]
+    columns: set[Column] = field(converter=lambda z: set(Column(x) for x in z))
 
     def __iter__(self):
         return iter(columns)
@@ -242,19 +244,19 @@ class ColumnView:
     def filter(self, mask):
         if not self._allow_filter:
             raise RuntimeError()
-        self._events =  self._events[mask]
+        self._events = self._events[mask]
         for c in self._column_provenance:
             self._column_provenance[c] = self._current_provenance
 
     @contextlib.contextmanager
-    def useKey(self, provenance: ModuleProvenance):
+    def useKey(self, provenance):
         old_provenance = self._current_provenance
         self._current_provenance = provenance
         yield
         self._current_provenance = old_provenance
 
     @contextlib.contextmanager
-    def allowedInputs(self, columns):
+    def allowedInputs(self, columns: list[Column]):
         columns = ColumnCollection(columns)
         old_inputs = self._allowed_inputs
         self._allowed_inputs = columns
@@ -262,7 +264,7 @@ class ColumnView:
         self._allowed_inputs = old_inputs
 
     @contextlib.contextmanager
-    def allowedOutputs(self, columns):
+    def allowedOutputs(self, columns: list[Column]):
         columns = ColumnCollection(columns)
         old_outputs = self._allowed_outputs
         self._allowed_outputs = columns
@@ -270,7 +272,7 @@ class ColumnView:
         self._allowed_outputs = old_outputs
 
     @contextlib.contextmanager
-    def allowFilter(self, allow):
+    def allowFilter(self, allow: bool):
         old_allow = self._allowed_filter
         self._allow_filter = allow
         yield

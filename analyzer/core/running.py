@@ -1,15 +1,11 @@
 import logging
 from pathlib import Path
 
-from analyzer.core.analysis_modules import MODULE_REPO
-from analyzer.core.analyzer import Analyzer
-from analyzer.core.configuration import loadDescription, iterSubsectors
-from analyzer.core.executors import AnalysisTask
-from analyzer.core.patching import getSamplePatch
-from analyzer.core.results import loadSampleResultFromPaths
-from analyzer.datasets import DatasetRepo, EraRepo
 from rich import print
 from analyzer.core.analysis import loadAnalysis
+from analyzer.configuration import CONFIG
+from analyzer.core.executors import getPremadeExcutors, ExecutionTask
+from analyzer.utils.structure_tools import getWithMeta
 
 logger = logging.getLogger(__name__)
 
@@ -33,52 +29,69 @@ class Saver:
         output_file = self.output / f"{key}.result"
         real_path = getUniqueFilename(output_file)
         logger.info(f"Saving file '{real_path}'")
-        print(f"Saving file '{real_path}'")
         with open(real_path, "wb") as f:
             f.write(result)
+
+
+def getRepos(analysis):
+    from analyzer.core.datasets import DatasetRepo
+    from analyzer.core.era import EraRepo
+
+    dataset_repo = DatasetRepo()
+    era_repo = EraRepo()
+    for path in analysis.extra_dataset_paths:
+        dataset_repo.addFromDirectory(path)
+    for path in analysis.extra_era_paths:
+        era_repo.addFromDirectory(path)
+
+    return dataset_repo, era_repo
+
+
+def getTasks(dataset_repo, era_repo, dataset_descs):
+    todo = []
+    for desc in dataset_descs:
+        ds = [(x, desc.pipelines) for x in dataset_repo if desc.dataset.match(x)]
+        todo.extend(ds)
+    ret = []
+    for dataset_name, pipelines in todo:
+        dataset = dataset_repo[dataset_name]
+        for sample in dataset:
+            sample, meta = getWithMeta(dataset, sample.name)
+            meta["era"] = era_repo[meta["era"]]
+            file_set = sample.source.getFileSet()
+            ret.append(
+                ExecutionTask(
+                    file_set=file_set,
+                    metadata=meta,
+                    pipelines=pipelines,
+                    output_name=meta["name"] + "__" + meta["sample"]["name"],
+                )
+            )
+    return ret
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
 
     output = Path(output)
-    description = loadDescription(path)
+    analysis = loadAnalysis(path)
+    dataset_repo, era_repo = getRepos(analysis)
+    all_executors = getPremadeExcutors()
+    all_executors.update(analysis.extra_executors)
 
-    dataset_repo = DatasetRepo.getConfig()
-    era_repo = EraRepo.getConfig()
+    tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
+    print(tasks)
 
-    if executor_name not in description.executors:
+    if executor_name not in all_executors:
         raise KeyError(f"Unknown executor {executor_name}")
+    executor = all_executors[executor_name]
 
-    executor = description.executors[executor_name]
-    executor.test_mode = test_mode
-    with executor:
-        if hasattr(executor, "output_dir") and executor.output_dir is None:
-            executor.output_dir = str(output)
-        callback = Saver(output)
-        results = executor.run(tasks)
+    saver = Saver(output)
+
+    for result in executor.run(analysis.analyzer, tasks):
+        print(result)
+        saver(result.output_name, result.result)
 
 
-# def runPackagedTask(packaged_task, output=None, output_dir=None):
-#     import analyzer.modules  # noqa
-#
-#     if output_dir is None:
-#         output_dir = Path(".")
-#     else:
-#         output_dir = Path(output_dir)
-#     output_dir.mkdir(exist_ok=True, parents=True)
-#
-#     iden = packaged_task.identifier
-#     output = output or iden
-#
-#     task = packaged_task.task
-#     executor = packaged_task.executor
-#
-#     task.analyzer.ensureFunction(MODULE_REPO)
-#
-#     results = executor.run({task.sample_id: task})
-#     saveResults(results, output_dir / output, save_separate=True)
-#
-#
 # def patchFromPath(
 #     paths,
 #     output,
@@ -165,8 +178,7 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 
 
 def main():
-    a = loadAnalysis("test.yaml")
-    runFromPath(a, "", "")
+    runFromPath("test.yaml", "TESTRESULTS", "test")
 
 
 if __name__ == "__main__":

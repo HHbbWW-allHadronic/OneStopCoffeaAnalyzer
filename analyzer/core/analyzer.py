@@ -16,7 +16,6 @@ from analyzer.core.analysis_modules import (
 )
 from analyzer.core.results import (
     ResultProvenance,
-    AnalyzerResult,
     ResultContainer,
     ResultBase,
 )
@@ -178,10 +177,12 @@ class Analyzer:
     def run(self, chunk, metadata, pipelines=None):
         pipelines = pipelines or list(self.base_pipelines)
 
-        root_container = ResultContainer("Dataset")
-        dataset_container = ResultContainer(metadata["dataset_name"])
-        sample_container = ResultContainer(metadata["sample_name"])
-        pipeline_container = ResultContainer("pipelines")
+
+
+        root_container = ResultContainer("Dataset", "dataset")
+        dataset_container = ResultContainer(metadata["name"], "sample", metadata={x:y for x,y in metadata.items() if x!= "sample"})
+        sample_container = ResultContainer(metadata["sample"]["name"], "sample_results", metadata=metadata["sample"])
+        pipeline_container = ResultContainer("pipelines", "pipeline")
 
         root_container.addResult(dataset_container)
         dataset_container.addResult(sample_container)
@@ -191,7 +192,7 @@ class Analyzer:
         for k, pipeline in self.base_pipelines.items():
             if k not in pipelines:
                 continue
-            pipeline_result = ResultContainer(k)
+            pipeline_result = ResultContainer(k, "results")
             spec = getPipelineSpecs(pipeline, metadata)
             vals = spec.getWithValues(
                 {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}

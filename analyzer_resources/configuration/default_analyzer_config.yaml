@@ -1,12 +1,16 @@
-general:
-  do_safety_checks: true
+do_safety_checks: true
+default_dataset_paths: ["analyzer_resources/datasets"]
+default_era_paths: ["analyzer_resources/eras"]
+default_style_paths: ["analyzer_resources/styles"]
+default_template_paths: ["analyzer_resources/templates"]
+cache_location: ".analyzer_data/caches"
+use_compression: true
+compression_lib: lz4
+pretty: true
+suppress_coffea_warnings: true
+warn_ulimit_ratio: 5
 
-data:
-  default_dataset_paths: ["analyzer_resources/datasets"]
-  default_era_paths: ["analyzer_resources/eras"]
-  cache_location: ".analyzer_data/caches"
-  use_compression: true
-  compression_lib: lz4
+
 
 
 

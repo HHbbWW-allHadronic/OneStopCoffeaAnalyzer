@@ -320,9 +320,8 @@ def register_module(input_columns, output_columns, configuration=None, params=No
         if callable(input_columns):
             inputs = input_columns
         else:
-
             def inputs(self, metadata):
-                [Column(x) for x in input_columns]
+                return [Column(x) for x in input_columns]
 
         if callable(output_columns):
             outputs = output_columns
