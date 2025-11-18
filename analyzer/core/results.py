@@ -1,4 +1,5 @@
 from __future__ import annotations
+import awkward as ak
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +27,8 @@ from typing import Any, Literal, ClassVar
 import awkward as ak
 
 
+import functools as ft
+
 @define
 class ResultBase(abc.ABC):
     name: str
@@ -41,6 +44,10 @@ class ResultBase(abc.ABC):
     @abc.abstractmethod
     def summary(self):
         pass
+    
+    # @abc.abstractmethod
+    # def approxSize(self):
+    #     pass
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -87,9 +94,6 @@ class ResultContainer(ResultBase):
             return converter.structure(pkl.loads(peek), cls.SummaryClass)
         else:
             return converter.structure(pkl.loads(data)).summary()
-
-    @classmethod
-    def fromBytes(cls, data: bytes):
         if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
             header_value = data[
                 len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
@@ -134,6 +138,9 @@ class ResultContainer(ResultBase):
         return ResultContainer.Summary(
             results={x: y.summary() for x, y in self.results.items()}
         )
+
+    def approxSize(self):
+        return sum(x.approxSize() for x in self.results.values()) 
 
     def addResult(self, res):
         self.results[res.name] = res
@@ -191,6 +198,9 @@ class ResultProvenance(ResultBase):
     def summary(self):
         return self
 
+    def approxSize(self):
+        return 30 * len(self.file_set.files)
+
     def __iadd__(self, other):
         self.file_set += other.file_set
         return self
@@ -211,6 +221,10 @@ class Histogram(ResultBase):
     def summary(self):
         return Histogram.Summary(axes=self.axes)
 
+    def approxSize(self):
+        from dask.sizeof import sizeof
+        return sizeof(self.histogram.view(flow=True))
+
     def __iadd__(self, other):
         self.histogram += other.histogram
         return self
@@ -221,6 +235,7 @@ class Histogram(ResultBase):
 
 
 Array = ak.Array | dak.Array | np.ndarray
+
 
 
 @define

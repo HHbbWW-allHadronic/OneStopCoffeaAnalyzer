@@ -67,7 +67,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
                     file_set=file_set,
                     metadata=meta,
                     pipelines=pipelines,
-                    output_name=meta["name"] + "__" + meta["sample"]["name"],
+                    output_name=meta["dataset_name"] + "__" + meta["sample_name"],
                 )
             )
     return ret
@@ -77,8 +77,7 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 
     output = Path(output)
     analysis = loadAnalysis(path)
-    breakpoint()
-    # dataset_repo, era_repo = getRepos(analysis)
+    dataset_repo, era_repo = getRepos(analysis)
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
 

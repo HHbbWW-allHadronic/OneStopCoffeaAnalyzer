@@ -8,6 +8,7 @@ requires-python = ">=3.11"
 dependencies = [
     "attrs>=25.4.0",
     "cattrs>=25.3.0",
+    "click>=8.3.0",
     "coffea>=2025.11.0",
     "dask>=2025.3.0",
     "distributed>=2025.3.0",
