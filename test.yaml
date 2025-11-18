@@ -1,0 +1,65 @@
+analyzer:
+  Signal312:
+    - module_name: SimpleHLT
+      triggers: [HT]
+    # - module_name: VetoMapFilter
+    #   input_col: Jet
+    #   output_col: Jet
+    - module_name: JetFilter
+      input_col: Jet
+      output_col: Jet
+
+    - module_name: NObjFilter
+      selection_name: 2jet
+      input_col: Jet
+      min_count: 3
+
+    - module_name: SelectOnColumns
+      sel_name: preselection
+      selection_names: [2jet]
+
+    - module_name: TopJetHistograms
+      input_col: Jet
+      output_col: Jet
+      max_idx: 3
+      prefix: "GoodJet_"
+    # - module_name: BQuarkMaker
+    #   input_col: Jet
+    #   output_col: MedBJet
+    #   working_point: M
+  Signal313:
+    # - module_name: HLTFilter
+    #   triggers: [HT, AK8]
+    # - module_name: VetoMapFilter
+    #   input_col: Jet
+    #   output_col: Jet
+    - module_name: JetFilter
+      input_col: Jet
+      output_col: Jet
+    - module_name: TopJetHistograms
+      input_col: Jet
+      output_col: Jet
+      max_idx: 1
+      prefix: "GoodJet_"
+    # - module_name: BQuarkMaker
+    #   input_col: Jet
+    #   output_col: MedBJet
+    #   working_point: M
+
+
+
+      
+
+event_collections:
+  - dataset: test_dataset
+    pipelines: [Signal312,Signal313]
+    
+  
+extra_dataset_paths: ["testdatasets/"]
+extra_era_paths: ["analyzer_resources/eras"]
+extra_executors:
+  test:
+    executor_name: ImmediateExecutor
+    chunk_size: 1000
+  
+    
