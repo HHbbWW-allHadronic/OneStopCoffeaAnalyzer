@@ -74,24 +74,22 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
-
     output = Path(output)
     analysis = loadAnalysis(path)
+    print(analysis)
     dataset_repo, era_repo = getRepos(analysis)
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
-
-    tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
-    print(tasks)
-
     if executor_name not in all_executors:
         raise KeyError(f"Unknown executor {executor_name}")
     executor = all_executors[executor_name]
 
+    tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
+    breakpoint()
+
     saver = Saver(output)
 
     for result in executor.run(analysis.analyzer, tasks):
-        print(result)
         saver(result.output_name, result.result)
 
 

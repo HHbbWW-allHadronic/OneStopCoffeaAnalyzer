@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+
 def toTuples(d):
     return {(x, y): v for x, s in d.items() for y, v in s.items()}
 
@@ -17,13 +18,13 @@ def buildCombos(spec, tag):
     central = {k: v.default_value for k, v in tup.items()}
     for k, v in tup.items():
         for p in v.possible_values:
-            if p == "central":
+            if p == v.default_value:
                 continue
             c = copy.deepcopy(central)
             c[k] = p
-            ret.append(c)
+            ret.append([p, c])
 
-    ret = [fromTuples(x) for x in ret]
+    ret = [[n, fromTuples(x)] for n, x in ret]
 
     return ret
 
@@ -31,5 +32,5 @@ def buildCombos(spec, tag):
 def buildVariations(spec, metadata=None):
     weights = buildCombos(spec, "weight_variation")
     shapes = buildCombos(spec, "shape_variation")
-    all_vars = [{}] + weights + shapes
+    all_vars = [["central", {}]] + weights + shapes
     return all_vars

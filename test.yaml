@@ -53,6 +53,8 @@ analyzer:
 event_collections:
   - dataset: test_dataset
     pipelines: [Signal312,Signal313]
+  - dataset: qcd_inclusive_2018
+    pipelines: [Signal312,Signal313]
     
   
 extra_dataset_paths: ["testdatasets/"]
@@ -60,6 +62,6 @@ extra_era_paths: ["analyzer_resources/eras"]
 extra_executors:
   test:
     executor_name: ImmediateExecutor
-    chunk_size: 1000
+    chunk_size: 100000
   
     

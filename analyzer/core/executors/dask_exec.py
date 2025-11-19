@@ -1,54 +1,15 @@
 from __future__ import annotations
 import json
 import time
+from attrs import define
 import base64
 import os
-
-import gc
-import logging
-import os
-import traceback
-from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
-from typing import Literal
-
-import yaml
-
-import analyzer.core.results as core_results
-import awkward as ak
-import dask
-from analyzer.configuration import CONFIG
-import math
-from analyzer.utils.structure_tools import iadd
-from analyzer.core.exceptions import AnalysisRuntimeError
-from coffea.util import decompress_form
-from analyzer.utils.querying import PatternExpression
-from distributed import (
-    Client,
-    LocalCluster,
-    as_completed,
-    get_client,
-    secede,
-    rejoin,
-    Queue,
-)
-from pydantic import Field, BaseModel
-from rich.progress import (
-    Progress,
-    TextColumn,
-    SpinnerColumn,
-    TimeElapsedColumn,
-    MofNCompleteColumn,
-    BarColumn,
-    TextColumn,
-)
-
+from distributed import Client, LocalCluster, as_completed,
 from analyzer.core.dask_tools import reduceResults
 from .condor_tools import setupForCondor
 from .executor import Executor
-from .preprocessing_tools import preprocess
-
-from analyzer.core.analyzer import runAnalyzerChunks
+from analyzer.core.event_collection import FileInfo 
+from analyzer.core.results import ResultBase
 import analyzer.core.dask_sizes  # noqa
 
 logger = logging.getLogger(__name__)
@@ -211,6 +172,7 @@ def getTimeout(timeouts, task, default):
         return default
 
 
+@define
 class DaskExecutor(Executor):
     max_workers: int
     min_workers: int
@@ -223,15 +185,13 @@ class DaskExecutor(Executor):
 
     step_size: int | None = 100000
 
-    use_threads: bool = False
-    bulk_mode: bool = False
-    default_timeout: int | None = None
-    timeouts: list[TimeoutDescription] = Field(default_factory=list)
+    # default_timeout: int | None = None
+    # timeouts: list[TimeoutDescription] = Field(default_factory=list)
 
-    reduction_factor: int = 5
-    parallel_save: int | None = 8
+    # reduction_factor: int = 5
+    # parallel_save: int | None = 8
 
-    input_events_per_output: int = 10**7
+    # input_events_per_output: int = 10**7
 
     catch_exceptions: bool = True
 
@@ -245,98 +205,123 @@ class DaskExecutor(Executor):
         self._client.close()
         self._cluster.close()
 
+    def handleFileInfo(self):
+        pass
+
+    def handleResult(self):
+        pass
+
     def runFutured(self, tasks, result_complete_callback=None):
         client = self._client
-        tasks = list(tasks)
-        for t in tasks:
-            t.file_set.step_size = t.file_set.step_size or self.step_size
+        tasks = {i: x for i, x in enumerate(tasks)}
+        file_prep_tasks = {}
+        task_run_futures = {}
 
-        queue = Queue()
-        run_kwargs = {
-            "reduction_factor": self.reduction_factor,
-            "input_events_per_output": self.input_events_per_output,
-            "catch_exceptions": self.catch_exceptions,
-            # "timeout": self.timeout,
-        }
+        for i, task in tasks.items():
+            file_set = task.file_set
+            file_set.chunk_size = file_set.chunk_size or self.chunk_size
+            funcs = file_set.getNeededUpdatesFuncs()
+            futures = client.submit(funcs)
+            for f in futures:
+                file_prep_tasks[f] = i
 
-        prepped_futures = dict(
-            zip(
-                client.map(
-                    lambda x, kwargs=run_kwargs, test_mode=self.test_mode, timeouts=self.timeouts, default_timeout=self.default_timeout: prepWrapper(
-                        queue,
-                        x,
-                        prep_kwargs={"test_mode": test_mode},
-                        timeout=getTimeout(timeouts, x, default_timeout),
-                        **kwargs,
-                    ),
-                    tasks,
-                    key=[f"prep--{t.sample_id}" for t in tasks],
-                ),
-                tasks,
-            )
-        )
-        finalizing_futures = set()
-        completed = as_completed(prepped_futures)
-        time.time()
+        as_comp = as_completed(file_prep_tasks)
 
-        total_files_to_prep = sum(t.file_set.nfiles for t in tasks)
-        total_events_to_analyze = 0
-        exceptions = 0
+        for future in as_comp:
+            data = future.result()
+            if isinstance(data, FileInfo):
+                as_comp.update(handleFileInfo())
+            if isinstance(data, ResultBase):
+                as_comp.update(handleResult())
+            if isinstance(data, CompletedTask):
+                yield data
 
-        saving_tasks = []
-        Queue()
-        if self.parallel_save is not None:
-            save_executor = ProcessPoolExecutor
-        else:
-            save_executor = LocalExecutor
-        with Progress(
-            SpinnerColumn(),
-            TextColumn("{task.description}"),
-            BarColumn(),
-            MofNCompleteColumn(),
-            TimeElapsedColumn(),
-            disable=False,
-        ) as progress:
-            with save_executor(max_workers=self.parallel_save) as pexec:
-                prep_bar = progress.add_task(
-                    "Pre-Processing", total=total_files_to_prep
-                )
-                analyze_bar = progress.add_task(
-                    "Analyzing", total=total_events_to_analyze
-                )
-                for f in completed:
-                    try:
-                        if f in prepped_futures:
-                            i = 0
-                            while queue.qsize() > 0:
-                                x = queue.get()
-                                finalizing_futures.add(x)
-                                i += 1
-                                completed.add(x)
-                            nfiles, nevents = f.result()
-                            total_events_to_analyze += nevents
-                            progress.update(prep_bar, advance=nfiles)
-                            progress.update(analyze_bar, total=total_events_to_analyze)
-                        elif f in finalizing_futures:
-                            res = f.result()
-                            if isinstance(res, Exception):
-                                exceptions += 1
-                                # raise res
-                            res, events = res
-                            saving_tasks.append(
-                                pexec.submit(result_complete_callback, *res)
-                            )
-                            progress.update(analyze_bar, advance=events)
-                    except Exception as e:
-                        logger.warn(
-                            f"An exception occurred while processing a future."
-                            f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
-                            f"{e}"
-                        )
-                        logger.warn(traceback.format_exc())
-                    finally:
-                        f.cancel()
-                pexec.shutdown(wait=True)
+        # queue = Queue()
+        # # run_kwargs = {
+        # #     "reduction_factor": self.reduction_factor,
+        # #     "input_events_per_output": self.input_events_per_output,
+        # #     "catch_exceptions": self.catch_exceptions,
+        # #     # "timeout": self.timeout,
+        # # }
+        #
+        # prepped_futures = dict(
+        #     zip(
+        #         client.map(
+        #             lambda x, kwargs=run_kwargs, test_mode=self.test_mode, timeouts=self.timeouts, default_timeout=self.default_timeout: prepWrapper(
+        #                 queue,
+        #                 x,
+        #                 prep_kwargs={"test_mode": test_mode},
+        #                 timeout=getTimeout(timeouts, x, default_timeout),
+        #                 **kwargs,
+        #             ),
+        #             tasks,
+        #             key=[f"prep--{t.sample_id}" for t in tasks],
+        #         ),
+        #         tasks,
+        #     )
+        # )
+        # finalizing_futures = set()
+        # completed = as_completed(prepped_futures)
+        # time.time()
+        #
+        # total_files_to_prep = sum(t.file_set.nfiles for t in tasks)
+        # total_events_to_analyze = 0
+        # exceptions = 0
+        #
+        # saving_tasks = []
+        # Queue()
+        # if self.parallel_save is not None:
+        #     save_executor = ProcessPoolExecutor
+        # else:
+        #     save_executor = LocalExecutor
+        # with Progress(
+        #     SpinnerColumn(),
+        #     TextColumn("{task.description}"),
+        #     BarColumn(),
+        #     MofNCompleteColumn(),
+        #     TimeElapsedColumn(),
+        #     disable=False,
+        # ) as progress:
+        #     with save_executor(max_workers=self.parallel_save) as pexec:
+        #         prep_bar = progress.add_task(
+        #             "Pre-Processing", total=total_files_to_prep
+        #         )
+        #         analyze_bar = progress.add_task(
+        #             "Analyzing", total=total_events_to_analyze
+        #         )
+        #         for f in completed:
+        #             try:
+        #                 if f in prepped_futures:
+        #                     i = 0
+        #                     while queue.qsize() > 0:
+        #                         x = queue.get()
+        #                         finalizing_futures.add(x)
+        #                         i += 1
+        #                         completed.add(x)
+        #                     nfiles, nevents = f.result()
+        #                     total_events_to_analyze += nevents
+        #                     progress.update(prep_bar, advance=nfiles)
+        #                     progress.update(analyze_bar, total=total_events_to_analyze)
+        #                 elif f in finalizing_futures:
+        #                     res = f.result()
+        #                     if isinstance(res, Exception):
+        #                         exceptions += 1
+        #                         # raise res
+        #                     res, events = res
+        #                     saving_tasks.append(
+        #                         pexec.submit(result_complete_callback, *res)
+        #                     )
+        #                     progress.update(analyze_bar, advance=events)
+        #             except Exception as e:
+        #                 logger.warn(
+        #                     f"An exception occurred while processing a future."
+        #                     f"This task will be skipped for the remainder of the analyzer, and the result will need to be patched later:\n"
+        #                     f"{e}"
+        #                 )
+        #                 logger.warn(traceback.format_exc())
+        #             finally:
+        #                 f.cancel()
+        #         pexec.shutdown(wait=True)
 
     def run(self, *args, **kwargs):
         self.runFutured(*args, **kwargs)

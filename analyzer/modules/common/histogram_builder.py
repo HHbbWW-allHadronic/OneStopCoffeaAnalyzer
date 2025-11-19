@@ -94,15 +94,12 @@ class HistogramBuilder(AnalyzerModule):
             backend, categories, self.axes, self.storage
         )
         for cset in column_sets:
-            columns = cset[1]
+            name, columns = cset
             if self.mask_col is not None:
                 mask = columns[self.mask_col]
-
-            exec_name = columns.pipeline_data["execution_name"]
             data_to_fill = [columns[x] for x in self.columns]
             if self.mask_col is not None:
                 data_to_fill = [col[mask] for col in data_to_fill]
-
             represenative = data_to_fill[0]
             mask = None
 
@@ -124,7 +121,7 @@ class HistogramBuilder(AnalyzerModule):
                 cat_to_fill,
                 data_to_fill,
                 weight=total_weight,
-                variation=exec_name,
+                variation=name,
             )
 
         return None, [

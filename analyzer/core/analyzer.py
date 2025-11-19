@@ -93,7 +93,9 @@ class Analyzer:
 
     def addPipeline(self, name, pipeline):
         ret = []
-        ret.append(Node("ENTRYPOINT", LoadColumns()))
+        node = self.getUniqueNode(ret, LoadColumns())
+        node.node_id = "ENTRYPOINT"
+        ret.append(node)
         for module in pipeline:
             ret.append(self.getUniqueNode(ret, module))
         self.base_pipelines[name] = ret

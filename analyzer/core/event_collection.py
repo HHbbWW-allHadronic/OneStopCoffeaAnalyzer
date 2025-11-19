@@ -19,7 +19,7 @@ from collections.abc import Iterable
 import abc
 from typing import Any
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
-from analyzer.core.caching import makeCached
+from analyzer.core.caching import cache
 
 
 @define
@@ -63,7 +63,7 @@ def getReplicas(dataset, client):
     return ret
 
 
-@makeCached()
+@cache.memoize()
 def getDasFileSet(dataset):
     from coffea.dataset_tools import rucio_utils
 
@@ -89,7 +89,9 @@ def decideFile(possible_files, location_priorities=None):
 
 @define
 class FileInfo:
+    file_path: str
     nevents: int | None = None
+    tree_name: str | None = None
     chunks: list[tuple[int, int]] | None = None
     target_chunk_size: int | None = None
 
@@ -107,6 +109,31 @@ class FileInfo:
         ret += other
         return ret
 
+    def iChunk(self, chunk_size):
+        if self.nevents is None:
+            raise RuntimeError()
+        self.chunks = chunkN(self.nevents, chunk_size)
+        self.target_chunk_size = chunk_size
+        return self
+
+    def chunked(self, chunk_size):
+        ret = copy.copy(self)
+        ret.iChunk(chunk_size)
+        return ret
+
+    def toFileChunks(self, schema_name):
+        return [
+            FileChunk(
+                self.file_path,
+                *c,
+                self.tree_name,
+                self.target_chunk_size,
+                schema_name,
+                self.nevents,
+            )
+            for c in self.chunks
+        ]
+
 
 @define
 class DasCollection(SourceDescription):
@@ -120,7 +147,7 @@ class DasCollection(SourceDescription):
             decideFile(x, location_priorities=location_priorities) for x in all_files
         ]
         return FileSet(
-            files={x: FileInfo() for x in files},
+            files={x: FileInfo(x) for x in files},
             chunk_size=None,
             tree_name=self.tree_name,
             schema_name=self.schema_name,
@@ -209,12 +236,12 @@ class FileSet:
             chunk_size=chunk.target_chunk_size,
         )
 
-    def updateEvents(self, fname, events):
-        self.files[fname].nevents = events
+    def updateFileInfo(self, file_info):
+        self.files[file_info].file_path = file_info
 
     def getNeededUpdatesFuncs(self):
         return [
-            ft.partial(getFileEvents, f, self.tree_name)
+            ft.partial(getFileInfo, f, self.tree_name)
             for f, v in self.files.items()
             if v.nevents is None
         ]
@@ -325,23 +352,22 @@ class FileSet:
         for f, v in self.files.items():
             if v.chunks is None:
                 continue
-            for chunk in v.chunks:
-                yield FileChunk(f, *chunk, self.tree_name, self.schema_name, v.nevents)
+            yield from iter(v.toFileChunks(self.schema_name))
 
     def toChunked(self, chunk_size):
         files = {
-            x: FileInfo(y.nevents, chunkN(y.nevents, chunk_size), chunk_size)
+            x: y.chunked(chunk_size)
             for x, y in self.files.items()
             if y.nevents is not None
         }
         return FileSet(files, chunk_size, self.tree_name, self.schema_name)
 
 
-@makeCached()
+@cache.memoize()
 def getFileEvents(file_path, tree_name, **kwargs):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
     nevents = tree.num_entries
-    return file_path, nevents
+    return FileInfo(file_path, nevents, tree_name)
 
 
 @define(frozen=True)

@@ -355,7 +355,6 @@ class ModuleAddition:
     # parameter_runs: list[PipelineParameterValues]
 
 
-
 def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
     include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)
