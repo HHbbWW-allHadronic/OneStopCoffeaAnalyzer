@@ -143,94 +143,6 @@ def TopJetHistograms(self, columns, params):
     return columns, ret
 
 
-def getCset(path):
-    cset = correctionlib.CorrectionSet.from_file(path)
-    return cset
-
-
-def getEvaluator(path, key):
-    cset = getCset(path)
-    return cset[key]
-
-
-def getKeyJec(name, jet_type, params):
-    jec_params = params["dataset"]["era"]["jet_corrections"]
-    jet_type = jec_params.jet_names[jet_type]
-    data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
-    campaign = jec_params.jec.campaign
-    version = jec_params.jec.version
-    return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
-
-
-def getKeyJer(name, jet_type, params):
-    jec_params = params.dataset.era.jet_corrections
-    jet_type = jec_params.jet_names[jet_type]
-    data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
-    campaign = jec_params.jer.campaign
-    version = jec_params.jer.version
-    return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
-
-
-def smearJets(jets, gen_jets, rho, params, jet_type, include_systematics=False):
-    jec_params = params.dataset.era.jet_corrections
-    systematics = jec_params.jer.systematics
-    evaljer = getEvaluator(
-        jec_params.files[jet_type], getKeyJer("PtResolution", jet_type, params)
-    )
-    evalsf = getEvaluator(
-        jec_params.files[jet_type], getKeyJer("ScaleFactor", jet_type, params)
-    )
-    evalsmear = getEvaluator(jec_params.files["smear"], "JERSmear")
-
-    genjet_idx_col = jec_params.jer.genjet_idx_col
-
-    inputs = {
-        "JetEta": jets.eta,
-        "JetPt": jets.pt,
-        "Rho": rho,
-    }
-    jer = evaljer.evaluate(*[inputs[inp.name] for inp in evaljer.inputs])
-    jer = to_f32(jer)
-
-    def smearWithSystematic(jets, systematic_name):
-        sf_inputs = inputs | {"systematic": systematic_name}
-        sf = evalsf.evaluate(*[sf_inputs[inp.name] for inp in evalsf.inputs])
-        sf = to_f32(sf)
-        matched_genjet = jets.matched_gen
-        gen_idxs = jets[genjet_idx_col]
-        valid_gen_idxs = ak.mask(gen_idxs, (gen_idxs >= 0) & (gen_idxs < 10))
-        padded_gen_jets = ak.pad_none(gen_jets, 10, axis=1)
-        matched_genjet = padded_gen_jets[valid_gen_idxs]
-        pt_relative_diff = 1 - matched_genjet.pt / jets.pt
-        is_matched_pt = abs(pt_relative_diff) < (3 * jer)
-        smear_inputs = inputs | {
-            "JER": jer,
-            "JERSF": sf,
-            "GenPt": ak.fill_none(is_matched_pt * matched_genjet.pt, -1),
-            "EventID": ak.values_astype(rho * 10**6, "int64"),
-        }
-
-        final_smear = evalsmear.evaluate(
-            *[smear_inputs[inp.name] for inp in evalsmear.inputs]
-        )
-        # jumpIn(**locals())
-        final_smear = final_smear
-        final_smear = to_f32(final_smear)
-
-        smeared_jets = ak.with_field(jets, to_f32(jets.pt * final_smear), "pt")
-        smeared_jets = ak.with_field(
-            smeared_jets, to_f32(jets.mass * final_smear), "mass"
-        )
-        return smeared_jets
-
-    if include_systematics:
-        return smearWithSystematic(jets, "nom"), {
-            k + "_JER": smearWithSystematic(jets, k) for k in systematics
-        }
-    else:
-        return smearWithSystematic(jets, "nom")
-
-
 @define
 class JetScaleCorrections(AnalyzerModule):
     input_col: Column
@@ -238,8 +150,9 @@ class JetScaleCorrections(AnalyzerModule):
     jet_type: str = "AK4"
     use_regrouped: bool = True
 
-    def getKeyJec(self, name, params):
-        jec_params = params.dataset.era.jet_corrections
+    @staticmethod
+    def getKeyJec(name, jet_type, params):
+        jec_params = params["dataset"]["era"]["jet_corrections"]
         jet_type = jec_params.jet_names[jet_type]
         data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
         campaign = jec_params.jec.campaign
@@ -248,10 +161,11 @@ class JetScaleCorrections(AnalyzerModule):
 
     def run(self, columns, params):
         metadata = columns.metadata
-        jec_params = dataset["era"]["jet_corrections"]
-        jets = columns[self.input_col]
 
+        jets = columns[self.input_col]
+        corrections = self.getCorrection(metadata)
         systematics = params["jec_systematic"]
+
         if systematic == "central":
             columns[self.output_col] = jets
             return columns, []
@@ -264,18 +178,23 @@ class JetScaleCorrections(AnalyzerModule):
             else columns["Rho.fixedGridRhoFastjetAll"]
         )
 
-        k = getKeyJec(systematic, jet_type, params)
-        corr = getEvaluator(corrections_path, k)
-        factor = to_f32(corr.evaluate(jets.eta, pt_raw))
+        k = JetScaleCorrections.getKeyJec(systematic, jet_type, params)
+        evaluator = corrections[k]
+        factor = to_f32(evaluator.evaluate(jets.eta, pt_raw))
         shift = -1 if systematic.startswith("down") else 1
-        corrected = ak.with_field(jets, to_f32(jets.pt * (1.0 + factor * shift)), "pt")
+        corrected = ak.with_field(jets, toF32(jets.pt * (1.0 + factor * shift)), "pt")
         corrected = ak.with_field(
-            corrected, to_f32(jets.mass * (1.0 + factor * shift)), "mass"
+            corrected, toF32(jets.mass * (1.0 + factor * shift)), "mass"
         )
         columns[self.output_col] = corrected
         return columns, []
 
-    def getCorr(self, metadata):
+    def getCorrection(self, metadata):
+        file_path = metadata["era"]["jet_corrections"]["file"]
+        if file_path in self.__corrections:
+            return self.__corrections[file_path]
+        ret = correctionlib.CorrectionSet.from_file(file_path)
+        self.__corrections[file_path] = ret
         return ret
 
     def getParameterSpec(self, metadata):
@@ -302,7 +221,7 @@ class JetScaleCorrections(AnalyzerModule):
         )
 
     def preloadForMeta(self, metadata):
-        self.getCorr(metadata)
+        self.getCorrection(metadata)
 
     def inputs(self, metadata):
         return [self.input_col]
@@ -317,44 +236,86 @@ class JetResolutionCorrections(AnalyzerModule):
     output_col: Column
     jet_type: str = "AK4"
 
+    @staticmethod
     def getKeyJer(name, jet_type, params):
-        jec_params = params.dataset.era.jet_corrections
-        jet_type = jec_params.jet_names[jet_type]
+        jet_type = params["jet_names"][jet_type]
         data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
-        campaign = jec_params.jer.campaign
-        version = jec_params.jer.version
+        campaign = jec_params["jer"]["campaign"]
+        version = jec_params["jer"]["version"]
         return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
 
     def run(self, columns, params):
         metadata = columns.metadata
         jec_params = dataset["era"]["jet_corrections"]
         jets = columns[self.input_col]
+        systematic = params["systematic"]
 
-        systematics = params["jec_systematic"]
-        if systematic == "central":
-            columns[self.output_col] = jets
-            return columns, []
+        corrections = self.getCorrection(metadata)
+        res_key = JetResolutionCorrections.getKeyJer(
+            "PtResolution", self.jet_type, metadata["era"]["jet_corrections"]
+        )
+        sf_key = JetResolutionCorrections.getKeyJer(
+            "ScaleFactor", self.jet_type, metadata["era"]["jet_corrections"]
+        )
+        eval_res = correction[res_key]
+        eval_sf = correction[sf_key]
+        eval_smear = getSmearer(metadata)
 
-        pt_raw = (1 - jets.rawFactor) * jets.pt
-        mass_raw = (1 - jets.rawFactor) * jets.mass
         rho = (
             columns["fixedGridRhoFastjetAll"]
             if "fixedGridRhoFastjetAll" in columns.fields
-            else columns["Rho.fixedGridRhoFastjetAll"]
+            else columns["Rho", "fixedGridRhoFastjetAll"]
         )
 
-        k = getKeyJec(systematic, jet_type, params)
-        corr = getEvaluator(corrections_path, k)
-        factor = to_f32(corr.evaluate(jets.eta, pt_raw))
-        shift = -1 if systematic.startswith("down") else 1
-        corrected = ak.with_field(jets, to_f32(jets.pt * (1.0 + factor * shift)), "pt")
-        corrected = ak.with_field(
-            corrected, to_f32(jets.mass * (1.0 + factor * shift)), "mass"
+        inputs = {
+            "JetEta": jets.eta,
+            "JetPt": jets.pt,
+            "Rho": rho,
+            "systematic": systematic,
+        }
+        jer = eval_res.evaluate(*[inputs[inp.name] for inp in evaljer.inputs])
+        jer = toF32(jer)
+
+        matched_genjet = jets.matched_gen
+        gen_idxs = jets[genjet_idx_col]
+        valid_gen_idxs = ak.mask(gen_idxs, (gen_idxs >= 0) & (gen_idxs < 10))
+        padded_gen_jets = ak.pad_none(gen_jets, 10, axis=1)
+        matched_genjet = padded_gen_jets[valid_gen_idxs]
+        pt_relative_diff = 1 - matched_genjet.pt / jets.pt
+        is_matched_pt = abs(pt_relative_diff) < (3 * jer)
+
+        smear_inputs = inputs | {
+            "JER": jer,
+            "JERSF": sf,
+            "GenPt": ak.fill_none(is_matched_pt * matched_genjet.pt, -1),
+            "EventID": ak.values_astype(rho * 10**6, "int64"),
+        }
+
+        final_smear = evalsmear.evaluate(
+            *[smear_inputs[inp.name] for inp in evalsmear.inputs]
         )
-        columns[self.output_col] = corrected
+        final_smear = toF32(final_smear)
+        smeared_jets = ak.with_field(jets, toF32(jets.pt * final_smear), "pt")
+        smeared_jets = ak.with_field(
+            smeared_jets, toF32(jets.mass * final_smear), "mass"
+        )
+        columns[self.output_col] = smeared_jets
         return columns, []
 
-    def getCorr(self, metadata):
+    def getSmearer(self, metadata):
+        file_path = metadata["era"]["jet_corrections"]["files"]["smear"]
+        if file_path in self.__corrections:
+            return self.__corrections[file_path]
+        ret = correctionlib.CorrectionSet.from_file(file_path)["JERSmear"]
+        self.__corrections[file_path] = ret
+        return ret
+
+    def getCorrection(self, metadata):
+        file_path = metadata["era"]["jet_corrections"]["file"]
+        if file_path in self.__corrections:
+            return self.__corrections[file_path]
+        ret = correctionlib.CorrectionSet.from_file(file_path)
+        self.__corrections[file_path] = ret
         return ret
 
     def getParameterSpec(self, metadata):
@@ -381,7 +342,8 @@ class JetResolutionCorrections(AnalyzerModule):
         )
 
     def preloadForMeta(self, metadata):
-        self.getCorr(metadata)
+        self.getCorrection(metadata)
+        self.getSmearer(metadata)
 
     def inputs(self, metadata):
         return [self.input_col]
@@ -469,3 +431,63 @@ def corrected_jets(
         systs_jer = {}
 
     columns.add(output_col, rjets, systs | systs_jer | {"base": jets})
+
+
+@define
+class PileupJetIdSF(AnalyzerModule):
+    input_col: Column
+    weight_name: str = "puid_sf"
+
+    __corrections: dict = field(factory=dict)
+
+    def getParameterSpec(self, metadata):
+        return ModuleParameterSpec(
+            {
+                "variation": ParameterSpec(
+                    default_value="nom",
+                    possible_values=["nom", "up", "down"],
+                    tags={"weight_variation"},
+                ),
+            }
+        )
+
+    def run(self, columns, params):
+        eval_pu = self.getCorrection(columns.metadata)
+
+        jets = columns[self.input_col]
+        pu_jets = jets[jets.pt < 50]
+        matched_pujet = pu_jets[pu_jets.genJetIdx > -1]
+
+        inputs_matched = {
+            "eta": matched_pujet.eta,
+            "pt": matched_pujet.pt,
+            "systematic": "nom",
+            "workingpoint": working_point,
+        }
+        sf_matched = eval_pu.evaluate(
+            *[inputs_matched[inp.name] for inp in eval_pu.inputs]
+        )
+        sf = ak.prod(sf_matched, axis=1)
+
+        columns["Weights", self.weight_name] = sf
+        return columns, []
+
+    def getCorrection(self, metadata):
+        puidinfo = metadata["era"]["jet_pileup_id"]
+        file_path = puidinfo["file"]
+        name = puidinfo["name"]
+        if (name, file_path) in self.__corrections:
+            return self.__corrections[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = cset[name]
+        self.__corrections[(name, file_path)] = ret
+        return ret
+
+    def preloadForMeta(self, metadata):
+        self.getCorrection(metadata)
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(("Weights", self.weight_name))]

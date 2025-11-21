@@ -68,3 +68,33 @@ class PileupSF(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Columns(fields=("Weights", self.weight_name))]
+
+
+@define
+class L1PrefiringSF(AnalyzerModule):
+    input_col: Column
+    weight_name: str = "l1_prefiring"
+
+    __corrections: dict = field(factory=dict)
+
+    def getParameterSpec(self, metadata):
+        return ModuleParameterSpec(
+            {
+                "variation": ParameterSpec(
+                    default_value="Nom",
+                    possible_values=["Nom", "Up", "Down"],
+                    tags={"weight_variation"},
+                ),
+            }
+        )
+
+    def run(self, columns, params):
+        variation = params["variation"]
+        columns["Weights", self.weight_name] = columns["L1PreFiringWeight"][variation]
+        return columns, []
+
+    def inputs(self, metadata):
+        return []
+
+    def outputs(self, metadata):
+        return [Columns(fields=("Weights", self.weight_name))]

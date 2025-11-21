@@ -29,24 +29,38 @@ class BJetShapeSF(AnalyzerModule):
     __corrections: dict = field(factory=dict)
 
     def getParameterSpec(self, metadata):
+        b_meta = metadata["era"]["btag_scale_factors"]
+        systematics = b_meta["systematics"]
+
         return ModuleParameterSpec(
             {
                 "variation": ParameterSpec(
                     default_value="central",
-                    possible_values=["central", "up", "down"],
-                    tags={
-                        "weight_variation",
-                    },
+                    possible_values=systematics,
+                    tags={"weight_variation"},
                     metadata={"correlation_function": None},
                 ),
             }
         )
 
     def run(self, columns, params):
-        wps = self.getWPs(columns.metadata)
+        correction = self.getCorrections(columns.metadata)
+        systematic = params["systematic"]
         jets = columns[self.input_col]
         bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
         columns[self.output_col] = bjets
+        sf = ak.prod(
+            sf_eval(
+                systematic,
+                jets.hadronFlavour,
+                abs(jets.eta),
+                jets.pt,
+                jets.btagDeepFlavB,
+            ),
+            axis=1,
+        )
+
+        columns["Weights", self.weight_name] = sf
         return columns, []
 
     def getCorrection(self, metadata):
@@ -54,8 +68,7 @@ class BJetShapeSF(AnalyzerModule):
         if file_path in self.__corrections:
             return self.__corrections[file_path]
         cset = correctionlib.CorrectionSet.from_file(file_path)
-        era_info = params.dataset.era
-        cset = getBTagCset(era_info.btag_scale_factors["file"])
+        ret = cset["deepJet_shape"]
         self.__corrections[file_path] = ret
         return ret
 
@@ -66,4 +79,4 @@ class BJetShapeSF(AnalyzerModule):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]
+        return [Column(("Weights", self.weight_name))]
