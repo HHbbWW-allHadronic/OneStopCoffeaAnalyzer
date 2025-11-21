@@ -2,6 +2,7 @@ from __future__ import annotations
 import awkward as ak
 from pathlib import Path
 
+from analyzer.core.exceptions import ResultIntegrityError
 import numpy as np
 
 import itertools as it
@@ -15,6 +16,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
+from analyzer.utils.pretty import progbar
 from attrs import define, field
 import hist
 from attrs import define, field
@@ -94,6 +96,9 @@ class ResultContainer(ResultBase):
             return converter.structure(pkl.loads(peek), cls.SummaryClass)
         else:
             return converter.structure(pkl.loads(data)).summary()
+
+    @classmethod
+    def fromBytes(cls, data: bytes):
         if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
             header_value = data[
                 len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
@@ -158,15 +163,15 @@ class ResultContainer(ResultBase):
         return self.results.keys()
 
     def checkOk(self, other):
-        if "provenance" in self.results:
-            if "provenance" not in other.results:
+        if "_provenance" in self.results:
+            if "_provenance" not in other.results:
                 raise RuntimeError()
             if (
-                not self["provenance"]
-                .file_set.intersect(other["provenance"].file_set)
+                not self["_provenance"]
+                .file_set.intersect(other["_provenance"].file_set)
                 .empty
             ):
-                raise RuntimeError()
+                raise ResultIntegrityError("Overlapping Provenance.")
 
     def __iadd__(self, other):
         self.checkOk(other)
@@ -398,13 +403,22 @@ def configureConverter(conv):
 
 
 def loadResults(paths):
+
+    import cProfile
+    profiler = cProfile.Profile()
     all_paths = it.chain.from_iterable((Path(".").rglob(x) for x in paths))
+    all_paths = paths
     ret = None
     for p in all_paths:
+        profiler.enable()
         with open(p, "rb") as f:
             result = ResultContainer.fromBytes(f.read())
         if ret is None:
             ret = result
         else:
             ret += result
+        print(result)
+        profiler.disable()
+    profiler.dump_stats("prof.prof")
+    
     return ret

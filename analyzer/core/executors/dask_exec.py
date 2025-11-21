@@ -180,20 +180,9 @@ class DaskExecutor(Executor):
     worker_memory: str = "4GB"
     dashboard_address: str | None = "localhost:8789"
     schedd_address: str | None = "localhost:12358"
-
     adapt: bool = True
-
     step_size: int | None = 100000
 
-    # default_timeout: int | None = None
-    # timeouts: list[TimeoutDescription] = Field(default_factory=list)
-
-    # reduction_factor: int = 5
-    # parallel_save: int | None = 8
-
-    # input_events_per_output: int = 10**7
-
-    catch_exceptions: bool = True
 
     def setup(self):
         if self.adapt:
@@ -211,7 +200,7 @@ class DaskExecutor(Executor):
     def handleResult(self):
         pass
 
-    def runFutured(self, tasks, result_complete_callback=None):
+    def runFutured(self, tasks):
         client = self._client
         tasks = {i: x for i, x in enumerate(tasks)}
         file_prep_tasks = {}

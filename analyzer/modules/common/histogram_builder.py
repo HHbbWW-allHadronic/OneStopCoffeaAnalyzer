@@ -85,7 +85,7 @@ class HistogramBuilder(AnalyzerModule):
 
     def run(self, column_sets, params):
         if isinstance(column_sets, ColumnView):
-            column_sets = [[None, column_sets]]
+            column_sets = [["central", column_sets]]
 
         backend = column_sets[0][1].backend
         pipeline_data = column_sets[0][1].pipeline_data

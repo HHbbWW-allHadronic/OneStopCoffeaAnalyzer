@@ -46,10 +46,6 @@ def getRepos(analysis):
 
     return dataset_repo, era_repo
 
-
-
-
-
 def getTasks(dataset_repo, era_repo, dataset_descs):
     todo = []
     for desc in dataset_descs:
@@ -85,8 +81,6 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     executor = all_executors[executor_name]
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
-    breakpoint()
-
     saver = Saver(output)
 
     for result in executor.run(analysis.analyzer, tasks):

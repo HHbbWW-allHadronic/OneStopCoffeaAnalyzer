@@ -24,7 +24,6 @@ class CompletedTask:
 
 @define
 class Executor(abc.ABC):
-
     @abc.abstractmethod
     def run(self, tasks: ExecutionTasks):
         pass

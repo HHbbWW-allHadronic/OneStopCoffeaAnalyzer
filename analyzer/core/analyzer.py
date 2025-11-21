@@ -105,7 +105,6 @@ class Analyzer:
         columns,
         pipeline,
         params,
-        execution_name=None,
         pipeline_meta=None,
         freeze_pipeline=False,
         result_container=None,
@@ -200,7 +199,6 @@ class Analyzer:
                 pipeline,
                 vals,
                 result_container=pipeline_result,
-                execution_name="central",
             )
             pipeline_container.addResult(pipeline_result)
         return root_container

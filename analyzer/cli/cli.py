@@ -1,17 +1,21 @@
-# # PYTHON_ARGCOMPLETE_OK
-# import argparse
 import logging
-
-# import sys
-# from pathlib import Path
-# import click
-#
-# from analyzer.logging import setup_logging
 from rich import print, get_console
 import click
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+def jumpIn(**kwargs):
+    import code
+    import readline
+    import rlcompleter
+
+    vars = globals()
+    vars.update(locals())
+    vars.update(kwargs)
+    readline.set_completer(rlcompleter.Completer(vars).complete)
+    readline.parse_and_bind("tab: complete")
+    code.InteractiveConsole(vars).interact()
 
 
 class LogLevel(Enum):
@@ -249,9 +253,17 @@ def patch(
 
 
 @cli.command()
-@click.argument("input", type=click.File("rb"))
-def browse(input):
-    pass
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--interpretter", is_flag=True)
+def browse(inputs, interpretter):
+    from analyzer.core.results import loadResults
+    from analyzer.core.serialization import setupConverter, converter
+    setupConverter(converter)
+
+    print(f"Loading Results")
+    if interpretter:
+        res = loadResults(inputs)
+        jumpIn(results=res)
 
 
 @cli.group()

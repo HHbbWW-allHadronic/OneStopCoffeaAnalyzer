@@ -121,6 +121,10 @@ class FileInfo:
         ret.iChunk(chunk_size)
         return ret
 
+
+    def empty(self):
+        return isinstance(self.chunks,list) and not self.chunks
+
     def toFileChunks(self, schema_name):
         return [
             FileChunk(
@@ -162,7 +166,7 @@ class DasCollection(SourceDescription):
             if not any(y in fs_files for y in x.keys())
         ]
         return FileSet(
-            files={x: FileInfo() for x in files},
+            files={x: FileInfo(x) for x in files},
             chunk_size=file_set.chunk_size,
             tree_name=file_set.tree_name,
             schema_name=file_set.schema_name,
@@ -177,7 +181,7 @@ class FileListCollection(SourceDescription):
 
     def getFileSet(self, **kwargs) -> FileSet:
         return FileSet(
-            files={x: FileInfo() for x in self.files},
+            files={x: FileInfo(x) for x in self.files},
             chunk_size=None,
             tree_name=self.tree_name,
             schema_name=self.schema_name,
@@ -186,7 +190,7 @@ class FileListCollection(SourceDescription):
     def getMissing(self, file_set: FileSet) -> FileSet:
         files = [x for x in self.files if x not in self.file_set.files]
         return FileSet(
-            files={x: FileInfo() for x in files},
+            files={x: FileInfo(x) for x in files},
             chunk_size=file_set.chunk_size,
             tree_name=file_set.tree_name,
             schema_name=file_set.schema_name,
@@ -226,6 +230,7 @@ class FileSet:
         return FileSet(
             files={
                 chunk.file_path: FileInfo(
+                    file_path=chunk.file_path,
                     nevents=chunk.file_nevents,
                     chunks=[(chunk.event_start, chunk.event_stop)],
                     target_chunk_size=chunk.target_chunk_size,
@@ -237,7 +242,7 @@ class FileSet:
         )
 
     def updateFileInfo(self, file_info):
-        self.files[file_info].file_path = file_info
+        self.files[file_info.file_path] = file_info
 
     def getNeededUpdatesFuncs(self):
         return [
@@ -257,7 +262,7 @@ class FileSet:
             new_steps = None
             if not (steps_self is None and steps_other is None):
                 new_steps = set(steps_self).intersection(set(steps_other))
-            ret[fname] = FileInfo()
+            ret[fname] = FileInfo(fname)
             ret[fname].nevents = self.files[fname].nevents
             ret[fname].chunks = new_steps
         return FileSet(files=ret, chunk_size=self.chunk_size)
@@ -364,7 +369,7 @@ class FileSet:
 
 
 @cache.memoize()
-def getFileEvents(file_path, tree_name, **kwargs):
+def getFileInfo(file_path, tree_name, **kwargs):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
     nevents = tree.num_entries
     return FileInfo(file_path, nevents, tree_name)
