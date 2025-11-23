@@ -176,7 +176,7 @@ class Analyzer:
     def run(self, chunk, metadata, pipelines=None):
         pipelines = pipelines or list(self.base_pipelines)
 
-        root_container = ResultContainer("Dataset")
+        root_container = ResultContainer("ROOT")
         dataset_container = ResultContainer(metadata["dataset_name"])
         sample_container = ResultContainer(metadata["sample_name"], metadata=metadata)
         pipeline_container = ResultContainer("pipelines")

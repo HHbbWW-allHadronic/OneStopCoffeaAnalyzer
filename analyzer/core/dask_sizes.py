@@ -12,6 +12,8 @@ from analyzer.datasets.fileset import FileSet
 from analyzer.datasets.files import SampleFile
 
 
+
+
 @sizeof.register(hist.hist.Hist)
 def approxSizeofHist(obj):
     return sizeof(obj.view(flow=True))

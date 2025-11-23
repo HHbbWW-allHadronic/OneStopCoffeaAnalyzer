@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import copy
 from typing import Literal
+from analyzer.core.event_collection import FileInfo
 from .executor import Executor, CompletedTask
 import logging
 from attrs import define
+from analyzer.core.event_collection import getFileInfo
 
 logger = logging.getLogger(__name__)
 
@@ -16,10 +18,10 @@ class ImmediateExecutor(Executor):
     def run(self, analyzer, tasks):
         for task in tasks:
             file_set = task.file_set
-            file_set.chunk_size = file_set.chunk_size or self.chunk_size
-            for func in file_set.getNeededUpdatesFuncs():
-                file_set.updateFileInfo(func())
-
+            file_set.updateFromCache()
+            needed_updates = file_set.getNeededUpdatesFuncs()
+            for update in needed_updates:
+                file_set.updateFileInfo(update())
             chunked = file_set.toChunked(self.chunk_size)
             for chunk in chunked.iterChunks():
                 result = analyzer.run(chunk, task.metadata, task.pipelines)

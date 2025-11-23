@@ -1,6 +1,8 @@
 from __future__ import annotations
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
+from cattrs import structure, unstructure
+from rich import print
 
 from attrs import define, field, make_class
 from attrs import define, field
@@ -261,7 +263,7 @@ class AnalyzerModule(abc.ABC):
             columns.addColumnsFrom(cached_cols, outputs)
             columns.pipeline_data = cached_cols.pipeline_data
             return columns, r
-        logger.info(f"Did not find cached result, running module {self}")
+        logger.info(f"Did not find cached result, running module {self.name}")
         with (
             columns.useKey(key),
             columns.allowedInputs(self.inputs(columns.metadata)),
@@ -282,7 +284,7 @@ class AnalyzerModule(abc.ABC):
             logger.info(f"Found key, using cached result")
             ret = self.__cache[key]
             return ret
-        logger.info(f"Did not find cached result, running module {self}")
+        logger.info(f"Did not find cached result, running module {self.name}")
         with contextlib.ExitStack() as stack:
             for c in just_cols:
                 stack.enter_context(c.useKey(key))
@@ -310,25 +312,34 @@ class AnalyzerModule(abc.ABC):
         return cls.__name__
 
 
+def defaultCols(columns):
+    def inner(self, metadata):
+        return [Column(x) for x in columns]
+    return inner
+
+def defaultParameterSpec(params):
+    def inner(self, metadata):
+        return ModuleParameterSpec(params)
+    return inner
+
+    
+
 def register_module(input_columns, output_columns, configuration=None, params=None):
     configuration = configuration or {}
     params = params or {}
 
     def wrapper(func):
-        getParameterSpec = lambda x, metadata: ModuleParameterSpec(params)
+        getParameterSpec = defaultParameterSpec(params)
         run = func
         if callable(input_columns):
             inputs = input_columns
         else:
-            def inputs(self, metadata):
-                return [Column(x) for x in input_columns]
+            inputs = defaultCols(input_columns)
 
         if callable(output_columns):
             outputs = output_columns
         else:
-
-            def outputs(self, metadata):
-                return [Column(x) for x in output_columns]
+            outputs = defaultCols(output_columns)
 
         cls = make_class(
             func.__name__,
@@ -341,10 +352,9 @@ def register_module(input_columns, output_columns, configuration=None, params=No
                 outputs=outputs,
             ),
         )
+        cls.__module__ = __name__
         return cls
-
     return wrapper
-
 
 
 @define
@@ -358,3 +368,4 @@ class ModuleAddition:
 def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
     include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)
+

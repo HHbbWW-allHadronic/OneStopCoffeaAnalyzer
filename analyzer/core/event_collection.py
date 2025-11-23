@@ -63,7 +63,7 @@ def getReplicas(dataset, client):
     return ret
 
 
-@cache.memoize()
+@cache.memoize(tag="das-datasets")
 def getDasFileSet(dataset):
     from coffea.dataset_tools import rucio_utils
 
@@ -92,16 +92,31 @@ class FileInfo:
     file_path: str
     nevents: int | None = None
     tree_name: str | None = None
-    chunks: list[tuple[int, int]] | None = None
+    schema_name: str | None = None
+    chunks: set[tuple[int, int]] | None = None
     target_chunk_size: int | None = None
 
-    def __iadd__(self, other: FileInfo):
+    def checkCompatible(self, other: FileInfo):
         if (
             self.target_chunk_size != other.target_chunk_size
             or self.nevents != other.nevents
+            or self.schema_name != other.schema_name
+            or self.tree_name != other.tree_name
         ):
             raise RuntimeError()
-        chunks += other.chunks
+
+    def __iadd__(self, other: FileInfo):
+        self.checkCompatible(other)
+        oc = other.chunks or set()
+        sc = self.chunks or set()
+        self.chunks = oc | sc
+        return self
+
+    def __isub__(self, other: FileInfo):
+        self.checkCompatible(other)
+        oc = other.chunks or set()
+        sc = self.chunks or set()
+        self.chunks = sc - oc
         return self
 
     def __add__(self, other: FileInfo):
@@ -109,34 +124,67 @@ class FileInfo:
         ret += other
         return ret
 
+    def __sub__(self, other: FileInfo):
+        ret = copy.deepcopy(self)
+        ret -= other
+        return ret
+
     def iChunk(self, chunk_size):
         if self.nevents is None:
             raise RuntimeError()
-        self.chunks = chunkN(self.nevents, chunk_size)
-        self.target_chunk_size = chunk_size
+        self.target_chunk_size = self.target_chunk_size or chunk_size
+        self.chunks = chunkN(self.nevents, self.target_chunk_size)
         return self
 
     def chunked(self, chunk_size):
-        ret = copy.copy(self)
+        ret = copy.deepcopy(self)
         ret.iChunk(chunk_size)
         return ret
 
+    def intersects(self, other):
+        self.checkCompatible(other)
+        return bool(self.chunks.intersection(other.chunks))
 
+    def intersection(self, other):
+        self.checkCompatible(other)
+        ret = copy.deepcopy(self)
+        ret.chunks = self.chunks.intersection(other.chunks)
+        return ret
+
+    @property
     def empty(self):
-        return isinstance(self.chunks,list) and not self.chunks
+        return not isinstance(self.chunks, None) and not self.chunks
 
-    def toFileChunks(self, schema_name):
+    @property
+    def is_chunked(self):
+        return self.chunks is not None
+
+    def toFileChunks(self):
         return [
             FileChunk(
                 self.file_path,
                 *c,
                 self.tree_name,
                 self.target_chunk_size,
-                schema_name,
+                self.schema_name,
                 self.nevents,
             )
             for c in self.chunks
         ]
+
+
+def buildMissingFileset(
+    source_description: SourceDescription, file_set: FileSet
+) -> FileSet:
+    """
+    Two cases:
+      1. The file never got preprocessed or none of the chunks ran. In this case, we add the empty file to the return set.
+      2. The file was preprocesses but not all the chunks successfully ran. In this case, we compute the chunking based on the target chunk size and number of events, then take the difference.
+    """
+    missing_files = source_description.getMissing(file_set)
+    fs = file_set.asMaximal()
+    missing_chunks = fs - file_set
+    return missing_files + missing_chunks
 
 
 @define
@@ -151,10 +199,10 @@ class DasCollection(SourceDescription):
             decideFile(x, location_priorities=location_priorities) for x in all_files
         ]
         return FileSet(
-            files={x: FileInfo(x) for x in files},
-            chunk_size=None,
-            tree_name=self.tree_name,
-            schema_name=self.schema_name,
+            files={
+                x: FileInfo(x, tree_name=self.tree_name, schema_name=self.schema_name)
+                for x in files
+            },
         )
 
     def getMissing(self, file_set: FileSet, location_priorities=None):
@@ -166,10 +214,10 @@ class DasCollection(SourceDescription):
             if not any(y in fs_files for y in x.keys())
         ]
         return FileSet(
-            files={x: FileInfo(x) for x in files},
-            chunk_size=file_set.chunk_size,
-            tree_name=file_set.tree_name,
-            schema_name=file_set.schema_name,
+            files={
+                x: FileInfo(x, tree_name=self.tree_name, schema_name=self.schema_name)
+                for x in files
+            },
         )
 
 
@@ -181,49 +229,49 @@ class FileListCollection(SourceDescription):
 
     def getFileSet(self, **kwargs) -> FileSet:
         return FileSet(
-            files={x: FileInfo(x) for x in self.files},
-            chunk_size=None,
-            tree_name=self.tree_name,
-            schema_name=self.schema_name,
+            files={
+                x: FileInfo(x, tree_name=self.tree_name, schema_name=self.schema_name)
+                for x in self.files
+            },
         )
 
     def getMissing(self, file_set: FileSet) -> FileSet:
-        files = [x for x in self.files if x not in self.file_set.files]
+        files = [x for x in self.files if x not in file_set.files]
         return FileSet(
-            files={x: FileInfo(x) for x in files},
-            chunk_size=file_set.chunk_size,
-            tree_name=file_set.tree_name,
-            schema_name=file_set.schema_name,
+            files={
+                x: FileInfo(x, tree_name=self.tree_name, schema_name=self.schema_name)
+                for x in files
+            },
         )
 
 
 def chunkN(nevents, chunk_size):
     nchunks = max(round(nevents / chunk_size), 1)
     chunk_size = math.ceil(nevents / nchunks)
-    chunks = [
-        [
+    chunks = set(
+        (
             i * chunk_size,
             min((i + 1) * chunk_size, nevents),
-        ]
+        )
         for i in range(nchunks)
-    ]
+    )
     return chunks
 
 
 @define
 class FileSet:
     files: dict[str, FileInfo]
-    chunk_size: int | None = None
-    tree_name: str = "Events"
-    schema_name: str | None = None
+    # chunk_size: int | None = None
+    # tree_name: str = "Events"
+    # schema_name: str | None = None
 
-    def checkCompatible(self, other: FileSet):
-        if (
-            self.chunk_size != other.chunk_size
-            or self.tree_name != other.tree_name
-            or self.schema_name != other.schema_name
-        ):
-            raise RuntimeError()
+    # def checkCompatible(self, other: FileSet):
+    #     if (
+    #         self.chunk_size != other.chunk_size
+    #         or self.tree_name != other.tree_name
+    #         or self.schema_name != other.schema_name
+    #     ):
+    #         raise RuntimeError()
 
     @staticmethod
     def fromChunk(chunk):
@@ -232,57 +280,68 @@ class FileSet:
                 chunk.file_path: FileInfo(
                     file_path=chunk.file_path,
                     nevents=chunk.file_nevents,
-                    chunks=[(chunk.event_start, chunk.event_stop)],
+                    chunks={(chunk.event_start, chunk.event_stop)},
                     target_chunk_size=chunk.target_chunk_size,
+                    tree_name=chunk.tree_name,
+                    schema_name=chunk.schema_name,
                 )
             },
-            tree_name=chunk.tree_name,
-            schema_name=chunk.schema_name,
-            chunk_size=chunk.target_chunk_size,
+            # chunk_size=chunk.target_chunk_size,
         )
+
+    def asMaximal(self):
+        ret = copy.deepcopy(self)
+        for file_info in ret.files.values():
+            file_info.iChunk(file_info.target_chunk_size)
+        return ret
+
+    def updateInfoFromOther(self, other: FileSet):
+        if set(self.files) != set(other.files):
+            raise RuntimeError
+        for f in other:
+            self[f].nevents = other[f].nevents
+        return self
 
     def updateFileInfo(self, file_info):
         self.files[file_info.file_path] = file_info
 
     def getNeededUpdatesFuncs(self):
         return [
-            ft.partial(getFileInfo, f, self.tree_name)
-            for f, v in self.files.items()
-            if v.nevents is None
+            ft.partial(getFileInfo, f.file_path, f.tree_name)
+            for f in self.files.values()
         ]
 
-    def intersect(self, other):
+    def updateFromCache(self):
+        for finfo in self.files.values():
+            k = (finfo.file_path, finfo.tree_name)
+            if k in cache:
+                nevents = cache[k]
+                self.files[finfo.file_path] = FileInfo(
+                    finfo.file_path, nevents, finfo.tree_name
+                )
+
+    def updateFromCache(self):
+        for finfo in self.files.values():
+            k = (finfo.file_path, finfo.tree_name)
+            if k in cache:
+                nevents = cache[k]
+                self.files[finfo.file_path] = FileInfo(
+                    finfo.file_path, nevents, finfo.tree_name
+                )
+
+    def intersection(self, other):
         common_files = set(self.files).intersection(set(other.files))
         ret = {}
         for fname in common_files:
-            steps_self, steps_other = (
-                self.files[fname].chunks,
-                other.files[fname].chunks,
-            )
-            new_steps = None
-            if not (steps_self is None and steps_other is None):
-                new_steps = set(steps_self).intersection(set(steps_other))
-            ret[fname] = FileInfo(fname)
-            ret[fname].nevents = self.files[fname].nevents
-            ret[fname].chunks = new_steps
-        return FileSet(files=ret, chunk_size=self.chunk_size)
+            ret[fname] = self.files[fname].intersection(other.files[fname])
+        return FileSet(files=ret)
 
     def __iadd__(self, other):
-        for fname, steps_other in other.files.items():
-            steps_self, steps_other = (
-                self.files[fname].chunks,
-                other.files[fname].chunks,
-            )
+        for fname, finfo_other in other.files.items():
             if fname not in self.files:
-                self.files[fname] = steps_other
+                self.files[fname] = copy.deepcopy(finfo_other)
             else:
-                if steps_self is None and steps_other is None:
-                    steps_new = None
-                else:
-                    steps_self = set(steps_self or [])
-                    steps_other = set(steps_other or [])
-                    steps_new = list(sorted(steps_self | steps_other))
-                self.files[fname].chunks = steps_new
+                self.files[fname] += finfo_other
         return self
 
     def __isub__(self, other):
@@ -295,7 +354,7 @@ class FileSet:
 
             steps_self = set(self.files[fname].chunks)
             steps_other = set(other.files[fname].chunks)
-            steps_new = list(sorted(steps_self - steps_other))
+            steps_new = steps_self - steps_other
             self.files[fname].chunks = steps_new
 
         return self
@@ -326,38 +385,32 @@ class FileSet:
         for k, v in self.files.items():
             if v.chunks is not None:
                 ret[k] = v
-        return FileSet(files=ret, chunk_size=self.chunk_size)
+        return FileSet(files=ret)
 
     def justUnchunked(self):
         ret = {}
         for k, v in self.files.items():
             if v.chunks is None:
                 ret[k] = v
-        return FileSet(files=ret, chunk_size=self.chunk_size)
+        return FileSet(files=ret)
 
     def applySliceChunks(self):
         ret = {}
         for k, v in self.files.items():
             if v is None:
                 ret[k] = v
-        return FileSet(files=ret, chunk_size=self.chunk_size)
+        return FileSet(files=ret)
 
     def splitFiles(self, files_per_set):
         lst = list(self.files.items())
         files_split = {(i, i + n): dict(lst[i : i + n]) for i in range(0, len(lst), n)}
-        return {
-            k: FileSet(
-                files=v,
-                chunk_size=self.chunk_size,
-            )
-            for k, v in files_split.items()
-        }
+        return {k: FileSet(files=v) for k, v in files_split.items()}
 
     def iterChunks(self):
         for f, v in self.files.items():
             if v.chunks is None:
                 continue
-            yield from iter(v.toFileChunks(self.schema_name))
+            yield from iter(v.toFileChunks())
 
     def toChunked(self, chunk_size):
         files = {
@@ -365,10 +418,10 @@ class FileSet:
             for x, y in self.files.items()
             if y.nevents is not None
         }
-        return FileSet(files, chunk_size, self.tree_name, self.schema_name)
+        return FileSet(files)
 
 
-@cache.memoize()
+# @cache.memoize(tag="file-info")
 def getFileInfo(file_path, tree_name, **kwargs):
     tree = uproot.open({file_path: None}, **kwargs)[tree_name]
     nevents = tree.num_entries

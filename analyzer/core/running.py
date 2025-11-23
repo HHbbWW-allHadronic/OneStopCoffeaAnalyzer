@@ -68,17 +68,39 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
             )
     return ret
 
+def getPatches(dataset_repo, era_repo, dataset_descs, existing_file_sets):
+    todo = []
+    for desc in dataset_descs:
+        ds = [(x, desc.pipelines) for x in dataset_repo if desc.dataset.match(x)]
+        todo.extend(ds)
+    ret = []
+    for dataset_name, pipelines in todo:
+        dataset = dataset_repo[dataset_name]
+        for sample in dataset:
+            sample, meta = getWithMeta(dataset, sample.name)
+            meta["era"] = era_repo[meta["era"]]
+            file_set = sample.source.getFileSet()
+            ret.append(
+                ExecutionTask(
+                    file_set=file_set,
+                    metadata=meta,
+                    pipelines=pipelines,
+                    output_name=meta["dataset_name"] + "__" + meta["sample_name"],
+                )
+            )
+    return ret
+
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
     output = Path(output)
     analysis = loadAnalysis(path)
-    print(analysis)
     dataset_repo, era_repo = getRepos(analysis)
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
     if executor_name not in all_executors:
         raise KeyError(f"Unknown executor {executor_name}")
     executor = all_executors[executor_name]
+    executor.setup(None)
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
     saver = Saver(output)

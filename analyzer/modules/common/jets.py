@@ -109,38 +109,40 @@ class JetFilter(AnalyzerModule):
         return [self.output_col]
 
 
-@register_module(
-    configuration={
-        "prefix": field(type=str),
-        "input_col": field(type=Column),
-        "max_idx": field(type=int),
-        "include_properties": field(
-            type=list[str], factory=lambda: ["pt", "eta", "phi"]
-        ),
-    },
-    input_columns=lambda self, metadata: [self.input_col],
-    output_columns=lambda self, metadata: [],
-)
-def TopJetHistograms(self, columns, params):
-    jets = columns[self.input_col]
-    ret = []
-    padded = ak.pad_none(jets, self.max_idx, axis=1)
-    for i in range(0, self.max_idx):
-        mask = ak.num(jets, axis=1) > i
-        # masked_jets = jets[mask]
+@define
+class TopJetHistograms(AnalyzerModule):
+    prefix: str
+    input_col: Column
+    max_idx: int
+    include_properties: list[str] = field(factory=lambda: ["pt", "eta", "phi"])
 
-        if "pt" in self.include_properties:
-            ret.append(
-                makeHistogram(
-                    f"{self.prefix}_pt_{i+1}",
-                    columns,
-                    RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-                    padded[:, i].pt,
-                    description=f"$p_T$ of jet {i+1} ",
-                    mask=mask,
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+        ret = []
+        padded = ak.pad_none(jets, self.max_idx, axis=1)
+        for i in range(0, self.max_idx):
+            mask = ak.num(jets, axis=1) > i
+            # masked_jets = jets[mask]
+
+            if "pt" in self.include_properties:
+                ret.append(
+                    makeHistogram(
+                        f"{self.prefix}_pt_{i+1}",
+                        columns,
+                        RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+                        padded[:, i].pt,
+                        description=f"$p_T$ of jet {i+1} ",
+                        mask=mask,
+                    )
                 )
-            )
-    return columns, ret
+
+        return columns, ret
+
+    def outputs(self, metadata):
+        return []
+
+    def inputs(self, metadata):
+        return [self.input_col]
 
 
 @define

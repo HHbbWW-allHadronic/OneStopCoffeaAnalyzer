@@ -16,7 +16,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
-from analyzer.utils.pretty import progbar
+# from analyzer.utils.pretty import progbar
 from attrs import define, field
 import hist
 from attrs import define, field
@@ -30,6 +30,13 @@ import awkward as ak
 
 
 import functools as ft
+
+
+def getArrayMem(array):
+    from dask.sizeof import sizeof
+    if isinstance(array,awkward.highlevel.Array):
+        return array.nbytes
+    return sizeof(array)
 
 @define
 class ResultBase(abc.ABC):
@@ -47,9 +54,9 @@ class ResultBase(abc.ABC):
     def summary(self):
         pass
     
-    # @abc.abstractmethod
-    # def approxSize(self):
-    #     pass
+    @abc.abstractmethod
+    def approxSize(self):
+        pass
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -168,7 +175,7 @@ class ResultContainer(ResultBase):
                 raise RuntimeError()
             if (
                 not self["_provenance"]
-                .file_set.intersect(other["_provenance"].file_set)
+                .file_set.intersection(other["_provenance"].file_set)
                 .empty
             ):
                 raise ResultIntegrityError("Overlapping Provenance.")
@@ -204,7 +211,7 @@ class ResultProvenance(ResultBase):
         return self
 
     def approxSize(self):
-        return 30 * len(self.file_set.files)
+        return 50 * len(self.file_set.files)
 
     def __iadd__(self, other):
         self.file_set += other.file_set
@@ -252,6 +259,9 @@ class ScalableArray(ResultBase):
             self.array = np.concatenate(self.array, other.array, axis=0)
         return self
 
+    def approxSize(self):
+        return getArrayMem(array)
+
     def iscale(self, value):
         self.array *= value
         return self
@@ -275,6 +285,9 @@ class RawArray(ResultBase):
     def finalize(self, finalizer):
         self.array = finalizer(self.array)
 
+    def approxSize(self):
+        return getArrayMem(array)
+
 
 Scalar = dak.Scalar | numbers.Real
 
@@ -286,6 +299,9 @@ class SelectionFlow(ResultBase):
     cutflow: dict[str, Scalar]
     # n_minus_one: dict[str, Scalar]
     # one_cut: dict[str, Scalar]
+
+    def approxSize(self):
+        return 30 * len(self.cuts)
 
     def __iadd__(self, other):
         if self.cuts != other.cuts:
@@ -322,6 +338,9 @@ class RawEventCount(ResultBase):
         self.count += other.count
         return self
 
+    def approxSize(self):
+        return 8
+
     def iscale(self, value):
         return self
 
@@ -332,6 +351,9 @@ class RawEventCount(ResultBase):
 @define
 class ScaledEventCount(ResultBase):
     count: float
+
+    def approxSize(self):
+        return 8
 
     def __iadd__(self, other):
         self.count += other.count
@@ -352,6 +374,10 @@ class RawSelectionFlow(ResultBase):
     cutflow: dict[str, Scalar]
     n_minus_one: dict[str, Scalar]
     one_cut: dict[str, Scalar]
+
+
+    def approxSize(self):
+        return 30 * len(self.cuts)
 
     def __iadd__(self, other):
         if self.cuts != other.cuts:

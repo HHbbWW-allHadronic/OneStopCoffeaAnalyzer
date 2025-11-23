@@ -20,20 +20,23 @@ import correctionlib.schemav2 as cs
 from functools import lru_cache
 
 
-@register_module(
-    configuration={
-        "triggers": field(type=list[str]),
-        "selection_name": field(type=str, default="PassHLT"),
-    },
-    input_columns=["HLT"],
-    output_columns=lambda self, metadata: Column(f"Selection.{self.selection_name}"),
-)
-def SimpleHLT(self, columns, params):
-    metadata = columns.metadata
-    trigger_names = metadata["era"]["trigger_names"]
-    hlt = columns["HLT"]
-    pass_trigger = ft.reduce(
-        op.and_, (hlt[trigger_names[name]] for name in self.triggers)
-    )
-    columns["Selection", self.selection_name] = pass_trigger
-    return columns, []
+@define
+class SimpleHLT(AnalyzerModule):
+    triggers: list[str]
+    selection_name: str = "PassHLT"
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        trigger_names = metadata["era"]["trigger_names"]
+        hlt = columns["HLT"]
+        pass_trigger = ft.reduce(
+            op.and_, (hlt[trigger_names[name]] for name in self.triggers)
+        )
+        columns["Selection", self.selection_name] = pass_trigger
+        return columns, []
+
+    def inputs(self, metadata):
+        return [Column(("HLT"))]
+
+    def outputs(self, metadata):
+        return [Column(f"Selection.{self.selection_name}")]

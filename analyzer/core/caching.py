@@ -1,6 +1,7 @@
 from diskcache import Cache
+from analyzer.configuration import CONFIG
 
-cache = Cache(directory="test_cache")
+cache = Cache(directory=CONFIG.paths.cache_location)
 
 # def makeCached(cache_name, use_arguments=None):
 #     memory = Memory(cache_name, verbose=0)
