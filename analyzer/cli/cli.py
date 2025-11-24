@@ -274,6 +274,12 @@ def clear():
     from analyzer.core.caching import cache
     cache.clear()
 
+@cache.command()
+def list():
+    from analyzer.core.caching import cache
+    for f in cache:
+        print(f)
+
 
 
 @cli.group()
