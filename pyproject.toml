@@ -16,12 +16,15 @@ dependencies = [
     "diskcache>=5.6.3",
     "distributed>=2025.3.0",
     "hist>=2.9.0",
+    "jinja2>=3.1.6",
     "joblib>=1.5.2",
+    "jupyter>=1.1.1",
     "lz4>=4.4.5",
     "mplhep>=0.4.1",
     "numpy>=2.3.4",
     "rich>=14.2.0",
     "scikit-learn>=1.7.2",
+    "uv>=0.9.11",
 ]
 
 [dependency-groups]

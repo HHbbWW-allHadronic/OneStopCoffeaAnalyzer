@@ -21,6 +21,7 @@ import zipfile
 import math
 import logging
 from dask.sizeof import sizeof
+import os
 
 
 class AnalyzerRuntimeError(ExceptionGroup):
@@ -28,30 +29,6 @@ class AnalyzerRuntimeError(ExceptionGroup):
         return AnalyzerRuntimeError(self.message, excs)
 
 
-def zipDirectory(
-    path,
-    output,
-    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
-    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
-):
-    with tmpfile(extension="zip") as fn:
-        with zipfile.ZipFile(fn, "w", zipfile.ZIP_DEFLATED) as z:
-            for root, dirs, files in os.walk(path):
-                for file in files:
-                    filename = os.path.join(root, file)
-                    if any(predicate(filename) for predicate in skip):
-                        continue
-                    dirs = filename.split(os.sep)
-                    if any(word in dirs for word in skip_words):
-                        continue
-
-                    archive_name = os.path.relpath(
-                        os.path.join(root, file), os.path.join(path, "..")
-                    )
-                    z.write(filename, archive_name)
-
-        with open(fn, mode="rb") as f:
-            self.data = f.read()
 
 
 @define
@@ -202,29 +179,14 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
                 as_comp.update(final)
 
         elif isinstance(result, DaskRunResult):
+            if result is None:
+                continue
             ret = result.maybe_result
             exceptions = result.maybe_exceptions
             if ret is not None:
                 yield ret
             print(exceptions)
             future.cancel()
-
-
-@define
-class DaskExecutor(Executor):
-    def setup(self, needed_resources):
-        if self.adapt:
-            self._cluster.adapt(
-                minimum_jobs=self.min_workers, maximum_jobs=self.max_workers
-            )
-
-    def teardown(self):
-        self._client.close()
-        self._cluster.close()
-
-    def run(self, *args, **kwargs):
-        self.runFutured(*args, **kwargs)
-        return
 
 
 @define
@@ -243,32 +205,15 @@ class LocalDaskExecutor(Executor):
     reduction_factor: int = 10
 
     def setup(self, needed_resources):
-        # with open(CONFIG.DASK_CONFIG_PATH) as f:
-        #     defaults = yaml.safe_load(f)
-        #     dask.config.update(dask.config.config, defaults, priority="new")
-        #
-        # log_config_path = Path(CONFIG.CONFIG_PATH) / "worker_logging_config.yaml"
-        # with open(log_config_path, "rt") as f:
-        #     config = yaml.safe_load(f.read())
-        #     c = base64.b64encode(json.dumps(config).encode("utf-8")).decode("utf-8")
-        # os.environ["ANALYZER_LOG_CONFIG"] = c
-        # self.cluster = LocalCluster(
-        #     dashboard_address=self.dashboard_address,
-        #     memory_limit=self.worker_memory,
-        #     n_workers=self.max_workers,
-        #     scheduler_kwargs={"host": self.schedd_address},
-        #     processes=self.processes,
-        # )
-
-        # self.client = Client(self.cluster)
-        self.client = Client("tcp://192.168.0.24:8786")
-        self.client.register_plugin(
-            UploadDirectory(
-                "/Users/CharlieKapsiak/Projects/Work/single_stop/SingleStopV1/analyzer",
-                update_path=True,
-                mode="all",
-            )
+        self.cluster = LocalCluster(
+            dashboard_address=self.dashboard_address,
+            memory_limit=self.worker_memory,
+            n_workers=self.max_workers,
+            scheduler_kwargs={"host": self.schedd_address},
+            processes=self.processes,
         )
+
+        self.client = Client(self.cluster)
 
     def run(self, analyzer, tasks):
         yield from run(
@@ -278,8 +223,7 @@ class LocalDaskExecutor(Executor):
 
 @define
 class LPCCondorDask(Executor):
-    apptainer_working_dir: str | None = None
-    base_working_dir: str | None = None
+    container: str 
     venv_path: str | None = None
     x509_path: str | None = None
     base_condor_log_location: str | None = "/uscmst1b_scratch/lpc1/3DayLifetime/"
@@ -293,23 +237,20 @@ class LPCCondorDask(Executor):
 
         self.venv_path = self.venv_path or os.environ.get("VIRTUAL_ENV")
         self.x509_path = self.x509_path or os.environ.get("X509_USER_PROXY")
-        self.apptainer_working_dir = self.apptainer_working_dir or os.environ.get(
-            "APPTAINER_WORKING_DIR", "."
-        )
-        self._working_dir = str(Path(".").absolute())
+        # self.apptainer_working_dir = self.apptainer_working_dir or os.environ.get(
+        #     "APPTAINER_WORKING_DIR", "."
+        # )
+        # self._working_dir = str(Path(".").absolute())
 
-        with open(CONFIG.DASK_CONFIG_PATH) as f:
-            defaults = yaml.safe_load(f)
-            dask.config.update(dask.config.config, defaults, priority="new")
-        apptainer_container = "/".join(
-            Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
-        )
+        # with open(CONFIG.DASK_CONFIG_PATH) as f:
+        #     defaults = yaml.safe_load(f)
+        #     dask.config.update(dask.config.config, defaults, priority="new")
+        # apptainer_container = "/".join(
+        #     Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
+        # )
         Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
 
         logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
-        if logpath.exists():
-            logger.info("Deleting old dask logs")
-            shutil.rmtree(logpath, ignore_errors=True)
         logpath.mkdir(exist_ok=True, parents=True)
 
         transfer_input_files = setupForCondor(
@@ -322,34 +263,21 @@ class LPCCondorDask(Executor):
         )
         kwargs = {}
         kwargs["worker_extra_args"] = [
-            *dask.config.get("jobqueue.lpccondor.worker_extra_args"),
-            "--preload",
-            "lpcjobqueue.patch",
-            "--preload",
-            "analyzer.core.dask_sizes",
+            *dask.config.get("jobqueue.lpccondor.worker_extra_args")
         ]
         kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
         prologue = dask.config.get("jobqueue.lpccondor.job-script-prologue")
-        prologue.append(
-            "export DASK_INTERNAL_INHERIT_CONFIG="
-            + dask.config.serialize(dask.config.global_config)
-        )
-        log_config_path = Path(CONFIG.CONFIG_PATH) / "worker_logging_config.yaml"
-        with open(log_config_path, "r") as f:
-            config = yaml.safe_load(f.read())
-            c = base64.b64encode(json.dumps(config).encode("utf-8")).decode("utf-8")
-        prologue.append("export ANALYZER_LOG_CONFIG=" + c)
 
         logger.info(f"Transfering input files: \n{transfer_input_files}")
         self._cluster = LPCCondorCluster(
             ship_env=False,
-            image=apptainer_container,
+            image=container,
             memory=self.worker_memory,
             transfer_input_files=transfer_input_files,
             log_directory=logpath,
             scheduler_options=dict(dashboard_address=self.dashboard_address),
-            job_script_prologue=prologue,
+            job_script_prologue=["source condor_setup.sh"],
             **kwargs,
         )
         self._client = Client(self._cluster)

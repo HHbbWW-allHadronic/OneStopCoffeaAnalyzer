@@ -2,71 +2,68 @@ from __future__ import annotations
 
 import logging
 import shutil
-from pathlib import Path
-
-
 import analyzer
-from analyzer.configuration import CONFIG
-from analyzer.utils.file_tools import compressDirectory
+from pathlib import Path
+from attrs import define
+from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 logger = logging.getLogger(__name__)
 
-def setupForCondor(
-    analysis_root_dir=None,
-    apptainer_dir=None,
-    venv_path=None,
-    x509_path=None,
-    temporary_path=None,
+
+@define
+class CondorPackage:
+    container: str
+    transfer_file_list: list[str]
+    setup_script: str
+
+
+SCRIPT_TEMPLATE = """
+# GENERATED AUTOMATICALLY 
+{% for item in files_to_unzip %}
+unzip {{ item }}
+{% endfor %}
+ls -alhtr
+export X509_USER_PROXY=$(realpath $(find . -iname 'x509*'))
+echo $X509_USER_PROXY
+source {{ venv_activate_path }}
+which python3
+"""
+
+
+def createCondorPackage(
+    container,
+    venv_path,
+    analyzer_path=None,
     extra_files=None,
 ):
+    """
+    Returns a tuple of the following elements
+    1.
+    """
 
-    # print(f"{analysis_root_dir = }")
-    # print(f"{apptainer_dir = }")
-    # print(f"{venv_path = }")
-    # print(f"{x509_path = }")
-    # print(f"{temporary_path = }")
     extra_files = extra_files or []
-    compressed_env = Path(CONFIG.APPLICATION_DATA) / "compressed" / "environment.tar.gz"
-    analyzer_compressed = (
-        Path(CONFIG.APPLICATION_DATA) / "compressed" / "analyzer.tar.gz"
+    compressed_env = Path(".application_data") / "condor" / "environment.tar.gz"
+    analyzer_path = analyzer_path or analyzer.__file__
+    analyzer_compressed = Path(".application_data") / "condor" / "analyzer.tar.gz"
+    voms_path = Path(getVomsProxyPath())
+
+    if not compressed_env.exists():
+        zipDirectory(venv_path, compressed_env)
+    zipDirectory(analyzer_path, compressed_analyzer)
+
+    script_path = Path(".application_data" / "condor" / "setup.sh")
+    transfer_input_files = [script_path, compressed_env, analyzer_compressed, voms_path]
+    env = Environment()
+    template = env.from_string(SCRIPT_TEMPLATE)
+
+    venv_activate_path = Path(venv_path).name / "bin" / "activate"
+
+    script = template.render(
+        files_to_unzip=[str(x.name) for x in transfer_input_files],
+        venv_activate_path=venv_activate_path,
     )
+    with open(script_path, "w") as f:
+        f.write(script)
 
-    if venv_path:
-        if not compressed_env.exists():
-            compressDirectory(
-                input_dir=".application_data/venv",
-                root_dir=analysis_root_dir,
-                output=compressed_env,
-                archive_type="gztar",
-            )
-    compressDirectory(
-        input_dir=Path(analyzer.__file__).parent.relative_to(analysis_root_dir),
-        root_dir=analysis_root_dir,
-        output=analyzer_compressed,
-        archive_type="gztar",
-    )
-
-    transfer_input_files = ["setup.sh", compressed_env, analyzer_compressed]
-
-    if extra_files:
-        extra_compressed = (
-            Path(CONFIG.APPLICATION_DATA) / "compressed" / "extra_files.tar.gz"
-        )
-        transfer_input_files.append(extra_compressed)
-        temp = Path(temporary_path)
-        extra_files_path = temp / "extra_files/"
-        extra_files_path.mkdir(exist_ok=True, parents=True)
-        for i in extra_files:
-            src = Path(i)
-            shutil.copytree(src, extra_files_path / i)
-
-        compressDirectory(
-            input_dir="",
-            root_dir=extra_files_path,
-            output=extra_compressed,
-            archive_type="gztar",
-        )
-    # if x509_path:
-    #     transfer_input_files.append(x509_path)
-
-    return transfer_input_files
+    return CondorPackage(container, transfer_input_files, "setup.sh")
