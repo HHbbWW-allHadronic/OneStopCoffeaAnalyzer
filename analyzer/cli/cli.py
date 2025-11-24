@@ -227,7 +227,7 @@ def checkResults():
 @cli.command()
 @click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.argument("output", type=click.Path(file_okay=False, dir_okay=True))
-@click.option("--executor", "-e", type=str)
+@click.option("--executor", "-e", type=str, required=True)
 def run(
     input,
     output,
@@ -241,7 +241,7 @@ def run(
 @cli.command()
 @click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 @click.argument("output", type=click.Path(file_okay=False, dir_okay=True))
-@click.option("--executor", type=str)
+@click.option("--executor", "-e", type=str, required=True)
 def patch(
     input,
     output,
@@ -264,6 +264,16 @@ def browse(inputs, interpretter):
     if interpretter:
         res = loadResults(inputs)
         jumpIn(results=res)
+
+@cli.group()
+def cache():
+    pass
+
+@cache.command()
+def clear():
+    from analyzer.core.caching import cache
+    cache.clear()
+
 
 
 @cli.group()

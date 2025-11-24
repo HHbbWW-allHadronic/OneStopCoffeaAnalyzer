@@ -1,7 +1,9 @@
 import collections.abc
 import logging
 import pickle
+import os
 import shutil
+import zipfile
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
@@ -57,29 +59,6 @@ def extractCmsLocation(url):
     return str(cms_path)
 
 
-# def extractCmsLocation(url):
-#     _, _, p, *rest = urlparse(url)
-#     parts = Path(p).parts
-#     root_idx = None
-#     for r in CONFIG.FILE_ROOTS:
-#         m = multiMatch(parts, r)
-#         if m is not None:
-#             root_idx = m
-#             break
-#     if root_idx is None:
-#         raise RuntimeError(f"Could not find 'store' in {parts}")
-#     good_parts = parts[root_idx:]
-#     cms_path = Path(*good_parts)
-#     return str(cms_path)
-
-
-def pickleWithParents(outpath, data):
-    p = Path(outpath)
-    p.parent.mkdir(exist_ok=True, parents=True)
-    with open(p, "wb") as f:
-        pickle.dump(data, f)
-
-
 def zipDirectory(
     path,
     output,
@@ -100,54 +79,6 @@ def zipDirectory(
                     os.path.join(root, file), os.path.join(path, "..")
                 )
                 z.write(filename, archive_name)
-
-
-def compressDirectory(
-    input_dir,
-    root_dir,
-    output,
-    archive_type="gztar",
-    temporary_path=".temporary",
-):
-    logger.info(f"Compressing directory '{input_dir}' relative to '{root_dir}'")
-    logger.info(f"Output is '{output}'")
-    stem = output.name
-    temp = Path(temporary_path)
-    temp.parent.mkdir(exist_ok=True, parents=True)
-    output.parent.mkdir(exist_ok=True, parents=True)
-    # base_name = base_dir.stem
-    # if not zip_path:
-    #     temp_path = Path(tempfile.gettempdir())
-    # else:
-    #     temp_path = Path(zip_path)
-
-    # trimmed_path = temp_path / f"temp_{base_name}" / base_name
-    # if trimmed_path.is_dir():
-    #     logger.info(f"Deleting tree at {trimmed_path}")
-    #     shutil.rmtree(trimmed_path)
-
-    # logger.info(f"Using {trimmed_path} as copy location.")
-    # temp_analyzer = shutil.copytree(
-    #     base_dir,
-    #     trimmed_path,
-    #     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "*.md"),
-    # )
-    package_path = shutil.make_archive(
-        str(temp / stem),
-        archive_type,
-        root_dir=str(root_dir),
-        base_dir=str(input_dir),
-        verbose=True,
-        dry_run=False,
-        group=None,
-        owner=None,
-        logger=logger,
-    )
-    logger.info(f"Created analyzer archive at {package_path}")
-    shutil.copy(package_path, output)
-    shutil.rmtree(temp)
-    # final_path = temp_path / f"{name}.{archive_type}"
-    return output
 
 
 def exists(client, loc):
@@ -217,33 +148,10 @@ def copyFile(fr, to, from_rel_to=None):
             makeDir(client, str(parent_path))
 
     logger.info(f'FINAL DEST IS: "{to}"')
-    # copyproc = XRootD.client.CopyProcess()
-    # copyproc.add_job(str(fr), str(to))
-
     status = client.copy(str(fr), str(to), force=True)[0]
     logger.info(status)
     assert status.ok
     del client
-
-
-def appendToUrl(url, *args):
-    scheme, netloc, path, *rest = urlparse(str(url))
-    path = Path(path, *args)
-    return urlunparse((scheme, netloc, str(path), *rest))
-
-
-def getStem(url):
-    scheme, netloc, path, *fr_rest = urlparse(str(url))
-    return str(Path(path).stem)
-
-
-def update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
 
 
 def getVomsProxyPath(check_ok=True):
@@ -251,13 +159,11 @@ def getVomsProxyPath(check_ok=True):
 
     if check_ok:
         res = subprocess.run(
-            ["voms-proxy-info", "-exists", "-valid", "0:20"], check=True
+            ["voms-proxy-info", "-exists", "-valid", "2:0"], check=True
         )
         if res.returncode:
             raise Exception(
                 "VOMS ERROR: please run `voms-proxy-init -voms cms -rfc --valid 168:0`"
             )
-    proxy = subprocess.check_output(
-        ["voms-proxy-info", "-path"], text=True, check=check_ok
-    ).strip()
+    proxy = subprocess.check_output(["voms-proxy-info", "-path"], text=True).strip()
     return proxy

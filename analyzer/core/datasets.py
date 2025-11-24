@@ -1,5 +1,6 @@
 from __future__ import annotations
 import copy
+from rich import print
 import re
 import dataclasses
 from typing import ClassVar
@@ -9,8 +10,9 @@ from rich.progress import track
 import logging
 from pathlib import Path
 from analyzer.core.serialization import converter
+from analyzer.core.caching import cache
 from typing import Any
-from attrs import define, field
+from attrs import define, field, fields
 
 import yaml
 from yaml import CLoader as Loader
@@ -69,6 +71,36 @@ class Sample:
         return dict(sample_name=self.name, x_sec=self.x_sec, n_events=self.n_events)
 
 
+def configureConverter(conv):
+    base_sample_hook = conv.get_structure_hook(Sample)
+
+    @conv.register_structure_hook
+    def sampleHook(value, type) -> Sample:
+        if not "source" in value:
+            f = set(x.name for x in fields(Sample))
+            # source = conv.structure(value, SourceDescription)
+            source = {}
+            for k in list(value.keys()):
+                if k not in f:
+                    source[k] = value.pop(k)
+            value["source"] = source
+        ret= base_sample_hook(value)
+        return ret
+
+    base_dataset_hook = conv.get_structure_hook(Dataset)
+    @conv.register_structure_hook
+    def datasetHook(value, type) -> Dataset:
+        if not "samples" in value:
+            f = set(x.name for x in fields(Dataset))
+            sample = {"name" : value["name"]}
+            for k in list(value.keys()):
+                if k not in f:
+                    sample[k] = value.pop(k)
+            value["samples"] = [sample]
+        ret= base_dataset_hook(value)
+        return ret
+
+
 @define
 class Dataset:
     name: str
@@ -100,6 +132,14 @@ class Dataset:
         return found
 
 
+@cache.memoize(tag="dataset")
+def getDatasetFromPathMTime(path, mtime):
+    with open(path, "r") as fo:
+        data = yaml.load(fo, Loader=Loader)
+    data = converter.structure(data, list[Dataset])
+    return data
+
+
 @define
 class DatasetRepo:
     datasets: dict[str, Dataset] = field(factory=dict)
@@ -112,9 +152,8 @@ class DatasetRepo:
         return iter(self.datasets)
 
     def addFromFile(self, path):
-        with open(path, "r") as fo:
-            data = yaml.load(fo, Loader=Loader)
-        data = converter.structure(data, list[Dataset])
+        path = Path(path)
+        data = getDatasetFromPathMTime(path, path.stat().st_mtime)
         for d in data:
             if d.name in self.datasets:
                 raise KeyError(f"A dataset with the name {d.name} already exists")

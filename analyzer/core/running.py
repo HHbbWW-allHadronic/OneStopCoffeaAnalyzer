@@ -37,14 +37,19 @@ def getRepos(analysis):
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
 
+    default_dataset_paths = CONFIG.datasets.default_dataset_paths
+    default_era_paths = CONFIG.datasets.default_era_paths
+
     dataset_repo = DatasetRepo()
     era_repo = EraRepo()
-    for path in analysis.extra_dataset_paths:
+    print(default_dataset_paths + analysis.extra_dataset_paths)
+    for path in default_dataset_paths + analysis.extra_dataset_paths:
         dataset_repo.addFromDirectory(path)
-    for path in analysis.extra_era_paths:
+    for path in default_era_paths + analysis.extra_era_paths:
         era_repo.addFromDirectory(path)
 
     return dataset_repo, era_repo
+
 
 def getTasks(dataset_repo, era_repo, dataset_descs):
     todo = []
@@ -67,6 +72,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
                 )
             )
     return ret
+
 
 def getPatches(dataset_repo, era_repo, dataset_descs, existing_file_sets):
     todo = []
@@ -107,8 +113,6 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 
     for result in executor.run(analysis.analyzer, tasks):
         saver(result.output_name, result.result)
-
-
 
 
 # def patchFromPath(

@@ -57,8 +57,6 @@ event_collections:
   #   pipelines: [Signal312,Signal313]
     
   
-extra_dataset_paths: ["testdatasets/"]
-extra_era_paths: ["analyzer_resources/eras"]
 extra_executors:
   test:
     executor_name: ImmediateExecutor

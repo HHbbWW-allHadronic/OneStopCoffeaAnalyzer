@@ -8,32 +8,50 @@ class ExecutionConfig:
 
 
 @define
+class DatasetConfig:
+    default_dataset_paths: list[str]
+    default_era_paths: list[str]
+    cache_datasets_by_mtime: bool = True
+    cache_eras_by_mtime: bool = True
+
+
+@define
 class GeneralConfig:
     pretty: bool = True
     do_safety_checks: bool = True
     use_compression: bool = True
     compression_lib: str = "lz4"
     suppress_coffea_warnings: bool = True
+    base_data_path: str = ".application_data"
 
 
 @define
-class LocationConfig:
-    # default_dataset_paths: list[str]
-    # default_era_paths: list[str]
-    # default_style_paths: list[str]
-    # default_template_paths: list[str]
-    cache_location: str = ".application_data/cache"
+class CacheConfig:
+    cache_subdir: str = "cache"
+
+
+@define
+class CondorConfig:
+    temp_location: str = "condor"
 
 
 @define
 class Config:
     general: GeneralConfig
-    paths: LocationConfig
+    condor: CondorConfig
+    cache: CacheConfig
     execution: ExecutionConfig
+    datasets: DatasetConfig
 
 
 CONFIG = Config(
     general=GeneralConfig(),
     execution=ExecutionConfig(),
-    paths=LocationConfig(),
+    condor=CondorConfig(),
+    cache=CacheConfig(),
+    datasets=DatasetConfig(
+        ["analyzer_resources/datasets"],
+        ["analyzer_resources/eras"],
+    ),
 )
+
