@@ -1,15 +1,15 @@
-import logging.config
-import base64
-from pathlib import Path
-
-import yaml
-from analyzer.configuration import CONFIG
-import os
 
 
 def setup_logging(
     default_level=None,
 ):
+    import logging.config
+    import base64
+    from pathlib import Path
+
+    import yaml
+    from analyzer.configuration import CONFIG
+    import os
     env_config = os.environ.get("ANALYZER_LOG_CONFIG")
     if env_config:
         import json

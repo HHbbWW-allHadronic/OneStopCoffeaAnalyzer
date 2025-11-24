@@ -10,14 +10,17 @@ dependencies = [
     "bokeh>=3.8.1",
     "cattrs>=25.3.0",
     "click>=8.3.0",
+    "cloudpickle>=3.1.2",
     "coffea>=2025.11.0",
     "dask>=2025.3.0",
     "diskcache>=5.6.3",
     "distributed>=2025.3.0",
     "hist>=2.9.0",
     "joblib>=1.5.2",
+    "lz4>=4.4.5",
     "mplhep>=0.4.1",
     "numpy>=2.3.4",
+    "rich>=14.2.0",
     "scikit-learn>=1.7.2",
 ]
 

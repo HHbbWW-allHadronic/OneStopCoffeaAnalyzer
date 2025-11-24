@@ -1,5 +1,6 @@
 from __future__ import annotations
 import json
+from distributed.diagnostics.plugin import UploadDirectory
 import functools as ft
 import time
 from typing import Any
@@ -12,6 +13,9 @@ from distributed import Client, LocalCluster, as_completed
 from .executor import Executor, CompletedTask
 from analyzer.core.event_collection import FileInfo
 from rich import print
+import tempfile
+import uuid
+import zipfile
 
 # import analyzer.core.dask_sizes  # noqa
 import math
@@ -22,6 +26,32 @@ from dask.sizeof import sizeof
 class AnalyzerRuntimeError(ExceptionGroup):
     def derive(self, excs):
         return AnalyzerRuntimeError(self.message, excs)
+
+
+def zipDirectory(
+    path,
+    output,
+    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
+    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
+):
+    with tmpfile(extension="zip") as fn:
+        with zipfile.ZipFile(fn, "w", zipfile.ZIP_DEFLATED) as z:
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    filename = os.path.join(root, file)
+                    if any(predicate(filename) for predicate in skip):
+                        continue
+                    dirs = filename.split(os.sep)
+                    if any(word in dirs for word in skip_words):
+                        continue
+
+                    archive_name = os.path.relpath(
+                        os.path.join(root, file), os.path.join(path, "..")
+                    )
+                    z.write(filename, archive_name)
+
+        with open(fn, mode="rb") as f:
+            self.data = f.read()
 
 
 @define
@@ -231,7 +261,14 @@ class LocalDaskExecutor(Executor):
         # )
 
         # self.client = Client(self.cluster)
-        self.client = Client("tcp://192.168.11.48:8786")
+        self.client = Client("tcp://192.168.0.24:8786")
+        self.client.register_plugin(
+            UploadDirectory(
+                "/Users/CharlieKapsiak/Projects/Work/single_stop/SingleStopV1/analyzer",
+                update_path=True,
+                mode="all",
+            )
+        )
 
     def run(self, analyzer, tasks):
         yield from run(
