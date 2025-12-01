@@ -126,8 +126,10 @@ class Dataset:
     def __iter__(self):
         return iter(self.samples)
 
+    def __len__(self):
+        return len(self.samples)
+
     def __getitem__(self, sample_name):
-        current_meta = copy.copy(self.metadata)
         found = next(x for x in self.samples if x.name == sample_name)
         return found
 

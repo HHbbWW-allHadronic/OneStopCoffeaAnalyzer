@@ -6,4 +6,3 @@ for loader, module_name, is_pkg in pkgutil.walk_packages(__path__):
 
 from . import * # noqa
 
-print("HERE")

@@ -282,20 +282,42 @@ def list():
 
 
 
-@cli.group()
+@cli.group("list")
 def listData():
     pass
 
 
-@listData.group()
-def samples():
-    pass
+@click.option("--filter", type=str)
+@click.option("--csv", is_flag=True)
+@listData.command()
+def samples(filter,csv):
+    from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
+    from analyzer.utils.querying import Pattern
+    from analyzer.core.running import getRepos
 
+    if filter:
+        filter_pattern = Pattern(filter)
+    else:
+        filter_pattern = None
+    dataset_repo, era_repo = getRepos()
+    table = createSampleTable(dataset_repo, pattern=filter_pattern,as_csv=csv)
+    print(table)
 
-@listData.group()
-def datasets():
-    pass
+@click.option("--filter", type=str)
+@click.option("--csv", is_flag=True)
+@listData.command()
+def datasets(filter,csv):
+    from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
+    from analyzer.utils.querying import Pattern
+    from analyzer.core.running import getRepos
 
+    if filter:
+        filter_pattern = Pattern(filter)
+    else:
+        filter_pattern = None
+    dataset_repo, era_repo = getRepos()
+    table = createDatasetTable(dataset_repo, pattern=filter_pattern,as_csv=csv)
+    print(table)
 
 @listData.group()
 def eras():

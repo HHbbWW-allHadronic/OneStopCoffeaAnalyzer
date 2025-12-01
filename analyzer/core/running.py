@@ -33,19 +33,21 @@ class Saver:
             f.write(result)
 
 
-def getRepos(analysis):
+def getRepos(extra_dataset_paths=None, extra_era_paths=None):
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
+    extra_dataset_paths = extra_dataset_paths or []
+    extra_era_paths = extra_era_paths or []
 
     default_dataset_paths = CONFIG.datasets.default_dataset_paths
     default_era_paths = CONFIG.datasets.default_era_paths
 
     dataset_repo = DatasetRepo()
     era_repo = EraRepo()
-    print(default_dataset_paths + analysis.extra_dataset_paths)
-    for path in default_dataset_paths + analysis.extra_dataset_paths:
+
+    for path in default_dataset_paths + extra_dataset_paths:
         dataset_repo.addFromDirectory(path)
-    for path in default_era_paths + analysis.extra_era_paths:
+    for path in default_era_paths + extra_era_paths:
         era_repo.addFromDirectory(path)
 
     return dataset_repo, era_repo
@@ -98,9 +100,14 @@ def getPatches(dataset_repo, era_repo, dataset_descs, existing_file_sets):
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
+    from analyzer.core.datasets import DatasetRepo
+    from analyzer.core.era import EraRepo
+
     output = Path(output)
     analysis = loadAnalysis(path)
-    dataset_repo, era_repo = getRepos(analysis)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
+    )
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
     if executor_name not in all_executors:
