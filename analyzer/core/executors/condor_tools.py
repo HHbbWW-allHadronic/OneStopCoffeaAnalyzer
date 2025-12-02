@@ -15,14 +15,13 @@ logger = logging.getLogger(__name__)
 
 @define
 class CondorPackage:
-    container: str
-    transfer_file_list: list[str]
     setup_script: str
-
+    transfer_file_list: list[str]
 
 
 SCRIPT_TEMPLATE = """
 # GENERATED AUTOMATICALLY 
+. {{lcg_view}}
 {% for item in files_to_unzip %}
 unzip {{ item }}
 {% endfor %}
@@ -37,12 +36,12 @@ which python3
 def createCondorPackage(
     container,
     venv_path,
+    lcg_view,
     analyzer_path=None,
     extra_files=None,
 ):
     """
     Returns a tuple of the following elements
-    1.
     """
 
     condor_temp_loc = Path(CONFIG.general.base_data_path) / CONFIG.condor.temp_location
@@ -52,7 +51,7 @@ def createCondorPackage(
     analyzer_path = analyzer_path or analyzer.__file__
     compressed_analyzer = condor_temp_loc / "analyzer.tar.gz"
     # voms_path = Path(getVomsProxyPath())
-    voms_path = Path("randompw")
+    voms_path = Path("randomp")
 
     if not compressed_env.exists():
         zipDirectory(venv_path, compressed_env)
@@ -69,6 +68,7 @@ def createCondorPackage(
     script = template.render(
         files_to_unzip=[str(x.name) for x in files_to_unzip],
         venv_activate_path=venv_activate_path,
+        lcg_view=lcg_view,
     )
     with open(script_path, "w") as f:
         f.write(script)
