@@ -25,6 +25,7 @@ dependencies = [
     "numpy>=2.3.4",
     "rich>=14.2.0",
     "scikit-learn>=1.7.2",
+    "textual>=6.7.1",
     "uv>=0.9.11",
 ]
 

@@ -70,7 +70,7 @@ class ResultBase(abc.ABC):
 
 
 @define
-class ResultContainer(ResultBase):
+class ResultGroup(ResultBase):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
@@ -147,7 +147,7 @@ class ResultContainer(ResultBase):
         results: dict[str, Any] = field(factory=dict)
 
     def summary(self):
-        return ResultContainer.Summary(
+        return ResultGroup.Summary(
             results={x: y.summary() for x, y in self.results.items()}
         )
 
@@ -163,7 +163,7 @@ class ResultContainer(ResultBase):
     def __getitem__(self, key):
         return self.results[key]
 
-    def __iter__(self, key):
+    def __iter__(self):
         return iter(self.results)
 
     def keys(self):
@@ -438,7 +438,7 @@ def loadResults(paths):
     for p in all_paths:
         profiler.enable()
         with open(p, "rb") as f:
-            result = ResultContainer.fromBytes(f.read())
+            result = ResultGroup.fromBytes(f.read())
         if ret is None:
             ret = result
         else:

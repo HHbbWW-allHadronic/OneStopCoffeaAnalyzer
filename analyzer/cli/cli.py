@@ -5,6 +5,7 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 def jumpIn(**kwargs):
     import code
     import readline
@@ -258,28 +259,37 @@ def patch(
 def browse(inputs, interpretter):
     from analyzer.core.results import loadResults
     from analyzer.core.serialization import setupConverter, converter
-    setupConverter(converter)
 
+    setupConverter(converter)
     print(f"Loading Results")
+    res = loadResults(inputs)
     if interpretter:
-        res = loadResults(inputs)
         jumpIn(results=res)
+    else:
+        from analyzer.cli.browser import ResultBrowser
+
+        browser = ResultBrowser(res)
+        browser.run()
+
 
 @cli.group()
 def cache():
     pass
 
+
 @cache.command()
 def clear():
     from analyzer.core.caching import cache
+
     cache.clear()
+
 
 @cache.command()
 def list():
     from analyzer.core.caching import cache
+
     for f in cache:
         print(f)
-
 
 
 @cli.group("list")
@@ -290,7 +300,7 @@ def listData():
 @click.option("--filter", type=str)
 @click.option("--csv", is_flag=True)
 @listData.command()
-def samples(filter,csv):
+def samples(filter, csv):
     from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
     from analyzer.utils.querying import Pattern
     from analyzer.core.running import getRepos
@@ -300,13 +310,14 @@ def samples(filter,csv):
     else:
         filter_pattern = None
     dataset_repo, era_repo = getRepos()
-    table = createSampleTable(dataset_repo, pattern=filter_pattern,as_csv=csv)
+    table = createSampleTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
     print(table)
+
 
 @click.option("--filter", type=str)
 @click.option("--csv", is_flag=True)
 @listData.command()
-def datasets(filter,csv):
+def datasets(filter, csv):
     from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
     from analyzer.utils.querying import Pattern
     from analyzer.core.running import getRepos
@@ -316,8 +327,9 @@ def datasets(filter,csv):
     else:
         filter_pattern = None
     dataset_repo, era_repo = getRepos()
-    table = createDatasetTable(dataset_repo, pattern=filter_pattern,as_csv=csv)
+    table = createDatasetTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
     print(table)
+
 
 @listData.group()
 def eras():
