@@ -1,6 +1,5 @@
-import logging
-import pickle as pkl
-
+import coffea.lumi_tools as ltools
+from analyzer.configuration import CONFIG
 from analyzer.core.analysis_modules import AnalyzerModule, register_module
 from analyzer.core.columns import Column
 from attrs import define, field
@@ -98,3 +97,19 @@ class L1PrefiringSF(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Columns(fields=("Weights", self.weight_name))]
+
+
+@define
+class GoldenLumi(AnalyzerModule):
+    selection_name: str = "golden_lumi"
+
+    def inputs(self, metadata):
+        return [Column("run"), Column("luminosityBlock")]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
+
+    def run(events, params, selector):
+        lumi_json = params.dataset.era.golden_json
+        lmask = ltools.LumiMask(params["golden_json"])
+        selector.add(f"golden_lumi", lmask(events["run"], events["luminosityBlock"]))

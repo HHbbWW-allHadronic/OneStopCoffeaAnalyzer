@@ -6,6 +6,7 @@ import itertools as it
 from attrs import define, field
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
+from analyzer.core.columns import addSelection
 import copy
 from rich import print
 import numpy as np
@@ -32,7 +33,7 @@ class SimpleHLT(AnalyzerModule):
         pass_trigger = ft.reduce(
             op.and_, (hlt[trigger_names[name]] for name in self.triggers)
         )
-        columns["Selection", self.selection_name] = pass_trigger
+        addSelection(columns, self.selection_name, pass_trigger)
         return columns, []
 
     def inputs(self, metadata):

@@ -136,7 +136,7 @@ def getAllColumns(events, cur_col=None):
 
 
 @define
-class ColumnView:
+class TrackedColumns:
     INTERNAL_USE_COL: ClassVar[Column] = Column("INTERNAL_USE")
     _events: Any
     _column_provenance: dict[Column, int]
@@ -166,7 +166,7 @@ class ColumnView:
         ]
 
     def copy(self):
-        return ColumnView(
+        return TrackedColumns(
             events=copy.copy(self._events),
             column_provenance=copy.copy(self._column_provenance),
             metadata=copy.copy(self.metadata),
@@ -176,7 +176,7 @@ class ColumnView:
 
     @staticmethod
     def fromEvents(events, metadata, backend, provenance):
-        return ColumnView(
+        return TrackedColumns(
             events=events,
             column_provenance={x: provenance for x in getAllColumns(events)},
             current_provenance=provenance,
@@ -202,7 +202,7 @@ class ColumnView:
         column = Column(column)
         if (
             self._allowed_outputs is not None
-            and not ColumnView.INTERNAL_USE_COL.contains(column)
+            and not TrackedColumns.INTERNAL_USE_COL.contains(column)
             and not self._allowed_outputs.contains(column)
         ):
             raise RuntimeError(
@@ -284,3 +284,11 @@ def mergeColumns(column_views):
     for other in column_views[1:]:
         ret = ret.addColumnsFrom(other)
     return ret
+
+
+def addSelection(columns, name, data):
+    column = Column(("Selection", name))
+    columns[column] = data
+    if "Selections" not in columns.pipeline_data:
+        columns.pipeline_data = {}
+    columns.pipeline_data[name] = False

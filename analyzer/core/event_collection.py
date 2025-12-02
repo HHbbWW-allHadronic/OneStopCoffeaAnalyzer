@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 import copy
-from analyzer.core.columns import Column, ColumnView
+from analyzer.core.columns import Column, TrackedColumns
 from cattrs.strategies import include_subclasses, configure_tagged_union
 import functools as ft
 
@@ -474,7 +474,7 @@ class FileChunk:
         elif backend == "RDF":
             pass
 
-        return ColumnView.fromEvents(events, **view_kwargs)
+        return TrackedColumns.fromEvents(events, **view_kwargs)
 
     def overlaps(self, other: FileChunk):
         same_source = self.file_path == other.file_path

@@ -22,7 +22,7 @@ class ResultBrowser(App):
     def __init__(self, results):
         super().__init__()
         self.results = results
-        self.viewer = ResultViewer(self.results)
+        self.viewer = ResultViewer()
 
     def compose(self) -> ComposeResult:
         with Vertical():
@@ -35,13 +35,12 @@ class ResultBrowser(App):
     @on(Tree.NodeSelected)
     def handleSelected(self, message):
         self.viewer.showResult(message.node.data)
-        
 
     def on_button_pressed(self) -> None:
         self.exit()
 
 
-class ResultTree(Widget):
+class ResultTree(Static):
 
     def __init__(self, results, **kwargs):
         super().__init__(**kwargs)
@@ -53,7 +52,8 @@ class ResultTree(Widget):
 
         def handleResult(parent, result):
             if isinstance(result, ResultGroup):
-                new_node = parent.add(result.name, data=result.metadata)
+                new_node = parent.add(result.name, data=result)
+                new_node.expand()
                 for child_name in result:
                     handleResult(new_node, result[child_name])
                 return new_node
@@ -63,11 +63,20 @@ class ResultTree(Widget):
         handleResult(tree.root, self.results)
         yield tree
 
-class ResultViewer(Pretty):
-    def __init__(self, results, **kwargs):
-        super().__init__(None, **kwargs)
-        self.results = results
 
+class ResultViewer(Widget):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.result = None
 
     def showResult(self, result):
-        self.update(result)
+        self.result = result
+
+    def compose(self):
+        if self.result is None:
+            return
+        w = self.result.renderWidget()
+        if w is None:
+            yield Pretty(result)
+        else:
+            yield w

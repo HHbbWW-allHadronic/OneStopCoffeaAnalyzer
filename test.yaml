@@ -5,6 +5,7 @@ analyzer:
     # - module_name: VetoMapFilter
     #   input_col: Jet
     #   output_col: Jet
+
     - module_name: JetFilter
       input_col: Jet
       output_col: Jet
@@ -18,36 +19,21 @@ analyzer:
       sel_name: preselection
       selection_names: [2jet]
 
+    - module_name: BQuarkMaker
+      input_col: Jet
+      output_col: MedBJet
+      working_point: M
+
+    - module_name: BQuarkMaker
+      input_col: Jet
+      output_col: TightBJet
+      working_point: T
+
     - module_name: TopJetHistograms
       input_col: Jet
       output_col: Jet
       max_idx: 3
       prefix: "GoodJet_"
-    # - module_name: BQuarkMaker
-    #   input_col: Jet
-    #   output_col: MedBJet
-    #   working_point: M
-  Signal313:
-    # - module_name: HLTFilter
-    #   triggers: [HT, AK8]
-    # - module_name: VetoMapFilter
-    #   input_col: Jet
-    #   output_col: Jet
-    - module_name: JetFilter
-      input_col: Jet
-      output_col: Jet
-    - module_name: TopJetHistograms
-      input_col: Jet
-      output_col: Jet
-      max_idx: 1
-      prefix: "GoodJet_"
-    # - module_name: BQuarkMaker
-    #   input_col: Jet
-    #   output_col: MedBJet
-    #   working_point: M
-
-
-
       
 
 event_collections:
@@ -60,7 +46,7 @@ event_collections:
 extra_executors:
   test:
     executor_name: ImmediateExecutor
-    chunk_size: 10
+    chunk_size: 1000000
   test2:
     executor_name: LocalDaskExecutor
     chunk_size: 5

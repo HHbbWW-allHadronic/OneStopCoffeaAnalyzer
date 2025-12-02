@@ -12,11 +12,18 @@ EVENTS = "EVENTS"
 @define
 class SelectOnColumns(AnalyzerModule):
     sel_name: str
-    selection_names: list[str]
+    selection_names: list[str] = None
     save_cutflow: bool = True
 
     def run(self, columns, params):
-        cuts = self.selection_names
+        if self.selection_names is not None:
+            cuts = self.selection_names
+        else:
+            cuts = [
+                x
+                for x, y in columns.pipeline_data.get("Selections", {}).items()
+                if not y
+            ]
 
         initial = ak.num(columns._events, axis=0)
 
@@ -33,7 +40,10 @@ class SelectOnColumns(AnalyzerModule):
         ]
 
     def inputs(self, metadata):
-        return [Column("Selection") + x for x in self.selection_names]
+        if self.selection_names is None:
+            return [Column(("Selection"))]
+        else:
+            return [Column("Selection") + x for x in self.selection_names]
 
     def outputs(self, metadata):
         return EVENTS

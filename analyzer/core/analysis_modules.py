@@ -9,7 +9,7 @@ from attrs import define, field
 from analyzer.utils.structure_tools import freeze,mergeUpdate
 
 from collections.abc import Collection
-from analyzer.core.columns import ColumnView, Column, EVENTS
+from analyzer.core.columns import TrackedColumns, Column, EVENTS
 import copy
 
 import contextlib
@@ -206,7 +206,7 @@ class AnalyzerModule(abc.ABC):
     @abc.abstractmethod
     def run(
         self, columns, params: ModuleParameterValues
-    ) -> ColumnView | list[AnalyzerResult | ModuleAddition]:
+    ) -> TrackedColumns | list[AnalyzerResult | ModuleAddition]:
         pass
 
     @abc.abstractmethod
@@ -222,7 +222,7 @@ class AnalyzerModule(abc.ABC):
         pass
 
     def getColumnKey(self, columns):
-        if isinstance(columns, ColumnView):
+        if isinstance(columns, TrackedColumns):
             return columns.getKeyForColumns(self.inputs(columns.metadata))
         else:
             return frozenset(self.getColumnKey(x) for x in (columns or []))
@@ -298,7 +298,7 @@ class AnalyzerModule(abc.ABC):
         logger.info(f"Running analyzer module {self}")
         # if not self.should_run(columns.metadata):
         #     returncolumns, {}
-        if isinstance(columns, ColumnView):
+        if isinstance(columns, TrackedColumns):
             return self.__runStandard(columns, params)
         elif isinstance(columns, list):
             return self.__runMulti(columns, params)

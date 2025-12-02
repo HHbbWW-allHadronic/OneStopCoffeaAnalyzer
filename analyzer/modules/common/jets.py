@@ -114,7 +114,6 @@ class TopJetHistograms(AnalyzerModule):
     prefix: str
     input_col: Column
     max_idx: int
-    include_properties: list[str] = field(factory=lambda: ["pt", "eta", "phi"])
 
     def run(self, columns, params):
         jets = columns[self.input_col]
@@ -122,19 +121,50 @@ class TopJetHistograms(AnalyzerModule):
         padded = ak.pad_none(jets, self.max_idx, axis=1)
         for i in range(0, self.max_idx):
             mask = ak.num(jets, axis=1) > i
-            # masked_jets = jets[mask]
-
-            if "pt" in self.include_properties:
-                ret.append(
-                    makeHistogram(
-                        f"{self.prefix}_pt_{i+1}",
-                        columns,
-                        RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-                        padded[:, i].pt,
-                        description=f"$p_T$ of jet {i+1} ",
-                        mask=mask,
-                    )
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_pt_{i+1}",
+                    columns,
+                    RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+                    padded[:, i].pt,
+                    description=f"$p_T$ of jet {i+1} ",
+                    mask=mask,
                 )
+            )
+
+        return columns, ret
+
+    def outputs(self, metadata):
+        return []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+@define
+class JetComboHistograms(AnalyzerModule):
+    prefix: str
+    input_col: Column
+    jet_combos: list[tuple]
+
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+        ret = []
+        padded = ak.pad_none(jets, self.max_idx, axis=1)
+        for combo in self.combos:
+            mask = ak.num(jets, axis=1) > i
+            jets = gj[:, i:j].sum()
+            masses[(i, j)] = jets.mass
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_pt_{i+1}",
+                    columns,
+                    RegularAxis(20, 0, 3000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+                    padded[:, i].pt,
+                    description=f"$p_T$ of jet {i+1} ",
+                    mask=mask,
+                )
+            )
+
 
         return columns, ret
 

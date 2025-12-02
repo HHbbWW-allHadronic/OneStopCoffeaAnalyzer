@@ -1,7 +1,7 @@
 from attrs import define
 import abc
 
-from analyzer.core.columns import Column, ColumnView, EventBackend
+from analyzer.core.columns import Column, TrackedColumns, EventBackend
 from analyzer.core.results import Histogram
 from analyzer.core.analysis_modules import AnalyzerModule, ModuleAddition
 from .axis import Axis, RegularAxis
@@ -84,7 +84,7 @@ class HistogramBuilder(AnalyzerModule):
         return histogram
 
     def run(self, column_sets, params):
-        if isinstance(column_sets, ColumnView):
+        if isinstance(column_sets, TrackedColumns):
             column_sets = [["central", column_sets]]
 
         backend = column_sets[0][1].backend

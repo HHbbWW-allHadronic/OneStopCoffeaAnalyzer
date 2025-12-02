@@ -67,6 +67,9 @@ class ResultBase(abc.ABC):
         ret = copy.deepcopy(self)
         return ret.iscale(value)
 
+    def renderWidget(self, *args, **kwargs):
+        return None
+
 
 
 @define
@@ -169,6 +172,7 @@ class ResultGroup(ResultBase):
     def keys(self):
         return self.results.keys()
 
+
     def checkOk(self, other):
         if "_provenance" in self.results:
             if "_provenance" not in other.results:
@@ -244,6 +248,18 @@ class Histogram(ResultBase):
     def iscale(self, value):
         self.histogram *= value
         return self
+
+    def renderWidget(self, *args, **kwargs):
+        from textual_plotext import PlotextPlot
+        widget = PlotextPlot()
+        plt = widget.plt
+        h = self.histogram
+        axes = h.axes
+        h = h[{"variation": "central"}]
+        if len(h.axes) == 1:
+            plt.bar(h.axes[0].centers, h.values())
+            return widget
+        return None
 
 
 Array = ak.Array | dak.Array | np.ndarray

@@ -5,6 +5,6 @@
   x_sec: 480
   era: '2018'
   files:
-    - nano_dy.root
+    - /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1000_400.root
 
 
