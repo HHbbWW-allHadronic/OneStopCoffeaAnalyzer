@@ -14,7 +14,10 @@ from analyzer.core.datasets import DatasetRepo
 from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
 
-from yaml import CLoader as Loader
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
 import yaml
 
 # Get a logger instance

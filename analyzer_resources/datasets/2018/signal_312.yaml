@@ -174,8 +174,7 @@
     stop_mass: 0
   era: '2018'
   files: 
-    - eos: root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
-      umn: /local/cms/user/ckapsiak/EOS/store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
+    - root://cmseos.fnal.gov//store/user/dmahon/condor/RPVSingleStopMC/NANOAOD-ALL/NANOAOD-1500_600.root
 
 - name: signal_2018_312_1500_900
   sample_type: MC

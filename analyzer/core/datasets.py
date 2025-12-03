@@ -15,7 +15,11 @@ from typing import Any
 from attrs import define, field, fields
 
 import yaml
-from yaml import CLoader as Loader
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
+
 from analyzer.configuration import CONFIG
 
 

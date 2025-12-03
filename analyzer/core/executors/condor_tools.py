@@ -7,7 +7,7 @@ from analyzer.configuration import CONFIG
 from pathlib import Path
 from attrs import define
 import platform
-from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath
+from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath, tarDirectory
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 logger = logging.getLogger(__name__)
@@ -15,20 +15,24 @@ logger = logging.getLogger(__name__)
 
 @define
 class CondorPackage:
-    setup_script: str
+    container: str
     transfer_file_list: list[str]
+    setup_script: str
 
 
 SCRIPT_TEMPLATE = """
 # GENERATED AUTOMATICALLY 
-. {{lcg_view}}
+echo "STARTING SETUP"
 {% for item in files_to_unzip %}
-unzip {{ item }}
+echo "UNTARRING {{item}}"
+tar zxf {{ item }}
 {% endfor %}
 ls -alhtr
-export X509_USER_PROXY=$(realpath $(find . -iname 'x509*'))
+export X509_USER_PROXY=$(realpath x509up_u57509)
 echo $X509_USER_PROXY
+echo "ACTIVATING VENV {{ venv_activate_path }}"
 source {{ venv_activate_path }}
+echo "HERERHERHERHEHRHERHER"
 which python3
 """
 
@@ -36,8 +40,6 @@ which python3
 def createCondorPackage(
     container,
     venv_path,
-    lcg_view,
-    analyzer_path=None,
     extra_files=None,
 ):
     """
@@ -48,14 +50,18 @@ def createCondorPackage(
     condor_temp_loc.mkdir(exist_ok=True, parents=True)
     extra_files = extra_files or []
     compressed_env = condor_temp_loc / "environment.tar.gz"
-    analyzer_path = analyzer_path or analyzer.__file__
+    analyzer_path = Path(analyzer.__file__).parent
     compressed_analyzer = condor_temp_loc / "analyzer.tar.gz"
-    # voms_path = Path(getVomsProxyPath())
-    voms_path = Path("randomp")
+    voms_path = getVomsProxyPath()
 
     if not compressed_env.exists():
-        zipDirectory(venv_path, compressed_env)
-    zipDirectory(analyzer_path, compressed_analyzer)
+        logger.debug(f"Did not find {compressed_env}, creating compressed directory.")
+        print(
+            f"Creating compressed virtual environment. This needs to be done only once."
+        )
+        tarDirectory(venv_path, compressed_env)
+
+    tarDirectory(analyzer_path, compressed_analyzer)
 
     script_path = condor_temp_loc / "setup.sh"
     transfer_input_files = [script_path, compressed_env, compressed_analyzer, voms_path]
@@ -68,9 +74,12 @@ def createCondorPackage(
     script = template.render(
         files_to_unzip=[str(x.name) for x in files_to_unzip],
         venv_activate_path=venv_activate_path,
-        lcg_view=lcg_view,
     )
     with open(script_path, "w") as f:
         f.write(script)
 
     return CondorPackage(container, transfer_input_files, "setup.sh")
+
+
+if __name__ == "__main__":
+    createCondorPackage("TESTCONTAINER", ".venv", "TESTVIEW")

@@ -19,7 +19,7 @@ def jumpIn(**kwargs):
     code.InteractiveConsole(vars).interact()
 
 
-class LogLevel(Enum):
+class LogLevel(str, Enum):
     ERROR = logging.ERROR
     WARNING = logging.WARNING
     INFO = logging.INFO

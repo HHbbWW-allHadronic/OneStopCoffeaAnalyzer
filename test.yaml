@@ -37,8 +37,8 @@ analyzer:
       
 
 event_collections:
-  - dataset: test_dataset
-    pipelines: [Signal312,Signal313]
+  - dataset: signal_2018_312_1500_600
+    pipelines: [Signal312]
   # - dataset: qcd_inclusive_2018
   #   pipelines: [Signal312,Signal313]
     
@@ -53,4 +53,11 @@ extra_executors:
     min_workers: 1
     max_workers: 1
   
-    
+  testcondor:
+    executor_name: LPCCondorDask
+    container: /cvmfs/singularity.opensciencegrid.org/cmssw/cms:rhel9
+    venv_path: .venv
+
+    chunk_size: 1000
+    min_workers: 1
+    max_workers: 1

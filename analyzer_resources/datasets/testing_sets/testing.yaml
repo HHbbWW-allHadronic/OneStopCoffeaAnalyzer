@@ -1,4 +1,4 @@
-- name: test_dataset
+- name: test_signal
   sample_type: MC
   title: "test_dataset"
   n_events: 404

@@ -1,7 +1,11 @@
 from __future__ import annotations
+from analyzer.configuration import CONFIG
+import time
+from pathlib import Path
 import json
 from distributed.diagnostics.plugin import UploadDirectory
 import functools as ft
+import dask
 import time
 from typing import Any
 import operator as op
@@ -11,6 +15,7 @@ from analyzer.core.results import ResultBase
 import os
 from distributed import Client, LocalCluster, as_completed
 from .executor import Executor, CompletedTask
+from .condor_tools import createCondorPackage
 from analyzer.core.event_collection import FileInfo
 from rich import print
 import tempfile
@@ -27,8 +32,6 @@ import os
 class AnalyzerRuntimeError(ExceptionGroup):
     def derive(self, excs):
         return AnalyzerRuntimeError(self.message, excs)
-
-
 
 
 @define
@@ -223,20 +226,81 @@ class LocalDaskExecutor(Executor):
 
 @define
 class LPCCondorDask(Executor):
-    container: str 
+    container: str
     venv_path: str | None = None
     x509_path: str | None = None
-    base_condor_log_location: str | None = "/uscmst1b_scratch/lpc1/3DayLifetime/"
-    temporary_path: str | None = ".application_data/temporary"
+    log_path: str = "logs/condor"
     worker_timeout: int | None = 7200
-    analysis_root_dir: str | None = "/srv"
+    min_workers: int = 1
+    max_workers: int = 10
 
-    def setup(self):
-        from lpcjobqueue import LPCCondorCluster
+    worker_memory: str = "2GB"
+    dashboard_address: str | None = "localhost:8789"
+    schedd_address: str | None = "localhost:12358"
+    adapt: bool = True
+    chunk_size: int | None = 100000
+    reduction_factor: int = 10
+    cluster: Any = None
+    client: Any = None
+
+    def run(self, analyzer, tasks):
+        yield from run(
+            self.client, self.chunk_size, self.reduction_factor, analyzer, tasks
+        )
+
+    def setup(self, needed_resources):
         import shutil
 
-        self.venv_path = self.venv_path or os.environ.get("VIRTUAL_ENV")
-        self.x509_path = self.x509_path or os.environ.get("X509_USER_PROXY")
+        condor_temp_loc = (
+            Path(CONFIG.general.base_data_path) / CONFIG.condor.temp_location
+        )
+        condor_config = condor_temp_loc / ".cmslpc-local-conf"
+        # os.environ["LPC_CONDOR_CONFIG"] = "/etc/condor/config.d/01_cmslpc_interactive"
+        #         os.environ["LPC_CONDOR_LOCAL"] = str(condor_config)
+        # os.environ["CONDOR_CONFIG"] = os.environ["LPC_CONDOR_CONFIG"]
+        #
+        #
+        #         if not condor_config.exists():
+        #             with open(condor_config, "w") as f:
+        #                 f.write(
+        #                     """#!/bin/bash
+        # python3 /usr/local/bin/cmslpc-local-conf.py | grep -v "LOCAL_CONFIG_FILE"""
+        #                 )
+        #         breakpoint()
+        from lpcjobqueue import LPCCondorCluster
+
+        package = createCondorPackage(self.container, self.venv_path)
+        logpath = Path(self.log_path).resolve()
+        logpath.mkdir(exist_ok=True, parents=True)
+
+        kwargs = {}
+        kwargs["worker_extra_args"] = [
+            *dask.config.get("jobqueue.lpccondor.worker_extra_args")
+        ]
+        kwargs["job_extra_directives"] = {
+            "+MaxRuntime": self.worker_timeout,
+        }
+        kwargs["python"] = f"{str(self.venv_path)}/bin/python"
+        print(logpath)
+        print(kwargs)
+        print(package)
+        self.cluster = LPCCondorCluster(
+            ship_env=False,
+            image=self.container,
+            memory=self.worker_memory,
+            transfer_input_files=package.transfer_file_list,
+            log_directory=logpath,
+            scheduler_options=dict(dashboard_address=self.dashboard_address),
+            job_script_prologue=["source setup.sh"],
+            **kwargs,
+        )
+        # self.cluster.job_header_dict["+DesiredOS"] = "EL9"
+        self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
+        self.client = Client(self.cluster)
+        time.sleep(100000)
+
+        # self.venv_path = self.venv_path or os.environ.get("VIRTUAL_ENV")
+        # self.x509_path = self.x509_path or os.environ.get("X509_USER_PROXY")
         # self.apptainer_working_dir = self.apptainer_working_dir or os.environ.get(
         #     "APPTAINER_WORKING_DIR", "."
         # )
@@ -248,41 +312,36 @@ class LPCCondorDask(Executor):
         # apptainer_container = "/".join(
         #     Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
         # )
-        Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
+        # Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
 
-        logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
-        logpath.mkdir(exist_ok=True, parents=True)
+        # logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
+        # transfer_input_files = setupForCondor(
+        #     analysis_root_dir=self._working_dir,
+        #     apptainer_dir=self.apptainer_working_dir,
+        #     venv_path=self.venv_path,
+        #     x509_path=self.x509_path,
+        #     temporary_path=self.temporary_path,
+        #     extra_files=self.extra_files,
+        # )
 
-        transfer_input_files = setupForCondor(
-            analysis_root_dir=self._working_dir,
-            apptainer_dir=self.apptainer_working_dir,
-            venv_path=self.venv_path,
-            x509_path=self.x509_path,
-            temporary_path=self.temporary_path,
-            extra_files=self.extra_files,
-        )
-        kwargs = {}
-        kwargs["worker_extra_args"] = [
-            *dask.config.get("jobqueue.lpccondor.worker_extra_args")
-        ]
-        kwargs["job_extra_directives"] = {"+MaxRuntime": self.worker_timeout}
-        kwargs["python"] = f"{str(self.venv_path)}/bin/python"
-        prologue = dask.config.get("jobqueue.lpccondor.job-script-prologue")
+        # transfer_input_files = setupForCondor(
+        #     analysis_root_dir=self._working_dir,
+        #     apptainer_dir=self.apptainer_working_dir,
+        #     venv_path=self.venv_path,
+        #     x509_path=self.x509_path,
+        #     temporary_path=self.temporary_path,
+        #     extra_files=self.extra_files,
+        # )
 
-        logger.info(f"Transfering input files: \n{transfer_input_files}")
-        self._cluster = LPCCondorCluster(
-            ship_env=False,
-            image=container,
-            memory=self.worker_memory,
-            transfer_input_files=transfer_input_files,
-            log_directory=logpath,
-            scheduler_options=dict(dashboard_address=self.dashboard_address),
-            job_script_prologue=["source condor_setup.sh"],
-            **kwargs,
-        )
-        self._client = Client(self._cluster)
-        try:
-            os.system("ulimit -n 4096")
-        except Exception:
-            pass
-        super().setup()
+
+def main():
+    cluster = LPCCondorDask(
+        "",
+        ".venv",
+        "/cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc14-opt/setup.sh",
+    )
+    cluster.setup()
+
+
+if __name__ == "__main__":
+    main()
