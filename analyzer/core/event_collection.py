@@ -20,6 +20,10 @@ import abc
 from typing import Any
 from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
 from analyzer.core.caching import cache
+import logging
+
+
+logger = logging.getLogger("analyzer")
 
 
 @define
@@ -44,6 +48,7 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
+    logger.info(f"Getting replicas for dataset \"{dataset}\"")
     from analyzer.utils.file_tools import extractCmsLocation
     from coffea.dataset_tools import rucio_utils
 
