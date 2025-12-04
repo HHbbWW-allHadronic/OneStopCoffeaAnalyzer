@@ -304,21 +304,14 @@ class FileSet:
 
     def updateFileInfo(self, file_info):
         self.files[file_info.file_path] = file_info
+        k = (file_info.file_path, file_info.tree_name)
+        cache.set(k, file_info.nevents, tag="file-events")
 
     def getNeededUpdatesFuncs(self):
         return [
             ft.partial(getFileInfo, f.file_path, f.tree_name)
             for f in self.files.values()
         ]
-
-    def updateFromCache(self):
-        for finfo in self.files.values():
-            k = (finfo.file_path, finfo.tree_name)
-            if k in cache:
-                nevents = cache[k]
-                self.files[finfo.file_path] = FileInfo(
-                    finfo.file_path, nevents, finfo.tree_name
-                )
 
     def updateFromCache(self):
         for finfo in self.files.values():

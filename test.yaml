@@ -37,7 +37,7 @@ analyzer:
       
 
 event_collections:
-  - dataset: signal_2018_312_1500_600
+  - dataset: 'qcd*2018'
     pipelines: [Signal312]
   # - dataset: qcd_inclusive_2018
   #   pipelines: [Signal312,Signal313]
@@ -59,6 +59,6 @@ extra_executors:
     container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
     venv_path: .venv
 
-    chunk_size: 1000
-    min_workers: 1
-    max_workers: 1
+    chunk_size: 400000
+    min_workers: 20
+    max_workers: 40
