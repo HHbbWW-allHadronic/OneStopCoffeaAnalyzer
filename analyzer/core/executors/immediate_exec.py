@@ -8,7 +8,7 @@ import logging
 from attrs import define
 from analyzer.core.event_collection import getFileInfo
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 @define

@@ -7,7 +7,7 @@ from analyzer.utils.querying import NestedPatternExpression
 from cycler import cycler
 from pydantic import BaseModel, Field, model_validator
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 class Style(BaseModel):

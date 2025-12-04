@@ -107,7 +107,7 @@ def reduceResults(
     return futures
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 def getAnalyzerRunFunc(analyzer, task):
@@ -272,7 +272,6 @@ class LPCCondorDask(Executor):
         package = createCondorPackage(self.container, self.venv_path)
         logpath = Path(self.log_path).resolve()
         logpath.mkdir(exist_ok=True, parents=True)
-
         kwargs = {}
         kwargs["worker_extra_args"] = [
             *dask.config.get("jobqueue.lpccondor.worker_extra_args")
@@ -281,12 +280,9 @@ class LPCCondorDask(Executor):
             "+MaxRuntime": self.worker_timeout,
         }
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
-        print(logpath)
-        print(kwargs)
-        print(package)
         self.cluster = LPCCondorCluster(
             ship_env=False,
-            image=self.container,
+            image=package.container,
             memory=self.worker_memory,
             transfer_input_files=package.transfer_file_list,
             log_directory=logpath,
@@ -294,53 +290,8 @@ class LPCCondorDask(Executor):
             job_script_prologue=["source setup.sh"],
             **kwargs,
         )
-        # self.cluster.job_header_dict["+DesiredOS"] = "EL9"
         self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
         self.client = Client(self.cluster)
-        time.sleep(100000)
-
-        # self.venv_path = self.venv_path or os.environ.get("VIRTUAL_ENV")
-        # self.x509_path = self.x509_path or os.environ.get("X509_USER_PROXY")
-        # self.apptainer_working_dir = self.apptainer_working_dir or os.environ.get(
-        #     "APPTAINER_WORKING_DIR", "."
-        # )
-        # self._working_dir = str(Path(".").absolute())
-
-        # with open(CONFIG.DASK_CONFIG_PATH) as f:
-        #     defaults = yaml.safe_load(f)
-        #     dask.config.update(dask.config.config, defaults, priority="new")
-        # apptainer_container = "/".join(
-        #     Path(os.environ["APPTAINER_CONTAINER"]).parts[-2:]
-        # )
-        # Path(os.environ.get("APPTAINER_WORKING_DIR", ".")).resolve()
-
-        # logpath = Path(self.base_log_path) / os.getlogin() / "dask_logs"
-        # transfer_input_files = setupForCondor(
-        #     analysis_root_dir=self._working_dir,
-        #     apptainer_dir=self.apptainer_working_dir,
-        #     venv_path=self.venv_path,
-        #     x509_path=self.x509_path,
-        #     temporary_path=self.temporary_path,
-        #     extra_files=self.extra_files,
-        # )
-
-        # transfer_input_files = setupForCondor(
-        #     analysis_root_dir=self._working_dir,
-        #     apptainer_dir=self.apptainer_working_dir,
-        #     venv_path=self.venv_path,
-        #     x509_path=self.x509_path,
-        #     temporary_path=self.temporary_path,
-        #     extra_files=self.extra_files,
-        # )
-
-
-def main():
-    cluster = LPCCondorDask(
-        "",
-        ".venv",
-        "/cvmfs/sft.cern.ch/lcg/views/LCG_108/x86_64-el9-gcc14-opt/setup.sh",
-    )
-    cluster.setup()
 
 
 if __name__ == "__main__":

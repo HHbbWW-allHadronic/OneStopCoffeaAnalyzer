@@ -3,7 +3,7 @@ from rich import print, get_console
 import click
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 def jumpIn(**kwargs):
@@ -235,7 +235,6 @@ def run(
     executor,
 ):
     from analyzer.core.running import runFromPath
-
     runFromPath(input, output, executor)
 
 
@@ -337,4 +336,6 @@ def eras():
 
 
 def main():
+    from analyzer.logging import setupLogging
+    setupLogging()
     cli()

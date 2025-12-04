@@ -10,7 +10,7 @@ import platform
 from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath, tarDirectory
 from jinja2 import Environment, PackageLoader, select_autoescape
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 @define
@@ -55,11 +55,13 @@ def createCondorPackage(
     voms_path = getVomsProxyPath()
 
     if not compressed_env.exists():
-        logger.debug(f"Did not find {compressed_env}, creating compressed directory.")
-        print(
+        logger.info(f"Did not find {compressed_env}, creating compressed directory.")
+        logger.info(
             f"Creating compressed virtual environment. This needs to be done only once."
         )
         tarDirectory(venv_path, compressed_env)
+
+    logger.info(f"Creating compressed analyzer")
 
     tarDirectory(analyzer_path, compressed_analyzer)
 

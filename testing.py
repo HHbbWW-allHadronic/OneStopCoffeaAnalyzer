@@ -57,7 +57,7 @@ logging.basicConfig(
 log = logging.getLogger("my_app")
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 EVENTS = "EVENTS"

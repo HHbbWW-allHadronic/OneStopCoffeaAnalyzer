@@ -25,7 +25,7 @@ from .style import Style
 import logging
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 class HistogramProvenance(BaseModel):

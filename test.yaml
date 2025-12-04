@@ -47,15 +47,16 @@ extra_executors:
   test:
     executor_name: ImmediateExecutor
     chunk_size: 1000000
+
   test2:
     executor_name: LocalDaskExecutor
-    chunk_size: 5
+    chunk_size: 1000
     min_workers: 1
     max_workers: 1
   
   testcondor:
     executor_name: LPCCondorDask
-    container: /cvmfs/singularity.opensciencegrid.org/cmssw/cms:rhel9
+    container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
     venv_path: .venv
 
     chunk_size: 1000

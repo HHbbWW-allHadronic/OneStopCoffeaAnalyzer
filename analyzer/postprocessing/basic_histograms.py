@@ -13,7 +13,7 @@ from .style import StyleSet
 from .processors import BasePostprocessor
 from analyzer.utils.querying import PatternExpression
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 @registerPostprocessor

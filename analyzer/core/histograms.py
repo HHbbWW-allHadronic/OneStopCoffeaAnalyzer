@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 
 Hist = hist.Hist | dah.Hist
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 def transformToFill(fill_data, per_event_value, mask=None):

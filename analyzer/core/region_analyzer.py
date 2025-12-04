@@ -15,7 +15,7 @@ import logging
 from dataclasses import dataclass
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 @dataclass

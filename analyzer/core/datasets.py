@@ -7,12 +7,12 @@ from typing import ClassVar
 import enum
 from analyzer.core.event_collection import SourceDescription
 from rich.progress import track
-import logging
 from pathlib import Path
 from analyzer.core.serialization import converter
 from analyzer.core.caching import cache
 from typing import Any
 from attrs import define, field, fields
+from analyzer.logging import logger
 
 import yaml
 try:
@@ -23,7 +23,6 @@ except ImportError:
 from analyzer.configuration import CONFIG
 
 
-logger = logging.getLogger(__name__)
 
 
 def getDatasets(query, client):
@@ -161,11 +160,13 @@ class DatasetRepo:
         path = Path(path)
         data = getDatasetFromPathMTime(path, path.stat().st_mtime)
         for d in data:
+            logger.debug(f"Adding dataset {d.name} to repo")
             if d.name in self.datasets:
                 raise KeyError(f"A dataset with the name {d.name} already exists")
             self.datasets[d.name] = d
 
     def addFromDirectory(self, path):
+        logger.info(f"Loading datasets recursively from path {path}")
         directory = Path(path)
         files = list(directory.rglob("*.yaml"))
         for f in files:

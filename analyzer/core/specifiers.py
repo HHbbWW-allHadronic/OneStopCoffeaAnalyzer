@@ -2,7 +2,7 @@ import logging
 import pydantic as pyd
 from analyzer.datasets import DatasetParams, SampleId, SampleParams
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 @pyd.dataclasses.dataclass(frozen=True)

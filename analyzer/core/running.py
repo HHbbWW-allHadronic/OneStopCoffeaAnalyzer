@@ -6,8 +6,8 @@ from analyzer.core.analysis import loadAnalysis
 from analyzer.configuration import CONFIG
 from analyzer.core.executors import getPremadeExcutors, ExecutionTask
 from analyzer.utils.structure_tools import getWithMeta
+from analyzer.logging import logger
 
-logger = logging.getLogger(__name__)
 
 
 def getUniqueFilename(file_name):
@@ -100,9 +100,11 @@ def getPatches(dataset_repo, era_repo, dataset_descs, existing_file_sets):
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
+
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
 
+    logger.info(f"Running analysis from path \"{path}\" with executor {executor_name}" )
     output = Path(output)
     analysis = loadAnalysis(path)
     dataset_repo, era_repo = getRepos(
@@ -110,12 +112,13 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     )
     all_executors = getPremadeExcutors()
     all_executors.update(analysis.extra_executors)
-    if executor_name not in all_executors:
-        raise KeyError(f"Unknown executor {executor_name}")
+
     executor = all_executors[executor_name]
     executor.setup(None)
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
+    logger.info(f"Preparing to run {len(tasks)} tasks.")
+
     saver = Saver(output)
 
     for result in executor.run(analysis.analyzer, tasks):

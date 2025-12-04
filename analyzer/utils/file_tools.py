@@ -2,6 +2,7 @@ import collections.abc
 import logging
 import pickle
 import os
+from analyzer.utils.pretty import progbar
 import shutil
 import zipfile
 import tarfile
@@ -10,7 +11,7 @@ from urllib.parse import urlparse, urlunparse
 
 from analyzer.configuration import CONFIG
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 def stripPort(url):
@@ -67,7 +68,7 @@ def zipDirectory(
     skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
 ):
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as z:
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in progbar(os.walk(path)):
             for file in files:
                 filename = os.path.join(root, file)
                 if any(predicate(filename) for predicate in skip):
@@ -88,7 +89,7 @@ def tarDirectory(
     skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
 ):
     with tarfile.open(output, "w:gz") as z:
-        for root, dirs, files in os.walk(path):
+        for root, dirs, files in progbar(os.walk(path)):
             for file in files:
                 filename = os.path.join(root, file)
                 if any(predicate(filename) for predicate in skip):

@@ -10,7 +10,7 @@ from pydantic import Field
 # from analyzer.core.executors.tasks import PackagedTask, AnalysisTask
 from analyzer.core.executors.executor import Executor
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 class CondorExecutor(Executor):

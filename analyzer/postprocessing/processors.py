@@ -11,7 +11,7 @@ from analyzer.configuration import CONFIG
 
 from .style import Style, StyleSet
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 StyleLike = Style | str
 
 
