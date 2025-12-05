@@ -167,18 +167,20 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
                     list(task.file_set.toChunked(chunk_size).iterChunks()),
                     key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
                 )
-                reduced_futures = reduceResults(
-                    client,
-                    iaddMany,
-                    task_futures,
-                    reduction_factor,
-                    key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
-                )
-                final = client.map(
-                    ft.partial(dumpAndComplete, task.metadata, task.output_name),
-                    reduced_futures,
-                    key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
-                )
+                with dask.annotate(priority=10):
+                    reduced_futures = reduceResults(
+                        client,
+                        iaddMany,
+                        task_futures,
+                        reduction_factor,
+                        key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+                    )
+                with dask.annotate(priority=20):
+                    final = client.map(
+                        ft.partial(dumpAndComplete, task.metadata, task.output_name),
+                        reduced_futures,
+                        key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+                    )
                 as_comp.update(final)
 
         elif isinstance(result, DaskRunResult):
