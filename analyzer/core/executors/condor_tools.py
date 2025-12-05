@@ -65,8 +65,6 @@ def createCondorPackage(
     print(extra_files)
     if extra_files is not None:
         tarFiles(extra_files, compressed_extra)
-    import sys
-    sys.exit()
 
     tarDirectory(analyzer_path, compressed_analyzer)
 
