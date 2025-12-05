@@ -45,3 +45,4 @@ dev = [
 
 [tool.uv.sources]
 lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue.git" }
+

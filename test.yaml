@@ -6,18 +6,22 @@ analyzer:
     #   input_col: Jet
     #   output_col: Jet
 
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
     - module_name: JetFilter
       input_col: Jet
       output_col: Jet
 
     - module_name: NObjFilter
-      selection_name: 2jet
+      selection_name: njets
       input_col: Jet
-      min_count: 3
+      min_count: 4
+      max_count: 6
 
     - module_name: SelectOnColumns
-      sel_name: preselection
-      selection_names: [2jet]
+      sel_name: selection
+      selection_names: [njets]
 
     - module_name: BQuarkMaker
       input_col: Jet
@@ -29,18 +33,30 @@ analyzer:
       output_col: TightBJet
       working_point: T
 
+    - module_name: NNMassReco
+      input_col: Jet
+      m3_output: m3_comp
+      m4_output: m4_comp
+      model_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt
+      scaler_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl
+
     - module_name: TopJetHistograms
       input_col: Jet
       output_col: Jet
       max_idx: 3
       prefix: "GoodJet_"
+
+    - module_name: NNMassPlots
+      m3_input: m3_comp
+      m4_input: m4_comp
+      prefix: "nncomp"
       
 
 event_collections:
-  - dataset: 'qcd*2018'
-    pipelines: [Signal312]
-  # - dataset: 'signal_2018_312_1500_600'
+  # - dataset: 'qcd*2018'
   #   pipelines: [Signal312]
+  - dataset: 'signal_2018_312_1500_600'
+    pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
     
@@ -52,7 +68,7 @@ extra_executors:
 
   test2:
     executor_name: LocalDaskExecutor
-    chunk_size: 1000
+    chunk_size: 400000
     min_workers: 1
     max_workers: 1
   

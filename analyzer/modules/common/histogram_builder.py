@@ -129,14 +129,28 @@ class HistogramBuilder(AnalyzerModule):
         ]
 
     def inputs(self, metadata):
-        return [*self.columns, self.mask_col, Column("Categories"), Column("Weights")]
+        if self.mask_col is not None:
+            return [
+                *self.columns,
+                self.mask_col,
+                Column("Categories"),
+                Column("Weights"),
+            ]
+        else:
+            return [*self.columns, Column("Categories"), Column("Weights")]
 
     def outputs(self, metadata):
         return []
 
 
 def makeHistogram(
-    product_name, columns, axes, data, description, multirun_strategy=None, mask=None
+    product_name,
+    columns,
+    axes,
+    data,
+    description=None,
+    multirun_strategy=None,
+    mask=None,
 ):
     if not isinstance(data, (list, tuple)):
         data = [data]

@@ -48,7 +48,7 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
-    logger.info(f"Getting replicas for dataset \"{dataset}\"")
+    logger.info(f'Getting replicas for dataset "{dataset}"')
     from analyzer.utils.file_tools import extractCmsLocation
     from coffea.dataset_tools import rucio_utils
 
@@ -316,6 +316,7 @@ class FileSet:
         return [
             ft.partial(getFileInfo, f.file_path, f.tree_name)
             for f in self.files.values()
+            if f.nevents is None
         ]
 
     def updateFromCache(self):

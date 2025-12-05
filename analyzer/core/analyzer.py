@@ -91,6 +91,12 @@ class Analyzer:
             self.all_modules.append(module)
             return n
 
+    def neededResources(self):
+        needed_resources = []
+        for module in self.all_modules:
+            needed_resources.extend(module.neededResources())
+        return needed_resources
+
     def addPipeline(self, name, pipeline):
         ret = []
         node = self.getUniqueNode(ret, LoadColumns())

@@ -322,8 +322,6 @@ def defaultParameterSpec(params):
         return ModuleParameterSpec(params)
     return inner
 
-    
-
 def register_module(input_columns, output_columns, configuration=None, params=None):
     configuration = configuration or {}
     params = params or {}
@@ -352,7 +350,6 @@ def register_module(input_columns, output_columns, configuration=None, params=No
                 outputs=outputs,
             ),
         )
-        cls.__module__ = __name__
         return cls
     return wrapper
 

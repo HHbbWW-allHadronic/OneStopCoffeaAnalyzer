@@ -290,5 +290,5 @@ def addSelection(columns, name, data):
     column = Column(("Selection", name))
     columns[column] = data
     if "Selections" not in columns.pipeline_data:
-        columns.pipeline_data = {}
-    columns.pipeline_data[name] = False
+        columns.pipeline_data["Selections"] = {}
+    columns.pipeline_data["Selections"][name] = False

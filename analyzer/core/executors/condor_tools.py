@@ -50,6 +50,7 @@ def createCondorPackage(
     condor_temp_loc.mkdir(exist_ok=True, parents=True)
     extra_files = extra_files or []
     compressed_env = condor_temp_loc / "environment.tar.gz"
+    compressed_extra = condor_temp_loc / "extras.tar.gz"
     analyzer_path = Path(analyzer.__file__).parent
     compressed_analyzer = condor_temp_loc / "analyzer.tar.gz"
     voms_path = getVomsProxyPath()
@@ -62,12 +63,21 @@ def createCondorPackage(
         tarDirectory(venv_path, compressed_env)
 
     logger.info(f"Creating compressed analyzer")
+    compressed_extra.unlink(missing_ok=True)
+    if extra_files is not None:
+        addToTar(extra_files, compressed_extra, mode="a")
 
     tarDirectory(analyzer_path, compressed_analyzer)
 
     script_path = condor_temp_loc / "setup.sh"
     transfer_input_files = [script_path, compressed_env, compressed_analyzer, voms_path]
+
     files_to_unzip = [compressed_env, compressed_analyzer]
+
+    if extra_files is not None:
+        transfer_input_files.append(compressed_extra)
+        files_to_unzip.append(compressed_extra)
+
     env = Environment()
     template = env.from_string(SCRIPT_TEMPLATE)
 

@@ -13,11 +13,12 @@ def setupConverter(conv):
     import analyzer.core.analysis_modules
     import analyzer.core.event_collection
     import analyzer.core.executors.executor
-    import analyzer.core.results
+    # import analyzer.core.results
     import analyzer.core.datasets
 
-    analyzer.core.analysis_modules.configureConverter(converter)
-    analyzer.core.event_collection.configureConverter(converter)
-    analyzer.core.executors.executor.configureConverter(converter)
-    analyzer.core.results.configureConverter(converter)
-    analyzer.core.datasets.configureConverter(converter)
+    analyzer.core.analysis_modules.configureConverter(conv)
+    analyzer.core.event_collection.configureConverter(conv)
+    analyzer.core.executors.executor.configureConverter(conv)
+    # analyzer.core.results.configureConverter(conv)
+    analyzer.core.datasets.configureConverter(conv)
+    

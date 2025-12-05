@@ -18,7 +18,6 @@ from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
 
-# from analyzer.utils.pretty import progbar
 from attrs import define, field
 import hist
 from attrs import define, field

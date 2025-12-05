@@ -82,13 +82,15 @@ def zipDirectory(
                 )
                 z.write(filename, archive_name)
 
+
 def tarDirectory(
     path,
     output,
     skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
     skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
+    mode="w",
 ):
-    with tarfile.open(output, "w:gz") as z:
+    with tarfile.open(output, f"{mode}:gz") as z:
         for root, dirs, files in progbar(os.walk(path)):
             for file in files:
                 filename = os.path.join(root, file)
@@ -102,6 +104,7 @@ def tarDirectory(
                     os.path.join(root, file), os.path.join(path, "..")
                 )
                 z.add(filename, archive_name)
+
 
 
 def exists(client, loc):
