@@ -9,7 +9,6 @@ from analyzer.utils.structure_tools import getWithMeta
 from analyzer.logging import logger
 
 
-
 def getUniqueFilename(file_name):
     p = Path(file_name)
     orig_stem = p.stem
@@ -36,6 +35,7 @@ class Saver:
 def getRepos(extra_dataset_paths=None, extra_era_paths=None):
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
+
     extra_dataset_paths = extra_dataset_paths or []
     extra_era_paths = extra_era_paths or []
 
@@ -104,7 +104,7 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
 
-    logger.info(f"Running analysis from path \"{path}\" with executor {executor_name}" )
+    logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)
     dataset_repo, era_repo = getRepos(
@@ -114,10 +114,15 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     all_executors.update(analysis.extra_executors)
 
     executor = all_executors[executor_name]
-    executor.setup(None)
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
     logger.info(f"Preparing to run {len(tasks)} tasks.")
+
+    needed_resources = set()
+    for task in tasks:
+        needed_resources |= set(analysis.analyzer.neededResources(task.metadata))
+    needed_resources = list(needed_resources)
+    executor.setup(needed_resources)
 
     saver = Saver(output)
 

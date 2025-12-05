@@ -1,7 +1,7 @@
 analyzer:
   Signal312:
     - module_name: SimpleHLT
-      triggers: [HT]
+      triggers: [HT, AK8SingleJetPt]
     # - module_name: VetoMapFilter
     #   input_col: Jet
     #   output_col: Jet
@@ -40,6 +40,13 @@ analyzer:
       model_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt
       scaler_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl
 
+    - module_name: NNMassReco
+      input_col: Jet
+      m3_output: m3_uncomp
+      m4_output: m4_uncomp
+      model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
+      scaler_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl
+
     - module_name: TopJetHistograms
       input_col: Jet
       output_col: Jet
@@ -50,6 +57,11 @@ analyzer:
       m3_input: m3_comp
       m4_input: m4_comp
       prefix: "nncomp"
+
+    - module_name: NNMassPlots
+      m3_input: m3_uncomp
+      m4_input: m4_uncomp
+      prefix: "nnuncomp"
       
 
 event_collections:
@@ -57,6 +69,8 @@ event_collections:
   #   pipelines: [Signal312]
   - dataset: 'signal_2018_312_1500_600'
     pipelines: [Signal312]
+  # - dataset: 'signal_*official'
+  #   pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
     

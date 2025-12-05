@@ -7,7 +7,7 @@ from analyzer.configuration import CONFIG
 from pathlib import Path
 from attrs import define
 import platform
-from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath, tarDirectory
+from analyzer.utils.file_tools import zipDirectory, getVomsProxyPath, tarDirectory, tarFiles
 from jinja2 import Environment, PackageLoader, select_autoescape
 
 logger = logging.getLogger("analyzer")
@@ -42,17 +42,15 @@ def createCondorPackage(
     venv_path,
     extra_files=None,
 ):
-    """
-    Returns a tuple of the following elements
-    """
-
     condor_temp_loc = Path(CONFIG.general.base_data_path) / CONFIG.condor.temp_location
     condor_temp_loc.mkdir(exist_ok=True, parents=True)
     extra_files = extra_files or []
     compressed_env = condor_temp_loc / "environment.tar.gz"
     compressed_extra = condor_temp_loc / "extras.tar.gz"
-    analyzer_path = Path(analyzer.__file__).parent
     compressed_analyzer = condor_temp_loc / "analyzer.tar.gz"
+
+    analyzer_path = Path(analyzer.__file__).parent
+
     voms_path = getVomsProxyPath()
 
     if not compressed_env.exists():
@@ -64,8 +62,11 @@ def createCondorPackage(
 
     logger.info(f"Creating compressed analyzer")
     compressed_extra.unlink(missing_ok=True)
+    print(extra_files)
     if extra_files is not None:
-        addToTar(extra_files, compressed_extra, mode="a")
+        tarFiles(extra_files, compressed_extra)
+    import sys
+    sys.exit()
 
     tarDirectory(analyzer_path, compressed_analyzer)
 

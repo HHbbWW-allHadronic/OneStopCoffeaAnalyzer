@@ -29,7 +29,6 @@ class SelectOnColumns(AnalyzerModule):
 
         ret = columns[Column("Selection") + cuts[0]]
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}
-        print(cutflow)
 
         for name in cuts[1:]:
             ret = ret & columns[name]

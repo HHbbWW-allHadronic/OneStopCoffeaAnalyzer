@@ -91,10 +91,10 @@ class Analyzer:
             self.all_modules.append(module)
             return n
 
-    def neededResources(self):
+    def neededResources(self, metadata):
         needed_resources = []
         for module in self.all_modules:
-            needed_resources.extend(module.neededResources())
+            needed_resources.extend(module.neededResources(metadata))
         return needed_resources
 
     def addPipeline(self, name, pipeline):
@@ -141,7 +141,7 @@ class Analyzer:
                 elif isinstance(res, ModuleAddition) and not freeze_pipeline:
                     module = res.analyzer_module
                     if res.run_builder is None:
-                        logger.info(f"Adding new module {module} to pipeline")
+                        logger.debug(f"Adding new module {module} to pipeline")
                         spec = module.getParameterSpec(columns.metadata)
                         node = self.getUniqueNode(complete_pipeline, module)
                         params.values[node.node_id] = spec.getWithValues(
@@ -149,7 +149,7 @@ class Analyzer:
                         )
                         to_add.appendleft(node)
                     else:
-                        logger.info(f"Running multi-parameter pipeline")
+                        logger.debug(f"Running multi-parameter pipeline")
 
                         param_dicts = res.run_builder(current_spec, columns.metadata)
                         to_run = [params.withNewValues(x) for x in param_dicts]
@@ -165,7 +165,7 @@ class Analyzer:
                                 result_container=None,
                             )
                             everything.append((params_set, c))
-                        logger.info(
+                        logger.debug(
                             f"Running node {module} with {len(everything)} parameter sets"
                         )
                         _, r = module(

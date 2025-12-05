@@ -195,7 +195,7 @@ class TrackedColumns:
                 if column.contains(c):
                     ret.append((c, v))
 
-        logger.info(f"Relevant columns for {columns} are :\n {ret}")
+        logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
 
     def __setitem__(self, column, value):
@@ -213,13 +213,13 @@ class TrackedColumns:
         all_columns = getAllColumns(value, column)
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
-            logger.info(
+            logger.debug(
                 f"Adding column {c} to events with provenance {self._current_provenance}"
             )
         for c in self._column_provenance:
             if c.contains(column):
                 self._column_provenance[c] = self._current_provenance
-                logger.info(
+                logger.debug(
                     f"Updating parent column {c} to events with provenance {self._current_provenance}"
                 )
 

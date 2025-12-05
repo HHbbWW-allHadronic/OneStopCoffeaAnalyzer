@@ -22,6 +22,7 @@ class GeneralConfig:
     use_compression: bool = True
     compression_lib: str = "lz4"
     suppress_coffea_warnings: bool = True
+    suppress_xrootd_warnings: bool = True
     base_data_path: str = ".application_data"
 
 

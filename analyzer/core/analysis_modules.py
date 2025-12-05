@@ -236,13 +236,13 @@ class AnalyzerModule(abc.ABC):
 
     def __runNoInputs(self, params):
         key = self.getKey(None, params)
-        logger.info(f"Execution key is {key}")
-        logger.info(f"Cached keys are {list(self.__cache)}")
+        logger.debug(f"Execution key is {key}")
+        logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.info(f"Found key, using cached result")
+            logger.debug(f"Found key, using cached result")
             cached_cols, r = self.__cache[key]
             return cached_cols, r
-        logger.info(f"Did not find cached result, running module {self}")
+        logger.debug(f"Did not find cached result, running module {self}")
         ret = self.run(None, params)
         self.__cache[key] = ret
         return ret[0].copy(), ret[1]
@@ -251,10 +251,10 @@ class AnalyzerModule(abc.ABC):
         orig_columns = columns
         columns = columns.copy()
         key = self.getKey(columns, params)
-        logger.info(f"Execution key is {key}")
-        logger.info(f"Cached keys are {list(self.__cache)}")
+        logger.debug(f"Execution key is {key}")
+        logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.info(f"Found key, using cached result")
+            logger.debug(f"Found key, using cached result")
             cached_cols, r, internal = self.__cache[key]
             outputs = self.outputs(columns.metadata)
             if outputs == EVENTS:
@@ -263,7 +263,7 @@ class AnalyzerModule(abc.ABC):
             columns.addColumnsFrom(cached_cols, outputs)
             columns.pipeline_data = cached_cols.pipeline_data
             return columns, r
-        logger.info(f"Did not find cached result, running module {self.name}")
+        logger.debug(f"Did not find cached result, running module {self.name}")
         with (
             columns.useKey(key),
             columns.allowedInputs(self.inputs(columns.metadata)),
@@ -278,13 +278,13 @@ class AnalyzerModule(abc.ABC):
         columns = [(x, y.copy()) for x, y in columns]
         just_cols = [x[1] for x in columns]
         key = self.getKey(just_cols, params)
-        logger.info(f"Execution key is {key}")
-        logger.info(f"Cached keys are {list(self.__cache)}")
+        logger.debug(f"Execution key is {key}")
+        logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.info(f"Found key, using cached result")
+            logger.debug(f"Found key, using cached result")
             ret = self.__cache[key]
             return ret
-        logger.info(f"Did not find cached result, running module {self.name}")
+        logger.debug(f"Did not find cached result, running module {self.name}")
         with contextlib.ExitStack() as stack:
             for c in just_cols:
                 stack.enter_context(c.useKey(key))
@@ -295,7 +295,7 @@ class AnalyzerModule(abc.ABC):
         return ret
 
     def __call__(self, columns, params):
-        logger.info(f"Running analyzer module {self}")
+        logger.debug(f"Running analyzer module {self}")
         # if not self.should_run(columns.metadata):
         #     returncolumns, {}
         if isinstance(columns, TrackedColumns):

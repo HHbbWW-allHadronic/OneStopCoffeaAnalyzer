@@ -127,6 +127,29 @@ def dumpAndComplete(metadata, output_name, dask_result):
     return DaskRunResult(CompletedTask(result, metadata, output_name), exceptions)
 
 
+def processTask(client, analyzer, task, chunk_size, reduction_factor):
+    task_futures = client.map(
+        getAnalyzerRunFunc(analyzer, task),
+        list(task.file_set.toChunked(chunk_size).iterChunks()),
+        key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+    )
+    with dask.annotate(priority=10):
+        reduced_futures = reduceResults(
+            client,
+            iaddMany,
+            task_futures,
+            reduction_factor,
+            key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+        )
+    with dask.annotate(priority=20):
+        final = client.map(
+            ft.partial(dumpAndComplete, task.metadata, task.output_name),
+            reduced_futures,
+            key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+        )
+    return final
+
+
 def run(client, chunk_size, reduction_factor, analyzer, tasks):
     tasks = {i: x for i, x in enumerate(tasks)}
 
@@ -149,6 +172,12 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
 
     as_comp = as_completed((y for x in file_prep_tasks.values() for y in x))
 
+    for i, task in tasks.items():
+        if not file_prep_tasks[i]:
+            as_comp.update(
+                processTask(client, analyzer, task, chunk_size, reduction_factor)
+            )
+
     for future in as_comp:
         try:
             result = future.result()
@@ -162,26 +191,9 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
             file_prep_tasks[index].remove(future)
             if not file_prep_tasks[index]:
                 task = tasks[index]
-                task_futures = client.map(
-                    getAnalyzerRunFunc(analyzer, task),
-                    list(task.file_set.toChunked(chunk_size).iterChunks()),
-                    key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+                as_comp.update(
+                    processTask(client, analyzer, task, chunk_size, reduction_factor)
                 )
-                with dask.annotate(priority=10):
-                    reduced_futures = reduceResults(
-                        client,
-                        iaddMany,
-                        task_futures,
-                        reduction_factor,
-                        key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
-                    )
-                with dask.annotate(priority=20):
-                    final = client.map(
-                        ft.partial(dumpAndComplete, task.metadata, task.output_name),
-                        reduced_futures,
-                        key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
-                    )
-                as_comp.update(final)
 
         elif isinstance(result, DaskRunResult):
             if result is None:
@@ -190,7 +202,6 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
             exceptions = result.maybe_exceptions
             if ret is not None:
                 yield ret
-            print(exceptions)
             future.cancel()
 
 
@@ -271,7 +282,7 @@ class LPCCondorDask(Executor):
         #         breakpoint()
         from lpcjobqueue import LPCCondorCluster
 
-        package = createCondorPackage(self.container, self.venv_path)
+        package = createCondorPackage(self.container, self.venv_path, needed_resources)
         logpath = Path(self.log_path).resolve()
         logpath.mkdir(exist_ok=True, parents=True)
         kwargs = {}
