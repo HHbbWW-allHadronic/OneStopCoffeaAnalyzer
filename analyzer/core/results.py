@@ -2,6 +2,7 @@ from __future__ import annotations
 import awkward as ak
 from pathlib import Path
 
+from analyzer.utils.pretty import progbar
 from analyzer.core.exceptions import ResultIntegrityError
 import numpy as np
 
@@ -16,6 +17,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
+
 # from analyzer.utils.pretty import progbar
 from attrs import define, field
 import hist
@@ -34,9 +36,11 @@ import functools as ft
 
 def getArrayMem(array):
     from dask.sizeof import sizeof
-    if isinstance(array,awkward.highlevel.Array):
+
+    if isinstance(array, awkward.highlevel.Array):
         return array.nbytes
     return sizeof(array)
+
 
 @define
 class ResultBase(abc.ABC):
@@ -53,7 +57,7 @@ class ResultBase(abc.ABC):
     @abc.abstractmethod
     def summary(self):
         pass
-    
+
     @abc.abstractmethod
     def approxSize(self):
         pass
@@ -67,9 +71,8 @@ class ResultBase(abc.ABC):
         ret = copy.deepcopy(self)
         return ret.iscale(value)
 
-    def renderWidget(self, *args, **kwargs):
+    def widget(self, *args, **kwargs):
         return None
-
 
 
 @define
@@ -155,7 +158,7 @@ class ResultGroup(ResultBase):
         )
 
     def approxSize(self):
-        return sum(x.approxSize() for x in self.results.values()) 
+        return sum(x.approxSize() for x in self.results.values())
 
     def addResult(self, res):
         self.results[res.name] = res
@@ -171,7 +174,6 @@ class ResultGroup(ResultBase):
 
     def keys(self):
         return self.results.keys()
-
 
     def checkOk(self, other):
         if "_provenance" in self.results:
@@ -239,6 +241,7 @@ class Histogram(ResultBase):
 
     def approxSize(self):
         from dask.sizeof import sizeof
+
         return sizeof(self.histogram.view(flow=True))
 
     def __iadd__(self, other):
@@ -249,8 +252,9 @@ class Histogram(ResultBase):
         self.histogram *= value
         return self
 
-    def renderWidget(self, *args, **kwargs):
+    def widget(self, *args, **kwargs):
         from textual_plotext import PlotextPlot
+
         widget = PlotextPlot()
         plt = widget.plt
         h = self.histogram
@@ -259,11 +263,11 @@ class Histogram(ResultBase):
         if len(h.axes) == 1:
             plt.bar(h.axes[0].centers, h.values())
             return widget
+        plt.set_xlabel = axes[0].name
         return None
 
 
 Array = ak.Array | dak.Array | np.ndarray
-
 
 
 @define
@@ -391,7 +395,6 @@ class RawSelectionFlow(ResultBase):
     n_minus_one: dict[str, Scalar]
     one_cut: dict[str, Scalar]
 
-
     def approxSize(self):
         return 30 * len(self.cuts)
 
@@ -444,23 +447,17 @@ def configureConverter(conv):
     include_subclasses(ResultBase, conv, union_strategy=union_strategy)
 
 
-def loadResults(paths):
+configureConverter(converter)
 
-    import cProfile
-    profiler = cProfile.Profile()
-    all_paths = it.chain.from_iterable((Path(".").rglob(x) for x in paths))
+
+def loadResults(paths):
     all_paths = paths
     ret = None
-    for p in all_paths:
-        profiler.enable()
+    for p in progbar(all_paths):
         with open(p, "rb") as f:
             result = ResultGroup.fromBytes(f.read())
         if ret is None:
             ret = result
         else:
             ret += result
-        print(result)
-        profiler.disable()
-    profiler.dump_stats("prof.prof")
-    
     return ret

@@ -1,5 +1,6 @@
 from textual.app import App, ComposeResult
 from textual import on
+from textual.reactive import reactive
 from rich.console import Console
 from textual.widgets import Welcome, Header, Tree, Footer, Static, Pretty
 from textual.containers import Horizontal, Vertical
@@ -65,9 +66,10 @@ class ResultTree(Static):
 
 
 class ResultViewer(Widget):
+    result = reactive(None,recompose=True)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.result = None
 
     def showResult(self, result):
         self.result = result
@@ -75,8 +77,9 @@ class ResultViewer(Widget):
     def compose(self):
         if self.result is None:
             return
-        w = self.result.renderWidget()
+        w = self.result.widget()
         if w is None:
-            yield Pretty(result)
+            with Vertical():
+                yield Pretty(self.result)
         else:
             yield w
