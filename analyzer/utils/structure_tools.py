@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import fnmatch
+
 import copy
 import operator
 import subprocess
@@ -31,7 +33,7 @@ import cattrs
 from attrs import make_class
 
 from collections.abc import Collection, Iterable
-from collections import deque, defaultdict
+from collections import deque, defaultdict, ChainMap
 
 import contextlib
 import uuid
@@ -74,10 +76,25 @@ def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
 def getWithMeta(directory, key):
     if isinstance(key, str):
         key = key.split(".")
-    current_meta = copy.deepcopy(directory.metadata)
+    current_meta = ChainMap(directory.metadata)
     current = directory
     for k in key:
         current = current[k]
-        current_meta.update(current.metadata)
+        current_meta = current_meta.new_child(current.metadata)
 
     return current, current_meta
+
+
+def globWithMeta(directory, pattern, current_meta=None):
+    current_meta = current_meta or ChainMap({})
+    pattern, *rest = pattern
+    ret = []
+    for k in directory:
+        if fnmatch.fnmatch(k, pattern):
+            item = directory[k]
+            item_meta = current_meta.new_child(item.metadata)
+            if not rest:
+                ret.append((item, item_meta))
+            else:
+                ret.extend(globWithMeta(item, rest, item_meta))
+    return ret

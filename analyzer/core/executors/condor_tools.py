@@ -62,7 +62,6 @@ def createCondorPackage(
 
     logger.info(f"Creating compressed analyzer")
     compressed_extra.unlink(missing_ok=True)
-    print(extra_files)
     if extra_files is not None:
         tarFiles(extra_files, compressed_extra)
 

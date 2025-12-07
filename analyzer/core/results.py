@@ -1,9 +1,11 @@
 from __future__ import annotations
 import awkward as ak
+from rich import print
 from pathlib import Path
 
 from analyzer.utils.pretty import progbar
 from analyzer.core.exceptions import ResultIntegrityError
+from analyzer.utils.file_tools import iterPaths
 import numpy as np
 
 import itertools as it
@@ -17,6 +19,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
+from analyzer.utils.structure_tools import globWithMeta
 
 from attrs import define, field
 import hist
@@ -44,6 +47,7 @@ def getArrayMem(array):
 @define
 class ResultBase(abc.ABC):
     name: str
+    metadata: dict[str, Any] = field(factory=dict, kw_only=True)
 
     @abc.abstractmethod
     def __iadd__(self, other):
@@ -54,12 +58,11 @@ class ResultBase(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def summary(self):
-        pass
-
-    @abc.abstractmethod
     def approxSize(self):
         pass
+
+    def summary(self):
+        return self
 
     def __add__(self, other):
         ret = copy.deepcopy(self)
@@ -79,7 +82,6 @@ class ResultGroup(ResultBase):
     _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
     _HEADER_SIZE: ClassVar[Literal[4]] = 4
 
-    metadata: dict[str, Any] = field(factory=dict)
     results: dict[str, ResultBase] = field(factory=dict)
 
     @classmethod
@@ -87,7 +89,7 @@ class ResultGroup(ResultBase):
         maybe_magic = f.read(len(cls._MAGIC_ID))
         if maybe_magic == cls._MAGIC_ID:
             peek_size = int.from_bytes(f.read(cls._HEADER_SIZE), byteorder="big")
-            ret = converter.unstructure(pkl.loads(f.read(peek_size)), cls.SummaryClass)
+            ret = converter.unstructure(pkl.loads(f.read(peek_size)), ResultGroup)
             return ret
         else:
             return converter.structure(pkl.loads(maybe_magic + f.read())).summary()
@@ -105,7 +107,7 @@ class ResultGroup(ResultBase):
                 + cls._HEADER_SIZE
                 + peek_size
             ]
-            return converter.structure(pkl.loads(peek), cls.SummaryClass)
+            return converter.structure(pkl.loads(peek), ResultGroup)
         else:
             return converter.structure(pkl.loads(data)).summary()
 
@@ -147,13 +149,11 @@ class ResultGroup(ResultBase):
         else:
             return pkl.dumps(converter.unstructure(self))
 
-    @define
-    class Summary:
-        results: dict[str, Any] = field(factory=dict)
-
     def summary(self):
-        return ResultGroup.Summary(
-            results={x: y.summary() for x, y in self.results.items()}
+        return ResultGroup(
+            name=self.name,
+            results={x: y.summary() for x, y in self.results.items()},
+            metadata=self.metadata,
         )
 
     def approxSize(self):
@@ -212,9 +212,6 @@ class ResultGroup(ResultBase):
 class ResultProvenance(ResultBase):
     file_set: FileSet
 
-    def summary(self):
-        return self
-
     def approxSize(self):
         return 50 * len(self.file_set.files)
 
@@ -225,18 +222,31 @@ class ResultProvenance(ResultBase):
     def iscale(self, value):
         return self
 
+    @property
+    def chunked_events(self):
+        return self.file_set.chunked_events
+
 
 @define
 class Histogram(ResultBase):
     @define
-    class Summary:
+    class Summary(ResultBase):
         axes: Any
+
+        def __iadd__(self, other):
+            return self
+
+        def iscale(self, value):
+            return self
+
+        def approxSize(self):
+            return 0
 
     axes: Any
     histogram: hist.Hist
 
     def summary(self):
-        return Histogram.Summary(axes=self.axes)
+        return Histogram.Summary(name=self.name, axes=self.axes)
 
     def approxSize(self):
         from dask.sizeof import sizeof
@@ -342,9 +352,6 @@ class SelectionFlow(ResultBase):
         # for x in self.one_cut:
         #     self.one_cut[x] = value * self.one_cut[x]
 
-    def summary(self):
-        return self
-
     def finalize(self, finalizer, converter):
         pass
 
@@ -449,14 +456,39 @@ def configureConverter(conv):
 configureConverter(converter)
 
 
-def loadResults(paths):
+def loadResults(paths, peek_only=False):
     all_paths = paths
     ret = None
-    for p in progbar(all_paths):
+    func = ResultGroup.peekBytes if peek_only else ResultGroup.fromBytes
+    for p in progbar(iterPaths(all_paths)):
         with open(p, "rb") as f:
-            result = ResultGroup.fromBytes(f.read())
+            result = func(f.read())
         if ret is None:
             ret = result
         else:
             ret += result
+    return ret
+
+
+@define
+class ResultStatus:
+    dataset_name: str
+    sample_name: str
+    events_expected: int
+    events_found: int
+
+    @property
+    def frac_complete(self):
+        return self.events_found / self.events_expected
+
+
+def checkResults(paths):
+    results = loadResults(paths, peek_only=True)
+    ret = []
+    for prov, meta in globWithMeta(results, ["*", "*", "_provenance"]):
+        expected = meta["n_events"]
+        found = prov.chunked_events
+        dataset_name = meta["dataset_name"]
+        sample_name = meta["sample_name"]
+        ret.append(ResultStatus(dataset_name, sample_name, expected, found))
     return ret

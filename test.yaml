@@ -1,13 +1,13 @@
 analyzer:
   Signal312:
-    - module_name: SimpleHLT
-      triggers: [HT, AK8SingleJetPt]
+    # - module_name: SimpleHLT
+    #   triggers: [HT, AK8SingleJetPt]
     # - module_name: VetoMapFilter
     #   input_col: Jet
     #   output_col: Jet
 
-    - module_name: SelectOnColumns
-      sel_name: preselection
+    # - module_name: SelectOnColumns
+    #   sel_name: preselection
 
     - module_name: JetFilter
       input_col: Jet
@@ -65,9 +65,9 @@ analyzer:
       
 
 event_collections:
-  # - dataset: 'qcd*2018'
-  #   pipelines: [Signal312]
-  - dataset: 'signal_2018_312_1500_600'
+  - dataset: 'qcd*2018'
+    pipelines: [Signal312]
+  - dataset: 'signal_*_official'
     pipelines: [Signal312]
   # - dataset: 'signal_*official'
   #   pipelines: [Signal312]
@@ -92,5 +92,5 @@ extra_executors:
     venv_path: .venv
 
     chunk_size: 200000
-    min_workers: 20
-    max_workers: 40
+    min_workers: 50
+    max_workers: 200

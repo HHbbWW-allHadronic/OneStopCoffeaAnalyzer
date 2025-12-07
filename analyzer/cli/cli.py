@@ -36,14 +36,6 @@ def cli(log_level):
     pass
 
 
-def checkResults():
-    pass
-
-
-# def handleCheckResults(args):
-#     from analyzer.core.results import checkResult
-#
-#     checkResult(args.input, configuration=args.configuration, only_bad=args.only_bad)
 #
 #
 # def addSubparserCheckResult(subparsers):
@@ -235,7 +227,30 @@ def run(
     executor,
 ):
     from analyzer.core.running import runFromPath
+
     runFromPath(input, output, executor)
+
+
+@cli.command()
+@click.argument("files", nargs=-1)
+@click.option("--configuration", "-c", type=str, required=str)
+@click.option("--only-bad", is_flag=True)
+def check(files, configuration, only_bad):
+    from analyzer.core.results import checkResults
+    from analyzer.core.datasets import DatasetRepo
+    from analyzer.core.era import EraRepo
+    from analyzer.core.analysis import loadAnalysis, getSamples
+    from analyzer.core.running import getRepos
+    from analyzer.cli.result_status import renderStatuses
+
+    analysis = loadAnalysis(configuration)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
+    )
+    all_samples = getSamples(analysis, dataset_repo)
+
+    ret = checkResults(files)
+    renderStatuses(ret, all_samples, only_bad=only_bad)
 
 
 @cli.command()
@@ -261,6 +276,7 @@ def browse(inputs, interpretter):
 
     setupConverter(converter)
     print(f"Loading Results")
+    print(inputs)
     res = loadResults(inputs)
     if interpretter:
         jumpIn(results=res)
@@ -337,5 +353,6 @@ def eras():
 
 def main():
     from analyzer.logging import setupLogging
+
     setupLogging()
     cli()

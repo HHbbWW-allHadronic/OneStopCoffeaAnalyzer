@@ -1,4 +1,5 @@
 import collections.abc
+import itertools as it
 import logging
 import pickle
 import os
@@ -104,6 +105,8 @@ def tarDirectory(
                     os.path.join(root, file), os.path.join(path, "..")
                 )
                 z.add(filename, archive_name)
+
+
 def tarFiles(
     paths,
     output,
@@ -114,7 +117,6 @@ def tarFiles(
     with tarfile.open(output, f"{mode}:gz") as z:
         for file in paths:
             z.add(file)
-
 
 
 def exists(client, loc):
@@ -203,3 +205,9 @@ def getVomsProxyPath(check_ok=True):
             )
     proxy = subprocess.check_output(["voms-proxy-info", "-path"], text=True).strip()
     return proxy
+
+
+def iterPaths(paths_or_patterns):
+    return it.chain.from_iterable(
+        Path(".").glob(x) if "*" in x else (x,) for x in paths_or_patterns
+    )

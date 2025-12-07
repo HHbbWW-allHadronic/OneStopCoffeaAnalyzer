@@ -63,6 +63,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
         dataset = dataset_repo[dataset_name]
         for sample in dataset:
             sample, meta = getWithMeta(dataset, sample.name)
+            meta = dict(meta)
             meta["era"] = era_repo[meta["era"]]
             file_set = sample.source.getFileSet()
             ret.append(

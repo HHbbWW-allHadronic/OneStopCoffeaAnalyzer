@@ -128,12 +128,13 @@ def dumpAndComplete(metadata, output_name, dask_result):
 
 
 def processTask(client, analyzer, task, chunk_size, reduction_factor):
-    task_futures = client.map(
-        getAnalyzerRunFunc(analyzer, task),
-        list(task.file_set.toChunked(chunk_size).iterChunks()),
-        key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
-    )
     with dask.annotate(priority=10):
+        task_futures = client.map(
+            getAnalyzerRunFunc(analyzer, task),
+            list(task.file_set.toChunked(chunk_size).iterChunks()),
+            key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+        )
+    with dask.annotate(priority=20):
         reduced_futures = reduceResults(
             client,
             iaddMany,
@@ -141,7 +142,7 @@ def processTask(client, analyzer, task, chunk_size, reduction_factor):
             reduction_factor,
             key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=20):
+    with dask.annotate(priority=30):
         final = client.map(
             ft.partial(dumpAndComplete, task.metadata, task.output_name),
             reduced_futures,
@@ -247,7 +248,7 @@ class LPCCondorDask(Executor):
     min_workers: int = 1
     max_workers: int = 10
 
-    worker_memory: str = "2GB"
+    worker_memory: str = "4GB"
     dashboard_address: str | None = "localhost:8789"
     schedd_address: str | None = "localhost:12358"
     adapt: bool = True
@@ -293,6 +294,7 @@ class LPCCondorDask(Executor):
             "+MaxRuntime": self.worker_timeout,
         }
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
+        print("HERE")
         self.cluster = LPCCondorCluster(
             ship_env=False,
             image=package.container,
@@ -303,8 +305,9 @@ class LPCCondorDask(Executor):
             job_script_prologue=["source setup.sh"],
             **kwargs,
         )
-        self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
         self.client = Client(self.cluster)
+        self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
+        print(self.cluster)
 
 
 if __name__ == "__main__":

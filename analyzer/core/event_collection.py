@@ -157,6 +157,13 @@ class FileInfo:
         return ret
 
     @property
+    def chunked_events(self):
+        if not self.chunks:
+            return 0
+        else:
+            return sum(y - x for x, y in self.chunks)
+
+    @property
     def empty(self):
         return not isinstance(self.chunks, None) and not self.chunks
 
@@ -277,6 +284,10 @@ class FileSet:
     #         or self.schema_name != other.schema_name
     #     ):
     #         raise RuntimeError()
+
+    @property
+    def chunked_events(self):
+        return sum(x.chunked_events for x in self.files.values())
 
     @staticmethod
     def fromChunk(chunk):
