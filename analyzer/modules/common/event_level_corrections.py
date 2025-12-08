@@ -109,7 +109,28 @@ class GoldenLumi(AnalyzerModule):
     def outputs(self, metadata):
         return [Column(("Selection", self.selection_name))]
 
-    def run(events, params, selector):
+    def run(self, columns, params):
         lumi_json = params.dataset.era.golden_json
         lmask = ltools.LumiMask(params["golden_json"])
-        selector.add(f"golden_lumi", lmask(events["run"], events["luminosityBlock"]))
+        addSelection(
+            columns,
+            self.selection_name,
+            lmask(events["run"], events["luminosityBlock"]),
+        )
+
+
+@define
+class NoiseFilter(AnalyzerModule):
+    selection_name: str = "noise_filters"
+
+    def inputs(self, metadata):
+        return [Column("Flag")]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        noise_flags = metadata["era"]["noise_filters"]
+        sel = ft.reduce(op.and_, [column["Flag"][x] for x in noise_flags])
+        selector.add(self.selection_name, sel)

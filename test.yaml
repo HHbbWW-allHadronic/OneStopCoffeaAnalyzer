@@ -92,5 +92,4 @@ extra_executors:
     venv_path: .venv
 
     chunk_size: 200000
-    min_workers: 50
     max_workers: 200

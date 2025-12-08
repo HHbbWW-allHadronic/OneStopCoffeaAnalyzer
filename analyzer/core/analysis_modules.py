@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Callable
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from cattrs import structure, unstructure
@@ -6,7 +7,7 @@ from rich import print
 
 from attrs import define, field, make_class
 from attrs import define, field
-from analyzer.utils.structure_tools import freeze,mergeUpdate
+from analyzer.utils.structure_tools import freeze, mergeUpdate
 
 from collections.abc import Collection
 from analyzer.core.columns import TrackedColumns, Column, EVENTS
@@ -66,15 +67,11 @@ class ModuleParameterValues:
     def __iter__(self):
         return iter(self.param_values)
 
-
     def __hash__(self):
         return hash(self.param_values)
 
     def __getitem__(self, key):
         return self.param_values[key]
-
-
-
 
 
 @define
@@ -125,6 +122,13 @@ class ParameterSpec:
     tags: set[str] = field(factory=set)
     metadata: dict[str, Any] = field(factory=dict)
     param_type: type | None = None
+    correlation_function: Callable | None = None
+    correlated_values: Collection | None = None
+
+
+    @property
+    def free_values(self):
+        return set(possible_values) - set(correlated_values)
 
 
 @define
@@ -315,12 +319,16 @@ class AnalyzerModule(abc.ABC):
 def defaultCols(columns):
     def inner(self, metadata):
         return [Column(x) for x in columns]
+
     return inner
+
 
 def defaultParameterSpec(params):
     def inner(self, metadata):
         return ModuleParameterSpec(params)
+
     return inner
+
 
 def register_module(input_columns, output_columns, configuration=None, params=None):
     configuration = configuration or {}
@@ -351,6 +359,7 @@ def register_module(input_columns, output_columns, configuration=None, params=No
             ),
         )
         return cls
+
     return wrapper
 
 
@@ -365,4 +374,3 @@ class ModuleAddition:
 def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
     include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)
-

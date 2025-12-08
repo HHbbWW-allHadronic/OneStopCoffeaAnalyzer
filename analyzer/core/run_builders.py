@@ -34,3 +34,5 @@ def buildVariations(spec, metadata=None):
     shapes = buildCombos(spec, "shape_variation")
     all_vars = [["central", {}]] + weights + shapes
     return all_vars
+
+
