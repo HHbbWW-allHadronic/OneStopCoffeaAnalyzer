@@ -2,10 +2,12 @@ import logging
 from pathlib import Path
 
 from rich import print
-from analyzer.core.analysis import loadAnalysis
+from analyzer.core.analysis import loadAnalysis, getSamples
 from analyzer.configuration import CONFIG
 from analyzer.core.executors import getPremadeExcutors, ExecutionTask
-from analyzer.utils.structure_tools import getWithMeta
+from analyzer.utils.structure_tools import getWithMeta, globWithMeta
+from analyzer.core.results import loadResults
+from analyzer.core.event_collection import buildMissingFileset
 from analyzer.logging import logger
 
 
@@ -53,11 +55,22 @@ def getRepos(extra_dataset_paths=None, extra_era_paths=None):
     return dataset_repo, era_repo
 
 
+def getMatchedCollections(dataset_repo, descs):
+    ret = defaultdict(list)
+    for k in dataset_repo:
+        for desc in descs:
+            matched = desc.dataset.match(k)
+            if matched:
+                ret[k].append(desc)
+    return ret
+
+
 def getTasks(dataset_repo, era_repo, dataset_descs):
     todo = []
-    for desc in dataset_descs:
-        ds = [(x, desc.pipelines) for x in dataset_repo if desc.dataset.match(x)]
-        todo.extend(ds)
+    matched = getMatchedCollections(dataset_repo, dataset_descs)
+    if any(len(x) != 1 for x in matched.values()):
+        raise RuntimeError(f"More than one matching pattern")
+    todo = [(k, x[0].pipelines) for k, x in matched.items()]
     ret = []
     for dataset_name, pipelines in todo:
         dataset = dataset_repo[dataset_name]
@@ -77,27 +90,40 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
     return ret
 
 
-def getPatches(dataset_repo, era_repo, dataset_descs, existing_file_sets):
-    todo = []
-    for desc in dataset_descs:
-        ds = [(x, desc.pipelines) for x in dataset_repo if desc.dataset.match(x)]
-        todo.extend(ds)
+def getTasksExplicit(dataset_repo, era_repo, dataset_descs, samples):
     ret = []
-    for dataset_name, pipelines in todo:
+    for dataset_name, sample_name in samples:
+        matched = [x for x in dataset_descs if x.dataset.match(dataset_name)]
+        if len(matched) != 1:
+            raise RuntimeError(f"More than one matching pattern")
+        pipelines = matched[0].pipelines
         dataset = dataset_repo[dataset_name]
-        for sample in dataset:
-            sample, meta = getWithMeta(dataset, sample.name)
-            meta["era"] = era_repo[meta["era"]]
-            file_set = sample.source.getFileSet()
-            ret.append(
-                ExecutionTask(
-                    file_set=file_set,
-                    metadata=meta,
-                    pipelines=pipelines,
-                    output_name=meta["dataset_name"] + "__" + meta["sample_name"],
-                )
+        sample, meta = getWithMeta(dataset, sample_name)
+        meta = dict(meta)
+        meta["era"] = era_repo[meta["era"]]
+        file_set = sample.source.getFileSet()
+        ret.append(
+            ExecutionTask(
+                file_set=file_set,
+                metadata=meta,
+                pipelines=pipelines,
+                output_name=meta["dataset_name"] + "__" + meta["sample_name"],
             )
+        )
     return ret
+
+
+def runTasks(analyzer, tasks, executor, output):
+    needed_resources = set()
+    for task in tasks:
+        needed_resources |= set(analyzer.neededResources(task.metadata))
+    needed_resources = list(needed_resources)
+    executor.setup(needed_resources)
+
+    saver = Saver(output)
+
+    for result in executor.run(analyzer, tasks):
+        saver(result.output_name, result.result)
 
 
 def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
@@ -118,17 +144,60 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
     logger.info(f"Preparing to run {len(tasks)} tasks.")
+    runTasks(analysis.analyzer, tasks, executor, output)
 
-    needed_resources = set()
-    for task in tasks:
-        needed_resources |= set(analysis.analyzer.neededResources(task.metadata))
-    needed_resources = list(needed_resources)
-    executor.setup(needed_resources)
 
-    saver = Saver(output)
+def patchFromPath(
+    path, existing, output, executor_name, filter_samples=None, limit_pipelines=None
+):
 
-    for result in executor.run(analysis.analyzer, tasks):
-        saver(result.output_name, result.result)
+    from analyzer.core.datasets import DatasetRepo
+    from analyzer.core.era import EraRepo
+
+    logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
+    output = Path(output)
+    analysis = loadAnalysis(path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
+    )
+    all_executors = getPremadeExcutors()
+    all_executors.update(analysis.extra_executors)
+    executor = all_executors[executor_name]
+
+    results = loadResults(existing, peek_only=True)
+
+    provenances = globWithMeta(results, ("*", "*", "_provenance"))
+    all_samples = getSamples(analysis, dataset_repo)
+    present = set((x["dataset_name"], x["sample_name"]) for _, x in provenances)
+    missing = sorted(all_samples - present)
+    missing_tasks = getTasksExplicit(
+        dataset_repo, era_repo, analysis.event_collections, missing
+    )
+
+    # matched = getMatchedCollections(dataset_repo, analysis.event_collections)
+    all_tasks = missing_tasks
+
+    for provenance, meta in provenances:
+        dataset_name = meta["dataset_name"]
+        sample_name = meta["sample_name"]
+        n_events = meta["n_events"]
+        if provenance.chunked_events == n_events:
+            continue
+        s = dataset_repo[dataset_name][sample_name]
+        source = s.source
+        task = getTasksExplicit(
+            dataset_repo,
+            era_repo,
+            analysis.event_collections,
+            [(dataset_name, sample_name)],
+        )[0]
+        task.file_set = buildMissingFileset(source, provenance.file_set)
+        if not task.file_set.empty:
+            all_tasks.append(task)
+
+
+    logger.info(f"Preparing to run {len(all_tasks)} tasks.")
+    runTasks(analysis.analyzer, all_tasks, executor, output)
 
 
 # def patchFromPath(

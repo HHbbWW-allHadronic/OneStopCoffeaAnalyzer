@@ -254,17 +254,19 @@ def check(files, configuration, only_bad):
 
 
 @cli.command()
-@click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
-@click.argument("output", type=click.Path(file_okay=False, dir_okay=True))
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--output", "-o", type=str, required=True)
+@click.option("--configuration", "-c", type=str, required=True)
 @click.option("--executor", "-e", type=str, required=True)
 def patch(
-    input,
+    inputs,
     output,
+    configuration,
     executor,
 ):
-    print(output)
+    from analyzer.core.running import patchFromPath
 
-    pass
+    patchFromPath(configuration, inputs, output, executor)
 
 
 @cli.command()

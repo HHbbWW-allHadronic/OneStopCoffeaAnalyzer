@@ -135,7 +135,7 @@ class FileInfo:
         return ret
 
     def iChunk(self, chunk_size):
-        if self.nevents is None:
+        if self.nevents is None or self.chunks is not None:
             raise RuntimeError()
         self.target_chunk_size = self.target_chunk_size or chunk_size
         self.chunks = chunkN(self.nevents, self.target_chunk_size)
@@ -308,6 +308,7 @@ class FileSet:
     def asMaximal(self):
         ret = copy.deepcopy(self)
         for file_info in ret.files.values():
+            file_info.chunks = None
             file_info.iChunk(file_info.target_chunk_size)
         return ret
 
@@ -335,9 +336,7 @@ class FileSet:
             k = (finfo.file_path, finfo.tree_name)
             if k in cache:
                 nevents = cache[k]
-                self.files[finfo.file_path] = FileInfo(
-                    finfo.file_path, nevents, finfo.tree_name
-                )
+                self.files[finfo.file_path].nevents = nevents
 
     def intersection(self, other):
         common_files = set(self.files).intersection(set(other.files))
@@ -424,7 +423,7 @@ class FileSet:
 
     def toChunked(self, chunk_size):
         files = {
-            x: y.chunked(chunk_size)
+            x: y.chunked(chunk_size) if y.chunks is None else y
             for x, y in self.files.items()
             if y.nevents is not None
         }
