@@ -2,6 +2,7 @@ from analyzer.core.analysis_modules import AnalyzerModule, register_module
 import awkward as ak
 from analyzer.core.columns import Column, EVENTS
 from attrs import define, field
+from analyzer.core.columns import addSelection
 from analyzer.core.results import SelectionFlow
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
@@ -31,13 +32,11 @@ class SelectOnColumns(AnalyzerModule):
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}
 
         for name in cuts[1:]:
-            ret = ret & columns[name]
+            ret = ret & columns[Column("Selection") + name]
             cutflow[name] = ak.count_nonzero(ret, axis=0)
 
-        columns = columns.filter(ret)
-        return columns, [
-            SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)
-        ]
+        columns.filter(ret)
+        return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
 
     def inputs(self, metadata):
         if self.selection_names is None:
@@ -67,7 +66,7 @@ class NObjFilter(AnalyzerModule):
                 sel = sel & (count <= self.max_count)
             else:
                 sel = count <= self.max_count
-        columns["Selection", self.selection_name] = sel
+        addSelection(columns, self.selection_name, sel)
         return columns, []
 
     def inputs(self, metadata):

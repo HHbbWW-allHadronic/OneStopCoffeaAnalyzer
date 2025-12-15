@@ -31,15 +31,57 @@ from analyzer.core.analysis_modules import (
 
 
 @define
+class FilterNear(AnalyzerModule):
+    target_col: Column
+    near_col: Column
+    output_col: Column
+    max_dr: float
+
+    def run(self, columns, params):
+        target = columns[self.target_col]
+        near = columns[self.near_col]
+        nearest = target.nearest(near, threshold=self.max_dr)
+        filtered = target[ak.is_none(nearest, axis=1)]
+
+        columns[self.output_col] = filtered
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.target_col, self.near_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+
+@define
+class PromoteIndex(AnalyzerModule):
+    input_col: Column
+    output_col: Column
+    index: int = 0
+
+    def run(self, columns, params):
+        columns[self.output_col] = columns[self.input_col][:, self.index]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+
+@define
 class VetoMapFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
     should_run: MetadataExpr = field(factory=lambda: IsRun(2))
+    veto_type = "jetvetomap"
+
+    __corrections: dict = field(factory=dict)
 
     def run(self, columns, params):
-        map_name = columns.metadata["era"]["jet_veto_map"]["name"]
-        corr = self.getCorr(columns.metadata)[map_name]
+        corr = self.getCorr(columns.metadata)
         j = columns[self.input_col]
         j = j[
             (abs(j.eta) < 2.4)
@@ -47,17 +89,19 @@ class VetoMapFilter(AnalyzerModule):
             & ((j.jetId & 0b100) != 0)
             & ((j.chEmEF + j.neEmEF) < 0.9)
         ]
-        vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
+        vetoes = corr.evaluate(self.veto_type, j.eta, j.phi)
         passed_jets = j[(vetoes == 0)]
         columns[self.output_col] = passed_jets
         return columns, []
 
     def getCorr(self, metadata):
-        file_path = metadata["era"]["jet_veto_map"]
-        if file_path in self.__corrections:
-            return self.__corrections[file_path]
-        ret = correctionlib.CorrectionSet.from_file(file_path)
-        self.__corrections[file_path] = ret
+        info = metadata["era"]["jet_veto_map"]
+        path, name = info["file"], info["name"]
+        k = (path, name)
+        if k in self.__corrections:
+            return self.__corrections[k]
+        ret = correctionlib.CorrectionSet.from_file(path)[name]
+        self.__corrections[k] = ret
         return ret
 
     def preloadForMeta(self, metadata):
@@ -113,10 +157,10 @@ class VetoMap(AnalyzerModule):
 @define
 class JetEtaPhiVeto(AnalyzerModule):
     input_col: Column
-    selection_name: str = "jet_eta_phi_veto"
     phi_range: tuple[float, float]
     eta_range: tuple[float, float]
     run_range: tuple[float, float] | None = None
+    selection_name: str = "jet_eta_phi_veto"
 
     def run(self, columns, params):
         j = columns[self.input_col]
@@ -187,10 +231,10 @@ class JetFilter(AnalyzerModule):
 
         if self.include_pu_id:
             if any(
-                x in metadata["dataset"]["era"]["name"]
+                x in metadata["era"]["name"]
                 for x in ["2016", "2017", "2018"]
             ):
-                good_jets = good_jets[(gj.pt > 50) | ((good_jets.puId & 0b10) != 0)]
+                good_jets = good_jets[(good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)]
         columns[self.output_col] = good_jets
         return columns, []
 

@@ -1,4 +1,7 @@
 import coffea.lumi_tools as ltools
+import functools as ft
+from analyzer.core.columns import addSelection
+import operator as op
 from analyzer.configuration import CONFIG
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
@@ -144,6 +147,7 @@ class NoiseFilter(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         noise_flags = metadata["era"]["noise_filters"]
-        sel = ft.reduce(op.and_, [column["Flag"][x] for x in noise_flags])
-        selector.add(self.selection_name, sel)
+        sel = ft.reduce(op.and_, [columns["Flag"][x] for x in noise_flags])
+        addSelection(columns, self.selection_name, sel)
+        return columns, []
 

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+from .finalizers import basicFinalizer
 from typing import Literal
 from analyzer.core.event_collection import FileInfo
 from .executor import Executor, CompletedTask
@@ -25,4 +26,5 @@ class ImmediateExecutor(Executor):
             chunked = file_set.toChunked(self.chunk_size)
             for chunk in chunked.iterChunks():
                 result = analyzer.run(chunk, task.metadata, task.pipelines)
+                result.finalize(basicFinalizer)
                 yield CompletedTask(result.toBytes(), task.metadata, task.output_name)

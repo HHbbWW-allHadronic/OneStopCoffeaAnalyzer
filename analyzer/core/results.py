@@ -199,11 +199,7 @@ class ResultGroup(ResultBase):
             self.results[k].iscale(value)
         return self
 
-    def finalize(self, finalizer, converter):
-        converter.unstructure(self.results)
-        results = finalizer(results)
-        self.results = converter.structure(results, dict[str, ResultBase])
-
+    def finalize(self, finalizer):
         for result in self.results.values():
             result.finalize(finalizer)
 
@@ -225,6 +221,9 @@ class ResultProvenance(ResultBase):
     @property
     def chunked_events(self):
         return self.file_set.chunked_events
+
+    def finalize(self, finalizer):
+        pass
 
 
 @define
@@ -295,7 +294,7 @@ class ScalableArray(ResultBase):
         self.array *= value
         return self
 
-    def finalize(self, finalizer, converter):
+    def finalize(self, finalizer):
         self.array = finalizer(self.array)
 
 
@@ -316,6 +315,28 @@ class RawArray(ResultBase):
 
     def approxSize(self):
         return getArrayMem(array)
+
+
+@define
+class SavedColumns(ResultBase):
+    data: dict[str, ak.Array | dak.Array | np.ndarray]
+
+    def __iadd__(self, other):
+        if set(self.data) != set(other.data):
+            raise RuntimeError()
+        for k in self.data:
+            self.data[k] = np.concatenate(self.data[k], other.data[k], axis=0)
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        for k in self.data:
+            self.data[k] = finalizer(self.data[k])
+
+    def approxSize(self):
+        return sum(getArrayMem(x) for x in data.values())
 
 
 Scalar = dak.Scalar | numbers.Real
@@ -352,7 +373,7 @@ class SelectionFlow(ResultBase):
         # for x in self.one_cut:
         #     self.one_cut[x] = value * self.one_cut[x]
 
-    def finalize(self, finalizer, converter):
+    def finalize(self, finalizer):
         pass
 
 
@@ -370,7 +391,7 @@ class RawEventCount(ResultBase):
     def iscale(self, value):
         return self
 
-    def finalize(self, finalizer, converter):
+    def finalize(self, finalizer):
         pass
 
 
@@ -389,7 +410,7 @@ class ScaledEventCount(ResultBase):
         self.count *= value
         return self
 
-    def finalize(self, finalizer, converter):
+    def finalize(self, finalizer):
         pass
 
 
@@ -418,7 +439,7 @@ class RawSelectionFlow(ResultBase):
     def iscale(self, value):
         return self
 
-    def finalize(self, finalizer, converter):
+    def finalize(self, finalizer):
         pass
 
 

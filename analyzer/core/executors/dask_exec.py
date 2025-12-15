@@ -1,4 +1,5 @@
 from __future__ import annotations
+from .finalizers import basicFinalizer
 from analyzer.configuration import CONFIG
 import time
 from pathlib import Path
@@ -122,6 +123,8 @@ def getAnalyzerRunFunc(analyzer, task):
 
 def dumpAndComplete(metadata, output_name, dask_result):
     result, exceptions = dask_result.maybe_result, dask_result.maybe_exceptions
+    result.finalize(basicFinalizer)
+
     if result is not None:
         result = result.toBytes()
     return DaskRunResult(CompletedTask(result, metadata, output_name), exceptions)

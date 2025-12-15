@@ -3,6 +3,7 @@ from pathlib import Path
 
 from rich import print
 from analyzer.core.analysis import loadAnalysis, getSamples
+from collections import defaultdict
 from analyzer.configuration import CONFIG
 from analyzer.core.executors import getPremadeExcutors, ExecutionTask
 from analyzer.utils.structure_tools import getWithMeta, globWithMeta

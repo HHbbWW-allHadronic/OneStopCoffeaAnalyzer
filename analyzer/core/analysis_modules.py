@@ -221,7 +221,8 @@ class IsSampleType(MetadataExpr):
     sample_type: str
 
     def evaluate(self, metadata):
-        return metadata["dataset"]["sample_type"] == self.sample_type
+        print(metadata)
+        return metadata["sample_type"] == self.sample_type
 
 
 @define
@@ -260,7 +261,7 @@ class MetadataNot(MetadataExpr):
 @define
 class AnalyzerModule(abc.ABC):
     __cache: dict = field(factory=dict, init=False, repr=False)
-    should_run: MetadataExpr | None = field(default=True, kw_only=True)
+    should_run: MetadataExpr | None = field(default=None, kw_only=True)
 
     @abc.abstractmethod
     def run(
@@ -354,23 +355,27 @@ class AnalyzerModule(abc.ABC):
         return ret
 
     def __call__(self, columns, params):
-        logger.debug(f"Running analyzer module {self}")
-        # if not self.should_run(columns.metadata):
-        #     returncolumns, {}
-        if self.should_run is not None and columns is not None:
-            metadata = columns.metadata
-            should_run = self.should_run(metadata)
-            if not should_run:
-                return columns, []
+        try:
+            logger.debug(f"Running analyzer module {self}")
+            # if not self.should_run(columns.metadata):
+            #     returncolumns, {}
+            if self.should_run is not None and columns is not None:
+                metadata = columns.metadata
+                should_run = self.should_run.evaluate(metadata)
+                if not should_run:
+                    return columns, []
 
-        if isinstance(columns, TrackedColumns):
-            return self.__runStandard(columns, params)
-        elif isinstance(columns, list):
-            return self.__runMulti(columns, params)
-        elif columns is None:
-            return self.__runNoInputs(params)
-        else:
-            raise RuntimeError()
+            if isinstance(columns, TrackedColumns):
+                return self.__runStandard(columns, params)
+            elif isinstance(columns, list):
+                return self.__runMulti(columns, params)
+            elif columns is None:
+                return self.__runNoInputs(params)
+            else:
+                raise RuntimeError()
+        except Exception as e:
+            logger.error(f"An exception occurred while running module {self}")
+            raise e
 
     @classmethod
     def name(cls):

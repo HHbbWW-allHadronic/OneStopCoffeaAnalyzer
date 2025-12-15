@@ -7,12 +7,16 @@ import correctionlib
 import enum
 
 
-class CutBasedWPs(enum.Enum):
-    fail =  0
-    veto = 1
-    loose = 2
-    medium = 3
-    tight = 3
+class CutBasedWPs(str, enum.Enum):
+    fail = "fail"
+    veto = "veto"
+    loose = "loose"
+    medium = "medium"
+    tight = "tight"
+
+
+cut_mapping = dict(fail=0, veto=1, loose=2, medium=3, tight=4)
+
 
 @define
 class ElectronMaker(AnalyzerModule):
@@ -21,6 +25,7 @@ class ElectronMaker(AnalyzerModule):
     working_point: CutBasedWPs
     min_pt: float = 10
     max_abs_eta: float = 2.4
+    max_mini_iso: float = 0.1
 
     __corrections: dict = field(factory=dict)
 
@@ -28,8 +33,9 @@ class ElectronMaker(AnalyzerModule):
         electrons = columns[self.input_col]
         pass_pt = electrons.pt > self.min_pt
         pass_eta = abs(electrons.eta) < self.max_abs_eta
-        pass_wp = electrons.cutBased >= self.working_point
-        columns[self.output_col] = electrons[pass_pt & pass_eta & pass_wp]
+        pass_wp = electrons.cutBased >= cut_mapping[self.working_point]
+        pass_iso = electrons.miniPFRelIso_all < self.max_mini_iso
+        columns[self.output_col] = electrons[pass_pt & pass_eta & pass_wp & pass_iso]
         return columns, []
 
     def inputs(self, metadata):

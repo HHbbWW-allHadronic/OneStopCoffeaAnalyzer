@@ -119,6 +119,7 @@ class Dataset:
             dataset_name=self.name,
             dataset_title=self.title,
             era=self.era,
+            sample_type=self.sample_type,
             other_data=self.other_data,
         )
 

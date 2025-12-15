@@ -247,6 +247,7 @@ class TrackedColumns:
         self._events = self._events[mask]
         for c in self._column_provenance:
             self._column_provenance[c] = self._current_provenance
+        return self
 
     @contextlib.contextmanager
     def useKey(self, provenance):
