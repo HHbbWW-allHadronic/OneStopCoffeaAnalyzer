@@ -1,4 +1,6 @@
 from analyzer.core.analysis_modules import AnalyzerModule, register_module
+
+from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
 import awkward as ak
 import itertools as it
@@ -18,11 +20,22 @@ import correctionlib.schemav2 as cs
 from functools import lru_cache
 
 
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    register_module,
+    MetadataExpr,
+    MetadataAnd,
+    IsRun,
+    IsSampleType,
+)
+
+
 @define
 class VetoMapFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
+    should_run: MetadataExpr = field(factory=lambda: IsRun(2))
 
     def run(self, columns, params):
         map_name = columns.metadata["era"]["jet_veto_map"]["name"]
@@ -55,6 +68,85 @@ class VetoMapFilter(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+@define
+class VetoMap(AnalyzerModule):
+    input_col: Column
+    selection_name: str = "jet_veto_map"
+    # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
+    should_run: MetadataExpr = field(factory=lambda: IsRun(3))
+
+    def run(self, columns, params):
+        map_name = columns.metadata["era"]["jet_veto_map"]["name"]
+        corr = self.getCorr(columns.metadata)[map_name]
+        j = columns[self.input_col]
+        j = j[
+            (abs(j.eta) < 2.4)
+            & (j.pt > 15)
+            & ((j.jetId & 0b100) != 0)
+            & ((j.chEmEF + j.neEmEF) < 0.9)
+        ]
+        vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
+        passed = ak.any(vetoes != 0, axis=1)
+        addSelection(columns, self.selection_name, passed)
+        return columns, []
+
+    def getCorr(self, metadata):
+        file_path = metadata["era"]["jet_veto_map"]
+        if file_path in self.__corrections:
+            return self.__corrections[file_path]
+        ret = correctionlib.CorrectionSet.from_file(file_path)
+        self.__corrections[file_path] = ret
+        return ret
+
+    def preloadForMeta(self, metadata):
+        self.getCorr(metadata)
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
+
+
+@define
+class JetEtaPhiVeto(AnalyzerModule):
+    input_col: Column
+    selection_name: str = "jet_eta_phi_veto"
+    phi_range: tuple[float, float]
+    eta_range: tuple[float, float]
+    run_range: tuple[float, float] | None = None
+
+    def run(self, columns, params):
+        j = columns[self.input_col]
+        j = j[
+            (abs(j.eta) < 2.4)
+            & (j.pt > 15)
+            & ((j.jetId & 0b100) != 0)
+            & ((j.chEmEF + j.neEmEF) < 0.9)
+        ]
+
+        in_phi = (j.phi > self.phi_range[0]) & (j.phi < self.phi_range[1])
+        in_eta = (j.eta > self.eta_range[0]) & (j.eta < self.eta_range[1])
+
+        if self.run_range is None:
+            any_in = ak.any(in_phi & in_eta, axis=1)
+        else:
+            veto_run = columns["run"]
+            any_in = ak.any(in_phi & in_eta, axis=1) & veto_run
+
+        addSelection(columns, self.selection_name, ~any_in)
+        return columns, []
+
+    def inputs(self, metadata):
+        if self.run_range is None:
+            return [self.input_col]
+        else:
+            return [self.input_col, Column("run")]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
 
 
 @define
@@ -140,6 +232,7 @@ class TopJetHistograms(AnalyzerModule):
     def inputs(self, metadata):
         return [self.input_col]
 
+
 @define
 class JetComboHistograms(AnalyzerModule):
     prefix: str
@@ -164,7 +257,6 @@ class JetComboHistograms(AnalyzerModule):
                     mask=mask,
                 )
             )
-
 
         return columns, ret
 
@@ -267,6 +359,8 @@ class JetResolutionCorrections(AnalyzerModule):
     input_col: Column
     output_col: Column
     jet_type: str = "AK4"
+
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType(MC))
 
     @staticmethod
     def getKeyJer(name, jet_type, params):
@@ -469,6 +563,7 @@ def corrected_jets(
 class PileupJetIdSF(AnalyzerModule):
     input_col: Column
     weight_name: str = "puid_sf"
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType(MC))
 
     __corrections: dict = field(factory=dict)
 

@@ -1,6 +1,13 @@
 import coffea.lumi_tools as ltools
 from analyzer.configuration import CONFIG
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    register_module,
+    MetadataExpr,
+    MetadataAnd,
+    IsRun,
+    IsSampleType,
+)
 from analyzer.core.columns import Column
 from attrs import define, field
 from .axis import RegularAxis
@@ -27,6 +34,7 @@ class PileupSF(AnalyzerModule):
     input_col: Column
     weight_name: str = "pileup_sf"
 
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
     __corrections: dict = field(factory=dict)
 
     def getParameterSpec(self, metadata):
@@ -71,7 +79,9 @@ class PileupSF(AnalyzerModule):
 
 @define
 class L1PrefiringSF(AnalyzerModule):
-    input_col: Column
+    should_run: MetadataExpr = field(
+        factory=lambda: MetadataAnd([IsSampleType("MC"), IsRun(2)])
+    )
     weight_name: str = "l1_prefiring"
 
     __corrections: dict = field(factory=dict)
@@ -93,7 +103,7 @@ class L1PrefiringSF(AnalyzerModule):
         return columns, []
 
     def inputs(self, metadata):
-        return []
+        return [Columns(["L1PreFiringWeight"])]
 
     def outputs(self, metadata):
         return [Columns(fields=("Weights", self.weight_name))]
@@ -102,6 +112,7 @@ class L1PrefiringSF(AnalyzerModule):
 @define
 class GoldenLumi(AnalyzerModule):
     selection_name: str = "golden_lumi"
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("Data"))
 
     def inputs(self, metadata):
         return [Column("run"), Column("luminosityBlock")]
@@ -110,8 +121,9 @@ class GoldenLumi(AnalyzerModule):
         return [Column(("Selection", self.selection_name))]
 
     def run(self, columns, params):
-        lumi_json = params.dataset.era.golden_json
-        lmask = ltools.LumiMask(params["golden_json"])
+        metadata = columns.metadata
+        lumi_json = metadata["era"]["golden_json"]
+        lmask = ltools.LumiMask(lumi_json)
         addSelection(
             columns,
             self.selection_name,
@@ -134,3 +146,4 @@ class NoiseFilter(AnalyzerModule):
         noise_flags = metadata["era"]["noise_filters"]
         sel = ft.reduce(op.and_, [column["Flag"][x] for x in noise_flags])
         selector.add(self.selection_name, sel)
+

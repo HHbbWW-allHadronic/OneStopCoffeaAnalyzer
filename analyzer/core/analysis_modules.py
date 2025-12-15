@@ -1,4 +1,6 @@
 from __future__ import annotations
+from typing import TypeVar, Generic
+from analyzer.core.datasets import SampleType
 from typing import Callable
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
@@ -125,7 +127,6 @@ class ParameterSpec:
     correlation_function: Callable | None = None
     correlated_values: Collection | None = None
 
-
     @property
     def free_values(self):
         return set(possible_values) - set(correlated_values)
@@ -202,10 +203,64 @@ def toTuples(d):
 
 
 @define
+class MetadataExpr(abc.ABC):
+    @abc.abstractmethod
+    def evaluate(self, metadata): ...
+
+
+@define
+class IsYear(MetadataExpr):
+    year: str
+
+    def evaluate(self, metadata):
+        return metadata["era"]["name"] == self.year
+
+
+@define
+class IsSampleType(MetadataExpr):
+    sample_type: str
+
+    def evaluate(self, metadata):
+        return metadata["dataset"]["sample_type"] == self.sample_type
+
+
+@define
+class IsRun(MetadataExpr):
+    run: int
+
+    def evaluate(self, metadata):
+        is_run_2 = any(x in metadata["era"]["name"] for x in ("2016", "2017", "2018"))
+        return (self.run == 2) == is_run_2
+
+
+@define
+class MetadataAnd(MetadataExpr):
+    require_all: list[MetadataExpr]
+
+    def evaluate(self, metadata):
+        return all(x.evaluate(metadata) for x in self.require_all)
+
+
+@define
+class MetadataOr(MetadataExpr):
+    require_any: list[MetadataExpr]
+
+    def evaluate(self, metadata):
+        return any(x.evaludate(metadata) for x in self.require_any)
+
+
+@define
+class MetadataNot(MetadataExpr):
+    require_not: MetadataExpr
+
+    def evaluate(self, metadata):
+        return not self.require_not.evaluate(metadata)
+
+
+@define
 class AnalyzerModule(abc.ABC):
     __cache: dict = field(factory=dict, init=False, repr=False)
-
-    # should_run: MetadataExpr | bool = True
+    should_run: MetadataExpr | None = field(default=True, kw_only=True)
 
     @abc.abstractmethod
     def run(
@@ -302,6 +357,12 @@ class AnalyzerModule(abc.ABC):
         logger.debug(f"Running analyzer module {self}")
         # if not self.should_run(columns.metadata):
         #     returncolumns, {}
+        if self.should_run is not None and columns is not None:
+            metadata = columns.metadata
+            should_run = self.should_run(metadata)
+            if not should_run:
+                return columns, []
+
         if isinstance(columns, TrackedColumns):
             return self.__runStandard(columns, params)
         elif isinstance(columns, list):
@@ -335,6 +396,8 @@ def register_module(input_columns, output_columns, configuration=None, params=No
     params = params or {}
 
     def wrapper(func):
+        print(func)
+        print(func.__module__)
         getParameterSpec = defaultParameterSpec(params)
         run = func
         if callable(input_columns):
@@ -374,3 +437,4 @@ class ModuleAddition:
 def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="module_name")
     include_subclasses(AnalyzerModule, conv, union_strategy=union_strategy)
+    include_subclasses(MetadataExpr, conv)

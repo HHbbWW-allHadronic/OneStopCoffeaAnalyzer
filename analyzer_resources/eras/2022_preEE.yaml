@@ -24,6 +24,7 @@
   trigger_names:
     HT: PFHT1050
     AK8SingleJetPt: AK8PFJet420_TrimMass30
+    AK8SingleJetPtNoTrim: AK8PFJet500
     SingleMuon: Mu50
     IsoMuon: IsoMu24
     EleWPTight: Ele32_WPTight_Gsf

@@ -13,7 +13,12 @@ from attrs import define, field
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
 import correctionlib
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    register_module,
+    MetadataExpr,
+    IsSampleType,
+)
 from analyzer.core.columns import Column
 import awkward as ak
 from attrs import define, field
@@ -25,6 +30,8 @@ from .histogram_builder import makeHistogram
 class BJetShapeSF(AnalyzerModule):
     input_col: Column
     weight_name: str = "b_tag_disc_shape"
+
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
 
     __corrections: dict = field(factory=dict)
 
