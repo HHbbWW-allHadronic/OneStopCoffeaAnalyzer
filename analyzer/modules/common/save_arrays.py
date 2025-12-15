@@ -17,17 +17,17 @@ class SaveCols(AnalyzerModule):
     def run(self, columns, params):
         ret = {}
         era_trigger_names = columns.metadata["era"]["trigger_names"]
-        for col in self.to_save:
+        for name,col in self.to_save.items():
             real_name = col
             if real_name.startswith("HLTMAP:"):
                 real_name = "HLT." + era_trigger_names[real_name[7:]]
-            ret[col] = columns[real_name]
+            ret[name] = columns[real_name]
         return columns, [SavedColumns(self.save_name, ret)]
 
     def inputs(self, metadata):
         era_trigger_names = metadata["era"]["trigger_names"]
         ret = []
-        for col in self.to_save:
+        for col in self.to_save.values():
             real_name = col
             if real_name.startswith("HLTMAP:"):
                 real_name = "HLT." + era_trigger_names[real_name[7:]]
