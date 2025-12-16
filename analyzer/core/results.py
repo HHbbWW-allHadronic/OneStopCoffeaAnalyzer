@@ -39,7 +39,7 @@ import functools as ft
 def getArrayMem(array):
     from dask.sizeof import sizeof
 
-    if isinstance(array, awkward.highlevel.Array):
+    if isinstance(array, ak.highlevel.Array):
         return array.nbytes
     return sizeof(array)
 
@@ -50,16 +50,19 @@ class ResultBase(abc.ABC):
     metadata: dict[str, Any] = field(factory=dict, kw_only=True)
 
     @abc.abstractmethod
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> ResultBase:
         pass
 
     @abc.abstractmethod
-    def iscale(self, value):
+    def iscale(self, value) -> ResultBase:
         pass
 
     @abc.abstractmethod
-    def approxSize(self):
+    def approxSize(self) -> int:
         pass
+
+    @abc.abstractmethod
+    def finalize(self) -> ResultBase: ...
 
     def summary(self):
         return self
@@ -284,11 +287,11 @@ class ScalableArray(ResultBase):
 
     def __iadd__(self, other):
         if isinstance(self.array, np.ndarray):
-            self.array = np.concatenate(self.array, other.array, axis=0)
+            self.array = np.concatenate([self.array, other.array], axis=0)
         return self
 
     def approxSize(self):
-        return getArrayMem(array)
+        return getArrayMem(self.array)
 
     def iscale(self, value):
         self.array *= value
@@ -304,7 +307,7 @@ class RawArray(ResultBase):
 
     def __iadd__(self, other):
         if isinstance(self.array, np.ndarray):
-            self.array = np.concatenate(self.array, other.array, axis=0)
+            self.array = np.concatenate([self.array, other.array], axis=0)
         return self
 
     def iscale(self, value):
@@ -325,7 +328,7 @@ class SavedColumns(ResultBase):
         if set(self.data) != set(other.data):
             raise RuntimeError()
         for k in self.data:
-            self.data[k] = np.concatenate(self.data[k], other.data[k], axis=0)
+            self.data[k] = np.concatenate([self.data[k], other.data[k]], axis=0)
         return self
 
     def iscale(self, value):
@@ -336,7 +339,7 @@ class SavedColumns(ResultBase):
             self.data[k] = finalizer(self.data[k])
 
     def approxSize(self):
-        return sum(getArrayMem(x) for x in data.values())
+        return sum(getArrayMem(x) for x in self.data.values())
 
 
 Scalar = dak.Scalar | numbers.Real

@@ -94,7 +94,9 @@ event_collections:
   #   pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
-  - dataset: data_singlemuon_2018
+  # - dataset: data_singlemuon_2018
+  #   pipelines: [TriggerData]
+  - dataset: diboson_2018
     pipelines: [TriggerData]
     
   
@@ -107,7 +109,8 @@ extra_executors:
     executor_name: LocalDaskExecutor
     chunk_size: 400000
     min_workers: 1
-    max_workers: 1
+    max_workers: 3
+    reduction_factor: 2
   
   testcondor:
     executor_name: LPCCondorDask

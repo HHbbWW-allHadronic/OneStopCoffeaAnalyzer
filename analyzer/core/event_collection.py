@@ -289,6 +289,10 @@ class FileSet:
     def chunked_events(self):
         return sum(x.chunked_events for x in self.files.values())
 
+    @property
+    def total_file_events(self):
+        return sum(x.nevents if x.nevents else 0 for x in self.files.values())
+
     @staticmethod
     def fromChunk(chunk):
         return FileSet(
@@ -448,8 +452,11 @@ class FileChunk:
     file_nevents: int | None = None
 
     @property
-    def metadata(self):
-        return self.source.metadata
+    def nevents(self):
+        if self.event_start is None or self.event_stop is None:
+            return None
+        return self.event_stop-self.event_start
+
 
     def loadEvents(self, backend, view_kwargs=None):
         view_kwargs = view_kwargs or {}

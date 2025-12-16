@@ -1,33 +1,32 @@
 from __future__ import annotations
-from .finalizers import basicFinalizer
-from analyzer.configuration import CONFIG
-import time
-from pathlib import Path
-import json
-from distributed.diagnostics.plugin import UploadDirectory
+
 import functools as ft
-import dask
-import time
-from typing import Any
-import operator as op
-from attrs import define, field
-import base64
-from analyzer.core.results import ResultBase
-import os
-from distributed import Client, LocalCluster, as_completed
-from .executor import Executor, CompletedTask
-from .condor_tools import createCondorPackage
-from analyzer.core.event_collection import FileInfo
-from rich import print
-import tempfile
-import uuid
-import zipfile
+import logging
 
 # import analyzer.core.dask_sizes  # noqa
 import math
-import logging
+from pathlib import Path
+from typing import Any
+
+import dask
+from analyzer.configuration import CONFIG
+from analyzer.core.event_collection import FileChunk
+from analyzer.core.results import ResultBase
+from attrs import define, field
 from dask.sizeof import sizeof
-import os
+from distributed import Client, LocalCluster, as_completed
+from rich.progress import (
+    Progress,
+    TimeElapsedColumn,
+    MofNCompleteColumn,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+)
+
+from .condor_tools import createCondorPackage
+from .executor import CompletedTask, Executor
+from .finalizers import basicFinalizer
 
 
 class AnalyzerRuntimeError(ExceptionGroup):
@@ -43,15 +42,17 @@ class DaskRunException:
 
 @define
 class DaskRunResult:
-    maybe_result: ResultBase | None
+    maybe_result: CompletedTask | ResultBase | None
     maybe_exceptions: list[DaskRunException] = field(factory=list)
+    events_processed: int = 0
 
-    def __iadd__(self, other):
+    def __iadd__(self, other: DaskRunResult):
         if self.maybe_result is None and other.maybe_result is not None:
             self.maybe_result = other.maybe_result
         elif self.maybe_result is not None and other.maybe_result is not None:
             self.maybe_result += other.maybe_result
         self.maybe_exceptions += other.maybe_exceptions
+        self.events_processed += other.events_processed
         return self
 
 
@@ -114,9 +115,11 @@ logger = logging.getLogger("analyzer")
 def getAnalyzerRunFunc(analyzer, task):
     def inner(chunk):
         try:
-            return DaskRunResult(analyzer.run(chunk, task.metadata, task.pipelines), [])
+            return DaskRunResult(
+                analyzer.run(chunk, task.metadata, task.pipelines), [], chunk.nevents
+            )
         except Exception as e:
-            return DaskRunResult(None, [DaskRunException(chunk, e)])
+            return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
     return inner
 
@@ -124,17 +127,37 @@ def getAnalyzerRunFunc(analyzer, task):
 def dumpAndComplete(metadata, output_name, dask_result):
     result, exceptions = dask_result.maybe_result, dask_result.maybe_exceptions
     result.finalize(basicFinalizer)
-
     if result is not None:
         result = result.toBytes()
-    return DaskRunResult(CompletedTask(result, metadata, output_name), exceptions)
+
+    return DaskRunResult(
+        CompletedTask(result, metadata, output_name),
+        exceptions,
+        dask_result.events_processed,
+    )
 
 
-def processTask(client, analyzer, task, chunk_size, reduction_factor):
+def processTask(
+    client, analyzer, task, chunk_size, reduction_factor, max_sample_events=None
+):
+    chunked = task.file_set.toChunked(chunk_size)
+    n_events = chunked.chunked_events
+    chunks = list(chunked.iterChunks())
+    if max_sample_events:
+        new_chunks = []
+        total = 0
+        for c in chunks:
+            total += c.nevents or 0
+            new_chunks.append(c)
+            if total > max_sample_events:
+                break
+
+        chunks = new_chunks
+
     with dask.annotate(priority=10):
         task_futures = client.map(
             getAnalyzerRunFunc(analyzer, task),
-            list(task.file_set.toChunked(chunk_size).iterChunks()),
+            chunks,
             key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
     with dask.annotate(priority=20):
@@ -151,7 +174,7 @@ def processTask(client, analyzer, task, chunk_size, reduction_factor):
             reduced_futures,
             key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    return final
+    return n_events, final
 
 
 def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events=None):
@@ -159,6 +182,19 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
 
     file_prep_tasks = {}
     file_prep_task_mapping = {}
+
+    progress_bar = Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        MofNCompleteColumn(),
+        TimeElapsedColumn(),
+    )
+
+    bar_prep = progress_bar.add_task("Prep Tasks")
+    bar_events = progress_bar.add_task("Events")
+    total_prep = 0
+    total_events = 0
 
     for i, task in tasks.items():
         file_set = task.file_set
@@ -169,49 +205,67 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
             needed_updates,
             key=f"prep--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-
+        total_prep += len(needed_updates)
         file_prep_tasks[i] = set(futures)
         for f in futures:
             file_prep_task_mapping[f] = i
+
+    progress_bar.update(bar_prep, total=total_prep)
+    progress_bar.update(bar_events, total=0)
 
     as_comp = as_completed((y for x in file_prep_tasks.values() for y in x))
 
     for i, task in tasks.items():
         if not file_prep_tasks[i]:
-            as_comp.update(
-                processTask(client, analyzer, task, chunk_size, reduction_factor)
+            n_events, new_tasks = processTask(
+                client,
+                analyzer,
+                task,
+                chunk_size,
+                reduction_factor,
+                max_sample_events=max_sample_events,
             )
+            as_comp.update(new_tasks)
+            total_events += n_events
 
-    for future in as_comp:
-        try:
-            result = future.result()
-        except Exception as e:
-            result = None
-        if future in file_prep_task_mapping:
-            index = file_prep_task_mapping.pop(future)
-            if result is not None:
-                tasks[index].file_set.updateFileInfo(result)
-            future.cancel()
-            file_prep_tasks[index].remove(future)
-            if not file_prep_tasks[index] or (
-                max_sample_events
-                and tasks[index].file_set.chunked_events >= max_sample_events
-            ):
-                task = tasks[index]
-                as_comp.update(
-                    processTask(client, analyzer, task, chunk_size, reduction_factor)
-                )
-                for f in file_prep_tasks:
-                    f.cancel()
+    progress_bar.update(bar_events, total=total_events)
 
-        elif isinstance(result, DaskRunResult):
-            if result is None:
-                continue
-            ret = result.maybe_result
-            exceptions = result.maybe_exceptions
-            if ret is not None:
-                yield ret
-            future.cancel()
+    with progress_bar:
+        for future in as_comp:
+            try:
+                result = future.result()
+            except Exception as e:
+                raise e
+                result = None
+            if future in file_prep_task_mapping:
+                progress_bar.update(bar_prep, advance=1)
+                index = file_prep_task_mapping.pop(future)
+                if result is not None:
+                    tasks[index].file_set.updateFileInfo(result)
+                future.cancel()
+                file_prep_tasks[index].remove(future)
+                if not file_prep_tasks[index]:
+                    task = tasks[index]
+                    n_events, new_tasks = processTask(
+                        client,
+                        analyzer,
+                        task,
+                        chunk_size,
+                        reduction_factor,
+                        max_sample_events=max_sample_events,
+                    )
+                    as_comp.update(new_tasks)
+                    total_events += n_events
+                    progress_bar.update(bar_events, total=total_events)
+
+            elif isinstance(result, DaskRunResult):
+                if result is None:
+                    continue
+                ret = result.maybe_result
+                progress_bar.update(bar_events, advance=result.events_processed)
+                if ret is not None:
+                    yield ret
+                future.cancel()
 
 
 @define
@@ -220,7 +274,7 @@ class LocalDaskExecutor(Executor):
     min_workers: int
 
     worker_memory: str = "4GB"
-    dashboard_address: str | None = "localhost:8789"
+    dashboard_address: str = "localhost:8789"
     schedd_address: str | None = "localhost:12358"
     adapt: bool = True
     chunk_size: int | None = 100000
@@ -312,7 +366,6 @@ class LPCCondorDask(Executor):
             "+MaxRuntime": self.worker_timeout,
         }
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
-        print("HERE")
         self.cluster = LPCCondorCluster(
             ship_env=False,
             image=package.container,
@@ -323,10 +376,6 @@ class LPCCondorDask(Executor):
             job_script_prologue=["source setup.sh"],
             **kwargs,
         )
+        logger.info(f"Started cluster {self.cluster}")
         self.client = Client(self.cluster)
         self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
-        print(self.cluster)
-
-
-if __name__ == "__main__":
-    main()

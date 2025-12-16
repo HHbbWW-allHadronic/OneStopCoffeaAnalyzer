@@ -98,8 +98,6 @@ def browse(inputs, interpretter):
     from analyzer.core.serialization import setupConverter, converter
 
     setupConverter(converter)
-    print(f"Loading Results")
-    print(inputs)
     res = loadResults(inputs)
     if interpretter:
         jumpIn(results=res)
