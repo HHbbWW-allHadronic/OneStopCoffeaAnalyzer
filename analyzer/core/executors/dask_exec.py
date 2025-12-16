@@ -27,6 +27,18 @@ from rich.progress import (
 from .condor_tools import createCondorPackage
 from .executor import CompletedTask, Executor
 from .finalizers import basicFinalizer
+from concurrent.futures import ProcessPoolExecutor, TimeoutError
+
+
+def callTimeout(process_timeout, function, *args, **kwargs):
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        try:
+            future = executor.submit(function, *args, **kwargs)
+            return future.result(timeout=process_timeout)
+        except TimeoutError:
+            for _, process in executor._processes.items():
+                process.terminate()
+            raise
 
 
 class AnalyzerRuntimeError(ExceptionGroup):
@@ -112,12 +124,11 @@ def reduceResults(
 logger = logging.getLogger("analyzer")
 
 
-def getAnalyzerRunFunc(analyzer, task):
+def getAnalyzerRunFunc(analyzer, task, timeout=120):
     def inner(chunk):
         try:
-            return DaskRunResult(
-                analyzer.run(chunk, task.metadata, task.pipelines), [], chunk.nevents
-            )
+            ret = callTimeout(timeout, analyzer.run, chunk, task.metadata, task.pipelines)
+            return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
@@ -235,7 +246,7 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
             try:
                 result = future.result()
             except Exception as e:
-                raise e
+                print(e)
                 result = None
             if future in file_prep_task_mapping:
                 progress_bar.update(bar_prep, advance=1)

@@ -493,6 +493,35 @@ def loadResults(paths, peek_only=False):
             ret += result
     return ret
 
+def mergeAndScale(results):
+    for dataset, meta in globWithMeta(results, ["*"]):
+        merged_metadata = copy.deepcopy(meta)
+        total = None
+        for s in dataset:
+            sample_data = dataset[s]
+            s_meta = sample_data.metadata
+            provenance = sample_data["_provenance"]
+            processed_events = provenance.chunked_events
+            if s_meta["sample_type"] == "MC":
+                lumi = s_meta["era"]["lumi"]
+                xs = s_meta["x_sec"]
+                sample_data.iscale(lumi * xs / processed_events)
+            elif s_meta["sample_type"] == "Data":
+                expected_nevents = s_meta["n_events"]
+                sample_data.iscale(expected_nevents / processed_events)
+            merged_metadata = {
+                k: v
+                for k, v in merged_metadata.items()
+                if k in s_meta and merged_metadata[k] == s_meta[k]
+            }
+            if total is None:
+                total = sample_data
+            else:
+                total += sample_data
+        total.name = dataset.name
+        results.addResult(total)
+    return results
+
 
 @define
 class ResultStatus:

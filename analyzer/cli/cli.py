@@ -86,19 +86,22 @@ def patch(
     executor,
 ):
     from analyzer.core.running import patchFromPath
-
     patchFromPath(configuration, inputs, output, executor)
 
 
 @cli.command()
 @click.argument("inputs", type=str, nargs=-1)
 @click.option("--interpretter", is_flag=True)
-def browse(inputs, interpretter):
-    from analyzer.core.results import loadResults
+@click.option("--peek", is_flag=True, default=False)
+@click.option("--merge-datasets", is_flag=True)
+def browse(inputs, interpretter, peek, merge_datasets):
+    from analyzer.core.results import loadResults, mergeAndScale
     from analyzer.core.serialization import setupConverter, converter
 
     setupConverter(converter)
-    res = loadResults(inputs)
+    res = loadResults(inputs, peek_only=peek)
+    if merge_datasets:
+        res = mergeAndScale(res)
     if interpretter:
         jumpIn(results=res)
     else:
