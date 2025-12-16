@@ -1,7 +1,8 @@
 import logging
-from rich import print, get_console
-import click
 from enum import Enum
+
+import click
+from rich import print
 
 logger = logging.getLogger("analyzer")
 
@@ -57,12 +58,12 @@ def run(
 @click.option("--configuration", "-c", type=str, required=str)
 @click.option("--only-bad", is_flag=True)
 def check(files, configuration, only_bad):
-    from analyzer.core.results import checkResults
+    from analyzer.cli.result_status import renderStatuses
+    from analyzer.core.analysis import getSamples, loadAnalysis
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
-    from analyzer.core.analysis import loadAnalysis, getSamples
+    from analyzer.core.results import checkResults
     from analyzer.core.running import getRepos
-    from analyzer.cli.result_status import renderStatuses
 
     analysis = loadAnalysis(configuration)
     dataset_repo, era_repo = getRepos(
@@ -96,7 +97,7 @@ def patch(
 @click.option("--merge-datasets", is_flag=True)
 def browse(inputs, interpretter, peek, merge_datasets):
     from analyzer.core.results import loadResults, mergeAndScale
-    from analyzer.core.serialization import setupConverter, converter
+    from analyzer.core.serialization import converter, setupConverter
 
     setupConverter(converter)
     res = loadResults(inputs, peek_only=peek)
@@ -140,9 +141,10 @@ def listData():
 @click.option("--csv", is_flag=True)
 @listData.command()
 def samples(filter, csv):
-    from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
-    from analyzer.utils.querying import Pattern
+    from analyzer.cli.dataset_table import (createDatasetTable,
+                                            createSampleTable)
     from analyzer.core.running import getRepos
+    from analyzer.utils.querying import Pattern
 
     if filter:
         filter_pattern = Pattern(filter)
@@ -157,9 +159,10 @@ def samples(filter, csv):
 @click.option("--csv", is_flag=True)
 @listData.command()
 def datasets(filter, csv):
-    from analyzer.cli.dataset_table import createSampleTable, createDatasetTable
-    from analyzer.utils.querying import Pattern
+    from analyzer.cli.dataset_table import (createDatasetTable,
+                                            createSampleTable)
     from analyzer.core.running import getRepos
+    from analyzer.utils.querying import Pattern
 
     if filter:
         filter_pattern = Pattern(filter)

@@ -6,17 +6,14 @@ import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from cattrs import structure, unstructure
 from rich import print
-
 from attrs import define, field, make_class
 from attrs import define, field
+from analyzer.core.results import ResultBase
 from analyzer.utils.structure_tools import freeze, mergeUpdate
-
 from collections.abc import Collection
 from analyzer.core.columns import TrackedColumns, Column, EVENTS
 import copy
-
 import contextlib
-
 import abc
 from typing import Any
 import logging
@@ -25,37 +22,9 @@ logger = logging.getLogger("analyzer.core")
 
 
 @define
-class PipelineParameterValues:
-    values: dict[str, ModuleParameterValues]
-    spec: PipelineParameterSpec
-
-    @property
-    def key(self):
-        return hash(frozenset((x, y.key) for x, y in self.values))
-
-    def __getitem__(self, key):
-        found = next(x[1] for x in self.values if x[0] == key)
-        return ModuleParameterValues(found.param_values, self)
-
-    def withNewValues(self, new_data):
-        d = copy.deepcopy(values)
-        mergeUpdate(d, new_data)
-        return self.spec.getWithValues(d)
-
-    def __rich_repr__(self):
-        yield "values", self.values
-
-    def __str__(self):
-        return f"values: {self.values}"
-
-    def __repr__(self):
-        return str(self)
-
-
-@define
 class ModuleParameterValues:
     param_values: dict[str, Any]
-    spec: ModuleParameterSpec | None = field(eq=False, default=None)
+    spec: ModuleParameterSpec = field(eq=False, default=None)
 
     @property
     def key(self):
@@ -83,14 +52,14 @@ class PipelineParameterValues:
 
     @property
     def key(self):
-        return hash(frozenset((x, y.key) for x, y in self.values))
+        return hash(frozenset((x, y.key) for x, y in self.values.items()))
 
     def __getitem__(self, key):
         found = self.values[key]
-        return ModuleParameterValues(found.param_values, self)
+        return ModuleParameterValues(found.param_values, self.spec[key])
 
     def withNewValues(self, new_data):
-        d = copy.deepcopy(self.values)
+        d = copy.deepcopy({x: y.param_values for x, y in self.values.items()})
         mergeUpdate(d, new_data)
         return self.spec.getWithValues(d)
 
@@ -129,7 +98,7 @@ class ParameterSpec:
 
     @property
     def free_values(self):
-        return set(possible_values) - set(correlated_values)
+        return set(self.possible_values) - set(self.correlated_values)
 
 
 @define
@@ -205,7 +174,7 @@ def toTuples(d):
 @define
 class MetadataExpr(abc.ABC):
     @abc.abstractmethod
-    def evaluate(self, metadata): ...
+    def evaluate(self, metadata) -> bool: ...
 
 
 @define
@@ -246,7 +215,7 @@ class MetadataOr(MetadataExpr):
     require_any: list[MetadataExpr]
 
     def evaluate(self, metadata):
-        return any(x.evaludate(metadata) for x in self.require_any)
+        return any(x.evaluate(metadata) for x in self.require_any)
 
 
 @define
@@ -265,14 +234,14 @@ class AnalyzerModule(abc.ABC):
     @abc.abstractmethod
     def run(
         self, columns, params: ModuleParameterValues
-    ) -> TrackedColumns | list[AnalyzerResult | ModuleAddition]:
+    ) -> tuple[TrackedColumns, list[ResultBase | ModuleAddition]]:
         pass
 
     @abc.abstractmethod
-    def inputs(self, metadata): ...
+    def inputs(self, metadata) -> list[Column]: ...
 
     @abc.abstractmethod
-    def outputs(self, metadata): ...
+    def outputs(self, metadata) -> list[Column]: ...
 
     def getParameterSpec(self, metadata) -> ModuleParameterSpec:
         return ModuleParameterSpec()
@@ -286,7 +255,7 @@ class AnalyzerModule(abc.ABC):
         else:
             return frozenset(self.getColumnKey(x) for x in (columns or []))
 
-    def neededResources(self, metadata):
+    def neededResources(self, metadata) -> list[str]:
         return []
 
     def getKey(self, columns, params):
@@ -400,8 +369,6 @@ def register_module(input_columns, output_columns, configuration=None, params=No
     params = params or {}
 
     def wrapper(func):
-        print(func)
-        print(func.__module__)
         getParameterSpec = defaultParameterSpec(params)
         run = func
         if callable(input_columns):
