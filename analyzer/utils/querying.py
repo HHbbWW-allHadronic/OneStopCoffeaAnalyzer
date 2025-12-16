@@ -51,7 +51,7 @@ class Pattern:
         elif self.mode == PatternMode.GLOB:
             return fnmatch(str(data), self.pattern)
         else:
-            return self.pattern == datastring
+            return self.pattern == data
 
     def capture(self, data):
         if self.match(data):

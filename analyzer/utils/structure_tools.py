@@ -4,6 +4,7 @@ import fnmatch
 import functools as ft
 import itertools as it
 from collections import ChainMap
+from collections.abc import Iterable
 from typing import Any
 
 import awkward as ak
@@ -39,7 +40,9 @@ def getWithMeta(directory, key):
     current = directory
     for k in key:
         current = current[k]
-        current_meta = current_meta.new_child(current.metadata)
+        current_meta = current_meta.new_child(current.metadata).new_child(
+            {"name": current.name}
+        )
 
     return current, current_meta
 
@@ -51,9 +54,12 @@ def globWithMeta(directory, pattern, current_meta=None):
     for k in directory:
         if fnmatch.fnmatch(k, pattern):
             item = directory[k]
-            item_meta = current_meta.new_child(item.metadata)
+            item_meta = current_meta.new_child(item.metadata).new_child(
+                {"name": item.name}
+            )
             if not rest:
                 ret.append((item, item_meta))
             else:
-                ret.extend(globWithMeta(item, rest, item_meta))
+                if isinstance(item, Iterable):
+                    ret.extend(globWithMeta(item, rest, item_meta))
     return ret
