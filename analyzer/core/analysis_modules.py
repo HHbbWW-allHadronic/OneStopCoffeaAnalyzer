@@ -221,7 +221,6 @@ class IsSampleType(MetadataExpr):
     sample_type: str
 
     def evaluate(self, metadata):
-        print(metadata)
         return metadata["sample_type"] == self.sample_type
 
 

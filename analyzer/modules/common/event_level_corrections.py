@@ -130,8 +130,9 @@ class GoldenLumi(AnalyzerModule):
         addSelection(
             columns,
             self.selection_name,
-            lmask(events["run"], events["luminosityBlock"]),
+            lmask(columns["run"], columns["luminosityBlock"]),
         )
+        return columns, []
 
 
 @define
@@ -150,4 +151,3 @@ class NoiseFilter(AnalyzerModule):
         sel = ft.reduce(op.and_, [columns["Flag"][x] for x in noise_flags])
         addSelection(columns, self.selection_name, sel)
         return columns, []
-

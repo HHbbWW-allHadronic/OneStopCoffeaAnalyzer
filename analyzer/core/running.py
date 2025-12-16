@@ -114,7 +114,7 @@ def getTasksExplicit(dataset_repo, era_repo, dataset_descs, samples):
     return ret
 
 
-def runTasks(analyzer, tasks, executor, output):
+def runTasks(analyzer, tasks, executor, output, max_sample_events=None):
     needed_resources = set()
     for task in tasks:
         needed_resources |= set(analyzer.neededResources(task.metadata))
@@ -123,11 +123,18 @@ def runTasks(analyzer, tasks, executor, output):
 
     saver = Saver(output)
 
-    for result in executor.run(analyzer, tasks):
+    for result in executor.run(analyzer, tasks, max_sample_events=max_sample_events):
         saver(result.output_name, result.result)
 
 
-def runFromPath(path, output, executor_name, filter_samples=None, limit_pipelines=None):
+def runFromPath(
+    path,
+    output,
+    executor_name,
+    max_sample_events=None,
+    filter_samples=None,
+    limit_pipelines=None,
+):
 
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
@@ -144,8 +151,12 @@ def runFromPath(path, output, executor_name, filter_samples=None, limit_pipeline
     executor = all_executors[executor_name]
 
     tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
-    logger.info(f"Preparing to run {len(tasks)} tasks.")
-    runTasks(analysis.analyzer, tasks, executor, output)
+    logger.info(
+        f"Preparing to run {len(tasks)} tasks. Max events per sample is {max_sample_events}"
+    )
+    runTasks(
+        analysis.analyzer, tasks, executor, output, max_sample_events=max_sample_events
+    )
 
 
 def patchFromPath(
@@ -195,7 +206,6 @@ def patchFromPath(
         task.file_set = buildMissingFileset(source, provenance.file_set)
         if not task.file_set.empty:
             all_tasks.append(task)
-
 
     logger.info(f"Preparing to run {len(all_tasks)} tasks.")
     runTasks(analysis.analyzer, all_tasks, executor, output)

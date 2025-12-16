@@ -154,7 +154,7 @@ def processTask(client, analyzer, task, chunk_size, reduction_factor):
     return final
 
 
-def run(client, chunk_size, reduction_factor, analyzer, tasks):
+def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events=None):
     tasks = {i: x for i, x in enumerate(tasks)}
 
     file_prep_tasks = {}
@@ -193,11 +193,16 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks):
                 tasks[index].file_set.updateFileInfo(result)
             future.cancel()
             file_prep_tasks[index].remove(future)
-            if not file_prep_tasks[index]:
+            if not file_prep_tasks[index] or (
+                max_sample_events
+                and tasks[index].file_set.chunked_events >= max_sample_events
+            ):
                 task = tasks[index]
                 as_comp.update(
                     processTask(client, analyzer, task, chunk_size, reduction_factor)
                 )
+                for f in file_prep_tasks:
+                    f.cancel()
 
         elif isinstance(result, DaskRunResult):
             if result is None:
@@ -235,9 +240,14 @@ class LocalDaskExecutor(Executor):
 
         self.client = Client(self.cluster)
 
-    def run(self, analyzer, tasks):
+    def run(self, analyzer, tasks, max_sample_events=None):
         yield from run(
-            self.client, self.chunk_size, self.reduction_factor, analyzer, tasks
+            self.client,
+            self.chunk_size,
+            self.reduction_factor,
+            analyzer,
+            tasks,
+            max_sample_events=max_sample_events,
         )
 
 
@@ -260,9 +270,14 @@ class LPCCondorDask(Executor):
     cluster: Any = None
     client: Any = None
 
-    def run(self, analyzer, tasks):
+    def run(self, analyzer, tasks, max_sample_events=None):
         yield from run(
-            self.client, self.chunk_size, self.reduction_factor, analyzer, tasks
+            self.client,
+            self.chunk_size,
+            self.reduction_factor,
+            analyzer,
+            tasks,
+            max_sample_events=max_sample_events,
         )
 
     def setup(self, needed_resources):

@@ -16,13 +16,17 @@ logger = logging.getLogger("analyzer")
 class ImmediateExecutor(Executor):
     chunk_size: int = 100000
 
-    def run(self, analyzer, tasks):
+    def run(self, analyzer, tasks, max_sample_events=None):
         for task in tasks:
+            logger.info(f"Running task with output {task.output_name}")
             file_set = task.file_set
             file_set.updateFromCache()
             needed_updates = file_set.getNeededUpdatesFuncs()
             for update in needed_updates:
                 file_set.updateFileInfo(update())
+                if max_sample_events and file_set.chunked_events >= max_sample_events:
+                    logger.info(f"File set has {file_set.chunked_events} chunked events.")
+                    break
             chunked = file_set.toChunked(self.chunk_size)
             for chunk in chunked.iterChunks():
                 result = analyzer.run(chunk, task.metadata, task.pipelines)
