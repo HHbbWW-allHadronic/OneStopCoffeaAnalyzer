@@ -77,13 +77,15 @@ def getDasFileSet(dataset):
 
 
 def decideFile(possible_files, location_priorities=None):
+    import re
+
     if location_priorities:
 
         def rank(val):
             x = list(
-                (i for i, x in enumerate(location_priority_regex) if re.match(x, val)),
+                (i for i, x in enumerate(location_priorities) if re.match(x, val)),
             )
-            return next(iter(x), len(location_priority_regex))
+            return next(iter(x), len(location_priorities))
 
         sites_ranked = [(rank(site), path) for path, site in possible_files.items()]
         max_rank = max(x[0] for x in sites_ranked)
@@ -455,8 +457,7 @@ class FileChunk:
     def nevents(self):
         if self.event_start is None or self.event_stop is None:
             return None
-        return self.event_stop-self.event_start
-
+        return self.event_stop - self.event_start
 
     def loadEvents(self, backend, view_kwargs=None):
         view_kwargs = view_kwargs or {}

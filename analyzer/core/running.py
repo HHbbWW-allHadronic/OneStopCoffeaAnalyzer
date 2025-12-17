@@ -66,7 +66,7 @@ def getMatchedCollections(dataset_repo, descs):
     return ret
 
 
-def getTasks(dataset_repo, era_repo, dataset_descs):
+def getTasks(dataset_repo, era_repo, dataset_descs, location_priorities=None):
     todo = []
     matched = getMatchedCollections(dataset_repo, dataset_descs)
     if any(len(x) != 1 for x in matched.values()):
@@ -79,7 +79,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
             sample, meta = getWithMeta(dataset, sample.name)
             meta = dict(meta)
             meta["era"] = era_repo[meta["era"]]
-            file_set = sample.source.getFileSet()
+            file_set = sample.source.getFileSet(location_priorities=location_priorities)
             ret.append(
                 ExecutionTask(
                     file_set=file_set,
@@ -91,7 +91,9 @@ def getTasks(dataset_repo, era_repo, dataset_descs):
     return ret
 
 
-def getTasksExplicit(dataset_repo, era_repo, dataset_descs, samples):
+def getTasksExplicit(
+    dataset_repo, era_repo, dataset_descs, samples, location_priorities=None
+):
     ret = []
     for dataset_name, sample_name in samples:
         matched = [x for x in dataset_descs if x.dataset.match(dataset_name)]
@@ -102,7 +104,7 @@ def getTasksExplicit(dataset_repo, era_repo, dataset_descs, samples):
         sample, meta = getWithMeta(dataset, sample_name)
         meta = dict(meta)
         meta["era"] = era_repo[meta["era"]]
-        file_set = sample.source.getFileSet()
+        file_set = sample.source.getFileSet(location_priorities=location_priorities)
         ret.append(
             ExecutionTask(
                 file_set=file_set,
@@ -146,11 +148,16 @@ def runFromPath(
         analysis.extra_dataset_paths, analysis.extra_era_paths
     )
     all_executors = getPremadeExcutors()
-    all_executors.update(analysis.extra_executors)
+    all_executors = {**all_executors, **analysis.extra_executors}
 
     executor = all_executors[executor_name]
 
-    tasks = getTasks(dataset_repo, era_repo, analysis.event_collections)
+    tasks = getTasks(
+        dataset_repo,
+        era_repo,
+        analysis.event_collections,
+        location_priorities=analysis.location_priorities,
+    )
     logger.info(
         f"Preparing to run {len(tasks)} tasks. Max events per sample is {max_sample_events}"
     )
@@ -209,96 +216,3 @@ def patchFromPath(
 
     logger.info(f"Preparing to run {len(all_tasks)} tasks.")
     runTasks(analysis.analyzer, all_tasks, executor, output)
-
-
-# def patchFromPath(
-#     paths,
-#     output,
-#     executor_name,
-#     description_path,
-#     ignore_ret_prefs=False,
-#     threshhold=0.95,
-# ):
-#     import analyzer.modules  # noqa
-#
-#     output = Path(output)
-#     inputs = [Path(path) for path in paths]
-#     if output in inputs:
-#         raise RuntimeError()
-#     description = loadDescription(description_path)
-#     executor = description.executors[executor_name]
-#     if hasattr(executor, "output_dir") and executor.output_dir is None:
-#         executor.output_dir = str(output)
-#
-#     dataset_repo = DatasetRepo.getConfig()
-#     era_repo = EraRepo.getConfig()
-#
-#     raw_loaded = loadSampleResultFromPaths(
-#         inputs, include=[], show_progress=True, parallel=None, peek_only=True
-#     )
-#     loaded = list(raw_loaded.values())
-#
-#     to_load_real = set()
-#
-#     for peek in loaded:
-#         peek.params.sample_id
-#         exp = peek.params.n_events
-#         val = peek.processed_events
-#         frac_done = val / exp
-#         if frac_done < threshhold:
-#             to_load_real |= peek._from_files
-#
-#     sample_results = loadSampleResultFromPaths(
-#         to_load_real, include=[], show_progress=True
-#     )
-#     patches = [getSamplePatch(s, dataset_repo) for s in sample_results.values()]
-#     patches = [p for p in patches if not p.file_set.empty]
-#
-#     for p in patches:
-#         p.analyzer.ensureFunction(MODULE_REPO)
-#         if ignore_ret_prefs:
-#             p.file_set.file_retrieval_kwargs = {
-#                 "location_priority_regex": [".*(T0|T1|T2).*", ".*"]
-#             }
-#
-#     #subsectors = getSubSectors(description, dataset_repo, era_repo)
-#     subsectors = list(iterSubsectors(description, dataset_repo, era_repo))
-#     #unknown_sample_tasks = makeTasks(
-#     #    {x: y for x, y in subsectors.items() if x not in raw_loaded},
-#     #    dataset_repo,
-#     #    era_repo,
-#     #    description.file_config.model_dump(),
-#     #)
-#     unknown_sample_tasks = list(iterTasks(
-#         [x for x in subsectors if x[0] not in raw_loaded], dataset_repo, era_repo, description.file_config.model_dump()
-#     ))
-#
-#     final_tasks = unknown_sample_tasks + patches
-#
-#     callback = Saver(output)
-#     with executor:
-#         results = executor.run(final_tasks, result_complete_callback=callback)
-#
-#
-# def describeFromPath(path, output, executor_name, test_mode=False, filter_samples=None):
-#     import analyzer.modules  # noqa
-#
-#     output = Path(output)
-#     description = loadDescription(path)
-#
-#     dataset_repo = DatasetRepo.getConfig()
-#     era_repo = EraRepo.getConfig()
-#     subsectors = iterSubsectors(
-#         description, dataset_repo, era_repo, filter_samples=filter_samples
-#     )
-#     print(list(subsectors))
-#     print(f"Saving to {output}")
-#     print(f"Running using executor {executor_name}")
-
-
-def main():
-    runFromPath("test.yaml", "TESTRESULTS", "test")
-
-
-if __name__ == "__main__":
-    main()

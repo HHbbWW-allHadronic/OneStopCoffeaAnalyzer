@@ -77,13 +77,13 @@ analyzer:
     - module_name: SaveCols
       save_name: trigger_data
       to_save:
-        HT: HT
+        HT: "HT"
         PT: "LeadingFatJet.pt"
         MSD: "LeadingFatJet.msoftdrop"
         PassHT: "HLTMAP:HT"
-        PassAK8: "HLTMAP:AK8SingleJetPtNoTrim"
+        PassAK8: "HLTMAP:AK8SingleJetPt"
 
-     
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # - dataset: 'qcd*2018'
@@ -94,7 +94,7 @@ event_collections:
   #   pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
-  - dataset: data_singlemuon_2018
+  - dataset: "data_*muon_*"
     pipelines: [TriggerData]
   # - dataset: diboson_2018
   #   pipelines: [TriggerData]
@@ -116,6 +116,5 @@ extra_executors:
     executor_name: LPCCondorDask
     container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
     venv_path: .venv
-
-    chunk_size: 200000
+    chunk_size: 400000
     max_workers: 200

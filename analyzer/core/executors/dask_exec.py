@@ -30,6 +30,18 @@ from .finalizers import basicFinalizer
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 
 
+def configureDask():
+    from analyzer import static
+    import importlib.resources
+    import yaml
+
+    default_dask_config_path = importlib.resources.files(static) / "dask_config.yaml"
+
+    with open(default_dask_config_path) as f:
+        defaults = yaml.safe_load(f)
+        dask.config.update(dask.config.config, defaults, priority="new")
+
+
 def callTimeout(process_timeout, function, *args, **kwargs):
     with ProcessPoolExecutor(max_workers=1) as executor:
         try:
@@ -124,10 +136,18 @@ def reduceResults(
 logger = logging.getLogger("analyzer")
 
 
+def runWithFinalize(analyzer, *args, **kwargs):
+    ret = analyzer.run(*args, **kwargs)
+    ret.finalize(basicFinalizer)
+    return ret
+
+
 def getAnalyzerRunFunc(analyzer, task, timeout=120):
     def inner(chunk):
         try:
-            ret = callTimeout(timeout, analyzer.run, chunk, task.metadata, task.pipelines)
+            ret = callTimeout(
+                timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
+            )
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
@@ -137,7 +157,6 @@ def getAnalyzerRunFunc(analyzer, task, timeout=120):
 
 def dumpAndComplete(metadata, output_name, dask_result):
     result, exceptions = dask_result.maybe_result, dask_result.maybe_exceptions
-    result.finalize(basicFinalizer)
     if result is not None:
         result = result.toBytes()
 
@@ -246,7 +265,7 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
             try:
                 result = future.result()
             except Exception as e:
-                print(e)
+                logger.warning(e)
                 result = None
             if future in file_prep_task_mapping:
                 progress_bar.update(bar_prep, advance=1)
@@ -274,7 +293,7 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
                     continue
                 ret = result.maybe_result
                 progress_bar.update(bar_events, advance=result.events_processed)
-                if ret is not None:
+                if ret.result is not None:
                     yield ret
                 future.cancel()
 
@@ -295,6 +314,7 @@ class LocalDaskExecutor(Executor):
     reduction_factor: int = 10
 
     def setup(self, needed_resources):
+        configureDask()
         self.cluster = LocalCluster(
             dashboard_address=self.dashboard_address,
             memory_limit=self.worker_memory,
@@ -348,6 +368,8 @@ class LPCCondorDask(Executor):
     def setup(self, needed_resources):
         import shutil
 
+        configureDask()
+
         condor_temp_loc = (
             Path(CONFIG.general.base_data_path) / CONFIG.condor.temp_location
         )
@@ -377,6 +399,14 @@ class LPCCondorDask(Executor):
             "+MaxRuntime": self.worker_timeout,
         }
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
+        # prologue = dask.config.get("jobqueue.lpccondor.job-script-prologue")
+        # prologue.append(
+        #     "export DASK_INTERNAL_INHERIT_CONFIG="
+        #     + dask.config.serialize(dask.config.global_config)
+        # )
+
+        prologue = ["export DASK_DISTRIBUTED__WORKER__DAEMON=0", "source setup.sh"]
+
         self.cluster = LPCCondorCluster(
             ship_env=False,
             image=package.container,
@@ -384,7 +414,7 @@ class LPCCondorDask(Executor):
             transfer_input_files=package.transfer_file_list,
             log_directory=logpath,
             scheduler_options=dict(dashboard_address=self.dashboard_address),
-            job_script_prologue=["source setup.sh"],
+            job_script_prologue=prologue,
             **kwargs,
         )
         logger.info(f"Started cluster {self.cluster}")

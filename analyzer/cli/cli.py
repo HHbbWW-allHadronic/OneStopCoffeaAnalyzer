@@ -87,6 +87,7 @@ def patch(
     executor,
 ):
     from analyzer.core.running import patchFromPath
+
     patchFromPath(configuration, inputs, output, executor)
 
 
@@ -118,10 +119,14 @@ def cache():
 
 
 @cache.command()
-def clear():
+@click.option("--tag", type=str, default=None)
+def clear(tag):
     from analyzer.core.caching import cache
 
-    cache.clear()
+    if tag is None:
+        cache.clear()
+    else:
+        cache.evict(tag)
 
 
 @cache.command()
@@ -141,8 +146,7 @@ def listData():
 @click.option("--csv", is_flag=True)
 @listData.command()
 def samples(filter, csv):
-    from analyzer.cli.dataset_table import (createDatasetTable,
-                                            createSampleTable)
+    from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
 
@@ -159,8 +163,7 @@ def samples(filter, csv):
 @click.option("--csv", is_flag=True)
 @listData.command()
 def datasets(filter, csv):
-    from analyzer.cli.dataset_table import (createDatasetTable,
-                                            createSampleTable)
+    from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
 

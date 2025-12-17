@@ -43,6 +43,8 @@ class Analysis:
     extra_era_paths: list[str] = field(factory=list)
     extra_executors: dict[str, Executor] = field(factory=dict)
 
+    location_priorities: list[str] | None = None
+
 
 def loadAnalysis(path):
     with open(path, "r") as f:
