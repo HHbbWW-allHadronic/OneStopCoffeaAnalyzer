@@ -152,12 +152,16 @@ class TrackedColumns:
     def fields(self):
         return self._events.fields
 
-    def updatedColumns(self, old, limit):
+    def updatedColumns(self, old, limit=None):
         cols_to_consider = {
-            x: y for x, y in self._column_provenance.items() if limit.contains(x)
+            x: y
+            for x, y in self._column_provenance.items()
+            if limit is None or limit.contains(x)
         }
         old_to_consider = {
-            x: y for x, y in old._column_provenance.items() if limit.contains(x)
+            x: y
+            for x, y in old._column_provenance.items()
+            if limit is None or limit.contains(x)
         }
         return [
             x
@@ -178,7 +182,8 @@ class TrackedColumns:
     def fromEvents(events, metadata, backend, provenance):
         return TrackedColumns(
             events=events,
-            column_provenance={x: provenance for x in getAllColumns(events.layout)},
+            # column_provenance={x: provenance for x in getAllColumns(events.layout)},
+            column_provenance={},
             current_provenance=provenance,
             backend=backend,
             metadata=metadata,
@@ -210,12 +215,12 @@ class TrackedColumns:
             )
         self._events = setColumn(self._events, column, value)
         self._column_provenance[column] = self._current_provenance
-        all_columns = getAllColumns(value, column.layout)
-        for c in all_columns:
-            self._column_provenance[c] = self._current_provenance
-            logger.debug(
-                f"Adding column {c} to events with provenance {self._current_provenance}"
-            )
+        # all_columns = getAllColumns(value.layout, column)
+        # for c in all_columns:
+        #     self._column_provenance[c] = self._current_provenance
+        #     logger.debug(
+        #         f"Adding column {c} to events with provenance {self._current_provenance}"
+        #     )
         for c in self._column_provenance:
             if c.contains(column):
                 self._column_provenance[c] = self._current_provenance

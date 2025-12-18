@@ -118,3 +118,4 @@ extra_executors:
     venv_path: .venv
     chunk_size: 400000
     max_workers: 200
+    worker_memory: 6GB

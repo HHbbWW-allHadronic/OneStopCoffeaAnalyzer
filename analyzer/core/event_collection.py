@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from rich import print
 import random
 import copy
 from analyzer.core.columns import Column, TrackedColumns
@@ -88,8 +89,9 @@ def decideFile(possible_files, location_priorities=None):
             return next(iter(x), len(location_priorities))
 
         sites_ranked = [(rank(site), path) for path, site in possible_files.items()]
-        max_rank = max(x[0] for x in sites_ranked)
-        return random.choice([x[1] for x in sites_ranked if x[0] == max_rank])
+        max_rank = min(x[0] for x in sites_ranked)
+        ret = random.choice([x[1] for x in sites_ranked if x[0] == max_rank])
+        return ret
     else:
         return random.choice(list(possible_files.keys()))
 
@@ -459,7 +461,7 @@ class FileChunk:
             return None
         return self.event_stop - self.event_start
 
-    def loadEvents(self, backend, view_kwargs=None):
+    def loadEvents(self, backend="coffea-virtual", view_kwargs=None):
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
         start = self.event_start

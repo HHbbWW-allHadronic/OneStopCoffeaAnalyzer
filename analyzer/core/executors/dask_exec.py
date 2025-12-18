@@ -145,9 +145,11 @@ def runWithFinalize(analyzer, *args, **kwargs):
 def getAnalyzerRunFunc(analyzer, task, timeout=120):
     def inner(chunk):
         try:
-            ret = callTimeout(
-                timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
-            )
+            # ret = callTimeout(
+            #     timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
+            # )
+            ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
+            
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
@@ -289,12 +291,12 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
                     progress_bar.update(bar_events, total=total_events)
 
             elif isinstance(result, DaskRunResult):
-                if result is None:
-                    continue
                 ret = result.maybe_result
                 progress_bar.update(bar_events, advance=result.events_processed)
                 if ret.result is not None:
                     yield ret
+                else:
+                    logger.warning(f"Result was None")
                 future.cancel()
 
 
