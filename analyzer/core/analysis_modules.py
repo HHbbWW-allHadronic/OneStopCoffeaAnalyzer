@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import TypeVar, Generic
 from analyzer.core.datasets import SampleType
 from typing import Callable
+from collections import OrderedDict
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from cattrs import structure, unstructure
@@ -226,9 +227,32 @@ class MetadataNot(MetadataExpr):
         return not self.require_not.evaluate(metadata)
 
 
+class SimpleCache(OrderedDict):
+    "Store items in the order the keys were last added"
+
+    def __init__(self, *args, max_size=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_size = max_size
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self.move_to_end(key)
+        if len(self) >= self.max_size:
+            self.popitem(last=False)
+
+    def __getitem__(self, key):
+        self.move_to_end(key)
+        return super().__getitem__(key)
+
+
 @define
 class AnalyzerModule(abc.ABC):
-    __cache: dict = field(factory=dict, init=False, repr=False)
+    MAX_CACHE_SIZE = 30
+    __cache: SimpleCache = field(
+        factory=lambda: SimpleCache(max_size=AnalyzerModule.MAX_CACHE_SIZE),
+        init=False,
+        repr=False,
+    )
     should_run: MetadataExpr | None = field(default=None, kw_only=True)
 
     @abc.abstractmethod
@@ -262,6 +286,9 @@ class AnalyzerModule(abc.ABC):
         ret = hash((self.name(), params.key, self.getColumnKey(columns)))
         return ret
 
+    def getFromCache(self, key):
+        return self.__cache[key]
+
     def __runNoInputs(self, params):
         key = self.getKey(None, params)
         logger.debug(f"Execution key is {key}")
@@ -282,7 +309,7 @@ class AnalyzerModule(abc.ABC):
         logger.debug(f"Execution key is {key}")
         logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.debug(f"Found key, using cached result")
+            logger.debug("Found key, using cached result")
             cached_cols, r, internal = self.__cache[key]
             outputs = self.outputs(columns.metadata)
             if outputs == EVENTS:
@@ -298,7 +325,7 @@ class AnalyzerModule(abc.ABC):
         with (
             columns.useKey(key),
             columns.allowedInputs(self.inputs(columns.metadata)),
-            columns.allowedOutputs(outputs)
+            columns.allowedOutputs(outputs),
         ):
             _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
