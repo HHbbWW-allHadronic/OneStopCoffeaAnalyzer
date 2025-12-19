@@ -267,6 +267,26 @@ class TopJetHistograms(AnalyzerModule):
                     mask=mask,
                 )
             )
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_eta_{i+1}",
+                    columns,
+                    RegularAxis(20, -4, 4, f"$\\eta_{{T, {i+1}}}$"),
+                    padded[:, i].eta,
+                    description=f"$\\eta$ of jet {i+1} ",
+                    mask=mask,
+                )
+            )
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_phi_{i+1}",
+                    columns,
+                    RegularAxis(20, -4, 4, f"$\\phi_{{T, {i+1}}}$"),
+                    padded[:, i].phi,
+                    description=f"$\\phi$ of jet {i+1} ",
+                    mask=mask,
+                )
+            )
 
         return columns, ret
 

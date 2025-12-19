@@ -244,6 +244,9 @@ class Histogram(ResultBase):
         def approxSize(self):
             return 0
 
+        def finalize(self, finalizer):
+            return self
+
     axes: Any
     histogram: hist.Hist
 
@@ -261,6 +264,9 @@ class Histogram(ResultBase):
 
     def iscale(self, value):
         self.histogram *= value
+        return self
+
+    def finalize(self, finalizer):
         return self
 
     def widget(self, *args, **kwargs):

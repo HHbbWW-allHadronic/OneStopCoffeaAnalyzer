@@ -64,20 +64,18 @@ class PipelineParameterValues:
         mergeUpdate(d, new_data)
         return self.spec.getWithValues(d)
 
-    def __rich_repr__(self):
-        yield "values", self.values
-
-    def __str__(self):
-        return f"values: {self.values}"
-
-    def __repr__(self):
-        return str(self)
+    def withAddSpec(self, node_id, param_spec):
+        ret = copy.deepcopy(self)
+        ret.spec[node_id] = param_spec
+        return ret
 
     def __iter__(self):
         return iter(self.values)
 
     def getAllByName(self, name):
         return {(x, y): v for x, u in self for y, v in u if y == name}
+
+
 
 
 # def mergeAnalyzerValues(first, *rest):
@@ -248,6 +246,7 @@ class SimpleCache(OrderedDict):
 @define
 class AnalyzerModule(abc.ABC):
     MAX_CACHE_SIZE = 30
+
     __cache: SimpleCache = field(
         factory=lambda: SimpleCache(max_size=AnalyzerModule.MAX_CACHE_SIZE),
         init=False,
@@ -294,7 +293,7 @@ class AnalyzerModule(abc.ABC):
         logger.debug(f"Execution key is {key}")
         logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.debug(f"Found key, using cached result")
+            logger.debug("Found key, using cached result")
             cached_cols, r = self.__cache[key]
             return cached_cols, r
         logger.debug(f"Did not find cached result, running module {self}")
@@ -339,7 +338,7 @@ class AnalyzerModule(abc.ABC):
         logger.debug(f"Execution key is {key}")
         logger.debug(f"Cached keys are {list(self.__cache)}")
         if key in self.__cache:
-            logger.debug(f"Found key, using cached result")
+            logger.debug("Found key, using cached result")
             ret = self.__cache[key]
             return ret
         logger.debug(f"Did not find cached result, running module {self.name}")

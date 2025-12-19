@@ -56,6 +56,7 @@ class Node:
         )
 
     def __call__(self, columns, params):
+        print(params)
         params = params[self.node_id]
         return self.analyzer_module(columns, params)
 
@@ -144,6 +145,9 @@ class Analyzer:
                         logger.debug(f"Adding new module {module} to pipeline")
                         spec = module.getParameterSpec(columns.metadata)
                         node = self.getUniqueNode(complete_pipeline, module)
+                        complete_pipeline.append(node)
+                        logger.debug(f"New node id is {node.node_id}")
+                        params = params.withAddSpec(node.node_id, spec)
                         params.values[node.node_id] = spec.getWithValues(
                             res.this_module_parameters or {}
                         )

@@ -3,11 +3,15 @@ analyzer:
     - module_name: SimpleHLT
       triggers: [IsoMuon]
     - module_name: GoldenLumi
+
     - module_name: VetoMapFilter
       input_col: Jet
       output_col: Jet
-    - module_name: NoiseFilter
 
+    - module_name: VetoMap
+      input_col: Jet
+
+    - module_name: NoiseFilter
     - module_name: SelectOnColumns
       sel_name: pre_selection
 
@@ -83,19 +87,27 @@ analyzer:
         PassHT: "HLTMAP:HT"
         PassAK8: "HLTMAP:AK8SingleJetPt"
 
+    - module_name: TopJetHistograms
+      prefix: "jet"
+      input_col: GoodFatJet
+      max_idx: 1
+
+
+        
+
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # - dataset: 'qcd*2018'
   #   pipelines: [Signal312]
-  # - dataset: 'signal_2018_312_1500_*0'
-  #   pipelines: [TriggerData]
+  - dataset: 'signal_2018_312_1500_*0'
+    pipelines: [TriggerData]
   # - dataset: 'signal_*official'
   #   pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
-  - dataset: "data_*muon_*"
-    pipelines: [TriggerData]
+  # - dataset: "data_*muon_*"
+  #   pipelines: [TriggerData]
   # - dataset: diboson_2018
   #   pipelines: [TriggerData]
     

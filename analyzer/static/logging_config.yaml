@@ -32,7 +32,7 @@ handlers:
 
 loggers:
   analyzer:
-    level: INFO
+    level: DEBUG
     handlers: [debug_console]
   distributed:
     level: ERROR
