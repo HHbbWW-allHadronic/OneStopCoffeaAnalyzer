@@ -88,8 +88,8 @@ location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*
 event_collections:
   # - dataset: 'qcd*2018'
   #   pipelines: [Signal312]
-  # - dataset: 'signal_2018_312_1500_600'
-  #   pipelines: [Signal312]
+  # - dataset: 'signal_2018_312_1500_*0'
+  #   pipelines: [TriggerData]
   # - dataset: 'signal_*official'
   #   pipelines: [Signal312]
   # - dataset: testqcd

@@ -1,5 +1,4 @@
 from __future__ import annotations
-import cProfile
 import re
 from analyzer.core.results import ResultGroup
 from rich.logging import RichHandler

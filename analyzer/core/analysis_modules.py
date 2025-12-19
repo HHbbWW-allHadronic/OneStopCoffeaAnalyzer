@@ -11,7 +11,7 @@ from attrs import define, field
 from analyzer.core.results import ResultBase
 from analyzer.utils.structure_tools import freeze, mergeUpdate
 from collections.abc import Collection
-from analyzer.core.columns import TrackedColumns, Column, EVENTS
+from analyzer.core.columns import TrackedColumns, Column, EVENTS, ColumnCollection
 import copy
 import contextlib
 import abc
@@ -238,10 +238,10 @@ class AnalyzerModule(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def inputs(self, metadata) -> list[Column]: ...
+    def inputs(self, metadata) -> ColumnCollection | list[Column] | list[str]: ...
 
     @abc.abstractmethod
-    def outputs(self, metadata) -> list[Column]: ...
+    def outputs(self, metadata) -> ColumnCollection | list[Column] | list[str]: ...
 
     def getParameterSpec(self, metadata) -> ModuleParameterSpec:
         return ModuleParameterSpec()
@@ -292,10 +292,13 @@ class AnalyzerModule(abc.ABC):
             columns.pipeline_data = cached_cols.pipeline_data
             return columns, r
         logger.debug(f"Did not find cached result, running module {self.name}")
+        outputs = self.outputs(columns.metadata)
+        if outputs == EVENTS:
+            outputs = None
         with (
             columns.useKey(key),
             columns.allowedInputs(self.inputs(columns.metadata)),
-            columns.allowedOutputs(self.outputs(columns.metadata)),
+            columns.allowedOutputs(outputs)
         ):
             _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))

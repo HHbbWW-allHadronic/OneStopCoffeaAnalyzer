@@ -7,7 +7,6 @@ from analyzer.core.results import SelectionFlow
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
 
-EVENTS = "EVENTS"
 
 
 @define

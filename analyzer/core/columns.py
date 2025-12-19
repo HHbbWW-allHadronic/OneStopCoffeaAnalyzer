@@ -81,6 +81,12 @@ class Column:
     def __hash__(self):
         return hash(self.fields)
 
+    def __str__(self):
+        return ".".join(self.fields)
+
+    def __repr__(self):
+        return ".".join(self.fields)
+
     @classmethod
     def _structure(cls, data: str, conv):
         if isinstance(data, str):
@@ -105,7 +111,7 @@ class ColumnCollection:
     columns: set[Column] = field(converter=lambda z: set(Column(x) for x in z))
 
     def __iter__(self):
-        return iter(columns)
+        return iter(self.columns)
 
     def contains(self, other: Column):
         return any(x.contains(other) for x in self.columns)
@@ -118,7 +124,7 @@ class ColumnCollection:
         }
 
 
-def getAllColumns(events, cur_col=None):
+def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None):
     if fields := getattr(events, "fields"):
         ret = set()
         for f in fields:
@@ -126,7 +132,12 @@ def getAllColumns(events, cur_col=None):
                 n = cur_col + f
             else:
                 n = Column(f)
-            ret |= getAllColumns(events[f], n)
+            if cur_depth == max_depth:
+                ret.add(n)
+            else:
+                ret |= getAllColumns(
+                    events[f], n, max_depth=max_depth, cur_depth=cur_depth + 1
+                )
 
         if cur_col is not None:
             ret.add(cur_col)
@@ -141,7 +152,7 @@ class TrackedColumns:
     _events: Any
     _column_provenance: dict[Column, int]
     backend: EventBackend
-    _current_provenance: int | None = None
+    _current_provenance: int
     _allowed_inputs: ColumnCollection | None = None
     _allowed_outputs: ColumnCollection | None = None
     _allow_filter: bool = True
@@ -171,8 +182,10 @@ class TrackedColumns:
 
     def copy(self):
         return TrackedColumns(
-            events=copy.copy(self._events),
+            # events=copy.copy(self._events),
+            events=self._events,
             column_provenance=copy.copy(self._column_provenance),
+            current_provenance=self._current_provenance,
             metadata=copy.copy(self.metadata),
             pipeline_data=copy.deepcopy(self.pipeline_data),
             backend=self.backend,
@@ -182,8 +195,12 @@ class TrackedColumns:
     def fromEvents(events, metadata, backend, provenance):
         return TrackedColumns(
             events=events,
-            # column_provenance={x: provenance for x in getAllColumns(events.layout)},
-            column_provenance={},
+            column_provenance={
+                x: provenance
+                for x in getAllColumns(
+                    events.layout, max_depth=events.layout.minmax_depth[1] - 2
+                )
+            },
             current_provenance=provenance,
             backend=backend,
             metadata=metadata,
@@ -196,9 +213,14 @@ class TrackedColumns:
         """
         ret = []
         for column in columns:
+            found_any = False
             for c, v in self._column_provenance.items():
                 if column.contains(c):
+                    found_any = True
                     ret.append((c, v))
+            if not found_any:
+                self._column_provenance[column] = self._current_provenance
+                ret.append((column, self._column_provenance[column]))
 
         logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
@@ -215,12 +237,12 @@ class TrackedColumns:
             )
         self._events = setColumn(self._events, column, value)
         self._column_provenance[column] = self._current_provenance
-        # all_columns = getAllColumns(value.layout, column)
-        # for c in all_columns:
-        #     self._column_provenance[c] = self._current_provenance
-        #     logger.debug(
-        #         f"Adding column {c} to events with provenance {self._current_provenance}"
-        #     )
+        all_columns = getAllColumns(value.layout, column)
+        for c in all_columns:
+            self._column_provenance[c] = self._current_provenance
+            logger.debug(
+                f"Adding column {c} to events with provenance {self._current_provenance}"
+            )
         for c in self._column_provenance:
             if c.contains(column):
                 self._column_provenance[c] = self._current_provenance
@@ -262,16 +284,20 @@ class TrackedColumns:
         self._current_provenance = old_provenance
 
     @contextlib.contextmanager
-    def allowedInputs(self, columns: list[Column]):
-        columns = ColumnCollection(columns)
+    def allowedInputs(self, columns: list[Column] | None):
+        if columns is not None:
+            if not isinstance(columns, ColumnCollection):
+                columns = ColumnCollection(columns)
         old_inputs = self._allowed_inputs
         self._allowed_inputs = columns
         yield
         self._allowed_inputs = old_inputs
 
     @contextlib.contextmanager
-    def allowedOutputs(self, columns: list[Column]):
-        columns = ColumnCollection(columns)
+    def allowedOutputs(self, columns: list[Column] | None):
+        if columns is not None:
+            if not isinstance(columns, ColumnCollection):
+                columns = ColumnCollection(columns)
         old_outputs = self._allowed_outputs
         self._allowed_outputs = columns
         yield

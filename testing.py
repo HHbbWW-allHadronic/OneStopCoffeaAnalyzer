@@ -1,6 +1,5 @@
 from __future__ import annotations
 import numpy as np
-import cProfile, pstats, io
 
 import timeit
 import uproot
