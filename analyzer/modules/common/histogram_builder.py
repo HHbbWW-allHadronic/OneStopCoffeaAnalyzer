@@ -169,4 +169,4 @@ def makeHistogram(
         mask_col_name = None
 
     b = HistogramBuilder(product_name, names, axes, axes, mask_col=mask_col_name)
-    return ModuleAddition(b, None)
+    return ModuleAddition(b)

@@ -6,6 +6,7 @@ from collections import OrderedDict
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from cattrs import structure, unstructure
+from analyzer.core.run_builders import buildVariations
 from rich import print
 from attrs import define, field, make_class
 from attrs import define, field
@@ -22,75 +23,15 @@ import logging
 logger = logging.getLogger("analyzer.core")
 
 
-@define
-class ModuleParameterValues:
-    param_values: dict[str, Any]
-    spec: ModuleParameterSpec = field(eq=False, default=None)
 
-    @property
-    def key(self):
-        return hash(freeze(self.param_values))
-
-    def withNewValues(self, values):
-        d = dict(self.param_values)
-        d.update(values)
-        return self.spec.getWithValues(d)
-
-    def __iter__(self):
-        return iter(self.param_values)
-
-    def __hash__(self):
-        return hash(self.param_values)
-
-    def __getitem__(self, key):
-        return self.param_values[key]
-
-
-@define
-class PipelineParameterValues:
-    values: dict[str, ModuleParameterValues]
-    spec: PipelineParameterSpec
-
-    @property
-    def key(self):
-        return hash(frozenset((x, y.key) for x, y in self.values.items()))
-
-    def __getitem__(self, key):
-        found = self.values[key]
-        return ModuleParameterValues(found.param_values, self.spec[key])
-
-    def withNewValues(self, new_data):
-        d = copy.deepcopy({x: y.param_values for x, y in self.values.items()})
-        mergeUpdate(d, new_data)
-        return self.spec.getWithValues(d)
-
-    def withAddSpec(self, node_id, param_spec):
-        ret = copy.deepcopy(self)
-        ret.spec[node_id] = param_spec
-        return ret
-
-    def __iter__(self):
-        return iter(self.values)
-
-    def getAllByName(self, name):
-        return {(x, y): v for x, u in self for y, v in u if y == name}
-
-
-
-
-# def mergeAnalyzerValues(first, *rest):
-#     while rest:
-#
-# def moduleValues(first, *rest):
-#     while rest:
-
+ModuleParameterValues = dict[str,Any]
+PipelineParameterValues = dict[str,ModuleParameters]
 
 @define
 class ParameterSpec:
     default_value: Any | None = None
     possible_values: Collection | None = None
     tags: set[str] = field(factory=set)
-    metadata: dict[str, Any] = field(factory=dict)
     param_type: type | None = None
     correlation_function: Callable | None = None
     correlated_values: Collection | None = None
@@ -98,13 +39,6 @@ class ParameterSpec:
     @property
     def free_values(self):
         return set(self.possible_values) - set(self.correlated_values)
-
-
-@define
-class NodeParameterSpec:
-    node_id: str
-    parameter_spec: ParameterSpec
-
 
 @define
 class ModuleParameterSpec:
@@ -137,7 +71,7 @@ class ModuleParameterSpec:
                         f"Must provide a value for {spec} -- {name} with no default value"
                     )
                 ret[name] = spec.default_value
-        return ModuleParameterValues(ret, self)
+        return ret
 
 
 @define
@@ -159,7 +93,7 @@ class PipelineParameterSpec:
                 ret[nid] = spec.getWithValues(values[nid])
             else:
                 ret[nid] = spec.getWithValues({})
-        return PipelineParameterValues(ret, self)
+        return ret
 
     def getTags(self, *tag):
         tags = {x: y.getTags(*tag) for x, y in self.node_specs.items()}
@@ -429,7 +363,7 @@ def register_module(input_columns, output_columns, configuration=None, params=No
 @define
 class ModuleAddition:
     analyzer_module: AnalyzerModule
-    run_builder: Any | None = None
+    run_builder: Any | None  = field(default=buildVariations)
     this_module_parameters: dict | None = None
     # parameter_runs: list[PipelineParameterValues]
 
