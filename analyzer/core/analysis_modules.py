@@ -11,7 +11,7 @@ from rich import print
 from attrs import define, field, make_class
 from attrs import define, field
 from analyzer.core.results import ResultBase
-from analyzer.utils.structure_tools import freeze, mergeUpdate
+from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge
 from collections.abc import Collection
 from analyzer.core.columns import TrackedColumns, Column, EVENTS, ColumnCollection
 import copy
@@ -22,10 +22,9 @@ import logging
 
 logger = logging.getLogger("analyzer.core")
 
+ModuleParameterValues = dict[str, Any]
+PipelineParameterValues = dict[str, ModuleParameterValues]
 
-
-ModuleParameterValues = dict[str,Any]
-PipelineParameterValues = dict[str,ModuleParameters]
 
 @define
 class ParameterSpec:
@@ -38,7 +37,8 @@ class ParameterSpec:
 
     @property
     def free_values(self):
-        return set(self.possible_values) - set(self.correlated_values)
+        return set(self.possible_values or []) - set(self.correlated_values or [])
+
 
 @define
 class ModuleParameterSpec:
@@ -86,7 +86,10 @@ class PipelineParameterSpec:
             raise RuntimeError()
         self.node_specs[key] = value
 
-    def getWithValues(self, values: dict[str, dict[str, Any]]):
+    def getWithValues(
+        self, values: dict[str, dict[str, Any]], *rest: dict[str, dict[str, Any]]
+    ):
+        values = deepMerge(values, *rest, max_depth=1)
         ret = {}
         for nid, spec in self.node_specs.items():
             if nid in values:
@@ -216,7 +219,7 @@ class AnalyzerModule(abc.ABC):
         return []
 
     def getKey(self, columns, params):
-        ret = hash((self.name(), params.key, self.getColumnKey(columns)))
+        ret = hash((self.name(), freeze(params), self.getColumnKey(columns)))
         return ret
 
     def getFromCache(self, key):
@@ -363,7 +366,7 @@ def register_module(input_columns, output_columns, configuration=None, params=No
 @define
 class ModuleAddition:
     analyzer_module: AnalyzerModule
-    run_builder: Any | None  = field(default=buildVariations)
+    run_builder: Any | None = field(default=buildVariations)
     this_module_parameters: dict | None = None
     # parameter_runs: list[PipelineParameterValues]
 

@@ -19,6 +19,7 @@ from analyzer.core.results import (
     ResultGroup,
     ResultBase,
 )
+from collections import ChainMap
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
 
@@ -147,34 +148,33 @@ class Analyzer:
                         node = self.getUniqueNode(complete_pipeline, module)
                         complete_pipeline.append(node)
                         logger.debug(f"New node id is {node.node_id}")
-                        params = params.withAddSpec(node.node_id, spec)
-                        params.values[node.node_id] = spec.getWithValues(
-                            res.this_module_parameters or {}
+                        params = ChainMap(
+                            params, {node.node_id: res.this_module_parameters}
                         )
-                        to_add.appendleft(node)
                     else:
                         logger.debug(f"Running multi-parameter pipeline")
 
                         param_dicts = res.run_builder(current_spec, columns.metadata)
-                        to_run = [params.withNewValues(x) for x in param_dicts]
+                        to_run = [
+                            (x, current_spec.getWithValues(params, y))
+                            for x, y in param_dicts
+                        ]
+                        breakpoint()
 
                         everything = []
-                        for params_set in to_run:
+                        for name, params_set in to_run:
                             c, _ = self.runPipelineWithParameters(
-                                orig_columns,
+                                None,
                                 complete_pipeline,
                                 params_set,
-                                pipeline_name="NONE",
                                 freeze_pipeline=True,
                                 result_container=None,
                             )
-                            everything.append((params_set, c))
+                            everything.append((name, c))
                         logger.debug(
                             f"Running node {module} with {len(everything)} parameter sets"
                         )
-                        _, r = module(
-                            everything, params.withNewValues(res.this_module_parameters)
-                        )
+                        r = module(everything, res.this_module_parameters or {})
                         results.extendleft(r)
                 else:
                     raise RuntimeError(

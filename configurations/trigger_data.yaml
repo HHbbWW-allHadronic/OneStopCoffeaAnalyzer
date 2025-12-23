@@ -3,10 +3,16 @@ analyzer:
     - module_name: SimpleHLT
       triggers: [IsoMuon]
     - module_name: GoldenLumi
+    - module_name: PileupSF
+
+    - module_name: L1PrefiringSF
 
     - module_name: VetoMapFilter
       input_col: Jet
       output_col: Jet
+
+    - module_name: VetoMap
+      input_col: Jet
 
     - module_name: VetoMap
       input_col: Jet

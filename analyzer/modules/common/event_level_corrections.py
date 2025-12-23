@@ -6,6 +6,8 @@ from analyzer.configuration import CONFIG
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
     register_module,
+    ModuleParameterSpec,
+    ParameterSpec,
     MetadataExpr,
     MetadataAnd,
     IsRun,
@@ -34,7 +36,6 @@ import correctionlib
 
 @define
 class PileupSF(AnalyzerModule):
-    input_col: Column
     weight_name: str = "pileup_sf"
 
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
@@ -55,9 +56,9 @@ class PileupSF(AnalyzerModule):
 
     def run(self, columns, params):
         corr = self.getCorrection(columns.metadata)
-        n_pu = columns["Pileup"]["nTrueInt"]
+        n_pu = columns["Pileup.nTrueInt"]
         correction = corr.evaluate(n_pu, params["variation"])
-        columns[Column(("Weight", self.weight_name))] = correction
+        columns[Column(("Weights", self.weight_name))] = correction
         return columns, []
 
     def getCorrection(self, metadata):
@@ -77,7 +78,7 @@ class PileupSF(AnalyzerModule):
         return [Column("Pileup.nTrueInt")]
 
     def outputs(self, metadata):
-        return [Columns(fields=("Weights", self.weight_name))]
+        return [Column(fields=("Weights", self.weight_name))]
 
 
 @define

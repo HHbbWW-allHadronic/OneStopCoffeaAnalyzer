@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import fnmatch
+import copy
 import functools as ft
 import itertools as it
 from collections import ChainMap
@@ -21,15 +22,39 @@ def freeze(data):
         return data
 
 
-def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any]):
+def _mergeUpdate(a: dict[Any, Any], b: dict[Any, Any], current_depth=0, max_depth=None):
     for key in b:
         if key in a:
-            if isinstance(a[key], dict) and isinstance(b[key], dict):
-                mergeUpdate(a[key], b[key])
+            if (
+                isinstance(a[key], dict)
+                and isinstance(b[key], dict)
+                and (max_depth is None or current_depth < (max_depth))
+            ):
+                if current_depth < max_depth:
+                    mergeUpdate(a[key], b[key])
             else:
                 a[key] = b[key]
         else:
             a[key] = b[key]
+    return a
+
+
+def mergeUpdate(a: dict[Any, Any], b: dict[Any, Any], max_depth=None):
+    for key in b:
+        if key in a:
+            if isinstance(a[key], dict) and isinstance(b[key], dict):
+                _mergeUpdate(a[key], b[key], current_depth=1, max_depth=max_depth)
+            else:
+                a[key] = b[key]
+        else:
+            a[key] = b[key]
+    return a
+
+
+def deepMerge(a: dict[Any, Any], *rest, max_depth=None):
+    a = copy.deepcopy(a)
+    for d in rest:
+        mergeUpdate(a, d, max_depth=max_depth)
     return a
 
 

@@ -237,7 +237,10 @@ class TrackedColumns:
             )
         self._events = setColumn(self._events, column, value)
         self._column_provenance[column] = self._current_provenance
-        all_columns = getAllColumns(value.layout, column)
+        if hasattr(value, "layout"):
+            all_columns = getAllColumns(value.layout, column)
+        else:
+            all_columns = 
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
             logger.debug(
