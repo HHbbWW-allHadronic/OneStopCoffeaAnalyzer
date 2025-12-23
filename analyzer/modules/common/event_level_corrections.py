@@ -107,10 +107,10 @@ class L1PrefiringSF(AnalyzerModule):
         return columns, []
 
     def inputs(self, metadata):
-        return [Columns(["L1PreFiringWeight"])]
+        return [Column("L1PreFiringWeight")]
 
     def outputs(self, metadata):
-        return [Columns(fields=("Weights", self.weight_name))]
+        return [Column(fields=("Weights", self.weight_name))]
 
 
 @define

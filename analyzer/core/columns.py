@@ -240,7 +240,7 @@ class TrackedColumns:
         if hasattr(value, "layout"):
             all_columns = getAllColumns(value.layout, column)
         else:
-            all_columns = 
+            all_columns = {column}
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
             logger.debug(
