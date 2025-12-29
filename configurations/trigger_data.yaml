@@ -4,9 +4,10 @@ analyzer:
       triggers: [IsoMuon]
     - module_name: GoldenLumi
     - module_name: PileupSF
-
+    - module_name: JetScaleCorrections
+      input_col: Jet
+      output_col: Jet
     - module_name: L1PrefiringSF
-
     - module_name: VetoMapFilter
       input_col: Jet
       output_col: Jet

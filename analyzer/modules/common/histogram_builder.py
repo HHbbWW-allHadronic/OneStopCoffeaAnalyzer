@@ -1,11 +1,16 @@
 from attrs import define
-import abc
 
 from analyzer.core.columns import Column, TrackedColumns, EventBackend
+import numpy as np
+import awkward as ak
 from analyzer.core.results import Histogram
 from analyzer.core.analysis_modules import AnalyzerModule, ModuleAddition
-from .axis import Axis, RegularAxis
+from .axis import Axis
+import hist.dask as dah
 import hist
+import logging
+
+logger = logging.getLogger("analyzer.modules")
 
 
 @define
@@ -93,6 +98,9 @@ class HistogramBuilder(AnalyzerModule):
         histogram = HistogramBuilder.create(
             backend, categories, self.axes, self.storage
         )
+        logger.debug(
+            f"Creating histogram {self.product_name} with the following variations:\n{[x[0] for x in column_sets]}"
+        )
         for cset in column_sets:
             name, columns = cset
             if self.mask_col is not None:
@@ -100,20 +108,22 @@ class HistogramBuilder(AnalyzerModule):
             data_to_fill = [columns[x] for x in self.columns]
             if self.mask_col is not None:
                 data_to_fill = [col[mask] for col in data_to_fill]
-            represenative = data_to_fill[0]
+            representative = data_to_fill[0]
             mask = None
 
             if "Weights" in columns.fields:
                 weights = columns["Weights"]
-                total_weight = ak.prod([weights[x] for x in weights.fields], axis=1)
+                total_weight = ak.prod([weights[x] for x in weights.fields], axis=0)
                 total_weight = HistogramBuilder.transformToFill(
-                    represenative, weight, mask
+                    representative, total_weight, mask
                 )
             else:
                 total_weight = None
 
             cat_to_fill = [
-                HistogramBuilder.transformToFill(represenative, columns[x.column], mask)
+                HistogramBuilder.transformToFill(
+                    representative, columns[x.column], mask
+                )
                 for x in categories
             ]
             HistogramBuilder.fillHistogram(
@@ -163,10 +173,10 @@ def makeHistogram(
         columns[name] = d
 
     if mask is not None:
-        mask_col_name = Column(f"INTERNAL_USE.mask-{product_name}-{i}")
+        mask_col_name = Column(f"INTERNAL_USE.mask-{product_name}")
         columns[mask_col_name] = mask
     else:
         mask_col_name = None
 
-    b = HistogramBuilder(product_name, names, axes, axes, mask_col=mask_col_name)
+    b = HistogramBuilder(product_name, names, axes, mask_col=mask_col_name)
     return ModuleAddition(b)

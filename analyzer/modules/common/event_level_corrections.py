@@ -64,11 +64,12 @@ class PileupSF(AnalyzerModule):
     def getCorrection(self, metadata):
         file_path = metadata["era"]["pileup_scale_factors"]["file"]
         name = metadata["era"]["pileup_scale_factors"]["name"]
-        if (name, file_path) in self.__corrections:
-            return self.__corrections[file_path]
+        key = (name, file_path)
+        if key in self.__corrections:
+            return self.__corrections[key]
         cset = correctionlib.CorrectionSet.from_file(file_path)
         ret = cset[name]
-        self.__corrections[(name, file_path)] = ret
+        self.__corrections[key] = ret
         return ret
 
     def preloadForMeta(self, metadata):
@@ -95,7 +96,7 @@ class L1PrefiringSF(AnalyzerModule):
             {
                 "variation": ParameterSpec(
                     default_value="Nom",
-                    possible_values=["Nom", "Up", "Down"],
+                    possible_values=["Nom", "Up", "Dn"],
                     tags={"weight_variation"},
                 ),
             }

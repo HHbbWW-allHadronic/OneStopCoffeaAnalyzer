@@ -1,7 +1,9 @@
 from analyzer.core.analysis_modules import AnalyzerModule, register_module
+import re
 
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
+from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
 import itertools as it
 from attrs import define, field
@@ -18,6 +20,7 @@ import pydantic as pyd
 from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
 import correctionlib.schemav2 as cs
 from functools import lru_cache
+import logging
 
 
 from analyzer.core.analysis_modules import (
@@ -28,6 +31,8 @@ from analyzer.core.analysis_modules import (
     IsRun,
     IsSampleType,
 )
+
+logger = logging.getLogger("analyzer.modules")
 
 
 @define
@@ -230,11 +235,10 @@ class JetFilter(AnalyzerModule):
             ]
 
         if self.include_pu_id:
-            if any(
-                x in metadata["era"]["name"]
-                for x in ["2016", "2017", "2018"]
-            ):
-                good_jets = good_jets[(good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)]
+            if any(x in metadata["era"]["name"] for x in ["2016", "2017", "2018"]):
+                good_jets = good_jets[
+                    (good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)
+                ]
         columns[self.output_col] = good_jets
         return columns, []
 
@@ -338,21 +342,28 @@ class JetScaleCorrections(AnalyzerModule):
     jet_type: str = "AK4"
     use_regrouped: bool = True
 
+    __corrections: dict = field(factory=dict)
+
     @staticmethod
-    def getKeyJec(name, jet_type, params):
-        jec_params = params["dataset"]["era"]["jet_corrections"]
-        jet_type = jec_params.jet_names[jet_type]
-        data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
-        campaign = jec_params.jec.campaign
-        version = jec_params.jec.version
-        return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
+    def getKeyJec(name, jet_type, metadata):
+        jec_params = metadata["era"]["jet_corrections"]
+        jet_type = jec_params["jet_names"][jet_type]
+        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
+        campaign = jec_params["jec"]["campaign"]
+        version = jec_params["jec"]["version"]
+        ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
+        logger.debug(f'Using JEC Key "{ret}"')
+        return ret
 
     def run(self, columns, params):
         metadata = columns.metadata
-
         jets = columns[self.input_col]
         corrections = self.getCorrection(metadata)
-        systematics = params["jec_systematic"]
+        systematic = params["variation"]
+        real_syst_name = re.sub(r"(up|down)_jes", "", systematic)
+        logger.debug(
+            f'Running JEC with systematic "{systematic}". Real name is "{real_syst_name}"'
+        )
 
         if systematic == "central":
             columns[self.output_col] = jets
@@ -366,19 +377,19 @@ class JetScaleCorrections(AnalyzerModule):
             else columns["Rho.fixedGridRhoFastjetAll"]
         )
 
-        k = JetScaleCorrections.getKeyJec(systematic, jet_type, params)
+        k = JetScaleCorrections.getKeyJec(real_syst_name, self.jet_type, metadata)
         evaluator = corrections[k]
-        factor = to_f32(evaluator.evaluate(jets.eta, pt_raw))
+        factor = evaluator.evaluate(jets.eta, pt_raw)
         shift = -1 if systematic.startswith("down") else 1
-        corrected = ak.with_field(jets, toF32(jets.pt * (1.0 + factor * shift)), "pt")
+        corrected = ak.with_field(jets, (jets.pt * (1.0 + factor * shift)), "pt")
         corrected = ak.with_field(
-            corrected, toF32(jets.mass * (1.0 + factor * shift)), "mass"
+            corrected, (jets.mass * (1.0 + factor * shift)), "mass"
         )
         columns[self.output_col] = corrected
         return columns, []
 
     def getCorrection(self, metadata):
-        file_path = metadata["era"]["jet_corrections"]["file"]
+        file_path = metadata["era"]["jet_corrections"]["files"][self.jet_type]
         if file_path in self.__corrections:
             return self.__corrections[file_path]
         ret = correctionlib.CorrectionSet.from_file(file_path)
@@ -386,10 +397,11 @@ class JetScaleCorrections(AnalyzerModule):
         return ret
 
     def getParameterSpec(self, metadata):
-        if use_regrouped:
-            systematics = metadata["jec_params"]["jec"]["regrouped_systematics"]
+        jec_meta = metadata["era"]["jet_corrections"]["jec"]
+        if self.use_regrouped:
+            systematics = jec_meta["regrouped_systematics"]
         else:
-            systematics = metadata["jec_params"]["jec"]["systematics"]
+            systematics = jec_meta["systematics"]
 
         possible_values = it.product(["up", "down"], systematics)
         possible_values = ["central"] + [
@@ -397,7 +409,7 @@ class JetScaleCorrections(AnalyzerModule):
         ]
         return ModuleParameterSpec(
             {
-                "jes_variation": ParameterSpec(
+                "variation": ParameterSpec(
                     default_value="central",
                     possible_values=possible_values,
                     tags={
@@ -412,7 +424,11 @@ class JetScaleCorrections(AnalyzerModule):
         self.getCorrection(metadata)
 
     def inputs(self, metadata):
-        return [self.input_col]
+        return [
+            self.input_col,
+            Column("fixedGridRhoFastjetAll"),
+            Column("Rho.fixedGridRhoFastjetAll"),
+        ]
 
     def outputs(self, metadata):
         return [self.output_col]

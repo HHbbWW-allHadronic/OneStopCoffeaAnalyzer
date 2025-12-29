@@ -31,7 +31,7 @@ class SimpleHLT(AnalyzerModule):
         trigger_names = metadata["era"]["trigger_names"]
         hlt = columns["HLT"]
         pass_trigger = ft.reduce(
-            op.and_, (hlt[trigger_names[name]] for name in self.triggers)
+            op.or_, (hlt[trigger_names[name]] for name in self.triggers)
         )
         addSelection(columns, self.selection_name, pass_trigger)
         return columns, []

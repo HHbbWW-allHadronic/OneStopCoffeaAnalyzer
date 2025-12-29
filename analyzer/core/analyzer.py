@@ -57,7 +57,6 @@ class Node:
         )
 
     def __call__(self, columns, params):
-        print(params)
         params = params[self.node_id]
         return self.analyzer_module(columns, params)
 
@@ -113,13 +112,16 @@ class Analyzer:
         columns,
         pipeline,
         params,
-        pipeline_meta=None,
         freeze_pipeline=False,
         result_container=None,
     ):
         params = copy.deepcopy(params)
         complete_pipeline = []
         to_add = deque(pipeline)
+        current_spec = None
+
+
+        breakpoint()
 
         while to_add:
             head = to_add.popleft()
@@ -159,8 +161,6 @@ class Analyzer:
                             (x, current_spec.getWithValues(params, y))
                             for x, y in param_dicts
                         ]
-                        breakpoint()
-
                         everything = []
                         for name, params_set in to_run:
                             c, _ = self.runPipelineWithParameters(
@@ -203,7 +203,7 @@ class Analyzer:
             vals = spec.getWithValues(
                 {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
             )
-            _, ret = self.runPipelineWithParameters(
+            self.runPipelineWithParameters(
                 None,
                 pipeline,
                 vals,

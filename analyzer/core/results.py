@@ -271,6 +271,7 @@ class Histogram(ResultBase):
 
     def widget(self, *args, **kwargs):
         from textual_plotext import PlotextPlot
+        return None
 
         widget = PlotextPlot()
         plt = widget.plt

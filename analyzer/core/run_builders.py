@@ -23,7 +23,7 @@ def buildCombos(spec, tag):
                 continue
             c = copy.deepcopy(central)
             c[k] = p
-            ret.append([p, c])
+            ret.append(["_".join([*k, p]), c])
 
     ret = [[n, fromTuples(x)] for n, x in ret]
 
@@ -35,5 +35,3 @@ def buildVariations(spec, metadata=None):
     shapes = buildCombos(spec, "shape_variation")
     all_vars = [["central", {}]] + weights + shapes
     return all_vars
-
-
