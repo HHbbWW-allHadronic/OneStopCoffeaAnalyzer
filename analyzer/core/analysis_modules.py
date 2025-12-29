@@ -11,7 +11,7 @@ from rich import print
 from attrs import define, field, make_class
 from attrs import define, field
 from analyzer.core.results import ResultBase
-from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge
+from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge, SimpleCache
 from collections.abc import Collection
 from analyzer.core.columns import TrackedColumns, Column, EVENTS, ColumnCollection
 import copy
@@ -162,22 +162,6 @@ class MetadataNot(MetadataExpr):
         return not self.require_not.evaluate(metadata)
 
 
-class SimpleCache(OrderedDict):
-    "Store items in the order the keys were last added"
-
-    def __init__(self, *args, max_size=None, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.max_size = max_size
-
-    def __setitem__(self, key, value):
-        super().__setitem__(key, value)
-        self.move_to_end(key)
-        if len(self) >= self.max_size:
-            self.popitem(last=False)
-
-    def __getitem__(self, key):
-        self.move_to_end(key)
-        return super().__getitem__(key)
 
 
 @define

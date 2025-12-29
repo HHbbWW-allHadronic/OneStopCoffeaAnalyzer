@@ -1,13 +1,15 @@
 from __future__ import annotations
 import copy
+import cProfile
 
 from rich import print
-from attrs import define, field
+from attrs import define, field, frozen
 
 import itertools as it
 
 from collections import deque
 
+from analyzer.core.columns import TrackedColumns
 from analyzer.core.serialization import converter
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
@@ -22,6 +24,8 @@ from analyzer.core.results import (
 from collections import ChainMap
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
+
+from analyzer.utils.structure_tools import SimpleCache, freeze
 
 
 # Define the log message format
@@ -71,6 +75,8 @@ class Analyzer:
     all_modules: list = field(factory=list)
     base_pipelines: dict[str, list[Node]] = field(factory=dict)
 
+    __cache: SimpleCache = field(factory=SimpleCache)
+
     def initModules(self, metadata):
         for m in self.all_modules:
             m.preloadForMeta(metadata)
@@ -100,8 +106,7 @@ class Analyzer:
 
     def addPipeline(self, name, pipeline):
         ret = []
-        node = self.getUniqueNode(ret, LoadColumns())
-        node.node_id = "ENTRYPOINT"
+        node = Node("ENTRYPOINT", LoadColumns())
         ret.append(node)
         for module in pipeline:
             ret.append(self.getUniqueNode(ret, module))
@@ -115,13 +120,17 @@ class Analyzer:
         freeze_pipeline=False,
         result_container=None,
     ):
+        key = hash(freeze(([n.node_id for n in pipeline], params)))
+
+        logger.debug(f"Pipeline execution key is {key}")
+        if key in self.__cache:
+            logger.debug(f"Found key {key}, using cached columns")
+            return self.__cache[key], None
+
         params = copy.deepcopy(params)
         complete_pipeline = []
         to_add = deque(pipeline)
         current_spec = None
-
-
-        breakpoint()
 
         while to_add:
             head = to_add.popleft()
@@ -180,6 +189,7 @@ class Analyzer:
                     raise RuntimeError(
                         f"Invalid object type returned from analyzer module."
                     )
+        self.__cache[key] = columns
         return columns, result_container
 
     def run(self, chunk, metadata, pipelines=None):
@@ -195,21 +205,23 @@ class Analyzer:
         sample_container.addResult(ResultProvenance("_provenance", chunk.toFileSet()))
         sample_container.addResult(pipeline_container)
 
-        for k, pipeline in self.base_pipelines.items():
-            if k not in pipelines:
-                continue
-            pipeline_result = ResultGroup(k)
-            spec = getPipelineSpecs(pipeline, metadata)
-            vals = spec.getWithValues(
-                {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
-            )
-            self.runPipelineWithParameters(
-                None,
-                pipeline,
-                vals,
-                result_container=pipeline_result,
-            )
-            pipeline_container.addResult(pipeline_result)
+        with cProfile.Profile() as pr:
+            for k, pipeline in self.base_pipelines.items():
+                if k not in pipelines:
+                    continue
+                pipeline_result = ResultGroup(k)
+                spec = getPipelineSpecs(pipeline, metadata)
+                vals = spec.getWithValues(
+                    {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
+                )
+                self.runPipelineWithParameters(
+                    None,
+                    pipeline,
+                    vals,
+                    result_container=pipeline_result,
+                )
+                pipeline_container.addResult(pipeline_result)
+            pr.dump_stats("test.prof")
         return root_container
 
     @classmethod

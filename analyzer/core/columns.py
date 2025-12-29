@@ -39,23 +39,10 @@ class EventBackend(str, enum.Enum):
 class Column:
     fields: tuple[str, ...] = field(converter=coerceFields)
 
-    def parts(self):
-        return tuple(self.path)
-
     def contains(self, other):
         if len(self) > len(other):
             return False
         return other[: len(self)] == self
-
-    def commonParent(self, other):
-        l = []
-        for x, y in zip(self.iterParts(), other.iterParts()):
-            if x == y:
-                l.append(x)
-            else:
-                break
-        ret = Column(tuple(l))
-        return ret
 
     def extract(self, events):
         return ft.reduce(lambda x, y: x[y], self.fields, events)
@@ -122,6 +109,7 @@ class ColumnCollection:
             for x in self.columns
             if any((x.contains(o) or o.contains(x)) for o in other)
         }
+        return ret
 
 
 def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None):
@@ -213,14 +201,10 @@ class TrackedColumns:
         """
         ret = []
         for column in columns:
-            found_any = False
-            for c, v in self._column_provenance.items():
-                if column.contains(c):
-                    found_any = True
-                    ret.append((c, v))
-            if not found_any:
-                self._column_provenance[column] = self._current_provenance
+            try:
                 ret.append((column, self._column_provenance[column]))
+            except KeyError as e:
+                continue
 
         logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
@@ -246,12 +230,16 @@ class TrackedColumns:
             logger.debug(
                 f"Adding column {c} to events with provenance {self._current_provenance}"
             )
-        for c in self._column_provenance:
-            if c.contains(column):
-                self._column_provenance[c] = self._current_provenance
-                logger.debug(
-                    f"Updating parent column {c} to events with provenance {self._current_provenance}"
-                )
+        for part in column.fields:
+            c = Column(part)
+            self._column_provenance[c] = self._current_provenance
+            logger.debug(
+                f"Updating parent column {c} to events with provenance {self._current_provenance}"
+            )
+
+        # for c in self._column_provenance:
+        #     if c.contains(column):
+        #         self._column_provenance[c] = self._current_provenance
 
     def __getitem__(self, column):
         column = Column(column)
@@ -267,6 +255,13 @@ class TrackedColumns:
         for column in columns:
             with self.useKey(other._column_provenance[column]):
                 self[column] = other[column]
+            # self._setIndividualColumnWithProvenance(
+            #     column, other[column], other._column_provenance[column]
+            # )
+
+    def _addColumnsInternal(self, other, columns):
+        for column in columns:
+            self._events = setColumn(self._events, column, other[column])
             # self._setIndividualColumnWithProvenance(
             #     column, other[column], other._column_provenance[column]
             # )

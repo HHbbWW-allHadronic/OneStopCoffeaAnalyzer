@@ -4,7 +4,7 @@ import fnmatch
 import copy
 import functools as ft
 import itertools as it
-from collections import ChainMap
+from collections import ChainMap, OrderedDict
 from collections.abc import Iterable
 from typing import Any
 
@@ -18,6 +18,8 @@ def freeze(data):
         return frozenset((freeze(x), freeze(y)) for x, y in data.items())
     elif isinstance(data, list):
         return frozenset(freeze(x) for x in data)
+    elif isinstance(data, tuple):
+        return tuple(freeze(x) for x in data)
     else:
         return data
 
@@ -88,3 +90,21 @@ def globWithMeta(directory, pattern, current_meta=None):
                 if isinstance(item, Iterable):
                     ret.extend(globWithMeta(item, rest, item_meta))
     return ret
+
+
+class SimpleCache(OrderedDict):
+    "Store items in the order the keys were last added"
+
+    def __init__(self, *args, max_size=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.max_size = max_size
+
+    def __setitem__(self, key, value):
+        super().__setitem__(key, value)
+        self.move_to_end(key)
+        if self.max_size and (len(self) >= self.max_size):
+            self.popitem(last=False)
+
+    def __getitem__(self, key):
+        self.move_to_end(key)
+        return super().__getitem__(key)
