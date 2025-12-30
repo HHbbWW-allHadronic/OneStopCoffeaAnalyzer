@@ -13,6 +13,10 @@ common_corrections: &common_corrections
   - module_name: JetScaleCorrections
     input_col: Jet
     output_col: Jet
+  - module_name: JetResolutionCorrections
+    input_col: Jet
+    genjet_col: GenJet
+    output_col: Jet
 
 common_objects: &common_objects
   - module_name: ElectronMaker

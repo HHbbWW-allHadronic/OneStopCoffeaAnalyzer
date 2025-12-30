@@ -437,35 +437,42 @@ class JetScaleCorrections(AnalyzerModule):
 @define
 class JetResolutionCorrections(AnalyzerModule):
     input_col: Column
+    genjet_col: Column
     output_col: Column
     jet_type: str = "AK4"
 
-    should_run: MetadataExpr = field(factory=lambda: IsSampleType(MC))
+    use_regrouped: bool = True
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
+
+    __corrections: dict = field(factory=dict)
 
     @staticmethod
-    def getKeyJer(name, jet_type, params):
-        jet_type = params["jet_names"][jet_type]
-        data_mc = "MC" if params.dataset.sample_type == "MC" else "DATA"
-        campaign = jec_params["jer"]["campaign"]
-        version = jec_params["jer"]["version"]
-        return f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
+    def getKeyJer(name, jet_type, metadata):
+        jet_params = metadata["era"]["jet_corrections"]
+        jet_type = jet_params["jet_names"][jet_type]
+        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
+        campaign = jet_params["jer"]["campaign"]
+        version = jet_params["jer"]["version"]
+        ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
+        logger.debug(f'Using JER Key "{ret}"')
+        return ret
 
     def run(self, columns, params):
         metadata = columns.metadata
-        jec_params = dataset["era"]["jet_corrections"]
+        jet_params = metadata["era"]["jet_corrections"]
+        genjet_idx_col = jet_params["jer"]["genjet_idx_col"]
         jets = columns[self.input_col]
-        systematic = params["systematic"]
-
+        systematic = params["variation"]
         corrections = self.getCorrection(metadata)
         res_key = JetResolutionCorrections.getKeyJer(
-            "PtResolution", self.jet_type, metadata["era"]["jet_corrections"]
+            "PtResolution", self.jet_type, metadata
         )
         sf_key = JetResolutionCorrections.getKeyJer(
-            "ScaleFactor", self.jet_type, metadata["era"]["jet_corrections"]
+            "ScaleFactor", self.jet_type, metadata
         )
-        eval_res = correction[res_key]
-        eval_sf = correction[sf_key]
-        eval_smear = getSmearer(metadata)
+        eval_res = corrections[res_key]
+        eval_sf = corrections[sf_key]
+        eval_smear = self.getSmearer(metadata)
 
         rho = (
             columns["fixedGridRhoFastjetAll"]
@@ -479,9 +486,12 @@ class JetResolutionCorrections(AnalyzerModule):
             "Rho": rho,
             "systematic": systematic,
         }
-        jer = eval_res.evaluate(*[inputs[inp.name] for inp in evaljer.inputs])
-        jer = toF32(jer)
 
+        jer = eval_res.evaluate(*[inputs[inp.name] for inp in eval_res.inputs])
+        sf_inputs = inputs | {"systematic": systematic}
+        sf = eval_sf.evaluate(*[sf_inputs[inp.name] for inp in eval_sf.inputs])
+
+        gen_jets = columns[self.genjet_col]
         matched_genjet = jets.matched_gen
         gen_idxs = jets[genjet_idx_col]
         valid_gen_idxs = ak.mask(gen_idxs, (gen_idxs >= 0) & (gen_idxs < 10))
@@ -497,16 +507,31 @@ class JetResolutionCorrections(AnalyzerModule):
             "EventID": ak.values_astype(rho * 10**6, "int64"),
         }
 
-        final_smear = evalsmear.evaluate(
-            *[smear_inputs[inp.name] for inp in evalsmear.inputs]
+        final_smear = eval_smear.evaluate(
+            *[smear_inputs[inp.name] for inp in eval_smear.inputs]
         )
-        final_smear = toF32(final_smear)
-        smeared_jets = ak.with_field(jets, toF32(jets.pt * final_smear), "pt")
-        smeared_jets = ak.with_field(
-            smeared_jets, toF32(jets.mass * final_smear), "mass"
-        )
+        final_smear = final_smear
+        smeared_jets = ak.with_field(jets, (jets.pt * final_smear), "pt")
+        smeared_jets = ak.with_field(smeared_jets, (jets.mass * final_smear), "mass")
         columns[self.output_col] = smeared_jets
         return columns, []
+
+    def getParameterSpec(self, metadata):
+        jer_meta = metadata["era"]["jet_corrections"]["jer"]
+        systematics = jer_meta["systematics"]
+        possible_values = ["nom"] + [f"{updown}_jer" for updown in systematics]
+        return ModuleParameterSpec(
+            {
+                "variation": ParameterSpec(
+                    default_value="nom",
+                    possible_values=possible_values,
+                    tags={
+                        "shape_variation",
+                        "jer",
+                    },
+                ),
+            }
+        )
 
     def getSmearer(self, metadata):
         file_path = metadata["era"]["jet_corrections"]["files"]["smear"]
@@ -517,133 +542,34 @@ class JetResolutionCorrections(AnalyzerModule):
         return ret
 
     def getCorrection(self, metadata):
-        file_path = metadata["era"]["jet_corrections"]["file"]
+        file_path = metadata["era"]["jet_corrections"]["files"][self.jet_type]
         if file_path in self.__corrections:
             return self.__corrections[file_path]
         ret = correctionlib.CorrectionSet.from_file(file_path)
         self.__corrections[file_path] = ret
         return ret
 
-    def getParameterSpec(self, metadata):
-        if use_regrouped:
-            systematics = metadata["jec_params"]["jec"]["regrouped_systematics"]
-        else:
-            systematics = metadata["jec_params"]["jec"]["systematics"]
-
-        possible_values = it.product(["up", "down"], systematics)
-        possible_values = ["central"] + [
-            f"{updown}_jes{name}" for updown, name in possible_values
-        ]
-        return ModuleParameterSpec(
-            {
-                "jes_variation": ParameterSpec(
-                    default_value="central",
-                    possible_values=possible_values,
-                    tags={
-                        "shape_variation",
-                        "jes",
-                    },
-                ),
-            }
-        )
-
     def preloadForMeta(self, metadata):
         self.getCorrection(metadata)
         self.getSmearer(metadata)
 
     def inputs(self, metadata):
-        return [self.input_col]
+        return [
+            self.input_col,
+            self.genjet_col,
+            Column("fixedGridRhoFastjetAll"),
+            Column("Rho.fixedGridRhoFastjetAll"),
+        ]
 
     def outputs(self, metadata):
         return [self.output_col]
-
-
-def corrected_jets(
-    columns,
-    params,
-    input_col: str = None,
-    output_col: str = None,
-    jet_type="AK4",
-    do_smearing=False,
-    include_systematics=True,
-    use_regrouped=True,
-):
-    jec_params = params.dataset.era.jet_corrections
-
-    if use_regrouped:
-        systematics = jec_params.jec.regrouped_systematics
-    else:
-        systematics = jec_params.jec.systematics
-
-    jets = columns[input_col]
-
-    corrections_path = jec_params.files[jet_type]
-    # cset = correctionlib.CorrectionSet.from_file(corrections_path)
-
-    pt_raw = (1 - jets.rawFactor) * jets.pt
-    mass_raw = (1 - jets.rawFactor) * jets.mass
-    rho = (
-        columns.fixedGridRhoFastjetAll
-        if "fixedGridRhoFastjetAll" in columns.fields
-        else columns.Rho.fixedGridRhoFastjetAll
-    )
-
-    systs = {}
-
-    if include_systematics:
-        for systematic in systematics:
-            k = getKeyJec(systematic, jet_type, params)
-            logger.info(f"Getting jet correction key {k}")
-            corr = getEvaluator(corrections_path, k)
-            # event_rho = getRho(events, jec_params.rho_name)
-            factor = to_f32(corr.evaluate(jets.eta, pt_raw))
-            for shift_name, shift in [("up", 1), ("down", -1)]:
-                # fields = {field: jets[field] for field in jets.fields}
-
-                corrected = jets
-                # corrected["pt"] = jets.pt * (1.0 + factor * shift)
-                # corrected["mass"] = jets.mass * (1.0 + factor * shift)
-                corrected = ak.with_field(
-                    corrected, to_f32(jets.pt * (1.0 + factor * shift)), "pt"
-                )
-                corrected = ak.with_field(
-                    corrected, to_f32(jets.mass * (1.0 + factor * shift)), "mass"
-                )
-
-                if do_smearing:
-                    corrected = smearJets(
-                        corrected, columns.GenJet, rho, params, jet_type
-                    )
-
-                systematic_name = f"{shift_name}_jes{systematic}"
-                logger.info(f"Adding jet systematic {systematic_name}")
-
-                systs[systematic_name] = corrected
-
-    if do_smearing:
-        rjets = smearJets(
-            jets,
-            columns.GenJet,
-            rho,
-            params,
-            jet_type,
-            include_systematics=include_systematics,
-        )
-        systs_jer = {}
-        if include_systematics:
-            rjets, systs_jer = rjets
-    else:
-        rjets = jets
-        systs_jer = {}
-
-    columns.add(output_col, rjets, systs | systs_jer | {"base": jets})
 
 
 @define
 class PileupJetIdSF(AnalyzerModule):
     input_col: Column
     weight_name: str = "puid_sf"
-    should_run: MetadataExpr = field(factory=lambda: IsSampleType(MC))
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
 
     __corrections: dict = field(factory=dict)
 
