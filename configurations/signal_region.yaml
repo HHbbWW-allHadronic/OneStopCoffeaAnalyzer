@@ -8,8 +8,6 @@ common_cleanup: &common_cleanup
   - module_name: NoiseFilter
 
 common_corrections: &common_corrections
-  - module_name: PileupSF
-  - module_name: L1PrefiringSF
   - module_name: JetScaleCorrections
     input_col: Jet
     output_col: Jet
@@ -17,6 +15,17 @@ common_corrections: &common_corrections
     input_col: Jet
     genjet_col: GenJet
     output_col: Jet
+
+common_pre_sel_weights: &common_pre_sel_weights
+  - module_name: BJetShapeSF
+    input_col: GoodJet
+  - module_name: PileupSF
+  - module_name: L1PrefiringSF
+  - module_name: PosNegGenWeight
+  - module_name: PileupJetIdSF
+    input_col: GoodJet
+    working_point: M
+
 
 common_objects: &common_objects
   - module_name: ElectronMaker
@@ -118,6 +127,15 @@ common_histograms: &common_histograms
   - module_name: HT
     input_col: GoodJet
 
+  - module_name: JetComboHistograms
+    input_col: GoodJet
+    prefix: "composite"
+    jet_combos:
+      - [0,1,2,3]
+      - [0,1,2]
+      - [1,2,3]
+      
+
   - module_name: TopJetHistograms
     prefix: "jet"
     input_col: GoodJet
@@ -135,6 +153,7 @@ analyzer:
       sel_name: pre_selection
     - *common_corrections
     - *common_objects
+    - *common_pre_sel_weights
     - module_name: NObjFilter
       input_col: MedB
       selection_name: 2bjet
@@ -152,6 +171,7 @@ analyzer:
       sel_name: pre_selection
     - *common_corrections
     - *common_objects
+    - *common_pre_sel_weights
     - module_name: NObjFilter
       input_col: MedB
       selection_name: 3bjet

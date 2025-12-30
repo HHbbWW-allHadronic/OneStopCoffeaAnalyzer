@@ -115,6 +115,23 @@ class L1PrefiringSF(AnalyzerModule):
 
 
 @define
+class PosNegGenWeight(AnalyzerModule):
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
+    weight_name: str = "pos_neg_weight"
+
+    def run(self, columns, params):
+        gw = ak.where(columns["genWeight"] > 0, 1.0, -1.0)
+        columns["Weights", self.weight_name] = gw
+        return columns, []
+
+    def inputs(self, metadata):
+        return [Column("genWeight")]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Weights", self.weight_name))]
+
+
+@define
 class GoldenLumi(AnalyzerModule):
     selection_name: str = "golden_lumi"
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("Data"))

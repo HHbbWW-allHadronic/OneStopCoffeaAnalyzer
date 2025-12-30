@@ -3,6 +3,7 @@ import re
 
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
+from analyzer.utils.structure_tools import flatten
 from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
 import itertools as it
@@ -305,23 +306,32 @@ class TopJetHistograms(AnalyzerModule):
 class JetComboHistograms(AnalyzerModule):
     prefix: str
     input_col: Column
-    jet_combos: list[tuple]
+    jet_combos: list[list]
 
     def run(self, columns, params):
         jets = columns[self.input_col]
         ret = []
-        padded = ak.pad_none(jets, self.max_idx, axis=1)
-        for combo in self.combos:
-            mask = ak.num(jets, axis=1) > i
-            jets = gj[:, i:j].sum()
-            masses[(i, j)] = jets.mass
+        max_idx = max(flatten(self.jet_combos))
+        padded = ak.pad_none(jets, max_idx + 1, axis=1)
+        for combo in self.jet_combos:
+            i,j=min(combo),max(combo)
+            mask = ak.num(jets, axis=1) > max(combo)
+            summed = padded[:, combo].sum()
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_pt_{i+1}",
+                    f"{self.prefix}_{i+1}{j+1}_m",
                     columns,
-                    RegularAxis(20, 0, 3000, f"$p_{{T, {i+1}}}$", unit="GeV"),
-                    padded[:, i].pt,
-                    description=f"$p_T$ of jet {i+1} ",
+                    RegularAxis(50, 0, 3000, f"$m_{{{i+1}{j+1}}}$", unit="GeV"),
+                    summed.mass,
+                    mask=mask,
+                )
+            )
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_{i+1}{j+1}_pt",
+                    columns,
+                    RegularAxis(50, 0, 3000, f"$pt_{{{i+1}{j+1}}}$", unit="GeV"),
+                    summed.pt,
                     mask=mask,
                 )
             )
@@ -462,7 +472,7 @@ class JetResolutionCorrections(AnalyzerModule):
         jet_params = metadata["era"]["jet_corrections"]
         genjet_idx_col = jet_params["jer"]["genjet_idx_col"]
         jets = columns[self.input_col]
-        systematic = params["variation"]
+        systematic = params["variation"].replace("_JER", "")
         corrections = self.getCorrection(metadata)
         res_key = JetResolutionCorrections.getKeyJer(
             "PtResolution", self.jet_type, metadata
@@ -519,7 +529,7 @@ class JetResolutionCorrections(AnalyzerModule):
     def getParameterSpec(self, metadata):
         jer_meta = metadata["era"]["jet_corrections"]["jer"]
         systematics = jer_meta["systematics"]
-        possible_values = ["nom"] + [f"{updown}_jer" for updown in systematics]
+        possible_values = ["nom"] + [f"{updown}_JER" for updown in systematics]
         return ModuleParameterSpec(
             {
                 "variation": ParameterSpec(
@@ -568,8 +578,11 @@ class JetResolutionCorrections(AnalyzerModule):
 @define
 class PileupJetIdSF(AnalyzerModule):
     input_col: Column
+    working_point: str
     weight_name: str = "puid_sf"
-    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
+    should_run: MetadataExpr = field(
+        factory=lambda: MetadataAnd([IsSampleType("MC"), IsRun(2)])
+    )
 
     __corrections: dict = field(factory=dict)
 
@@ -595,7 +608,7 @@ class PileupJetIdSF(AnalyzerModule):
             "eta": matched_pujet.eta,
             "pt": matched_pujet.pt,
             "systematic": "nom",
-            "workingpoint": working_point,
+            "workingpoint": self.working_point,
         }
         sf_matched = eval_pu.evaluate(
             *[inputs_matched[inp.name] for inp in eval_pu.inputs]
@@ -609,11 +622,12 @@ class PileupJetIdSF(AnalyzerModule):
         puidinfo = metadata["era"]["jet_pileup_id"]
         file_path = puidinfo["file"]
         name = puidinfo["name"]
-        if (name, file_path) in self.__corrections:
-            return self.__corrections[file_path]
+        key = (name, file_path)
+        if key in self.__corrections:
+            return self.__corrections[key]
         cset = correctionlib.CorrectionSet.from_file(file_path)
         ret = cset[name]
-        self.__corrections[(name, file_path)] = ret
+        self.__corrections[key] = ret
         return ret
 
     def preloadForMeta(self, metadata):

@@ -1,4 +1,5 @@
 import logging
+import itertools as it
 import pickle as pkl
 from pathlib import Path
 import fsspec
@@ -17,6 +18,8 @@ from analyzer.core.analysis_modules import (
     AnalyzerModule,
     register_module,
     MetadataExpr,
+    ParameterSpec,
+    ModuleParameterSpec,
     IsSampleType,
 )
 from analyzer.core.columns import Column
@@ -38,34 +41,50 @@ class BJetShapeSF(AnalyzerModule):
     def getParameterSpec(self, metadata):
         b_meta = metadata["era"]["btag_scale_factors"]
         systematics = b_meta["systematics"]
+        possible_values = it.product(["up", "down"], systematics)
+        possible_values = ["central"] + [
+            f"{updown}_{name}" for updown, name in possible_values
+        ]
 
         return ModuleParameterSpec(
             {
                 "variation": ParameterSpec(
                     default_value="central",
-                    possible_values=systematics,
+                    possible_values=possible_values,
                     tags={"weight_variation"},
-                    metadata={"correlation_function": None},
                 ),
             }
         )
 
     def run(self, columns, params):
-        correction = self.getCorrections(columns.metadata)
-        systematic = params["systematic"]
-        jets = columns[self.input_col]
-        bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
-        columns[self.output_col] = bjets
-        sf = ak.prod(
-            sf_eval(
-                systematic,
-                jets.hadronFlavour,
-                abs(jets.eta),
-                jets.pt,
-                jets.btagDeepFlavB,
-            ),
-            axis=1,
-        )
+        sf_eval = self.getCorrection(columns.metadata)
+        systematic = params["variation"]
+        gj = columns[self.input_col]
+        # bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
+        if systematic == "central":
+            j = gj
+            sf = ak.prod(
+                sf_eval.evaluate(
+                    "central", j.hadronFlavour, abs(j.eta), j.pt, j.btagDeepFlavB
+                ),
+                axis=1,
+            )
+        elif "_cf" in systematic:
+            j = gj[gj.hadronFlavour == 4]
+            sf = ak.prod(
+                sf_eval.evaluate(
+                    systematic, j.hadronFlavour, abs(j.eta), j.pt, j.btagDeepFlavB
+                ),
+                axis=1,
+            )
+        else:
+            j = gj[gj.hadronFlavour != 4]
+            sf = ak.prod(
+                sf_eval.evaluate(
+                    systematic, j.hadronFlavour, abs(j.eta), j.pt, j.btagDeepFlavB
+                ),
+                axis=1,
+            )
 
         columns["Weights", self.weight_name] = sf
         return columns, []

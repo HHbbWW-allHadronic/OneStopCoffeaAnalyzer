@@ -62,12 +62,13 @@ class CompleteSysts(RunBuilder):
 @define
 class SignalOnlySysts(RunBuilder):
     def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
-        if not metadata["is_signal"]:
+        if "signal" in metadata["dataset_name"] or metadata["is_signal"]:
+            weights = buildCombos(spec, "weight_variation")
+            shapes = buildCombos(spec, "shape_variation")
+            all_vars = [("central", {})] + weights + shapes
+            return all_vars
+        else:
             return [("central", {})]
-        weights = buildCombos(spec, "weight_variation")
-        shapes = buildCombos(spec, "shape_variation")
-        all_vars = [("central", {})] + weights + shapes
-        return all_vars
 
 
 @define
