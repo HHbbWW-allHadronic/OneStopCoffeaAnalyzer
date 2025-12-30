@@ -87,6 +87,11 @@ class ResultGroup(ResultBase):
 
     results: dict[str, ResultBase] = field(factory=dict)
 
+    def globWithMeta(self, pattern):
+        from analyzer.utils.structure_tools import globWithMeta
+
+        return globWithMeta(self, pattern)
+
     @classmethod
     def peekFile(cls, f):
         maybe_magic = f.read(len(cls._MAGIC_ID))
@@ -271,6 +276,7 @@ class Histogram(ResultBase):
 
     def widget(self, *args, **kwargs):
         from textual_plotext import PlotextPlot
+
         return None
 
         widget = PlotextPlot()
@@ -499,6 +505,7 @@ def loadResults(paths, peek_only=False):
         else:
             ret += result
     return ret
+
 
 def mergeAndScale(results):
     for dataset, meta in globWithMeta(results, ["*"]):

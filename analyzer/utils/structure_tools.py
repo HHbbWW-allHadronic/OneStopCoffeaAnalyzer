@@ -4,7 +4,7 @@ import fnmatch
 import copy
 import functools as ft
 import itertools as it
-from collections import ChainMap, OrderedDict
+from collections import ChainMap, OrderedDict, namedtuple
 from collections.abc import Iterable
 from typing import Any
 
@@ -70,6 +70,9 @@ def deepMerge(a: dict[Any, Any], *rest, max_depth=None):
     return a
 
 
+ItemWithMeta = namedtuple("ItemWithMeta", "item metadata")
+
+
 def getWithMeta(directory, key):
     if isinstance(key, str):
         key = key.split(".")
@@ -81,7 +84,7 @@ def getWithMeta(directory, key):
             {"name": current.name}
         )
 
-    return current, current_meta
+    return ItemWithMeta(current, current_meta)
 
 
 def globWithMeta(directory, pattern, current_meta=None):
@@ -95,11 +98,23 @@ def globWithMeta(directory, pattern, current_meta=None):
                 {"name": item.name}
             )
             if not rest:
-                ret.append((item, item_meta))
+                ret.append(ItemWithMeta(item, item_meta))
             else:
                 if isinstance(item, Iterable):
                     ret.extend(globWithMeta(item, rest, item_meta))
     return ret
+
+
+def deepWalkMeta(directory, pattern=None, current_meta=None):
+    current_meta = current_meta or ChainMap({})
+    for k in directory:
+        item = directory[k]
+        item_meta = current_meta.new_child(item.metadata).new_child({"name": item.name})
+        if isinstance(item, Iterable):
+            yield from deepWalkMeta(item, current_meta=item_meta, pattern=pattern)
+        else:
+            if pattern is None or fnmatch.fnmatch(k, pattern):
+                yield ItemWithMeta(item, item_meta)
 
 
 class SimpleCache(OrderedDict):

@@ -138,7 +138,9 @@ class Analyzer:
         if result_container_name is None:
             result_container = None
         else:
-            result_container = ResultGroup(result_container_name)
+            result_container = ResultGroup(
+                result_container_name, metadata={"pipeline": result_container_name}
+            )
 
         while to_add:
             head = to_add.popleft()
