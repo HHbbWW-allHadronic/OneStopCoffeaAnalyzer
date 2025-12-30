@@ -2,7 +2,7 @@ from attrs import define
 import abc
 import hist
 
-@define
+@define(frozen=True)
 class Axis(abc.ABC):
     @abc.abstractmethod
     def toHist(self): ...

@@ -83,7 +83,7 @@ class HistogramBuilder(PureResultModule):
         variations_axis = hist.axis.StrCategory([], name="variation", growth=True)
         all_axes = (
             [variations_axis]
-            + [x.toHist() for x in categories]
+            + [x.axis.toHist() for x in categories]
             + [x.toHist() for x in axes]
         )
         if backend == EventBackend.coffea_dask:

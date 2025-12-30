@@ -60,6 +60,22 @@ class FilterNear(AnalyzerModule):
 
 
 @define
+class Count(AnalyzerModule):
+    input_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        columns[self.output_col] = ak.num(columns[self.input_col], axis=1)
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+
+@define
 class PromoteIndex(AnalyzerModule):
     input_col: Column
     output_col: Column
@@ -314,7 +330,7 @@ class JetComboHistograms(AnalyzerModule):
         max_idx = max(flatten(self.jet_combos))
         padded = ak.pad_none(jets, max_idx + 1, axis=1)
         for combo in self.jet_combos:
-            i,j=min(combo),max(combo)
+            i, j = min(combo), max(combo)
             mask = ak.num(jets, axis=1) > max(combo)
             summed = padded[:, combo].sum()
             ret.append(

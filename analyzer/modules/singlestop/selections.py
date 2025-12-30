@@ -83,3 +83,4 @@ class VecPt(AnalyzerModule):
         sel = ak.fill_none(sel, False)
         addSelection(columns, self.selection_name, sel)
         return columns, []
+

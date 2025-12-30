@@ -1,6 +1,8 @@
 from attrs import define
 from analyzer.core.columns import Column
-from .axis import Axis
+from analyzer.core.analysis_modules import AnalyzerModule
+from .axis import Axis, RegularAxis
+
 
 def addCategory(columns, name, data, axis):
     col = Column(fields=("Categories", name))
@@ -16,3 +18,30 @@ def addCategory(columns, name, data, axis):
 class CategoryDesc:
     column: Column
     axis: Axis
+
+
+@define
+class SimpleCategory(AnalyzerModule):
+    input_col: Column
+    cat_name: str
+    bins: int
+    start: float
+    stop: float
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Categories", self.cat_name))]
+
+    def run(self, columns, params):
+        col = columns[self.input_col]
+        addCategory(
+            columns,
+            self.cat_name,
+            col,
+            RegularAxis(
+                bins=self.bins, start=self.start, stop=self.stop, name=self.cat_name
+            ),
+        )
+        return columns, []
