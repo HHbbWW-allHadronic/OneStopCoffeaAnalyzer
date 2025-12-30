@@ -112,7 +112,7 @@ class ColumnCollection:
         return ret
 
 
-def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None):
+def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None) -> set[Column]:
     if fields := getattr(events, "fields"):
         ret = set()
         for f in fields:
@@ -180,7 +180,7 @@ class TrackedColumns:
         )
 
     @staticmethod
-    def fromEvents(events, metadata, backend, provenance):
+    def fromEvents(events, metadata, backend, provenance: int):
         return TrackedColumns(
             events=events,
             column_provenance={
@@ -227,9 +227,9 @@ class TrackedColumns:
             all_columns = {column}
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
-            logger.debug(
-                f"Adding column {c} to events with provenance {self._current_provenance}"
-            )
+            # logger.debug(
+            #     f"Adding column {c} to events with provenance {self._current_provenance}"
+            # )
         for part in column.fields:
             c = Column(part)
             self._column_provenance[c] = self._current_provenance
@@ -282,31 +282,29 @@ class TrackedColumns:
         self._current_provenance = old_provenance
 
     @contextlib.contextmanager
-    def allowedInputs(self, columns: list[Column] | None):
-        if columns is not None:
-            if not isinstance(columns, ColumnCollection):
-                columns = ColumnCollection(columns)
+    def allowedInputs(self, columns: list[Column] | ColumnCollection):
+        if not isinstance(columns, ColumnCollection):
+            columns = ColumnCollection(columns)
         old_inputs = self._allowed_inputs
         self._allowed_inputs = columns
         yield
         self._allowed_inputs = old_inputs
 
     @contextlib.contextmanager
-    def allowedOutputs(self, columns: list[Column] | None):
-        if columns is not None:
-            if not isinstance(columns, ColumnCollection):
-                columns = ColumnCollection(columns)
+    def allowedOutputs(self, columns: list[Column] | ColumnCollection):
+        if not isinstance(columns, ColumnCollection):
+            columns = ColumnCollection(columns)
         old_outputs = self._allowed_outputs
         self._allowed_outputs = columns
         yield
         self._allowed_outputs = old_outputs
 
-    @contextlib.contextmanager
-    def allowFilter(self, allow: bool):
-        old_allow = self._allowed_filter
-        self._allow_filter = allow
-        yield
-        self._allow_filter = old_allow
+    # @contextlib.contextmanager
+    # def allowFilter(self, allow: bool):
+    #     old_allow = self._allowed_filter
+    #     self._allow_filter = allow
+    #     yield
+    #     self._allow_filter = old_allow
 
 
 def mergeColumns(column_views):

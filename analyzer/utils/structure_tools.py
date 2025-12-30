@@ -13,6 +13,16 @@ import dask_awkward as dak
 import numpy as np
 
 
+def flatten(l):
+    ret = []
+    if isinstance(l, list):
+        for item in l:
+            ret.extend(flatten(item))
+    else:
+        ret.append(l)
+    return ret
+
+
 def freeze(data):
     if isinstance(data, dict):
         return frozenset((freeze(x), freeze(y)) for x, y in data.items())

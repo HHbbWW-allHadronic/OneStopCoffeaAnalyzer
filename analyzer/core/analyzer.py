@@ -15,7 +15,11 @@ from analyzer.core.analysis_modules import (
     AnalyzerModule,
     PipelineParameterSpec,
     ModuleAddition,
+    BaseAnalyzerModule,
+    PureResultModule,
+    EventSourceModule,
 )
+from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, CompleteSysts, RunBuilder
 from analyzer.core.results import (
     ResultProvenance,
     ResultGroup,
@@ -25,7 +29,7 @@ from collections import ChainMap
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
 
-from analyzer.utils.structure_tools import SimpleCache, freeze
+from analyzer.utils.structure_tools import SimpleCache, freeze, flatten
 
 
 # Define the log message format
@@ -49,7 +53,7 @@ def getPipelineSpecs(pipeline, metadata):
 @define
 class Node:
     node_id: str
-    analyzer_module: AnalyzerModule
+    analyzer_module: EventSourceModule | AnalyzerModule | PureResultModule
 
     def getModuleSpec(self, metadata):
         return self.analyzer_module.getParameterSpec(metadata)
@@ -62,7 +66,10 @@ class Node:
 
     def __call__(self, columns, params):
         params = params[self.node_id]
-        return self.analyzer_module(columns, params)
+        if isinstance(self.analyzer_module, EventSourceModule):
+            return self.analyzer_module(params)
+        else:
+            return self.analyzer_module(columns, params)
 
     def __rich_repr__(self):
         yield "node_id", self.node_id
@@ -75,7 +82,9 @@ class Analyzer:
     all_modules: list = field(factory=list)
     base_pipelines: dict[str, list[Node]] = field(factory=dict)
 
-    __cache: SimpleCache = field(factory=SimpleCache)
+    default_run_builder: RunBuilder = field(factory=CompleteSysts)
+
+    _cache: SimpleCache = field(factory=SimpleCache)
 
     def initModules(self, metadata):
         for m in self.all_modules:
@@ -113,38 +122,37 @@ class Analyzer:
         self.base_pipelines[name] = ret
 
     def runPipelineWithParameters(
-        self,
-        columns,
-        pipeline,
-        params,
-        freeze_pipeline=False,
-        result_container=None,
+        self, pipeline, params, freeze_pipeline=False, result_container_name=None
     ):
         key = hash(freeze(([n.node_id for n in pipeline], params)))
 
         logger.debug(f"Pipeline execution key is {key}")
-        if key in self.__cache:
+        if key in self._cache:
             logger.debug(f"Found key {key}, using cached columns")
-            return self.__cache[key], None
-
+            return self._cache[key], None
         params = copy.deepcopy(params)
         complete_pipeline = []
         to_add = deque(pipeline)
-        current_spec = None
+        current_spec, columns = None, None
+
+        if result_container_name is None:
+            result_container = None
+        else:
+            result_container = ResultGroup(result_container_name)
 
         while to_add:
             head = to_add.popleft()
             complete_pipeline.append(head)
-
             if columns is not None:
                 columns = columns.copy()
                 current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
                 columns, results = head(columns, params)
             else:
-                columns, results = head(columns, params)
+                columns, results = head(columns, params), []
 
             if not result_container:
                 continue
+
             results = deque(results)
 
             while results:
@@ -155,7 +163,6 @@ class Analyzer:
                     module = res.analyzer_module
                     if res.run_builder is None:
                         logger.debug(f"Adding new module {module} to pipeline")
-                        spec = module.getParameterSpec(columns.metadata)
                         node = self.getUniqueNode(complete_pipeline, module)
                         complete_pipeline.append(node)
                         logger.debug(f"New node id is {node.node_id}")
@@ -164,8 +171,12 @@ class Analyzer:
                         )
                     else:
                         logger.debug(f"Running multi-parameter pipeline")
+                        if res.run_builder is DEFAULT_RUN_BUILDER:
+                            run_builder = self.default_run_builder
+                        else:
+                            run_builder = res.run_builder
 
-                        param_dicts = res.run_builder(current_spec, columns.metadata)
+                        param_dicts = run_builder(current_spec, columns.metadata)
                         to_run = [
                             (x, current_spec.getWithValues(params, y))
                             for x, y in param_dicts
@@ -173,11 +184,10 @@ class Analyzer:
                         everything = []
                         for name, params_set in to_run:
                             c, _ = self.runPipelineWithParameters(
-                                None,
                                 complete_pipeline,
                                 params_set,
                                 freeze_pipeline=True,
-                                result_container=None,
+                                result_container_name=None,
                             )
                             everything.append((name, c))
                         logger.debug(
@@ -187,9 +197,9 @@ class Analyzer:
                         results.extendleft(r)
                 else:
                     raise RuntimeError(
-                        f"Invalid object type returned from analyzer module."
+                        f"Invalid object type returned from analyzer module. {res}"
                     )
-        self.__cache[key] = columns
+        self._cache[key] = columns
         return columns, result_container
 
     def run(self, chunk, metadata, pipelines=None):
@@ -205,30 +215,32 @@ class Analyzer:
         sample_container.addResult(ResultProvenance("_provenance", chunk.toFileSet()))
         sample_container.addResult(pipeline_container)
 
-        with cProfile.Profile() as pr:
-            for k, pipeline in self.base_pipelines.items():
-                if k not in pipelines:
-                    continue
-                pipeline_result = ResultGroup(k)
-                spec = getPipelineSpecs(pipeline, metadata)
-                vals = spec.getWithValues(
-                    {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
-                )
-                self.runPipelineWithParameters(
-                    None,
-                    pipeline,
-                    vals,
-                    result_container=pipeline_result,
-                )
-                pipeline_container.addResult(pipeline_result)
-            pr.dump_stats("test.prof")
+        for k, pipeline in self.base_pipelines.items():
+            if k not in pipelines:
+                continue
+            spec = getPipelineSpecs(pipeline, metadata)
+            vals = spec.getWithValues(
+                {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
+            )
+            _, result = self.runPipelineWithParameters(
+                pipeline,
+                vals,
+                result_container_name=k,
+            )
+            pipeline_container.addResult(result)
         return root_container
 
     @classmethod
     def _structure(cls, data: dict, conv) -> Analyzer:
         analyzer = cls()
+        builder = data.pop("default_run_builder", None)
+        if builder is not None:
+            analyzer.default_run_builder = conv.structure(builder, RunBuilder)
+
         for k, v in data.items():
-            analyzer.addPipeline(k, [conv.structure(x, AnalyzerModule) for x in v])
+            analyzer.addPipeline(
+                k, [conv.structure(x, AnalyzerModule) for x in flatten(v)]
+            )
         return analyzer
 
     def _unstructure(self, conv) -> dict:

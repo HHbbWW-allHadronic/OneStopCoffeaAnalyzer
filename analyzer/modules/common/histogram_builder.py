@@ -4,7 +4,11 @@ from analyzer.core.columns import Column, TrackedColumns, EventBackend
 import numpy as np
 import awkward as ak
 from analyzer.core.results import Histogram
-from analyzer.core.analysis_modules import AnalyzerModule, ModuleAddition
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    ModuleAddition,
+    PureResultModule,
+)
 from .axis import Axis
 import hist.dask as dah
 import hist
@@ -14,7 +18,7 @@ logger = logging.getLogger("analyzer.modules")
 
 
 @define
-class HistogramBuilder(AnalyzerModule):
+class HistogramBuilder(PureResultModule):
     product_name: str
     columns: list[Column]
     axes: list[Axis]
@@ -134,9 +138,7 @@ class HistogramBuilder(AnalyzerModule):
                 variation=name,
             )
 
-        return None, [
-            Histogram(name=self.product_name, histogram=histogram, axes=self.axes)
-        ]
+        return [Histogram(name=self.product_name, histogram=histogram, axes=self.axes)]
 
     def inputs(self, metadata):
         if self.mask_col is not None:

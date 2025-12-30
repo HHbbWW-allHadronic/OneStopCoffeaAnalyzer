@@ -1,5 +1,13 @@
 from collections import defaultdict
+import functools as ft
+from attrs import define
+from typing import Any
+from cattrs.strategies import include_subclasses, configure_tagged_union
+from cattrs import structure, unstructure
+import abc
 import copy
+
+from analyzer.core.param_specs import PipelineParameterSpec
 
 
 def toTuples(d):
@@ -25,13 +33,49 @@ def buildCombos(spec, tag):
             c[k] = p
             ret.append(["_".join([*k, p]), c])
 
-    ret = [[n, fromTuples(x)] for n, x in ret]
+    ret = [(n, fromTuples(x)) for n, x in ret]
 
     return ret
 
 
-def buildVariations(spec, metadata=None):
-    weights = buildCombos(spec, "weight_variation")
-    shapes = buildCombos(spec, "shape_variation")
-    all_vars = [["central", {}]] + weights + shapes
-    return all_vars
+class DEFAULT_RUN_BUILDER:
+    pass
+
+
+@define
+class RunBuilder(abc.ABC):
+    @abc.abstractmethod
+    def __call__(
+        self, spec: PipelineParameterSpec, metadata
+    ) -> list[tuple[Any, dict]]: ...
+
+
+@define
+class CompleteSysts(RunBuilder):
+    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        weights = buildCombos(spec, "weight_variation")
+        shapes = buildCombos(spec, "shape_variation")
+        all_vars = [("central", {})] + weights + shapes
+        return all_vars
+
+
+@define
+class SignalOnlySysts(RunBuilder):
+    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        if not metadata["is_signal"]:
+            return [("central", {})]
+        weights = buildCombos(spec, "weight_variation")
+        shapes = buildCombos(spec, "shape_variation")
+        all_vars = [("central", {})] + weights + shapes
+        return all_vars
+
+
+@define
+class NoSystematics(RunBuilder):
+    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        return [("central", {})]
+
+
+def configureConverter(conv):
+    union_strategy = ft.partial(configure_tagged_union, tag_name="strategy_name")
+    include_subclasses(RunBuilder, conv, union_strategy=union_strategy)

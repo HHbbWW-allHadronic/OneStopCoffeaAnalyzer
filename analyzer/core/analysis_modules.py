@@ -1,19 +1,25 @@
 from __future__ import annotations
 from typing import TypeVar, Generic
 from analyzer.core.datasets import SampleType
-from typing import Callable
+from typing import Callable, Literal
+from analyzer.core.param_specs import (
+    ParameterSpec,
+    ModuleParameterSpec,
+    PipelineParameterSpec,
+    ModuleParameterValues,
+)
 from collections import OrderedDict
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from cattrs import structure, unstructure
-from analyzer.core.run_builders import buildVariations
+from analyzer.core.run_builders import RunBuilder, DEFAULT_RUN_BUILDER
 from rich import print
 from attrs import define, field, make_class
 from attrs import define, field
 from analyzer.core.results import ResultBase
 from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge, SimpleCache
 from collections.abc import Collection
-from analyzer.core.columns import TrackedColumns, Column, EVENTS, ColumnCollection
+from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import copy
 import contextlib
 import abc
@@ -21,90 +27,6 @@ from typing import Any
 import logging
 
 logger = logging.getLogger("analyzer.core")
-
-ModuleParameterValues = dict[str, Any]
-PipelineParameterValues = dict[str, ModuleParameterValues]
-
-
-@define
-class ParameterSpec:
-    default_value: Any | None = None
-    possible_values: Collection | None = None
-    tags: set[str] = field(factory=set)
-    param_type: type | None = None
-    correlation_function: Callable | None = None
-    correlated_values: Collection | None = None
-
-    @property
-    def free_values(self):
-        return set(self.possible_values or []) - set(self.correlated_values or [])
-
-
-@define
-class ModuleParameterSpec:
-    param_specs: dict[str, ParameterSpec] = field(factory=dict)
-
-    def getTags(self, *tags):
-        return {
-            x: y for x, y in self.param_specs.items() if any(t in y.tags for t in tags)
-        }
-
-    def __getitem__(self, key):
-        return self.param_specs[key]
-
-    def getWithValues(self, values: dict[str, Any]):
-        ret = {}
-        for name, spec in self.param_specs.items():
-            if name in values:
-                v = values[name]
-                if (spec.possible_values is None or v in spec.possible_values) and (
-                    spec.param_type is None or isinstance(v, spec.param_type)
-                ):
-                    ret[name] = values[name]
-                else:
-                    raise RuntimeError(
-                        f"Value {v} not in the list of possible values for parameter {name}. Allowed values are {spec.possible_values}"
-                    )
-            else:
-                if spec.default_value is None:
-                    raise RuntimeError(
-                        f"Must provide a value for {spec} -- {name} with no default value"
-                    )
-                ret[name] = spec.default_value
-        return ret
-
-
-@define
-class PipelineParameterSpec:
-    node_specs: dict[str, ModuleParameterSpec]
-
-    def __getitem__(self, key):
-        return self.node_specs[key]
-
-    def __setitem__(self, key, value):
-        if key in self.node_specs:
-            raise RuntimeError()
-        self.node_specs[key] = value
-
-    def getWithValues(
-        self, values: dict[str, dict[str, Any]], *rest: dict[str, dict[str, Any]]
-    ):
-        values = deepMerge(values, *rest, max_depth=1)
-        ret = {}
-        for nid, spec in self.node_specs.items():
-            if nid in values:
-                ret[nid] = spec.getWithValues(values[nid])
-            else:
-                ret[nid] = spec.getWithValues({})
-        return ret
-
-    def getTags(self, *tag):
-        tags = {x: y.getTags(*tag) for x, y in self.node_specs.items()}
-        return tags
-
-
-def toTuples(d):
-    return {(x, y): v for x, s in d.items() for y, v in s.items()}
 
 
 @define
@@ -162,13 +84,14 @@ class MetadataNot(MetadataExpr):
         return not self.require_not.evaluate(metadata)
 
 
+MultiColumns = list[tuple[Any, TrackedColumns]]
 
 
 @define
-class AnalyzerModule(abc.ABC):
+class BaseAnalyzerModule(abc.ABC):
     MAX_CACHE_SIZE = 30
 
-    __cache: SimpleCache = field(
+    _cache: SimpleCache = field(
         factory=lambda: SimpleCache(max_size=AnalyzerModule.MAX_CACHE_SIZE),
         init=False,
         repr=False,
@@ -176,63 +99,59 @@ class AnalyzerModule(abc.ABC):
     should_run: MetadataExpr | None = field(default=None, kw_only=True)
 
     @abc.abstractmethod
+    def inputs(self, metadata) -> ColumnCollection | list[Column]: ...
+
+    def getParameterSpec(self, metadata: dict) -> ModuleParameterSpec:
+        return ModuleParameterSpec()
+
+    def preloadForMeta(self, metadata: dict):
+        pass
+
+    def getFromCache(self, key):
+        return self._cache[key]
+
+    def neededResources(self, metadata) -> list[str]:
+        return []
+
+    @classmethod
+    def name(cls):
+        return cls.__name__
+
+
+@define
+class AnalyzerModule(BaseAnalyzerModule):
+    @abc.abstractmethod
+    def outputs(
+        self, metadata
+    ) -> ColumnCollection | list[Column] | Literal["EVENTS"]: ...
+
+    @abc.abstractmethod
     def run(
         self, columns, params: ModuleParameterValues
     ) -> tuple[TrackedColumns, list[ResultBase | ModuleAddition]]:
         pass
 
-    @abc.abstractmethod
-    def inputs(self, metadata) -> ColumnCollection | list[Column] | list[str]: ...
-
-    @abc.abstractmethod
-    def outputs(self, metadata) -> ColumnCollection | list[Column] | list[str]: ...
-
-    def getParameterSpec(self, metadata) -> ModuleParameterSpec:
-        return ModuleParameterSpec()
-
-    def preloadForMeta(self, metadata):
-        pass
-
-    def getColumnKey(self, columns):
-        if isinstance(columns, TrackedColumns):
-            return columns.getKeyForColumns(self.inputs(columns.metadata))
-        else:
-            return frozenset(self.getColumnKey(x) for x in (columns or []))
-
-    def neededResources(self, metadata) -> list[str]:
-        return []
-
     def getKey(self, columns, params):
-        ret = hash((self.name(), freeze(params), self.getColumnKey(columns)))
+        ret = hash(
+            (
+                self.name(),
+                freeze(params),
+                columns.getKeyForColumns(self.inputs(columns.metadata)),
+            )
+        )
         return ret
 
-    def getFromCache(self, key):
-        return self.__cache[key]
-
-    def __runNoInputs(self, params):
-        key = self.getKey(None, params)
-        logger.debug(f"Execution key is {key}")
-        logger.debug(f"Cached keys are {list(self.__cache)}")
-        if key in self.__cache:
-            logger.debug("Found key, using cached result")
-            cached_cols, r = self.__cache[key]
-            return cached_cols, r
-        logger.debug(f"Did not find cached result, running module {self}")
-        ret = self.run(None, params)
-        self.__cache[key] = ret
-        return ret[0].copy(), ret[1]
-
-    def __runStandard(self, columns, params):
+    def __run(self, columns, params):
         orig_columns = columns
         columns = columns.copy()
         key = self.getKey(columns, params)
         logger.debug(f"Execution key is {key}")
-        logger.debug(f"Cached keys are {list(self.__cache)}")
-        if key in self.__cache:
+        logger.debug(f"Cached keys are {list(self._cache)}")
+        if key in self._cache:
             logger.debug("Found key, using cached result")
-            cached_cols, r, internal = self.__cache[key]
+            cached_cols, r, internal = self._cache[key]
             outputs = self.outputs(columns.metadata)
-            if outputs == EVENTS:
+            if outputs == "EVENTS":
                 return cached_cols, r
             outputs += internal
             columns.addColumnsFrom(cached_cols, outputs)
@@ -240,27 +159,100 @@ class AnalyzerModule(abc.ABC):
             return columns, r
         logger.debug(f"Did not find cached result, running module {self.name}")
         outputs = self.outputs(columns.metadata)
-        if outputs == EVENTS:
-            outputs = None
+        if outputs == "EVENTS":
+            output_cx = columns.allowedOutputs(outputs)
+        else:
+            output_cx = contextlib.nullcontext()
+
         with (
             columns.useKey(key),
             columns.allowedInputs(self.inputs(columns.metadata)),
-            columns.allowedOutputs(outputs),
+            output_cx,
         ):
             _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
-        self.__cache[key] = (columns, res, internal)
+        self._cache[key] = (columns, res, internal)
         return columns, res
 
-    def __runMulti(self, columns, params):
+    def __call__(self, columns, params):
+        try:
+            logger.debug(f"Running analyzer module {self}")
+            if self.should_run is not None and columns is not None:
+                metadata = columns.metadata
+                should_run = self.should_run.evaluate(metadata)
+                if not should_run:
+                    return columns, []
+            return self.__run(columns, params)
+        except Exception as e:
+            logger.error(f"An exception occurred while running module {self}")
+            raise e
+
+
+@define
+class EventSourceModule(BaseAnalyzerModule):
+    @abc.abstractmethod
+    def outputs(self, metadata) -> ColumnCollection | list[Column]: ...
+
+    @abc.abstractmethod
+    def run(self, params: ModuleParameterValues) -> TrackedColumns:
+        pass
+
+    def getKey(self, params):
+        ret = hash((self.name(), freeze(params)))
+        return ret
+
+    def __call__(self, params):
+        try:
+            logger.debug(f"Running analyzer module {self}")
+            key = self.getKey(params)
+            logger.debug(f"Execution key is {key}")
+            logger.debug(f"Cached keys are {list(self._cache)}")
+            if key in self._cache:
+                logger.debug("Found key, using cached result")
+                cached_cols = self._cache[key]
+                return cached_cols
+            logger.debug(f"Did not find cached result, running module {self}")
+            ret = self.run(params)
+            self._cache[key] = ret
+            return ret
+        except Exception as e:
+            logger.error(f"An exception occurred while running module {self}")
+            raise e
+
+
+@define
+class PureResultModule(BaseAnalyzerModule):
+    @abc.abstractmethod
+    def outputs(self, metadata) -> ColumnCollection | list[Column]: ...
+
+    @abc.abstractmethod
+    def run(
+        self, columns: MultiColumns, params: ModuleParameterValues
+    ) -> list[ResultBase]:
+        pass
+
+    def getKey(self, columns: MultiColumns, params: ModuleParameterValues):
+        ret = hash(
+            (
+                self.name(),
+                freeze(params),
+                frozenset(
+                    (x, y.getKeyForColumns(self.inputs(y.metadata)))
+                    for x, y in (columns or [])
+                ),
+            )
+        )
+        return ret
+
+    def __run(self, columns: MultiColumns, params):
         columns = [(x, y.copy()) for x, y in columns]
         just_cols = [x[1] for x in columns]
-        key = self.getKey(just_cols, params)
+        key = self.getKey(columns, params)
         logger.debug(f"Execution key is {key}")
-        logger.debug(f"Cached keys are {list(self.__cache)}")
-        if key in self.__cache:
+        logger.debug(f"Cached keys are {list(self._cache)}")
+        if key in self._cache:
             logger.debug("Found key, using cached result")
-            ret = self.__cache[key]
+            ret = self._cache[key]
             return ret
         logger.debug(f"Did not find cached result, running module {self.name}")
         with contextlib.ExitStack() as stack:
@@ -268,37 +260,22 @@ class AnalyzerModule(abc.ABC):
                 stack.enter_context(c.useKey(key))
                 stack.enter_context(c.allowedOutputs(self.outputs(c.metadata)))
                 stack.enter_context(c.allowedInputs(self.inputs(c.metadata)))
-            columns, ret = self.run(columns, params)
-        self.__cache[key] = ret
+            ret = self.run(columns, params)
+        self._cache[key] = ret
         return ret
 
-    def __call__(self, columns, params):
+    def __call__(self, columns: MultiColumns, params):
         try:
             logger.debug(f"Running analyzer module {self}")
-            # if not self.should_run(columns.metadata):
-            #     returncolumns, {}
-            if self.should_run is not None and columns is not None:
-                metadata = columns.metadata
-                should_run = self.should_run.evaluate(metadata)
-                if not should_run:
-                    return columns, []
-
-            if isinstance(columns, TrackedColumns):
-                return self.__runStandard(columns, params)
-            elif isinstance(columns, list):
-                return self.__runMulti(columns, params)
-            elif columns is None:
-                return self.__runNoInputs(params)
-            else:
-                raise RuntimeError()
+            # if self.should_run is not None and columns is not None:
+            #     metadata = columns.metadata
+            #     should_run = self.should_run.evaluate(metadata)
+            #     if not should_run:
+            #         return columns, []
+            return self.__run(columns, params)
         except Exception as e:
             logger.error(f"An exception occurred while running module {self}")
             raise e
-
-    @classmethod
-    def name(cls):
-        return cls.__name__
-
 
 def defaultCols(columns):
     def inner(self, metadata):
@@ -349,8 +326,8 @@ def register_module(input_columns, output_columns, configuration=None, params=No
 
 @define
 class ModuleAddition:
-    analyzer_module: AnalyzerModule
-    run_builder: Any | None = field(default=buildVariations)
+    analyzer_module: AnalyzerModule | PureResultModule
+    run_builder: RunBuilder | DEFAULT_RUN_BUILDER | None = DEFAULT_RUN_BUILDER
     this_module_parameters: dict | None = None
     # parameter_runs: list[PipelineParameterValues]
 

@@ -7,6 +7,7 @@ import logging
 from attrs import define, field
 from rich import print
 from analyzer.core.serialization import converter, setupConverter
+
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.executors import Executor, ExecutionTask
 from analyzer.core.datasets import DatasetRepo
@@ -72,10 +73,3 @@ def getSamples(analysis, dataset_repo):
     return ret
 
 
-def main():
-    a = loadAnalysis("test.yaml")
-    runAnalysis(a)
-
-
-if __name__ == "__main__":
-    main()

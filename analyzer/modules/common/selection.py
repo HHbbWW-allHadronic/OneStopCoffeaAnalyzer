@@ -8,7 +8,6 @@ from .axis import RegularAxis
 from .histogram_builder import makeHistogram
 
 
-
 @define
 class SelectOnColumns(AnalyzerModule):
     sel_name: str
@@ -44,7 +43,7 @@ class SelectOnColumns(AnalyzerModule):
             return [Column("Selection") + x for x in self.selection_names]
 
     def outputs(self, metadata):
-        return EVENTS
+        return "EVENTS"
 
 
 @define
@@ -54,7 +53,7 @@ class NObjFilter(AnalyzerModule):
     min_count: int | None = None
     max_count: int | None = None
 
-    def run(self, columns, analyzer, **kwargs):
+    def run(self, columns, params):
         objs = columns[self.input_col]
         count = ak.num(objs, axis=1)
         sel = None
