@@ -223,7 +223,7 @@ analyzer:
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'signal_2018_312_1500_1400'
+  - dataset: 'signal_2018_312_1500_*0'
     pipelines: [Signal312, Signal313]
   
 extra_executors:

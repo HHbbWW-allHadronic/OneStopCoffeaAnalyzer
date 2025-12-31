@@ -141,6 +141,15 @@ class AnalyzerModule(BaseAnalyzerModule):
         )
         return ret
 
+    def getKeyNoParams(self, columns):
+        ret = hash(
+            (
+                self.name(),
+                columns.getKeyForColumns(self.inputs(columns.metadata)),
+            )
+        )
+        return ret
+
     def __run(self, columns, params):
         orig_columns = columns
         columns = columns.copy()
@@ -277,6 +286,7 @@ class PureResultModule(BaseAnalyzerModule):
             logger.error(f"An exception occurred while running module {self}")
             raise e
 
+
 def defaultCols(columns):
     def inner(self, metadata):
         return [Column(x) for x in columns]
@@ -327,7 +337,7 @@ def register_module(input_columns, output_columns, configuration=None, params=No
 @define
 class ModuleAddition:
     analyzer_module: AnalyzerModule | PureResultModule
-    run_builder: RunBuilder | DEFAULT_RUN_BUILDER | None = DEFAULT_RUN_BUILDER
+    run_builder: RunBuilder | type | None = DEFAULT_RUN_BUILDER
     this_module_parameters: dict | None = None
     # parameter_runs: list[PipelineParameterValues]
 

@@ -6,7 +6,6 @@ from cattrs import Converter
 from cattrs.strategies import use_class_methods
 
 converter = Converter()
-use_class_methods(converter, "_structure", "_unstructure")
 
 
 def setupConverter(conv):
@@ -14,9 +13,12 @@ def setupConverter(conv):
     import analyzer.core.event_collection
     import analyzer.core.executors.executor
     import analyzer.core.run_builders
+    import analyzer.utils.querying
 
     # import analyzer.core.results
     import analyzer.core.datasets
+
+    use_class_methods(conv, "_structure", "_unstructure")
 
     analyzer.core.analysis_modules.configureConverter(conv)
     analyzer.core.event_collection.configureConverter(conv)
@@ -24,3 +26,6 @@ def setupConverter(conv):
     analyzer.core.run_builders.configureConverter(conv)
     # analyzer.core.results.configureConverter(conv)
     analyzer.core.datasets.configureConverter(conv)
+    analyzer.utils.querying.configureConverter(conv)
+
+    return conv

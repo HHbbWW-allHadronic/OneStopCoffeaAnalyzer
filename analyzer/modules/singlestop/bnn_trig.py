@@ -20,6 +20,8 @@ from analyzer.core.columns import Column
 import awkward as ak
 import itertools as it
 from attrs import define, field
+
+from analyzer.utils.structure_tools import SimpleCache
 from ..common.axis import RegularAxis
 from ..common.histogram_builder import makeHistogram
 import copy
@@ -80,7 +82,7 @@ class TriggerBNN(AnalyzerModule):
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
 
     __bnns: dict = field(factory=dict)
-    __bnn_res_cache: dict = field(factory=dict)
+    __bnn_res_cache: dict = field(factory=SimpleCache)
 
     def inputs(self, metadata):
         return [Column("HT"), Column("GoodFatJet")]
@@ -114,13 +116,19 @@ class TriggerBNN(AnalyzerModule):
         return bnn
 
     def run(self, columns, params):
+        k = self.getKeyNoParams(columns)
         systematic = params["variation"]
-        ht = columns["HT"]
-        fj = columns["GoodFatJet"]
-        fjpt = fj[:, 0].pt
-        bnn = self.getBNN(columns.metadata)
-        out = bnn(ak.concatenate([x[:, np.newaxis] for x in [ht, fjpt]], axis=1))
-        central, down, up = out[0], out[1], out[2]
+        if k in self.__bnn_res_cache:
+            central, down, up = self.__bnn_res_cache[k]
+        else:
+            ht = columns["HT"]
+            fj = columns["GoodFatJet"]
+            fjpt = fj[:, 0].pt
+            bnn = self.getBNN(columns.metadata)
+            out = bnn(ak.concatenate([x[:, np.newaxis] for x in [ht, fjpt]], axis=1))
+            central, down, up = out[0], out[1], out[2]
+
+        self.__bnn_res_cache[k] = (central, down, up)
         if systematic == "central":
             w = central
         elif systematic == "up":
@@ -129,5 +137,3 @@ class TriggerBNN(AnalyzerModule):
             w = down
         columns[Column(("Weights", self.weight_name))] = w
         return columns, []
-
-

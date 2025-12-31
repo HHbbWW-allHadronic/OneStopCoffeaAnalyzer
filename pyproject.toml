@@ -43,7 +43,9 @@ dev = [
     "pyflakes>=3.4.0",
     "pyright>=1.1.407",
     "pytest>=9.0.1",
+    "scalene>=2.0.1",
     "sphinx>=8.2.3",
+    "ty>=0.0.8",
 ]
 
 [tool.uv.sources]
