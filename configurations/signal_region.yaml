@@ -17,6 +17,11 @@ common_corrections: &common_corrections
     output_col: Jet
 
 common_pre_sel_weights: &common_pre_sel_weights
+  - module_name: TriggerBNN
+    base_path: trained_bnns/ht_pt_no_trim/
+    net_pattern: "{era}_mixed.json"
+
+    input_col: GoodJet
   - module_name: BJetShapeSF
     input_col: GoodJet
   - module_name: PileupSF
