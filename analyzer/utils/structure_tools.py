@@ -105,13 +105,22 @@ def globWithMeta(directory, pattern, current_meta=None):
     return ret
 
 
-def deepWalkMeta(directory, pattern=None, current_meta=None):
+def deepWalkMeta(directory, pattern=None, current_meta=None, complete_path=None):
+    complete_path = complete_path or tuple()
     current_meta = current_meta or ChainMap({})
     for k in directory:
         item = directory[k]
-        item_meta = current_meta.new_child(item.metadata).new_child({"name": item.name})
+        complete_path = (*complete_path, item.name)
+        item_meta = current_meta.new_child(item.metadata).new_child(
+            {"name": item.name, "path": complete_path}
+        )
         if isinstance(item, Iterable):
-            yield from deepWalkMeta(item, current_meta=item_meta, pattern=pattern)
+            yield from deepWalkMeta(
+                item,
+                current_meta=item_meta,
+                pattern=pattern,
+                complete_path=complete_path,
+            )
         else:
             if pattern is None or fnmatch.fnmatch(k, pattern):
                 yield ItemWithMeta(item, item_meta)
@@ -133,3 +142,13 @@ class SimpleCache(OrderedDict):
     def __getitem__(self, key):
         self.move_to_end(key)
         return super().__getitem__(key)
+
+
+def commonDict(items, key=lambda x: x.metadata):
+    i = iter(items)
+    ret = copy.deepcopy(dict(next(i)))
+    for item in i:
+        for k in key(item):
+            if not (k in ret and ret[k] == item[k]):
+                del ret[k]
+    return ret

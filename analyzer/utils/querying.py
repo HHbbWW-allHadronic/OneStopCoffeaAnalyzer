@@ -1,45 +1,38 @@
 from __future__ import annotations
-from typing import TypeVar, Generic, DefaultDict
-from collections import defaultdict
-from analyzer.core.datasets import SampleType
-from typing import Callable, Literal
-from analyzer.core.param_specs import (
-    ParameterSpec,
-    ModuleParameterSpec,
-    PipelineParameterSpec,
-    ModuleParameterValues,
-)
-from collections import OrderedDict
+
+import abc
+
+import contextlib
+import copy
 import functools as ft
+import logging
+import re
+import string
+from collections import OrderedDict, defaultdict, namedtuple
+from collections.abc import Collection, Generator
+from enum import Enum
+from fnmatch import fnmatch
+from typing import Annotated, Any, Callable, DefaultDict, Generic, Literal, TypeVar
+
+from analyzer.core.columns import Column, ColumnCollection, TrackedColumns
+from analyzer.core.datasets import SampleType
+from analyzer.core.param_specs import (
+    ModuleParameterSpec,
+    ModuleParameterValues,
+    ParameterSpec,
+    PipelineParameterSpec,
+)
+from analyzer.core.results import ResultBase
+from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, RunBuilder
+from analyzer.utils.structure_tools import SimpleCache, deepMerge, freeze, mergeUpdate
+from attrs import define, field, make_class
+from cattrs import structure, unstructure
 from cattrs.strategies import (
-    include_subclasses,
     configure_tagged_union,
     configure_union_passthrough,
+    include_subclasses,
 )
-from cattrs import structure, unstructure
-from analyzer.core.run_builders import RunBuilder, DEFAULT_RUN_BUILDER
 from rich import print
-from attrs import define, field, make_class
-from attrs import define, field
-from analyzer.core.results import ResultBase
-from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge, SimpleCache
-from collections.abc import Collection
-from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
-import copy
-import contextlib
-import abc
-from typing import Any
-import logging
-from enum import Enum
-from typing import Any
-from fnmatch import fnmatch
-import re
-import abc
-from typing import Annotated
-from collections.abc import Generator
-from rich import print
-import string
-from attrs import field, define
 
 
 def lookup(obj, key):
@@ -110,7 +103,7 @@ class Pattern:
                 data = {"mode": "GLOB", "pattern": data}
         if isinstance(data, int | float):
             data = {"mode": "LITERAL", "pattern": data}
-        return cls(mode=data["mode"], pattern=data["pattern"])
+        return cls(mode=PatternMode[data["mode"]], pattern=data["pattern"])
 
     @staticmethod
     def Any():
@@ -160,7 +153,10 @@ class DeepPattern:
 
     def capture(self, data):
         item = deepLookup(data, self.key)
-        return {self.key: self.pattern.capture(item)}
+        capture = self.pattern.capture(item)
+        if capture is NO_MATCH:
+            return capture
+        return {self.key: capture}
 
 
 BasePattern = Pattern | PatternOr | PatternAnd | DeepPattern
@@ -183,6 +179,9 @@ def configureConverter(conv):
             return base_hook(value, t)
 
 
+CaptureSet = namedtuple("CaptureSet", "capture items")
+
+
 def gatherByCapture(pattern, items, key=lambda x: x.metadata):
     ret = {}
     for i in items:
@@ -192,35 +191,4 @@ def gatherByCapture(pattern, items, key=lambda x: x.metadata):
             ret[k][1].append(i)
         else:
             ret[k] = [vals, [i]]
-    return list(tuple(x) for x in ret.values())
-
-
-@define
-class MetaCaptureResult:
-    groups: dict[str, Any]
-
-@define
-class MetaCaptureDesc:
-    group_by: dict[str, BasePattern | MetaCaptureDesc]
-    select: BasePattern | None = None
-
-    def apply(self, items):
-        if self.select:
-            items = [x for x in items if self.select.match(x)]
-        ret = {}
-        for x, y in self.group_by.items():
-            if isinstance(y, BasePattern):
-                ret[x] = gatherByCapture(y, items)
-            else:
-                ret[x] = y.apply(items)
-        return ret
-
-
-def getCommonMeta(items):
-    i = iter(items)
-    ret = copy.deepcopy(dict(next(i)))
-    for item in i:
-        for k in item:
-            if not (k in ret and ret[k] == item[k]):
-                del ret[k]
-    return ret
+    return list(CaptureSet(*x) for x in ret.values())

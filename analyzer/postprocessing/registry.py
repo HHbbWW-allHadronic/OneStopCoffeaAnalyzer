@@ -1,13 +1,14 @@
 import yaml
 import copy
-from analyzer.utils.structure_tools import deepMerge
-from analyzer.utils.querying import pattern_expr_adapter
+from attrs import define
+from cattrs import structure
+import abc
 
-REGISTRY = {}
 
-
-def registerPostprocessor(cls):
-    REGISTRY[cls.__name__] = cls
+@define
+class BasePostprocessor:
+    def getRunFuncs(self, result_groups):
+        pass
 
 
 def loadPostprocessors(file_path, root="Postprocessing", defaults_root="PostDefaults"):

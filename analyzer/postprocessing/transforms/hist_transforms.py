@@ -1,30 +1,3 @@
-from __future__ import annotations
-import numpy as np
-import copy
-import hist
-from rich import print
-from collections import defaultdict, OrderedDict, ChainMap
-import itertools as it
-import string
-from analyzer.utils.structure_tools import doFormatting
-from typing import Annotated, Any, ClassVar
-from analyzer.utils.querying import (
-    NestedPatternExpression,
-    modelIter,
-    Pattern,
-    PatternExpression,
-    SimpleNestedPatternExpression,
-)
-
-from analyzer.core.results import SectorResult
-from analyzer.core.specifiers import SectorParams
-from pydantic import BaseModel, Field, field_validator
-
-from .split_histogram import Mode
-from .style import Style
-import logging
-
-
 logger = logging.getLogger("analyzer")
 
 

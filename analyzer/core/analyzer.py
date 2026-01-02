@@ -124,12 +124,16 @@ class Analyzer:
     def runPipelineWithParameters(
         self, pipeline, params, freeze_pipeline=False, result_container_name=None
     ):
-        key = hash(freeze(([n.node_id for n in pipeline], params)))
+        node_ids = [n.node_id for n in pipeline]
+        params = {x: y for x, y in params.items() if x in node_ids}
+        key = hash(freeze((node_ids, params)))
 
         logger.debug(f"Pipeline execution key is {key}")
         if key in self._cache:
             logger.debug(f"Found key {key}, using cached columns")
             return self._cache[key], None
+        else:
+            logger.debug(f"Did not find key {key}, recomputing")
         params = copy.deepcopy(params)
         complete_pipeline = []
         to_add = deque(pipeline)

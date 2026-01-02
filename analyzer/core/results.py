@@ -1,5 +1,7 @@
 from __future__ import annotations
 import awkward as ak
+from collections import ChainMap
+
 from rich import print
 from pathlib import Path
 
@@ -47,7 +49,14 @@ def getArrayMem(array):
 @define
 class ResultBase(abc.ABC):
     name: str
-    metadata: dict[str, Any] = field(factory=dict, kw_only=True)
+    _metadata: dict[str, Any] = field(factory=dict, kw_only=True)
+
+    @property
+    def metadata(self):
+        return ChainMap(self.getMetadata(), {"type": self.__class__.__name__})
+
+    def getMetadata(self):
+        return self._metadata
 
     @abc.abstractmethod
     def __iadd__(self, other) -> ResultBase:
@@ -110,8 +119,7 @@ class ResultGroup(ResultBase):
             ]
             peek_size = int.from_bytes(header_value, byteorder="big")
             peek = data[
-                len(cls._MAGIC_ID)
-                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                len(cls._MAGIC_ID) + cls._HEADER_SIZE : len(cls._MAGIC_ID)
                 + cls._HEADER_SIZE
                 + peek_size
             ]
@@ -127,8 +135,7 @@ class ResultGroup(ResultBase):
             ]
             peek_size = int.from_bytes(header_value, byteorder="big")
             peek = data[
-                len(cls._MAGIC_ID)
-                + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                len(cls._MAGIC_ID) + cls._HEADER_SIZE : len(cls._MAGIC_ID)
                 + cls._HEADER_SIZE
                 + peek_size
             ]
