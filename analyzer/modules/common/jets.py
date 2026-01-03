@@ -142,6 +142,8 @@ class VetoMap(AnalyzerModule):
     selection_name: str = "jet_veto_map"
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
     should_run: MetadataExpr = field(factory=lambda: IsRun(3))
+    __corrections: dict = field(factory=dict)
+
 
     def run(self, columns, params):
         map_name = columns.metadata["era"]["jet_veto_map"]["name"]
@@ -159,11 +161,13 @@ class VetoMap(AnalyzerModule):
         return columns, []
 
     def getCorr(self, metadata):
-        file_path = metadata["era"]["jet_veto_map"]
-        if file_path in self.__corrections:
-            return self.__corrections[file_path]
-        ret = correctionlib.CorrectionSet.from_file(file_path)
-        self.__corrections[file_path] = ret
+        info = metadata["era"]["jet_veto_map"]
+        path, name = info["file"], info["name"]
+        k = (path, name)
+        if k in self.__corrections:
+            return self.__corrections[k]
+        ret = correctionlib.CorrectionSet.from_file(path)[name]
+        self.__corrections[k] = ret
         return ret
 
     def preloadForMeta(self, metadata):

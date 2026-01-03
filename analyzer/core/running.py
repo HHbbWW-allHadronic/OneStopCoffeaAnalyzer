@@ -70,7 +70,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs, location_priorities=None):
     todo = []
     matched = getMatchedCollections(dataset_repo, dataset_descs)
     if any(len(x) != 1 for x in matched.values()):
-        raise RuntimeError(f"More than one matching pattern")
+        raise RuntimeError(f"More than one matching pattern.")
     todo = [(k, x[0].pipelines) for k, x in matched.items()]
     ret = []
     for dataset_name, pipelines in todo:
@@ -158,6 +158,9 @@ def runFromPath(
         analysis.event_collections,
         location_priorities=analysis.location_priorities,
     )
+    logger.info(f"Initializing analyzer")
+    for t in tasks:
+        analysis.analyzer.initModules(t.metadata)
     logger.info(
         f"Preparing to run {len(tasks)} tasks. Max events per sample is {max_sample_events}"
     )

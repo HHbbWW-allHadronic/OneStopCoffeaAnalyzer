@@ -117,6 +117,9 @@ class BaseAnalyzerModule(abc.ABC):
     def name(cls):
         return cls.__name__
 
+    def clearCache(self):
+        self._cache.clear()
+
 
 @define
 class AnalyzerModule(BaseAnalyzerModule):

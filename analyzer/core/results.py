@@ -73,6 +73,7 @@ class ResultBase(abc.ABC):
     @abc.abstractmethod
     def finalize(self) -> ResultBase: ...
 
+
     def summary(self):
         return self
 

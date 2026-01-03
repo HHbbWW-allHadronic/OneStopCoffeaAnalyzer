@@ -186,13 +186,13 @@ def processTask(
 
         chunks = new_chunks
 
-    with dask.annotate(priority=10):
+    with dask.annotate(priority=0):
         task_futures = client.map(
             getAnalyzerRunFunc(analyzer, task),
             chunks,
-            key=f"process--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
+            key=f"analyze--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=20):
+    with dask.annotate(priority=0):
         reduced_futures = reduceResults(
             client,
             iaddMany,
@@ -200,7 +200,7 @@ def processTask(
             reduction_factor,
             key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=30):
+    with dask.annotate(priority=0):
         final = client.map(
             ft.partial(dumpAndComplete, task.metadata, task.output_name),
             reduced_futures,

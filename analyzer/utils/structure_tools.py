@@ -12,10 +12,17 @@ import awkward as ak
 import dask_awkward as dak
 import numpy as np
 
+def dictToDot(dictionary):
+    for field, value in dictionary.items():
+        if isinstance(value, dict):
+            for key, val in dictToDot(value):
+                yield f"{field}.{key}", val
+        else:
+            yield field, value
 
-def flatten(l):
+def flatten(l, limit_to_types=(list,)):
     ret = []
-    if isinstance(l, list):
+    if isinstance(l, limit_to_types):
         for item in l:
             ret.extend(flatten(item))
     else:

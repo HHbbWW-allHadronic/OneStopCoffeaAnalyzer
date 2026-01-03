@@ -179,7 +179,18 @@ def configureConverter(conv):
             return base_hook(value, t)
 
 
-CaptureSet = namedtuple("CaptureSet", "capture items")
+@define
+class CaptureSet:
+    capture: Any
+    items: list[ItemWithMeta]
+
+@define
+class Group:
+    results: list[ItemWithMeta]
+
+    @property
+    def metadata(self):
+        return commonDict((x.metadata for x in self.results))
 
 
 def gatherByCapture(pattern, items, key=lambda x: x.metadata):

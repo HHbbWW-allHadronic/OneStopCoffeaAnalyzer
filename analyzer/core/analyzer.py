@@ -87,8 +87,14 @@ class Analyzer:
     _cache: SimpleCache = field(factory=SimpleCache)
 
     def initModules(self, metadata):
+        pass
+        # for m in self.all_modules:
+        #     m.preloadForMeta(metadata)
+
+    def clearCaches(self):
+        self._cache.clear()
         for m in self.all_modules:
-            m.preloadForMeta(metadata)
+            m.clearCache()
 
     def getUniqueNode(self, pipeline, module):
         base = module.name()

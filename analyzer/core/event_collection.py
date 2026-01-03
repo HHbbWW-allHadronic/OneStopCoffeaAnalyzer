@@ -168,6 +168,13 @@ class FileInfo:
             return sum(y - x for x, y in self.chunks)
 
     @property
+    def _events(self):
+        if not self.chunks:
+            return 0
+        else:
+            return sum(y - x for x, y in self.chunks)
+
+    @property
     def empty(self):
         return not isinstance(self.chunks, None) and not self.chunks
 

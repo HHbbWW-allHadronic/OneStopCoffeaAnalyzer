@@ -18,12 +18,10 @@ dependencies = [
     "fsspec-xrootd>=0.5.1",
     "hist>=2.9.0",
     "histoprint>=2.6.0",
-    "htcondor~=24.0.0",
     "ipython>=9.7.0",
     "jinja2>=3.1.6",
     "joblib>=1.5.2",
     "jupyter>=1.1.1",
-    "lpcjobqueue",
     "lz4>=4.4.5",
     "mplhep>=0.4.1",
     "numpy>=2.3.4",
@@ -46,6 +44,14 @@ dev = [
     "scalene>=2.0.1",
     "sphinx>=8.2.3",
     "ty>=0.0.8",
+]
+
+[project.optional-dependencies]
+condor=[
+    "htcondor~=24.0.0",
+]
+lpc=[
+    "lpcjobqueue",
 ]
 
 [tool.uv.sources]

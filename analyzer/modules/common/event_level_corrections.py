@@ -46,15 +46,17 @@ class PileupSF(AnalyzerModule):
             {
                 "variation": ParameterSpec(
                     default_value="nominal",
-                    possible_values=["nominal", "up", "down"],
+                    possible_values=["nominal", "up", "down", "disabled"],
                     tags={
                         "weight_variation",
                     },
                 ),
-            }
+            },
         )
 
     def run(self, columns, params):
+        if params["variation"] == "disabled":
+            return columns, []
         corr = self.getCorrection(columns.metadata)
         n_pu = columns["Pileup.nTrueInt"]
         correction = corr.evaluate(n_pu, params["variation"])

@@ -49,6 +49,21 @@ class RunBuilder(abc.ABC):
         self, spec: PipelineParameterSpec, metadata
     ) -> list[tuple[Any, dict]]: ...
 
+    def __add__(
+        self, *args):
+        return MultiRunBuilder(*args)
+
+@define
+class MultiRunBuilder(RunBuilder):
+    components: list[RunBuilder]
+
+    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        ret = []
+        for x in self.components:
+            ret.extend(x(spec))
+        return ret
+
+
 
 @define
 class CompleteSysts(RunBuilder):
@@ -69,6 +84,7 @@ class SignalOnlySysts(RunBuilder):
             return all_vars
         else:
             return [("central", {})]
+
 
 
 @define
