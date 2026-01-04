@@ -153,9 +153,10 @@ class SimpleCache(OrderedDict):
 
 def commonDict(items, key=lambda x: x.metadata):
     i = iter(items)
-    ret = copy.deepcopy(dict(next(i)))
+    ret = copy.deepcopy(dict(key(next(i))))
     for item in i:
-        for k in key(item):
-            if not (k in ret and ret[k] == item[k]):
+        data = key(item)
+        for k in data:
+            if k in ret and not ret[k] == data[k]:
                 del ret[k]
     return ret

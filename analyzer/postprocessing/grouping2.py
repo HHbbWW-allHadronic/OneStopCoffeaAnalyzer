@@ -20,15 +20,14 @@ class GroupBuilder:
 
     def apply(self, items):
         if self.select is not None:
-            items = [x for x in items if self.select.match(x)]
+            items = [x for x in items if self.select.match(x.metadata)]
         gathered = gatherByCapture(self.group, items)
-
         groups:  ResultSet = [g.items for g in gathered if g.capture is not NO_MATCH]
 
-        for transform in transforms:
+        for transform in self.transforms or []:
             groups = [transform(g) for g in groups]
 
-        if self.sub_groups is None:
+        if self.subgroups is None:
             if len(groups) == 1:
                 return groups[0]
             else:
@@ -39,11 +38,11 @@ class GroupBuilder:
             if isinstance(self.subgroups, dict):
                 r = {}
                 for x, y in self.subgroups.items():
-                    r[x] = y.apply(items)
-            elif isinstance(self.sub_groups, list):
+                    r[x] = y.apply(group_items)
+            elif isinstance(self.subgroups, list):
                 r = []
                 for x in self.subgroups:
-                    r.append(x.apply(items))
+                    r.append(x.apply(group_items))
             ret.append(r)
 
         return ret

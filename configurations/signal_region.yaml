@@ -292,19 +292,19 @@ event_collections:
   
   # Signal Samples
   - dataset: 'signal_2018_312_*0'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, ControlNoBNN]
   
   # Background MC Samples
   - dataset: 'qcd*2018*'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'diboson*2018*'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'tt_to_hadronic*2018*'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'zjets_to_qq*2018*'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'single_top*2018*hadronic*'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
 
   
 extra_executors:
@@ -314,7 +314,7 @@ extra_executors:
 
   test2:
     executor_name: LocalDaskExecutor
-    chunk_size: 400000
+    chunk_size: 100000
     min_workers: 1
     max_workers: 3
     reduction_factor: 2
@@ -323,8 +323,8 @@ extra_executors:
     executor_name: LPCCondorDask
     container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
     venv_path: .venv
-    chunk_size: 200000
+    chunk_size: 80000
     min_workers: 40
     max_workers: 200
     worker_memory: 4GB
-    reduction_factor: 3
+    reduction_factor: 5
