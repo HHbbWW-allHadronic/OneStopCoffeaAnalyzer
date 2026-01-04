@@ -1,4 +1,5 @@
 from __future__ import annotations
+import copy
 
 import functools as ft
 import logging
@@ -137,6 +138,7 @@ logger = logging.getLogger("analyzer")
 
 
 def runWithFinalize(analyzer, *args, **kwargs):
+    analyzer = copy.deepcopy(analyzer)
     ret = analyzer.run(*args, **kwargs)
     ret.finalize(basicFinalizer)
     return ret
@@ -186,13 +188,13 @@ def processTask(
 
         chunks = new_chunks
 
-    with dask.annotate(priority=0):
+    with dask.annotate(priority=1):
         task_futures = client.map(
             getAnalyzerRunFunc(analyzer, task),
             chunks,
             key=f"analyze--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=0):
+    with dask.annotate(priority=2):
         reduced_futures = reduceResults(
             client,
             iaddMany,
@@ -200,7 +202,7 @@ def processTask(
             reduction_factor,
             key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=0):
+    with dask.annotate(priority=3):
         final = client.map(
             ft.partial(dumpAndComplete, task.metadata, task.output_name),
             reduced_futures,
@@ -328,14 +330,15 @@ class LocalDaskExecutor(Executor):
         self.client = Client(self.cluster)
 
     def run(self, analyzer, tasks, max_sample_events=None):
-        yield from run(
-            self.client,
-            self.chunk_size,
-            self.reduction_factor,
-            analyzer,
-            tasks,
-            max_sample_events=max_sample_events,
-        )
+        with self.cluster:
+            yield from run(
+                self.client,
+                self.chunk_size,
+                self.reduction_factor,
+                analyzer,
+                tasks,
+                max_sample_events=max_sample_events,
+            )
 
 
 @define
@@ -358,14 +361,15 @@ class LPCCondorDask(Executor):
     client: Any = None
 
     def run(self, analyzer, tasks, max_sample_events=None):
-        yield from run(
-            self.client,
-            self.chunk_size,
-            self.reduction_factor,
-            analyzer,
-            tasks,
-            max_sample_events=max_sample_events,
-        )
+        with self.cluster:
+            yield from run(
+                self.client,
+                self.chunk_size,
+                self.reduction_factor,
+                analyzer,
+                tasks,
+                max_sample_events=max_sample_events,
+            )
 
     def setup(self, needed_resources):
         import shutil
@@ -420,5 +424,5 @@ class LPCCondorDask(Executor):
             **kwargs,
         )
         logger.info(f"Started cluster {self.cluster}")
-        self.client = Client(self.cluster)
         self.cluster.adapt(minimum_jobs=self.min_workers, maximum_jobs=self.max_workers)
+        self.client = Client(self.cluster)

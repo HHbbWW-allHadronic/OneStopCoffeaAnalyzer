@@ -17,6 +17,7 @@ class ImmediateExecutor(Executor):
     chunk_size: int = 100000
 
     def run(self, analyzer, tasks, max_sample_events=None):
+        orig_analyzer =  copy.deepcopy(analyzer)
         for task in tasks:
             logger.info(f"Running task with output {task.output_name}")
             file_set = task.file_set
@@ -29,9 +30,9 @@ class ImmediateExecutor(Executor):
                     break
             chunked = file_set.toChunked(max_sample_events or self.chunk_size)
             for chunk in chunked.iterChunks():
+                analyzer = copy.deepcopy(orig_analyzer)
                 result = analyzer.run(chunk, task.metadata, task.pipelines)
                 result.finalize(basicFinalizer)
                 yield CompletedTask(result.toBytes(), task.metadata, task.output_name)
                 if max_sample_events:
                      break
-            analyzer.clearCaches()

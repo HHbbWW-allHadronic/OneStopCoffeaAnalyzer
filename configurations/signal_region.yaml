@@ -289,7 +289,7 @@ event_collections:
   # Data samples
   - dataset: 'data_JetHT_2018'
     pipelines: [Signal312, Signal313, Control]
-
+  
   # Signal Samples
   - dataset: 'signal_2018_312_*0'
     pipelines: [Signal312, Signal313]
@@ -323,6 +323,8 @@ extra_executors:
     executor_name: LPCCondorDask
     container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
     venv_path: .venv
-    chunk_size: 400000
+    chunk_size: 200000
+    min_workers: 40
     max_workers: 200
     worker_memory: 4GB
+    reduction_factor: 3
