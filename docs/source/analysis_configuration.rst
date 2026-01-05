@@ -39,6 +39,7 @@ Simple Example
 The following snippet shows a complete (though very uninteresting) analysis.
 
 .. code-block:: yaml
+
     analyzer:
       default_run_builder:
         strategy_name: NoSystematics
