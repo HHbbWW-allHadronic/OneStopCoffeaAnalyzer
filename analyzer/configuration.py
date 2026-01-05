@@ -27,6 +27,11 @@ class GeneralConfig:
 
 
 @define
+class PostConfig:
+    static_resource_path: str = "analyzer_resources/static"
+
+
+@define
 class CacheConfig:
     cache_subdir: str = "cache"
 
@@ -43,6 +48,7 @@ class Config:
     cache: CacheConfig
     execution: ExecutionConfig
     datasets: DatasetConfig
+    post: PostConfig
 
 
 CONFIG = Config(
@@ -50,9 +56,9 @@ CONFIG = Config(
     execution=ExecutionConfig(),
     condor=CondorConfig(),
     cache=CacheConfig(),
+    post=PostConfig(),
     datasets=DatasetConfig(
         ["analyzer_resources/datasets"],
         ["analyzer_resources/eras"],
     ),
 )
-

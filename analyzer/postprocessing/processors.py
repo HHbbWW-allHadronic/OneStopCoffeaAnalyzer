@@ -1,39 +1,67 @@
+from __future__ import annotations
+
 import abc
-from rich import print
-from enum import Enum, auto
-import logging
-from pathlib import Path
+from cattrs.strategies import include_subclasses, configure_tagged_union
 
-import yaml
+import functools as ft
+from typing import Literal
+import itertools as it
+from .plots.common import PlotConfiguration
+from .style import StyleSet
+from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
+from analyzer.utils.structure_tools import (
+    deepWalkMeta,
+    SimpleCache,
+    ItemWithMeta,
+    commonDict,
+    dictToDot,
+    doFormatting,
+)
+from .plots.plots_1d import plotOne, plotRatio
+from .plots.plots_2d import plot2D
+from .grouping import GroupBuilder
+from analyzer.utils.structure_tools import globWithMeta
+from attrs import define, field
+import abc
 
-from pydantic import BaseModel
-from analyzer.configuration import CONFIG
+ResultSet = list[list[ItemWithMeta]]
 
-from .style import Style, StyleSet
-
-logger = logging.getLogger("analyzer")
-StyleLike = Style | str
+type PostprocessingGroup = (
+    dict[str, PostprocessingGroup] | list[PostprocessingGroup] | list[ItemWithMeta]
+)
 
 
-class PostProcessorType(Enum):
-    Normal = auto()
-    Accumulator = auto()
+@define
+class BasePostprocessor(abc.ABC):
+    inputs: list[tuple[str, ...]]
+    structure: GroupBuilder
+    style_set: StyleSet | None = field(default=None, kw_only=True)
+    plot_configuration: PlotConfiguration | None = field(default=None, kw_only=True)
 
-
-class BasePostprocessor(BaseModel, abc.ABC):
-    name: str
+    def run(self, data):
+        for i in self.inputs:
+            items = globWithMeta(data, i)
+            for x in self.structure.apply(items):
+                yield from self.getRunFuncs(x)
 
     @abc.abstractmethod
-    def getExe(self, results):
+    def getRunFuncs(self, group: PostprocessingGroup):
         pass
 
-    def getNeededHistograms(self):
-        return []
 
-    def init(self):
-        if hasattr(self, "style_set") and isinstance(self.style_set, str):
-            print("Loading style set")
-            config_path = Path(CONFIG.STYLE_PATH) / self.style_set
-            with open(config_path, "r") as f:
-                d = yaml.safe_load(f)
-            self.style_set = StyleSet(**d)
+def configureConverter(conv):
+    union_strategy = ft.partial(configure_tagged_union, tag_name="name")
+    include_subclasses(BasePostprocessor, conv, union_strategy=union_strategy)
+
+    base_hook = conv.get_structure_hook(BasePostprocessor)
+
+    @conv.register_structure_hook
+    def _(data, t) -> BasePostprocessor:
+        real_inputs = []
+        for x in data["inputs"]:
+            if isinstance(x, str):
+                real_inputs.append(x.split("/"))
+            else:
+                real_inputs.append(x)
+        data["inputs"] = real_inputs
+        return base_hook(data, t)

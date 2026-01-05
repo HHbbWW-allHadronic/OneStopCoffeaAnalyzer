@@ -5,7 +5,7 @@ from .common import PlotConfiguration
 
 def addCMSBits(
     ax,
-    sectors,
+    all_meta,
     extra_text=None,
     text_color=None,
     plot_configuration=None,
@@ -14,9 +14,9 @@ def addCMSBits(
         plot_configuration = PlotConfiguration()
     info_text = plot_configuration.lumi_text
     if info_text is None:
-        lumis = set(str(x.dataset.lumi) for x in sectors)
-        energies = set(str(x.dataset.era.energy) for x in sectors)
-        era = set(str(x.dataset.era.name) for x in sectors)
+        lumis = set(str(x["era"]["lumi"]) for x in all_meta)
+        energies = set(str(x["era"]["energy"]) for x in all_meta)
+        era = set(str(x["era"]["name"]) for x in all_meta)
         era_text = f"{'/'.join(era)}"
         lumi_text = (
             plot_configuration.lumi_text
@@ -25,7 +25,7 @@ def addCMSBits(
         info_text = era_text + ", " + lumi_text
     mplhep.cms.lumitext(text=info_text, ax=ax)
 
-    text = plot_configuration.cms_text
+    text = plot_configuration.cms_text or ""
     if extra_text is not None:
         text += "\n" + extra_text
     a, b, c = mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)

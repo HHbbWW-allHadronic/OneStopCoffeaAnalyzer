@@ -30,8 +30,8 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
 
 def plotOne(
     histograms,
-        stacked_hists,
-        common_metadata,
+    stacked_hists,
+    common_metadata,
     output_path,
     style_set,
     scale="linear",
@@ -43,7 +43,7 @@ def plotOne(
     styler = Styler(style_set)
     fig, ax = plt.subplots()
     h = None
-    for item,meta in histograms:
+    for item, meta in histograms:
         title = meta["dataset_title"]
         h = item.histogram
         style = styler.getStyle(meta)
@@ -58,36 +58,38 @@ def plotOne(
     if h is None:
         h = stacked_hists[0]
     if stacked_hists:
-        stacked_hists = sorted(stacked_hists, key=lambda x: x.item.histogram.sum().value)
+        stacked_hists = sorted(
+            stacked_hists, key=lambda x: x.item.histogram.sum().value
+        )
         style_kwargs = defaultdict(list)
         hists = []
         titles = []
-        for item,meta in stacked_hists:
+        for item, meta in stacked_hists:
             hists.append(item.histogram)
             titles.append(meta["dataset_title"])
             style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
-    
+
         style_kwargs["histtype"] = style_kwargs["histtype"][0]
-    
+
         mplhep.histplot(
             hists,
             ax=ax,
             stack=True,
             **style_kwargs,
             label=titles,  # sort="yield"
-         )
-        
+        )
+
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
     # region_name = (packaged_hists + stacked_hists)[0].sector_parameters.region_name
-    # addCMSBits(
-    #     ax,
-    #     [x.provenance.sector_parameters for x in packaged_hists + stacked_hists],
-    #     extra_text=f"{region_name}",
-    #     plot_configuration=pc,
-    # )
+    addCMSBits(
+        ax,
+        [x.metadata for x in histograms] + [x.metadata for x in stacked_hists],
+        extra_text=f"{common_metadata['pipeline']}",
+        plot_configuration=pc,
+    )
     if style.legend:
         legend_kwargs = {}
         if style.legend_font:

@@ -93,7 +93,7 @@ class Pattern:
             return NO_MATCH
 
     @classmethod
-    def _structure(cls, data: str|int|float, conv):
+    def _structure(cls, data: str | int | float, conv):
         if isinstance(data, str):
             if data.startswith("re:"):
                 data = {"mode": "REGEX", "pattern": data.removeprefix("re:")}
@@ -168,36 +168,41 @@ def configureConverter(conv):
     base_hook = conv.get_structure_hook(BasePattern)
     pattern_hook = conv.get_structure_hook(Pattern)
     deep_hook = conv.get_structure_hook(DeepPattern)
-    and_hook = conv.get_structure_hook(PatternAnd)
-    # include_subclasses(
-    #     BasePattern, conv, subclasses=[DeepPattern, Pattern, PatternOr, PatternAnd]
-    # )
 
-    # @conv.register_structure_hook
-    # def _(value:str|int|float, t) -> BasePattern:
-    #     print(f"Value is  {value}")
-    #     return pattern_hook(value, Pattern)
+    base_and_hook = conv.get_structure_hook(PatternAnd)
 
     @conv.register_structure_hook
     def _(value: list, t) -> PatternAnd:
-        return and_hook({"and_exprs": value}, t)
+        return base_and_hook({"and_exprs": value}, t)
 
-    # base_hook2 = conv.get_structure_hook(BasePattern)
-    # @conv.register_structure_hook
-    # def _(value: dict, t) -> BasePattern:
-    #     try:
-    #         return base_hook2(value,t)
-    #     except Exception as e:
-    #         print(f"Exception: {e}")
-    #         return conv.structure([{k:v} for k,v in value.items()], t)
+    and_hook = conv.get_structure_hook(PatternAnd)
 
+    @conv.register_structure_hook
+    def _(value, t) -> BasePattern:
+        if isinstance(value, str | int | float):
+            return pattern_hook(value, Pattern)
+        if isinstance(value, list):
+            return and_hook(value, PatternAnd)
+        return base_hook(value, t)
 
+    base_hook2 = conv.get_structure_hook(BasePattern)
+
+    @conv.register_structure_hook
+    def _(value, t) -> BasePattern:
+        try:
+            return base_hook2(value, t)
+        except Exception as e:
+            n = [{k: v} for k, v in value.items()]
+            return base_hook2(
+                [{"key": k.split("."), "pattern": v} for k, v in value.items()], t
+            )
 
 
 @define
 class CaptureSet:
     capture: Any
     items: list[ItemWithMeta]
+
 
 @define
 class Group:

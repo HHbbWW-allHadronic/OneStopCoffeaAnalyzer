@@ -34,10 +34,10 @@ class Style:
         if plottype is None:
             plottype = self.plottype
         mapping = dict(
-            step=( "color",),
-            fill=( "color", "alpha"),
-            band=( "color",),
-            errorbar=( "color", "markersize", "marker"),
+            step=("color",),
+            fill=("color", "alpha"),
+            band=("color",),
+            errorbar=("color", "markersize", "marker"),
         )
         ret = asdict(self, filter=filters.include(*mapping[plottype]))
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
@@ -81,12 +81,6 @@ cms_colors_10 = [
 class StyleSet:
     styles: list[StyleRule] = field(factory=list)
 
-    @classmethod
-    def _structure(cls, data, conv):
-        if isinstance(data, list):
-            data = {"styles": data}
-        return conv.structure(data, StyleSet)
-
     def getStyle(self, sector_params, other_data=None):
         for style_rule in self.styles:
             if style_rule.pattern is None:
@@ -111,7 +105,7 @@ class Styler:
             if found.color is None:
                 found = copy.deepcopy(found)
                 c = next(self.cycle_iter)
-                found.color = c['color']
+                found.color = c["color"]
             return found
 
         c = next(self.cycle_iter)
