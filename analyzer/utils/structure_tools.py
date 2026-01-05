@@ -8,9 +8,20 @@ from collections import ChainMap, OrderedDict, namedtuple
 from collections.abc import Iterable
 from typing import Any
 
+
+import string
 import awkward as ak
 import dask_awkward as dak
 import numpy as np
+
+def doFormatting(s, **kwargs):
+    parsed = string.Formatter().parse(s)
+    s = ""
+    for x in parsed:
+        s += x[0]
+        if x[1] is not None:
+            s += str(kwargs[x[1]])
+    return s
 
 def dictToDot(dictionary):
     for field, value in dictionary.items():

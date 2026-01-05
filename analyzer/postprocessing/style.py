@@ -2,15 +2,16 @@ import logging
 
 import copy
 import matplotlib as mpl
+from analyzer.utils.querying import BasePattern
 import matplotlib.typing as mplt
-from analyzer.utils.querying import NestedPatternExpression
 from cycler import cycler
-from pydantic import BaseModel, Field, model_validator
+from attrs import define, field, asdict, filters
 
 logger = logging.getLogger("analyzer")
 
 
-class Style(BaseModel):
+@define
+class Style:
     color: mplt.ColorType | None = None
     plottype: str = "step"
     linestyle: mplt.LineStyleType | None = None
@@ -38,7 +39,7 @@ class Style(BaseModel):
             band=( "color",),
             errorbar=( "color", "markersize", "marker"),
         )
-        ret = self.model_dump(include=mapping[plottype])
+        ret = asdict(self, filter=filters.include(*mapping[plottype]))
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
         if include_type:
             ret["histtype"] = plottype
@@ -47,9 +48,10 @@ class Style(BaseModel):
         return ret
 
 
-class StyleRule(BaseModel):
+@define
+class StyleRule:
     style: Style
-    pattern: NestedPatternExpression | None = None
+    pattern: BasePattern | None = None
 
 
 cms_colors_6 = [
@@ -75,28 +77,22 @@ cms_colors_10 = [
 ]
 
 
-class StyleSet(BaseModel):
-    styles: list[StyleRule] = Field(default_factory=list)
+@define
+class StyleSet:
+    styles: list[StyleRule] = field(factory=list)
 
-    @model_validator(mode="before")
     @classmethod
-    def flattenStyle(cls, data):
+    def _structure(cls, data, conv):
         if isinstance(data, list):
-            return {"styles": data}
-        return data
+            data = {"styles": data}
+        return conv.structure(data, StyleSet)
 
     def getStyle(self, sector_params, other_data=None):
         for style_rule in self.styles:
             if style_rule.pattern is None:
                 return style_rule.style
             elif style_rule.pattern.match(sector_params):
-                logger.debug(
-                    f"Found matching style rule for {sector_params.dataset.name}"
-                )
                 return style_rule.style
-        logger.debug(
-            f"Did not find matching style rule for {sector_params.dataset.name}"
-        )
         return None
 
 

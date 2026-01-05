@@ -252,7 +252,7 @@ analyzer:
     - module_name: NObjFilter
       input_col: LooseB
       selection_name: 0bjet
-      min_count: 0
+      max_count: 0
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
@@ -272,7 +272,7 @@ analyzer:
     - module_name: NObjFilter
       input_col: LooseB
       selection_name: 0bjet
-      min_count: 0
+      max_count: 0
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection

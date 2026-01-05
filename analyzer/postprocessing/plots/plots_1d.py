@@ -29,25 +29,24 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
 
 
 def plotOne(
-    packaged_hists,
-    group_params,
+    histograms,
+        stacked_hists,
+        common_metadata,
     output_path,
     style_set,
     scale="linear",
     normalize=False,
     plot_configuration=None,
-    stacked_hists=None,
 ):
     stacked_hists = stacked_hists or []
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     fig, ax = plt.subplots()
     h = None
-    for packaged_hist in packaged_hists:
-        title = packaged_hist.title
-        h = packaged_hist.histogram
-        fixBadLabels(h)
-        style = styler.getStyle(packaged_hist.provenance.sector_parameters)
+    for item,meta in histograms:
+        title = meta["dataset_title"]
+        h = item.histogram
+        style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
             label=title,
@@ -57,39 +56,38 @@ def plotOne(
             **style.get(),
         )
     if h is None:
-        h = stacked_hists[0].histogram
-
+        h = stacked_hists[0]
     if stacked_hists:
-        stacked_hists = sorted(stacked_hists, key=lambda x: x.histogram.sum().value)
+        stacked_hists = sorted(stacked_hists, key=lambda x: x.item.histogram.sum().value)
         style_kwargs = defaultdict(list)
         hists = []
         titles = []
-        for x in stacked_hists:
-            hists.append(x.histogram)
-            titles.append(x.title)
-            style = styler.getStyle(x.sector_parameters)
+        for item,meta in stacked_hists:
+            hists.append(item.histogram)
+            titles.append(meta["dataset_title"])
+            style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
-
+    
         style_kwargs["histtype"] = style_kwargs["histtype"][0]
-
+    
         mplhep.histplot(
             hists,
             ax=ax,
             stack=True,
             **style_kwargs,
             label=titles,  # sort="yield"
-        )
-
+         )
+        
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
-    region_name = (packaged_hists + stacked_hists)[0].sector_parameters.region_name
-    addCMSBits(
-        ax,
-        [x.provenance.sector_parameters for x in packaged_hists + stacked_hists],
-        extra_text=f"{region_name}",
-        plot_configuration=pc,
-    )
+    # region_name = (packaged_hists + stacked_hists)[0].sector_parameters.region_name
+    # addCMSBits(
+    #     ax,
+    #     [x.provenance.sector_parameters for x in packaged_hists + stacked_hists],
+    #     extra_text=f"{region_name}",
+    #     plot_configuration=pc,
+    # )
     if style.legend:
         legend_kwargs = {}
         if style.legend_font:

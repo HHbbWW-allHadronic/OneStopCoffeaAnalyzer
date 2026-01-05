@@ -1,5 +1,9 @@
 from __future__ import annotations
+import copy
+import itertools as it
+from collections import ChainMap
 from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
+from analyzer.core.results import Histogram
 from analyzer.utils.structure_tools import (
     deepWalkMeta,
     SimpleCache,
@@ -8,8 +12,39 @@ from analyzer.utils.structure_tools import (
 )
 from analyzer.utils.structure_tools import globWithMeta
 from attrs import define
+import abc
 
 ResultSet = list[list[ItemWithMeta]]
+
+@define
+class SelectAxesValues:
+    select_axes_values: dict[str, list[str] | list[int] | list[float]]
+
+    def __call__(self, items: list[ItemWithMeta]):
+        ret = []
+        for item,meta in items:
+            h = item.histogram
+            keys_vals = list(self.select_axes_values.items())
+            keys, vals = list(zip(*keys_vals))
+            # new_axes = [x for x in item.axes if x.name not in select_axes_values]
+            for p in it.product(*vals):
+                u = dict(zip(keys, p))
+                new_meta = ChainMap(meta, u)
+                ret.append(ItemWithMeta(Histogram(name=item.name, axes=[], histogram=h[u]),new_meta))
+        return ret
+    
+@define
+class MergeAxes:
+    merge_axis_names: list[str | int]
+
+    def __call__(self, items):
+        ret = []
+        for item,meta in items:
+            h = item.histogram
+            merging = {x: sum for x in self.merge_axis_names}
+            h = h[merging]
+            ret.append(ItemWithMeta(Histogram(name=item.name, axes=[], histogram=h), meta))
+        return ret
 
 
 @define
@@ -48,50 +83,3 @@ class GroupBuilder:
 
         return ret
 
-@define
-class Histogram1D:
-    inputs: list[tuple[str,...]]
-    structure: GroupBuilder
-
-
-    def run(self, data):
-        for i in self.inputs:
-            print(i)
-            items = globWithMeta(data, i)
-            for x in self.structure.apply(items):
-                yield from self.getRunFuncs(x) 
-                return
-
-    def getRunFuncs(self, group):
-        group = group["numerator"]
-        common_meta = commonDict(group)
-        print(common_meta)
-        # for name, sector_pipeline in it.product(self.histogram_names, pipelines):
-        #     histograms = sector_pipeline.getHists(name)
-        #     if not histograms:
-        #         return
-        #     provenance = histograms[0].provenance
-        #     output_path = doFormatting(self.output_name, **provenance.allEntries())
-        #     stacked_hists = None
-        #     if self.to_stack is not None:
-        #         stacked_hists = [
-        #             x for x in histograms if self.to_stack.match(x.sector_parameters)
-        #         ]
-        #         histograms = [
-        #             x
-        #             for x in histograms
-        #             if not self.to_stack.match(x.sector_parameters)
-        #         ]
-        # 
-        #     pc = self.plot_configuration.makeFormatted(**provenance.allEntries())
-        #     yield ft.partial(
-        #         plotOne,
-        #         histograms,
-        #         provenance,
-        #         output_path,
-        #         scale=self.scale,
-        #         style_set=self.style_set,
-        #         normalize=self.normalize,
-        #         plot_configuration=pc,
-        #         stacked_hists=stacked_hists,
-            # )
