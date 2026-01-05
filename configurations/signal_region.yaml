@@ -183,8 +183,6 @@ analyzer:
     strategy_name: NoSystematics
 
   Signal312:
-    # - module_name: SimpleHLT
-    #   triggers: [HT,AK8SingleJetPt]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
@@ -207,8 +205,6 @@ analyzer:
     - *common_histograms
 
   Signal313:
-    # - module_name: SimpleHLT
-    #   triggers: [HT,AK8SingleJetPt]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
@@ -236,8 +232,6 @@ analyzer:
 
 
   Control:
-    # - module_name: SimpleHLT
-    #   triggers: [HT,AK8SingleJetPt]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns

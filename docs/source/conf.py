@@ -13,7 +13,21 @@ author = 'Charlie Kapsiak'
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.viewcode",
+    "sphinx_autodoc_typehints",
+]
+
+autosummary_generate = True
+autodoc_default_options = {
+    "members": True,
+    "undoc-members": False,
+    "private-members": False,
+    "show-inheritance": True,
+}
 
 templates_path = ['_templates']
 exclude_patterns = []
