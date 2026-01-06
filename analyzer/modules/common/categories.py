@@ -22,6 +22,28 @@ class CategoryDesc:
 
 @define
 class SimpleCategory(AnalyzerModule):
+    """
+    Create a simple numerical category from an input column.
+
+    This analyzer maps a numeric column to a category and registers it
+    in the pipeline with associated axis information for plotting or
+    binning.
+    This axis will be added to all subsequent histograms.
+
+    Parameters
+    ----------
+    input_col : Column
+        Input column whose values define the category.
+    cat_name : str
+        Name of the category to create.
+    bins : int
+        Number of bins for the category axis.
+    start : float
+        Minimum value of the category axis.
+    stop : float
+        Maximum value of the category axis.
+    """
+
     input_col: Column
     cat_name: str
     bins: int

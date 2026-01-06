@@ -89,7 +89,7 @@ MultiColumns = list[tuple[Any, TrackedColumns]]
 
 @define
 class BaseAnalyzerModule(abc.ABC):
-    MAX_CACHE_SIZE = 30
+    MAX_CACHE_SIZE = 25
 
     _cache: SimpleCache = field(
         factory=lambda: SimpleCache(max_size=AnalyzerModule.MAX_CACHE_SIZE),

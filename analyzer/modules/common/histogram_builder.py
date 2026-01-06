@@ -156,14 +156,46 @@ class HistogramBuilder(PureResultModule):
 
 
 def makeHistogram(
-    product_name,
-    columns,
-    axes,
+    product_name: str,
+        columns,
+    axes: Axis | list[Axis],
     data,
     description=None,
-    multirun_strategy=None,
     mask=None,
 ):
+    """
+    Create a histogram from column data and register it in the pipeline.
+
+    This helper function wraps input data into temporary columns, associates
+    them with axes definitions, and builds a histogram that can be added to
+    the module outputs.
+
+    Parameters
+    ----------
+    product_name : str
+        Name of the histogram/product to create.
+    columns : list[Column]
+        Collection of event data columns where temporary columns will be stored.
+    axes : Axis or list of Axis
+        Axis (or axes) definition(s) for the histogram. Must match the dimensionality of `data`.
+    data : array-like or list of array-like
+        Data array(s) to histogram. Can be a single array or a list/tuple for multiple dimensions.
+    description : str, optional
+        Optional description for the histogram.
+    mask : array-like, optional
+        Boolean array indicating which entries should be included in the histogram.
+
+    Returns
+    -------
+    ModuleAddition
+        Object encapsulating the histogram builder, ready to be added to
+        an analyzer module's outputs.
+
+    Notes
+    -----
+    - Temporary columns are created for each data array to integrate with the pipeline.
+    - If `mask` is provided, it is stored in a separate column and used by the histogram builder.
+    """
     if not isinstance(data, (list, tuple)):
         data = [data]
         axes = [axes]

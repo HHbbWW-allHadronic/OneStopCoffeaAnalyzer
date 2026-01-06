@@ -38,6 +38,28 @@ logger = logging.getLogger("analyzer.modules")
 
 @define
 class FilterNear(AnalyzerModule):
+    """
+    Filter objects based on proximity to another collection.
+
+    This analyzer removes entries from a target collection that are within
+    a specified angular distance ($\Delta R$) of objects in a second collection.
+    Objects in the target collection are kept only if **no nearby object**
+    is found within the given distance threshold.
+    Proximity is determined using the ``nearest`` method on the target collection.
+
+    Parameters
+    ----------
+    target_col : Column
+        Column containing the collection to be filtered.
+    near_col : Column
+        Column containing the collection of nearby reference objects.
+    output_col : Column
+        Column where the filtered target collection will be stored.
+    max_dr : float
+        Maximum $\Delta R$ distance used to define proximity.
+
+    """
+
     target_col: Column
     near_col: Column
     output_col: Column
@@ -77,6 +99,26 @@ class Count(AnalyzerModule):
 
 @define
 class PromoteIndex(AnalyzerModule):
+    """
+    Promote a fixed index of a nested collection to a top-level column.
+
+    This analyzer selects a single element at a given index from each
+    entry of a nested (jagged) input collection and stores it as a
+    top-level column. It is commonly used to extract leading or
+    sub-leading objects (e.g. leading jet, first lepton) from per-event
+    collections.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing a nested collection (e.g. ``N × M`` objects).
+    output_col : Column
+        Column where the selected elements will be stored.
+    index : int, optional
+        Index of the element to promote from each nested collection,
+        by default ``0`` (leading element).
+
+    """
     input_col: Column
     output_col: Column
     index: int = 0
@@ -94,6 +136,27 @@ class PromoteIndex(AnalyzerModule):
 
 @define
 class VetoMapFilter(AnalyzerModule):
+    """
+    Apply a detector veto map to an input jet collection
+    in order to remove jets falling into problematic detector regions.
+    The veto map is evaluated as a function of jet ($\eta$, $\phi$) coordinates.
+    
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection.
+    output_col : Column
+        Column where the filtered jet collection will be stored.
+    should_run : MetadataExpr, optional
+        Expression controlling whether this module should run for a given
+        dataset based on metadata. By default, this filter runs only for
+        Run 2 datasets.
+    veto_type : str
+        Identifier passed to the correction evaluator to select the
+        appropriate veto map. Defaults to ``"jetvetomap"``.
+    """
+
     input_col: Column
     output_col: Column
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
@@ -138,6 +201,24 @@ class VetoMapFilter(AnalyzerModule):
 
 @define
 class VetoMap(AnalyzerModule):
+    """
+    Event-level veto selection based on detector veto maps.
+    Events are excluded if any jet passing a loose selection lies withing a vetoed $\eta$-$\phi$  region.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection.
+    selection_name : str, optional
+        Name of the event-level selection to be added to the column
+        collection, by default ``"jet_veto_map"``.
+    should_run : MetadataExpr, optional
+        Expression controlling whether this module should run for a given
+        dataset based on metadata. By default, this filter runs only for
+        Run 3 datasets.
+
+    """
+    
     input_col: Column
     selection_name: str = "jet_veto_map"
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
@@ -182,6 +263,31 @@ class VetoMap(AnalyzerModule):
 
 @define
 class JetEtaPhiVeto(AnalyzerModule):
+    """
+    Event-level veto based on jet ($\eta$, $\phi$) regions.
+
+    This analyzer defines an event-level selection that vetoes events
+    containing jets within a specified rectangular region in (η, φ)
+    space. The veto can optionally be restricted to a specific run
+    range.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection.
+    phi_range : tuple of float
+        Inclusive (min, max) range in phi defining the veto region.
+    eta_range : tuple of float
+        Inclusive (min, max) range in eta defining the veto region.
+    run_range : tuple of float or None, optional
+        Optional run range over which the veto should be applied. If
+        ``None``, the veto is applied to all runs.
+    selection_name : str, optional
+        Name of the event-level selection to be added, by default
+        ``"jet_eta_phi_veto"``.
+
+    """
+
     input_col: Column
     phi_range: tuple[float, float]
     eta_range: tuple[float, float]
@@ -221,6 +327,20 @@ class JetEtaPhiVeto(AnalyzerModule):
 
 @define
 class HT(AnalyzerModule):
+    """
+    Compute the scalar sum of jet transverse momenta (H_T).
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the jet collection whose pT values will be
+        summed.
+    output_col : Column, optional
+        Column where the computed H_T values will be stored. By default,
+        a column named ``"HT"`` is created.
+
+    """
+
     input_col: Column
     output_col: Column = field(factory=lambda: Column("HT"))
 
@@ -238,6 +358,36 @@ class HT(AnalyzerModule):
 
 @define
 class JetFilter(AnalyzerModule):
+    """
+    This analyzer filters an input jet collection according to transverse
+    momentum and pseudorapidity requirements, with optional jet ID and pileup
+    ID selections. The resulting filtered jet collection is written to a new
+    output column.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection to be filtered.
+    output_col : Column
+        Column where the filtered jet collection will be stored.
+    min_pt : float, optional
+        Minimum transverse momentum (pT) threshold for jets, by default 30.0.
+    max_abs_eta : float, optional
+        Maximum absolute pseudorapidity allowed for jets, by default 2.4.
+    include_pu_id : bool, optional
+        Whether to apply pileup jet ID requirements (for supported eras),
+        by default False.
+    include_jet_id : bool, optional
+        Whether to apply jet ID requirements, by default False.
+
+    Notes
+    -----
+    - Jet ID selection requires both the tight and tightLepVeto bits
+      to be set (bitmask `0b100` and `0b010`).
+    - Pileup ID selection is only applied for 2016–2018 eras.
+      Jets with pT > 50 GeV automatically pass the PU ID requirement.
+    """
+
     input_col: Column
     output_col: Column
     min_pt: float = 30.0
@@ -271,7 +421,25 @@ class JetFilter(AnalyzerModule):
 
 
 @define
-class TopJetHistograms(AnalyzerModule):
+class TopVecHistograms(AnalyzerModule):
+"""
+    Produce kinematic histograms for the leading objects in a collection.
+
+    This analyzer creates histograms of $p_T$,$\eta$, and $\phi$ for the first *N* objects
+    in a vector-like collection (e.g. jets), where *N* is configurable.
+    Histograms are produced only for events where the corresponding
+    object exists.
+
+    Parameters
+    ----------
+    prefix : str
+        Prefix used for naming the generated histograms.
+    input_col : Column
+        Column containing the object collection (e.g. jets).
+    max_idx : int
+        Maximum number of leading objects for which histograms are
+        produced.
+    """
     prefix: str
     input_col: Column
     max_idx: int
@@ -324,9 +492,27 @@ class TopJetHistograms(AnalyzerModule):
 
 @define
 class JetComboHistograms(AnalyzerModule):
+    """
+    Build composite objects from specified combinations
+    of jets (by index) and produces histograms of their invariant mass
+    and transverse momentum. Each combination is treated independently,
+    and histograms are filled only for events where all required jets
+    are present.
+
+    Parameters
+    ----------
+    prefix : str
+        Prefix used for naming the generated histograms.
+    input_col : Column
+        Column containing the jet collection.
+    jet_combos : list of list of int
+        List of jet index combinations. Each inner list specifies the
+        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
+        two jets).
+    """
     prefix: str
     input_col: Column
-    jet_combos: list[list]
+    jet_combos: list[list[int]]
 
     def run(self, columns, params):
         jets = columns[self.input_col]
@@ -367,6 +553,28 @@ class JetComboHistograms(AnalyzerModule):
 
 @define
 class JetScaleCorrections(AnalyzerModule):
+    """
+    This analyzer adjusts jet transverse momentum (pT) and mass
+    according to jet energy corrections (JEC) derived from
+    calibration campaigns. Both nominal ("central") and systematic
+    variations (up/down JES) are supported. Corrections are applied
+    per jet based on its kinematics and dataset metadata.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection.
+    output_col : Column
+        Column where the corrected jets will be stored.
+    jet_type : str, optional
+        Jet type for which corrections are applied (e.g. ``"AK4"``),
+        by default ``"AK4"``.
+    use_regrouped : bool, optional
+        Whether to use regrouped JES systematics from metadata
+        (recommended), by default ``True``.
+
+    """
+
     input_col: Column
     output_col: Column
     jet_type: str = "AK4"
@@ -466,6 +674,35 @@ class JetScaleCorrections(AnalyzerModule):
 
 @define
 class JetResolutionCorrections(AnalyzerModule):
+    """
+    This analyzer adjusts jet transverse momentum (pT) and mass to account
+    for detector resolution effects in simulated (MC) events. Smearing is
+    applied based on the per-jet resolution, matching to generated jets,
+    and optional systematic variations.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the reconstructed jet collection.
+    genjet_col : Column
+        Column containing the generator-level jets used for matching.
+    output_col : Column
+        Column where the smeared jets will be stored.
+    jet_type : str, optional
+        Jet type (e.g., ``"AK4"``) for which JER corrections are applied,
+        by default ``"AK4"``.
+    use_regrouped : bool, optional
+        Whether to use regrouped JER systematics, by default ``True``.
+    should_run : MetadataExpr, optional
+        Expression controlling whether this module should run (default: MC
+        events only).
+
+    Notes
+    -----
+    - Jets are matched to gen-jets via metadata-specified columns.
+    - Correction sets are cached per file to avoid repeated I/O.
+    """
+
     input_col: Column
     genjet_col: Column
     output_col: Column
@@ -597,6 +834,32 @@ class JetResolutionCorrections(AnalyzerModule):
 
 @define
 class PileupJetIdSF(AnalyzerModule):
+    """
+    Compute pileup jet ID scale factors for Monte Carlo events.
+
+    This analyzer calculates per-event weights corresponding to the
+    pileup jet ID efficiency correction. Only jets with pT < 50 GeV
+    and matched to a generator-level jet are considered.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection.
+    working_point : str
+        Pileup ID working point to use (e.g., ``"loose"``, ``"medium"``,
+        ``"tight"``).
+    weight_name : str, optional
+        Name of the weight column to store, by default ``"puid_sf"``.
+    should_run : MetadataExpr, optional
+        Expression controlling whether this module should run. By default,
+        runs only for Run 2 Monte Carlo datasets.
+
+    Notes
+    -----
+    - The per-jet scale factors are combined multiplicatively per event.
+    - Uses correction files defined in dataset metadata under
+      ``metadata["era"]["jet_pileup_id"]``.
+    """
     input_col: Column
     working_point: str
     weight_name: str = "puid_sf"

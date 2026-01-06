@@ -10,6 +10,26 @@ from .histogram_builder import makeHistogram
 
 @define
 class SelectOnColumns(AnalyzerModule):
+    """
+    Apply a selection based on one or more boolean selection columns and
+    optionally save the cutflow.
+
+    This analyzer performs an AND of the specified selection columns (or
+    all default selections if none are provided) and filters the events
+    accordingly. Optionally, it stores a cutflow summary for monitoring.
+
+    Parameters
+    ----------
+    sel_name : str
+        Name of the selection to be saved in the cutflow summary, eg
+        ``selection`` or ``preselection``.
+    selection_names : list of str or None, optional
+        List of selection column names to use. If None, defaults to all
+        selections in ``columns.pipeline_data["Selections"]`` that have not
+        yet been processed.
+    save_cutflow : bool, optional
+        If True, stores cutflow information for monitoring, by default True.
+    """
     sel_name: str
     selection_names: list[str] | None = None
     save_cutflow: bool = True
@@ -34,7 +54,10 @@ class SelectOnColumns(AnalyzerModule):
             cutflow[name] = ak.count_nonzero(ret, axis=0)
 
         columns.filter(ret)
-        return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
+        if self.save_cutflow:
+            return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
+        else:
+            return columns,[]
 
     def inputs(self, metadata):
         if self.selection_names is None:
@@ -48,6 +71,24 @@ class SelectOnColumns(AnalyzerModule):
 
 @define
 class NObjFilter(AnalyzerModule):
+    """
+    Select events based on the number of objects in a collection.
+
+    This analyzer filters events according to the number of objects
+     in a given column, requiring the count to be within specified limits.
+
+    Parameters
+    ----------
+    selection_name : str
+        Name of the selection to store the result.
+    input_col : Column
+        Column containing the collection of objects to count.
+    min_count : int or None, optional
+        Minimum number of objects required to pass, by default None.
+    max_count : int or None, optional
+        Maximum number of objects allowed to pass, by default None.
+    """
+
     selection_name: str
     input_col: Column
     min_count: int | None = None

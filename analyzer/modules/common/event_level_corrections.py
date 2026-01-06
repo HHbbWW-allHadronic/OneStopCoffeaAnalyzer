@@ -36,6 +36,21 @@ import correctionlib
 
 @define
 class PileupSF(AnalyzerModule):
+    """
+    Apply pileup scale factors to Monte Carlo events.
+
+    This analyzer evaluates the pileup weight based on the number of true
+    interactions in the event and applies systematic variations if requested.
+
+    Parameters
+    ----------
+    weight_name : str, optional
+        Name of the column where the pileup weights are stored, by default "pileup_sf".
+    should_run : MetadataExpr, optional
+        Condition to determine if the module should run. By default runs only
+        on MC samples.
+    """
+
     weight_name: str = "pileup_sf"
 
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
@@ -86,10 +101,23 @@ class PileupSF(AnalyzerModule):
 
 @define
 class L1PrefiringSF(AnalyzerModule):
+    """
+    Apply L1 prefiring scale factors to Monte Carlo events.
+
+    This analyzer retrieves the L1 prefiring weight and adds it to a named weight column, optionally applying systematic variations.
+
+    Parameters
+    ----------
+    weight_name : str, optional
+        Name of the output weight column, by default "l1_prefiring".
+    should_run : MetadataExpr, optional
+        Condition to determine if the module should run. By default, it runs
+        on MC samples for Run 2.
+    """
+    weight_name: str = "l1_prefiring"
     should_run: MetadataExpr = field(
         factory=lambda: MetadataAnd([IsSampleType("MC"), IsRun(2)])
     )
-    weight_name: str = "l1_prefiring"
 
     __corrections: dict = field(factory=dict)
 
@@ -135,6 +163,25 @@ class PosNegGenWeight(AnalyzerModule):
 
 @define
 class GoldenLumi(AnalyzerModule):
+    """
+    Apply a golden JSON luminosity selection for data events.
+
+    This analyzer filters events to only include those that are within
+    certified good luminosity sections for the given data-taking era.
+
+    Parameters
+    ----------
+    selection_name : str, optional
+        Name of the selection column to store the golden JSON filter,
+        by default "golden_lumi".
+    should_run : MetadataExpr, optional
+        Condition to determine if the module should run. By default, only
+        runs on real data samples.
+    Notes
+    -----
+    - The certified luminosity sections are read from the metadata for
+        the given era under "golden_json".
+    """
     selection_name: str = "golden_lumi"
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("Data"))
 
@@ -158,6 +205,20 @@ class GoldenLumi(AnalyzerModule):
 
 @define
 class NoiseFilter(AnalyzerModule):
+    """
+    Apply standard noise filters to data events.
+
+    This analyzer combines multiple event-level noise flags and produces a
+    single selection column indicating events that pass all required noise
+    filters.
+
+    Parameters
+    ----------
+    selection_name : str, optional
+        Name of the selection column to store the combined noise filter,
+        by default "noise_filters".
+    """
+
     selection_name: str = "noise_filters"
 
     def inputs(self, metadata):

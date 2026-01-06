@@ -7,6 +7,18 @@ from .histogram_builder import makeHistogram
 
 @define
 class HLTFilter(AnalyzerModule):
+    """
+    Apply an event-level filter based on HLT info.
+    Triggers are or-ed together.
+
+    Parameters
+    ----------
+    selection_name : str
+        Name of the selection column.
+    trigger_names : list of str
+        List of trigger names to check against the event HLT information.
+    """
+
     selection_name: str
     trigger_names: list[str] 
 

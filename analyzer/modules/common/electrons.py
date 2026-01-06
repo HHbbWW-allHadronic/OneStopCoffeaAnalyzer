@@ -20,6 +20,29 @@ cut_mapping = dict(fail=0, veto=1, loose=2, medium=3, tight=4)
 
 @define
 class ElectronMaker(AnalyzerModule):
+    """
+    Select electrons based on kinematics, cut-based ID, and isolation.
+
+    This analyzer filters electrons in an event according to minimum
+    transverse momentum, maximum pseudorapidity, cut-based ID working point,
+    and maximum mini-isolation.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input electron collection.
+    output_col : Column
+        Column where the selected electrons will be stored.
+    working_point : CutBasedWPs
+        Cut-based ID working point (fail, veto, loose, medium, tight).
+    min_pt : float, optional
+        Minimum transverse momentum in GeV, by default 10.
+    max_abs_eta : float, optional
+        Maximum absolute pseudorapidity, by default 2.4.
+    max_mini_iso : float, optional
+        Maximum mini-isolation, by default 0.1.
+
+    """
     input_col: Column
     output_col: Column
     working_point: CutBasedWPs

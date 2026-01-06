@@ -75,6 +75,23 @@ class BNNEnsemble:
 
 @define
 class TriggerBNN(AnalyzerModule):
+    """
+    Compute trigger efficiency weights using a BNN ensemble.
+
+    This analyzer evaluates a Bayesian Neural Network on HT and leading
+    fat jet pt to produce a trigger weight for MC samples.
+
+    Parameters
+    ----------
+    base_path : str
+        Base directory where BNN JSON files are stored.
+    net_pattern : str
+        Pattern for the network filename, formatted with the era name.
+    weight_name : str, optional
+        Name of the output weight column, by default "trigger_eff".
+    should_run : MetadataExpr, optional
+        Condition to determine if the module should run. By default runs on MC samples.
+    """
     base_path: str
     net_pattern: str
     weight_name: str = "trigger_eff"
