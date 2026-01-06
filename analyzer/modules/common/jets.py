@@ -119,6 +119,7 @@ class PromoteIndex(AnalyzerModule):
         by default ``0`` (leading element).
 
     """
+
     input_col: Column
     output_col: Column
     index: int = 0
@@ -140,7 +141,7 @@ class VetoMapFilter(AnalyzerModule):
     Apply a detector veto map to an input jet collection
     in order to remove jets falling into problematic detector regions.
     The veto map is evaluated as a function of jet ($\eta$, $\phi$) coordinates.
-    
+
 
     Parameters
     ----------
@@ -161,7 +162,7 @@ class VetoMapFilter(AnalyzerModule):
     output_col: Column
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
     should_run: MetadataExpr = field(factory=lambda: IsRun(2))
-    veto_type = "jetvetomap"
+    veto_type: str = "jetvetomap"
 
     __corrections: dict = field(factory=dict)
 
@@ -218,13 +219,13 @@ class VetoMap(AnalyzerModule):
         Run 3 datasets.
 
     """
-    
+
     input_col: Column
     selection_name: str = "jet_veto_map"
     # should_run: MetadataFunc = field(factory=lambda: IS_RUN_2)
     should_run: MetadataExpr = field(factory=lambda: IsRun(3))
+    veto_type: str = "jetvetomap"
     __corrections: dict = field(factory=dict)
-
 
     def run(self, columns, params):
         map_name = columns.metadata["era"]["jet_veto_map"]["name"]
@@ -236,7 +237,7 @@ class VetoMap(AnalyzerModule):
             & ((j.jetId & 0b100) != 0)
             & ((j.chEmEF + j.neEmEF) < 0.9)
         ]
-        vetoes = eval_veto.evaluate(veto_type, j.eta, j.phi)
+        vetoes = corr.evaluate(self.veto_type, j.eta, j.phi)
         passed = ak.any(vetoes != 0, axis=1)
         addSelection(columns, self.selection_name, passed)
         return columns, []
@@ -319,7 +320,7 @@ class JetEtaPhiVeto(AnalyzerModule):
         if self.run_range is None:
             return [self.input_col]
         else:
-            return [self.input_col, Column("run")]
+            return [self.input_col, Column(("run",))]
 
     def outputs(self, metadata):
         return [Column(("Selection", self.selection_name))]
@@ -342,7 +343,7 @@ class HT(AnalyzerModule):
     """
 
     input_col: Column
-    output_col: Column = field(factory=lambda: Column("HT"))
+    output_col: Column = field(factory=lambda: Column(("HT",)))
 
     def run(self, columns, params):
         jets = columns[self.input_col]
@@ -422,7 +423,7 @@ class JetFilter(AnalyzerModule):
 
 @define
 class TopVecHistograms(AnalyzerModule):
-"""
+    """
     Produce kinematic histograms for the leading objects in a collection.
 
     This analyzer creates histograms of $p_T$,$\eta$, and $\phi$ for the first *N* objects
@@ -440,6 +441,7 @@ class TopVecHistograms(AnalyzerModule):
         Maximum number of leading objects for which histograms are
         produced.
     """
+
     prefix: str
     input_col: Column
     max_idx: int
@@ -452,31 +454,31 @@ class TopVecHistograms(AnalyzerModule):
             mask = ak.num(jets, axis=1) > i
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_pt_{i+1}",
+                    f"{self.prefix}_pt_{i + 1}",
                     columns,
-                    RegularAxis(20, 0, 1000, f"$p_{{T, {i+1}}}$", unit="GeV"),
+                    RegularAxis(20, 0, 1000, f"$p_{{T, {i + 1}}}$", unit="GeV"),
                     padded[:, i].pt,
-                    description=f"$p_T$ of jet {i+1} ",
+                    description=f"$p_T$ of jet {i + 1} ",
                     mask=mask,
                 )
             )
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_eta_{i+1}",
+                    f"{self.prefix}_eta_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"$\\eta_{{T, {i+1}}}$"),
+                    RegularAxis(20, -4, 4, f"$\\eta_{{T, {i + 1}}}$"),
                     padded[:, i].eta,
-                    description=f"$\\eta$ of jet {i+1} ",
+                    description=f"$\\eta$ of jet {i + 1} ",
                     mask=mask,
                 )
             )
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_phi_{i+1}",
+                    f"{self.prefix}_phi_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"$\\phi_{{T, {i+1}}}$"),
+                    RegularAxis(20, -4, 4, f"$\\phi_{{T, {i + 1}}}$"),
                     padded[:, i].phi,
-                    description=f"$\\phi$ of jet {i+1} ",
+                    description=f"$\\phi$ of jet {i + 1} ",
                     mask=mask,
                 )
             )
@@ -510,6 +512,7 @@ class JetComboHistograms(AnalyzerModule):
         indices of jets to be combined (e.g. ``[0, 1]`` for the leading
         two jets).
     """
+
     prefix: str
     input_col: Column
     jet_combos: list[list[int]]
@@ -525,18 +528,18 @@ class JetComboHistograms(AnalyzerModule):
             summed = padded[:, combo].sum()
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_{i+1}{j+1}_m",
+                    f"{self.prefix}_{i + 1}{j + 1}_m",
                     columns,
-                    RegularAxis(50, 0, 3000, f"$m_{{{i+1}{j+1}}}$", unit="GeV"),
+                    RegularAxis(50, 0, 3000, f"$m_{{{i + 1}{j + 1}}}$", unit="GeV"),
                     summed.mass,
                     mask=mask,
                 )
             )
             ret.append(
                 makeHistogram(
-                    f"{self.prefix}_{i+1}{j+1}_pt",
+                    f"{self.prefix}_{i + 1}{j + 1}_pt",
                     columns,
-                    RegularAxis(50, 0, 3000, f"$pt_{{{i+1}{j+1}}}$", unit="GeV"),
+                    RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
                     summed.pt,
                     mask=mask,
                 )
@@ -860,6 +863,7 @@ class PileupJetIdSF(AnalyzerModule):
     - Uses correction files defined in dataset metadata under
       ``metadata["era"]["jet_pileup_id"]``.
     """
+
     input_col: Column
     working_point: str
     weight_name: str = "puid_sf"
