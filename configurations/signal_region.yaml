@@ -129,10 +129,6 @@ common_selection: &common_selection
     selection_name: jetpt
     min_pt: 300
 
-  - module_name: VecDRSelection
-    input_col: MedB
-    selection_name: b_dr
-    min_dr: 1.0
 
 
 common_histograms: &common_histograms
@@ -212,6 +208,10 @@ analyzer:
       input_col: MedB
       selection_name: 2bjet
       min_count: 2
+    - module_name: VecDRSelection
+      input_col: MedB
+      selection_name: b_dr
+      min_dr: 1.0
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
@@ -238,6 +238,10 @@ analyzer:
       input_col: TightB
       selection_name: 1tbjet
       min_count: 1
+    - module_name: VecDRSelection
+      input_col: MedB
+      selection_name: b_dr
+      min_dr: 1.0
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
