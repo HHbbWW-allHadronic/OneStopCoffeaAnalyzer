@@ -28,6 +28,7 @@ dependencies = [
     "pyyaml~=6.0.0",
     "rich>=14.2.0",
     "scikit-learn>=1.7.2",
+    "sphinx-autodoc-typehints>=3.6.2",
     "textual>=6.7.1",
     "textual-plotext>=1.0.1",
     "uv>=0.9.11",

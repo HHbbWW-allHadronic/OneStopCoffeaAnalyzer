@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import abc
 from cattrs.strategies import include_subclasses, configure_tagged_union
+from .transforms.registry import Transform
 
 import functools as ft
 from typing import Literal
@@ -52,6 +53,9 @@ class BasePostprocessor(abc.ABC):
 def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="name")
     include_subclasses(BasePostprocessor, conv, union_strategy=union_strategy)
+
+    union_strategy = ft.partial(configure_tagged_union, tag_name="name")
+    include_subclasses(Transform, conv, union_strategy=union_strategy)
 
     base_hook = conv.get_structure_hook(BasePostprocessor)
 

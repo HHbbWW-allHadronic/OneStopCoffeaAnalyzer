@@ -244,23 +244,23 @@ def plotRatio(
     # ratio_ax = addAxeshToHist(ax, size=ratio_height, pad=0.3)
 
     if no_stack:
-        den_to_plot = sorted(denominator, key=lambda x: x.title.lower())
+        den_to_plot = sorted(denominator, key=lambda x: x.metadata["title"].lower())
     else:
-        den_to_plot = sorted(denominator, key=lambda x: x.histogram.sum().value)
+        den_to_plot = sorted(denominator, key=lambda x: x.item.histogram.sum().value)
     style_kwargs = defaultdict(list)
     hists = []
     titles = []
 
-    den_hist = denominator[0].histogram
+    den_hist = denominator[0].item.histogram
     x_values = den_hist.axes[0].centers
     left_edge = den_hist.axes.edges[0][0]
     right_edge = den_hist.axes.edges[-1][-1]
 
     if not no_stack:
-        for x in den_to_plot:
-            hists.append(x.histogram)
-            titles.append(x.title)
-            style = styler.getStyle(x.sector_parameters)
+        for item, meta in den_to_plot:
+            hists.append(item.histogram)
+            titles.append(meta["dataset_title"])
+            style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
         style_kwargs["histtype"] = style_kwargs["histtype"][0]
@@ -272,13 +272,13 @@ def plotRatio(
             **style_kwargs,
             label=titles,  # sort="yield"
         )
-        den_total = ft.reduce(op.add, (x.histogram for x in denominator))
+        den_total = ft.reduce(op.add, (x.item.histogram for x in denominator))
     else:
         den_styles = []
-        for den in den_to_plot:
-            title = den.title
-            h = den.histogram
-            style = styler.getStyle(den.provenance.sector_parameters)
+        for item, meta in den_to_plot:
+            title = meta["dataset_title"]
+            h = item.histogram
+            style = styler.getStyle(meta)
             den_styles.append(style)
             h.plot1d(
                 ax=ax,
@@ -292,12 +292,11 @@ def plotRatio(
     all_ratios, all_uncertainties = [], []
 
     if not no_stack:
-        for num in numerators:
-            title = num.title
-            h = num.histogram
+        for item, meta in numerators:
+            title = meta["dataset_title"]
+            h = item.histogram
             fixBadLabels(h)
-            num.sector_parameters
-            s = styler.getStyle(num.sector_parameters)
+            style = styler.getStyle(meta)
             n, d = h.values(), den_total.values()
 
             ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
@@ -318,13 +317,13 @@ def plotRatio(
                 label=title,
                 density=normalize,
                 yerr=True,
-                **s.get(),
+                **style.get(),
             )
 
             ratio[ratio == 0] = np.nan
             ratio[np.isinf(ratio)] = np.nan
             all_opts = {
-                **s.get("errorbar", include_type=False),
+                **style.get("errorbar", include_type=False),
                 **dict(linestyle="none"),
             }
             ratio_ax.errorbar(
@@ -336,16 +335,17 @@ def plotRatio(
             # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
     else:
         num = numerators[0]
-        h = num.histogram
-        title = num.title
-        s = styler.getStyle(num.sector_parameters)
+        h = num.item.histogram
+        meta = num.metadata
+        title = meta["dataset_title"]
+        style = styler.getStyle(meta)
         fixBadLabels(h)
         h.plot1d(
             ax=ax,
             label=title,
             density=normalize,
             yerr=True,
-            **s.get(),
+            **style.get(),
         )
         for den, style in zip(den_to_plot, den_styles):
             n, d = h.values(), den.histogram.values()
@@ -392,14 +392,9 @@ def plotRatio(
     ax.legend(loc="upper right")
     ax.set_xlabel(None)
 
-    region_name = denominator[0].sector_parameters.region_name
     addCMSBits(
         ax,
-        [
-            *(x.sector_parameters for x in denominator),
-            *(x.sector_parameters for x in numerators),
-        ],
-        # extra_text=f"{region_name}",
+        [x.metadata for x in numerators] + [x.metadata for x in denominator],
         plot_configuration=pc,
     )
 

@@ -1,11 +1,13 @@
 from collections import defaultdict
+from typing import TypeVar, Generic
+from attrs import define
 
-TRANSFORM_REGISTRY = defaultdict(dict)
+T = TypeVar("T")
 
 
-def addToRegistry(result_type):
-    def inner(func):
-        TRANSFORM_REGISTRY[result_type][func.name] = func
-        return func
+@define
+class Transform: ...
 
-    return inner
+
+@define
+class TransformHistogram(Transform): ...

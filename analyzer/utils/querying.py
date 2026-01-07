@@ -1,4 +1,5 @@
 from __future__ import annotations
+from bleach.html5lib_shim import InputStreamWithMemory
 
 import abc
 
@@ -24,7 +25,13 @@ from analyzer.core.param_specs import (
 )
 from analyzer.core.results import ResultBase
 from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, RunBuilder
-from analyzer.utils.structure_tools import SimpleCache, deepMerge, freeze, mergeUpdate
+from analyzer.utils.structure_tools import (
+    SimpleCache,
+    deepMerge,
+    freeze,
+    mergeUpdate,
+    ItemWithMeta,
+)
 from attrs import define, field, make_class
 from cattrs import structure, unstructure
 from cattrs.strategies import (
@@ -172,7 +179,7 @@ def configureConverter(conv):
     base_and_hook = conv.get_structure_hook(PatternAnd)
 
     @conv.register_structure_hook
-    def _(value: list, t) -> PatternAnd:
+    def andPatternHook(value: list, t) -> PatternAnd:
         return base_and_hook({"and_exprs": value}, t)
 
     and_hook = conv.get_structure_hook(PatternAnd)
@@ -197,20 +204,19 @@ def configureConverter(conv):
                 [{"key": k.split("."), "pattern": v} for k, v in value.items()], t
             )
 
+    base_hook3 = conv.get_structure_hook(BasePattern)
+
+    @conv.register_structure_hook
+    def _(value, t) -> BasePattern | None:
+        if value is None:
+            return None
+        return base_hook3(value, t)
+
 
 @define
 class CaptureSet:
     capture: Any
     items: list[ItemWithMeta]
-
-
-@define
-class Group:
-    results: list[ItemWithMeta]
-
-    @property
-    def metadata(self):
-        return commonDict((x.metadata for x in self.results))
 
 
 def gatherByCapture(pattern, items, key=lambda x: x.metadata):

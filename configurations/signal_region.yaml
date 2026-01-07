@@ -78,8 +78,8 @@ common_objects: &common_objects
   - module_name: JetFilter
     input_col: Jet
     output_col: GoodJet
-    include_pu_id: True
-    include_jet_id: True
+    include_pu_id: False
+    include_jet_id: False
     min_pt: 30
     max_abs_eta: 2.4
 
@@ -173,10 +173,28 @@ common_histograms: &common_histograms
       - [1,2,3]
       
 
-  - module_name: TopJetHistograms
+  - module_name: TopVecHistograms
     prefix: "jet"
     input_col: GoodJet
     max_idx: 4
+
+  - module_name: TopVecHistograms
+    prefix: "fatjet"
+    input_col: GoodFatJet
+    max_idx: 1
+
+  - module_name: SimpleHistogram
+    hist_name: HT
+    input_cols: [HT]
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+
+  
 
 analyzer:
   default_run_builder:
@@ -276,13 +294,13 @@ analyzer:
 
         
 
-# location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-location_priorities: [".*(T0|T1|T2).*","eos"]
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+# location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # Data samples
   - dataset: 'data_JetHT_2018'
-    pipelines: [Signal312, Signal313, Control]
+    pipelines: [Control]
   
   # Signal Samples
   - dataset: 'signal_2018_312_*0'

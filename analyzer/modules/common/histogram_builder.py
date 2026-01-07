@@ -9,7 +9,7 @@ from analyzer.core.analysis_modules import (
     ModuleAddition,
     PureResultModule,
 )
-from .axis import Axis
+from .axis import Axis, RegularAxis
 import hist.dask as dah
 import hist
 import logging
@@ -22,7 +22,6 @@ class HistogramBuilder(PureResultModule):
     product_name: str
     columns: list[Column]
     axes: list[Axis]
-    central_name: str = "central"
     storage: str = "weight"
     mask_col: Column | None = None
 
@@ -157,7 +156,7 @@ class HistogramBuilder(PureResultModule):
 
 def makeHistogram(
     product_name: str,
-        columns,
+    columns,
     axes: Axis | list[Axis],
     data,
     description=None,
@@ -214,3 +213,27 @@ def makeHistogram(
 
     b = HistogramBuilder(product_name, names, axes, mask_col=mask_col_name)
     return ModuleAddition(b)
+
+
+@define
+class SimpleHistogram(AnalyzerModule):
+    hist_name: str
+    input_cols: list[Column]
+    axes: list[RegularAxis]
+
+    def outputs(self, metadata):
+        return []
+
+    def inputs(self, metadata):
+        return self.input_cols
+
+    def run(self, columns, params):
+        ret = []
+        data = [columns[x] for x in self.input_cols]
+        h = makeHistogram(
+            self.hist_name,
+            columns,
+            self.axes,
+            data,
+        )
+        return columns, [h]

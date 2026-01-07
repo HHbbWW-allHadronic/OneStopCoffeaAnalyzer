@@ -151,7 +151,7 @@ def getAnalyzerRunFunc(analyzer, task, timeout=120):
             #     timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
             # )
             ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
-            
+
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
@@ -188,13 +188,13 @@ def processTask(
 
         chunks = new_chunks
 
-    with dask.annotate(priority=1):
+    with dask.annotate(priority=0):
         task_futures = client.map(
             getAnalyzerRunFunc(analyzer, task),
             chunks,
             key=f"analyze--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=2):
+    with dask.annotate(priority=0):
         reduced_futures = reduceResults(
             client,
             iaddMany,
@@ -298,7 +298,10 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
                 if ret.result is not None:
                     yield ret
                 else:
-                    logger.warning(f"Result was None")
+                    logger.warning(
+                        f"Result was None. Encountered exceptions during execution:\n{result.maybe_exceptions}"
+                    )
+
                 future.cancel()
 
 
@@ -344,7 +347,7 @@ class LocalDaskExecutor(Executor):
 @define
 class LPCCondorDask(Executor):
     container: str
-    venv_path: str | None = None
+    venv_path: str = ".venv"
     x509_path: str | None = None
     log_path: str = "logs/condor"
     worker_timeout: int | None = 7200
