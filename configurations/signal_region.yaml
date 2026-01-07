@@ -171,7 +171,6 @@ common_histograms: &common_histograms
       - [0,1,2,3]
       - [0,1,2]
       - [1,2,3]
-      
 
   - module_name: TopVecHistograms
     prefix: "jet"
@@ -192,9 +191,6 @@ common_histograms: &common_histograms
         stop: 3000
         bins: 60
         unit: GeV
-
-
-  
 
 analyzer:
   default_run_builder:

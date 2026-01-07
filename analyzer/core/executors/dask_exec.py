@@ -147,11 +147,10 @@ def runWithFinalize(analyzer, *args, **kwargs):
 def getAnalyzerRunFunc(analyzer, task, timeout=120):
     def inner(chunk):
         try:
-            # ret = callTimeout(
-            #     timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
-            # )
-            ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
-
+            ret = callTimeout(
+                timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
+            )
+            # ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
