@@ -83,7 +83,6 @@ def plotOne(
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
-    # region_name = (packaged_hists + stacked_hists)[0].sector_parameters.region_name
     addCMSBits(
         ax,
         [x.metadata for x in histograms] + [x.metadata for x in stacked_hists],

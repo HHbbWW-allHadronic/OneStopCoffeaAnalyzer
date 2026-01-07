@@ -294,8 +294,8 @@ analyzer:
 
         
 
-location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-# location_priorities: [".*(T0|T1|T2).*","eos"]
+# location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # Data samples

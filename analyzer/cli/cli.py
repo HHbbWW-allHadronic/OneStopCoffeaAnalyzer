@@ -54,6 +54,25 @@ def run(
 
 
 @cli.command()
+@click.argument("config-path", type=str)
+@click.argument("event-source", type=str)
+@click.argument("event-start", type=int)
+@click.argument("event-stop", type=int)
+def run_chunk(config_path, event_source, event_start, event_stop):
+    from analyzer.core.running import runFromPath
+    from analyzer.core.event_collection import FileChunk
+    from analyzer.core.analysis import loadAnalysis, getSamples
+
+    analysis = loadAnalysis(config_path)
+    chunk = FileChunk(
+        file_path=config_path, event_start=event_start, event_stop=event_stop
+    )
+    analysis.analyzer.run(
+        chunk,
+    )
+
+
+@cli.command()
 @click.argument("files", nargs=-1)
 @click.option("--configuration", "-c", type=str, required=str)
 @click.option("--only-bad", is_flag=True)
