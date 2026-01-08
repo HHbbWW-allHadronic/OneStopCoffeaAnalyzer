@@ -171,7 +171,13 @@ def dumpAndComplete(metadata, output_name, dask_result):
 
 
 def processTask(
-    client, analyzer, task, chunk_size, reduction_factor, max_sample_events=None
+    client,
+    analyzer,
+    task,
+    chunk_size,
+    reduction_factor,
+    max_sample_events=None,
+    timeout=120,
 ):
     chunked = task.file_set.toChunked(chunk_size)
     n_events = chunked.chunked_events
@@ -189,7 +195,7 @@ def processTask(
 
     with dask.annotate(priority=0):
         task_futures = client.map(
-            getAnalyzerRunFunc(analyzer, task),
+            getAnalyzerRunFunc(analyzer, task, timeout=timeout),
             chunks,
             key=f"analyze--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
@@ -210,7 +216,15 @@ def processTask(
     return n_events, final
 
 
-def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events=None):
+def run(
+    client,
+    chunk_size,
+    reduction_factor,
+    analyzer,
+    tasks,
+    max_sample_events=None,
+    timeout=120,
+):
     tasks = {i: x for i, x in enumerate(tasks)}
 
     file_prep_tasks = {}
@@ -257,6 +271,7 @@ def run(client, chunk_size, reduction_factor, analyzer, tasks, max_sample_events
                 chunk_size,
                 reduction_factor,
                 max_sample_events=max_sample_events,
+                timeout=timeout,
             )
             as_comp.update(new_tasks)
             total_events += n_events
@@ -318,6 +333,7 @@ class LocalDaskExecutor(Executor):
     cluster: Any = None
     client: Any = None
     reduction_factor: int = 10
+    timeout: int = 120
 
     def setup(self, needed_resources):
         configureDask()
@@ -340,6 +356,7 @@ class LocalDaskExecutor(Executor):
                 analyzer,
                 tasks,
                 max_sample_events=max_sample_events,
+                timeout=self.timeout,
             )
 
 
@@ -359,6 +376,7 @@ class LPCCondorDask(Executor):
     adapt: bool = True
     chunk_size: int | None = 100000
     reduction_factor: int = 10
+    timeout: int = 120
     cluster: Any = None
     client: Any = None
 
@@ -371,6 +389,7 @@ class LPCCondorDask(Executor):
                 analyzer,
                 tasks,
                 max_sample_events=max_sample_events,
+                timeout=self.timeout,
             )
 
     def setup(self, needed_resources):
