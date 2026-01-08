@@ -1,5 +1,6 @@
 from analyzer.core.analysis_modules import AnalyzerModule, register_module
 import uuid
+import hashlib
 from pathlib import Path
 import tempfile
 import re
@@ -75,14 +76,26 @@ def uprootWriteable(events):
 
 @define
 class SaveEvents(AnalyzerModule):
-    output: Column
+    prefix: str
+    output_format: str = "{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}"
 
     def run(self, columns, params):
         events = columns._events
-        uid = str(uuid.uuid4())
-        target = doFormatting(
-            self.output, **dict(dictToDot(columns.metadata)), uuid=uid
+        file_id = (
+            hashlib.md5((columns.metadata["chunk"]["file_path"]).encode())
+            .hexdigest()
+            .upper()
         )
+        uid = str(uuid.uuid4())
+
+        target = doFormatting(
+            self.output_format,
+            **dict(dictToDot(columns.metadata)),
+            file_id=file_id,
+            uuid=uid,
+        )
+
+        target = self.prefix + target
         base = Path("localsaved")
         base.mkdir(exist_ok=True, parents=True)
 

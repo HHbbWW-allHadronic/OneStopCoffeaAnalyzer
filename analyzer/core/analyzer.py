@@ -2,8 +2,9 @@ from __future__ import annotations
 import copy
 import cProfile
 
+
 from rich import print
-from attrs import define, field, frozen
+from attrs import define, field, frozen, asdict
 
 import itertools as it
 
@@ -226,6 +227,8 @@ class Analyzer:
         dataset_container.addResult(sample_container)
         sample_container.addResult(ResultProvenance("_provenance", chunk.toFileSet()))
         sample_container.addResult(pipeline_container)
+        metadata = copy.deepcopy(metadata)
+        metadata["chunk"] = asdict(chunk)
 
         for k, pipeline in self.base_pipelines.items():
             if k not in pipelines:
