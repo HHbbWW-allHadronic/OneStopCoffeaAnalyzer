@@ -99,7 +99,9 @@ class BaseAnalyzerModule(abc.ABC):
     should_run: MetadataExpr | None = field(default=None, kw_only=True)
 
     @abc.abstractmethod
-    def inputs(self, metadata) -> ColumnCollection | list[Column]: ...
+    def inputs(
+        self, metadata
+    ) -> ColumnCollection | list[Column] | Literal["EVENTS"]: ...
 
     def getParameterSpec(self, metadata: dict) -> ModuleParameterSpec:
         return ModuleParameterSpec()
@@ -135,22 +137,21 @@ class AnalyzerModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns, params):
-        ret = hash(
-            (
-                self.name(),
-                freeze(params),
-                columns.getKeyForColumns(self.inputs(columns.metadata)),
-            )
-        )
+        inp = self.inputs(columns.metadata)
+        if inp == "EVENTS":
+            k = columns.getKeyForAll()
+        else:
+            k = columns.getKeyForColumns(self.inputs(columns.metadata))
+        ret = hash((self.name(), freeze(params), k))
         return ret
 
-    def getKeyNoParams(self, columns):
-        ret = hash(
-            (
-                self.name(),
-                columns.getKeyForColumns(self.inputs(columns.metadata)),
-            )
-        )
+    def getKeyNoParams(self, columns, params):
+        inp = self.inputs(columns.metadata)
+        if inp == "EVENTS":
+            k = columns.getKeyForAll()
+        else:
+            k = columns.getKeyForColumns(self.inputs(columns.metadata))
+        ret = hash((self.name(), k))
         return ret
 
     def __run(self, columns, params):
@@ -171,14 +172,20 @@ class AnalyzerModule(BaseAnalyzerModule):
             return columns, r
         logger.debug(f"Did not find cached result, running module {self.name}")
         outputs = self.outputs(columns.metadata)
+        inputs = self.inputs(columns.metadata)
         if outputs == "EVENTS":
             output_cx = columns.allowedOutputs(outputs)
         else:
             output_cx = contextlib.nullcontext()
 
+        if inputs == "EVENTS":
+            inputs_cx = columns.allowedInputs(outputs)
+        else:
+            inputs_cx = contextlib.nullcontext()
+
         with (
             columns.useKey(key),
-            columns.allowedInputs(self.inputs(columns.metadata)),
+            inputs_cx,
             output_cx,
         ):
             _, res = self.run(columns, params)

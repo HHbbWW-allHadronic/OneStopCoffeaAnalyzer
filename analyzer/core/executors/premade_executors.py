@@ -16,13 +16,13 @@ def getPremadeExcutors() -> dict[str, Executor]:
         ),
         "lpc-dask-condor-4G-100000": LPCCondorDask(
             chunk_size=100000,
-            min_workers=10,
+            min_workers=5,
             max_workers=400,
             container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12",
         ),
         "lpc-dask-condor-4G-400000": LPCCondorDask(
             chunk_size=400000,
-            min_workers=10,
+            min_workers=5,
             max_workers=400,
             container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12",
         ),

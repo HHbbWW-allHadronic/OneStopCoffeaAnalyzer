@@ -209,6 +209,13 @@ class TrackedColumns:
         logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
 
+    def getKeyForAll(self):
+        ret = []
+        for column in self._column_provenance:
+            ret.append((column, self._column_provenance[column]))
+
+        return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
+
     def __setitem__(self, column, value):
         column = Column(column)
         if (

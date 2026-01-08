@@ -401,6 +401,31 @@ class SelectionFlow(ResultBase):
 
 
 @define
+class SavedEventFile:
+    file_path: str
+    nevents: int
+    metadata: dict
+
+
+@define
+class SavedFiles(ResultBase):
+    saved_files: list[SavedEventFile]
+
+    def approxSize(self):
+        return 200 * len(self.saved_files)
+
+    def __iadd__(self, other):
+        self.saved_files += other.saved_files
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
 class RawEventCount(ResultBase):
     count: float
 
