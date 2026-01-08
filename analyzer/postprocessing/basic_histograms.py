@@ -32,7 +32,7 @@ class Histogram1D(BasePostprocessor):
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
 
-    def getRunFuncs(self, group):
+    def getRunFuncs(self, group, prefix=None):
         if isinstance(group, dict):
             unstacked = group["unstacked"]
             stacked = group["stacked"]
@@ -40,7 +40,9 @@ class Histogram1D(BasePostprocessor):
             unstacked = group
             stacked = None
         common_meta = commonDict(it.chain((stacked or []), (unstacked or [])))
-        output_path = doFormatting(self.output_name, **dict(dictToDot(common_meta)))
+        output_path = doFormatting(
+            self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
+        )
         pc = self.plot_configuration.makeFormatted(common_meta)
         yield ft.partial(
             plotOne,
@@ -65,11 +67,13 @@ class RatioPlot(BasePostprocessor):
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
     no_stack: bool = False
 
-    def getRunFuncs(self, group):
+    def getRunFuncs(self, group, prefix=None):
         numerator = group["numerator"]
         denominator = group["denominator"]
         common_meta = commonDict(it.chain(numerator, denominator))
-        output_path = doFormatting(self.output_name, **dict(dictToDot(common_meta)))
+        output_path = doFormatting(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
         pc = self.plot_configuration.makeFormatted(common_meta)
         yield ft.partial(
             plotRatio,
@@ -94,12 +98,14 @@ class Histogram2D(BasePostprocessor):
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
 
-    def getRunFuncs(self, group):
+    def getRunFuncs(self, group, prefix=None):
         if len(group) != 1:
             raise RuntimeError()
         hist = group[0]
         common_meta = commonDict(group)
-        output_path = doFormatting(self.output_name, **dict(dictToDot(common_meta)))
+        output_path = doFormatting(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
         pc = self.plot_configuration.makeFormatted(common_meta)
         yield ft.partial(
             plot2D,

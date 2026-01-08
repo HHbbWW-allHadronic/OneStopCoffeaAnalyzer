@@ -166,6 +166,19 @@ def browse(inputs, interpretter, peek, merge_datasets):
         browser.run()
 
 
+@cli.command()
+@click.argument("configuration", type=str, nargs=-1)
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--prefix", type=str, required=False, default=None)
+@click.option("--parallel", type=int, required=False, default=None)
+def postprocess(configuration, inputs, parallel, prefix):
+    from analyzer.core.results import loadResults, mergeAndScale
+    from analyzer.core.serialization import converter, setupConverter
+    from analyzer.postprocessing.running import runPostprocessors
+
+    runPostprocessors(configuration, inputs, parallel=parallel, prefix=prefix)
+
+
 @cli.group()
 def cache():
     pass

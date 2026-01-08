@@ -62,7 +62,7 @@ class LoadStyles(WorkerPlugin):
         pass
 
 
-def runPostprocessors(path, input_files, parallel=8):
+def runPostprocessors(path, input_files, parallel=8, prefix=None):
     converter = Converter()
 
     setupConverter(converter)
@@ -81,8 +81,6 @@ def runPostprocessors(path, input_files, parallel=8):
             processor.style_set = postprocessor.default_style_set
         if processor.plot_configuration is None:
             processor.plot_configuration = postprocessor.default_plot_config
-
-    print(postprocessor)
 
     results = loadResults(input_files)
     results = mergeAndScale(results)

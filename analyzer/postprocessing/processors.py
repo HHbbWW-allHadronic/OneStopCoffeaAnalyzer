@@ -46,7 +46,7 @@ class BasePostprocessor(abc.ABC):
                 yield from self.getRunFuncs(x)
 
     @abc.abstractmethod
-    def getRunFuncs(self, group: PostprocessingGroup):
+    def getRunFuncs(self, group: PostprocessingGroup, prefix=None):
         pass
 
 
