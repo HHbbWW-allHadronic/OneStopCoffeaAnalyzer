@@ -337,7 +337,7 @@ class RawArray(ResultBase):
         self.array = finalizer(self.array)
 
     def approxSize(self):
-        return getArrayMem(array)
+        return getArrayMem(self.array)
 
 
 @define

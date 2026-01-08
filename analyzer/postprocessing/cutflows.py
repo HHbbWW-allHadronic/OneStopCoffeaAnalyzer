@@ -1,81 +1,51 @@
+from __future__ import annotations
+
 import functools as ft
+from pathlib import Path
 from typing import Literal
+import itertools as it
+from .plots.common import PlotConfiguration
+from .style import StyleSet
+from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
+from analyzer.utils.structure_tools import (
+    deepWalkMeta,
+    SimpleCache,
+    ItemWithMeta,
+    commonDict,
+    dictToDot,
+    doFormatting,
+)
+from .processors import BasePostprocessor
+from .plots.plots_1d import plotOne, plotRatio, plotDictAsBars
+from .plots.plots_2d import plot2D
+from .grouping import GroupBuilder
+from analyzer.utils.structure_tools import globWithMeta
+from attrs import define, field
+import abc
 
 
-from pydantic import BaseModel
-from .misc import dumpYield
-
-# # from .grouping import (
-# #     SectorGroupSpec,
-# #     createSectorGroups,
-# #     doFormatting,
-# #     SectorGroupParameters,
-# #     groupsMatch,
-# #     groupBy,
-# # )
-# from .grouping import SectorPipelineSpec, doFormatting
-# from .plots.plots_1d import PlotConfiguration, plotStrCat
-# from .registry import registerPostprocessor
-# from .style import StyleSet
-# from .processors import BasePostprocessor
-
-
-@registerPostprocessor
-class PlotCutflow(BasePostprocessor, BaseModel):
-    input: SectorPipelineSpec
-
-    style_set: str | StyleSet
-
+@define
+class PlotSelectionFlow(BasePostprocessor):
     output_name: str
-
-    plot_types: list[str] = ["cutflow", "one_cut", "n_minus_one"]
+    style_set: str | StyleSet = field(factory=StyleSet)
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
-    table_mode: bool = False
-    weighted: bool = False
-    plot_configuration: PlotConfiguration | None = None
 
-    def getFileFields(self):
-        return set(self.input.group_fields.fields())
+    def getRunFuncs(self, group, prefix=None):
+        common_meta = commonDict(group)
+        output_path = doFormatting(
+            self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
+        )
+        pc = self.plot_configuration.makeFormatted(common_meta)
+        getter = lambda x: getattr(x, "cutflow")
 
-    def getExe(self, results):
-        pipelines = self.input.makePipelines(results)
-        for sector_pipeline in pipelines:
-            for pt in self.plot_types:
-                pc = self.plot_configuration.makeFormatted(
-                    **sector_pipeline.sector_group.field_values
-                )
-                output = doFormatting(
-                    self.output_name,
-                    **sector_pipeline.sector_group.field_values,
-                    histogram_name=pt,
-                )
-                yield ft.partial(
-                    plotStrCat,
-                    pt,
-                    sector_pipeline.sector_group.sectors,
-                    output,
-                    self.style_set,
-                    table_mode=self.table_mode,
-                    normalize=self.normalize,
-                    plot_configuration=pc,
-                    scale=self.scale,
-                )
-
-
-@registerPostprocessor
-class DumpYields(BasePostprocessor, BaseModel):
-    input: SectorPipelineSpec
-    output_name: str
-
-    def getFileFields(self):
-        return set(self.input.group_fields.fields())
-
-    def getExe(self, results):
-        pipelines = self.input.makePipelines(results)
-        for sector_pipeline in pipelines:
-            output = doFormatting(
-                self.output_name,
-                **sector_pipeline.sector_group.field_values,
-            )
-            yield ft.partial(dumpYield, sector_pipeline.sector_group.sectors, output)
+        yield ft.partial(
+            plotDictAsBars,
+            group,
+            common_meta,
+            output_path,
+            getter=getter,
+            style_set=self.style_set,
+            normalize=self.normalize,
+            plot_configuration=pc,
+        )

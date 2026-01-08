@@ -1,88 +1,82 @@
+from __future__ import annotations
+
 import functools as ft
-from pathlib import Path
+from typing import Literal
 import itertools as it
-
-import numpy as np
-from .utils import gatherByPattern
-
-from pydantic import BaseModel
-
-# from .grouping import (
-#     SectorGroupSpec,
-#     createSectorGroups,
-#     doFormatting,
-#     SectorGroupParameters,
-#     groupsMatch,
-#     groupBy,
-# )
-from .grouping import doFormatting, SectorPipelineSpec
-from .plots.export_hist import exportHist
-from .registry import registerPostprocessor
+from .plots.common import PlotConfiguration
+from .style import StyleSet
+from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
+from analyzer.utils.structure_tools import (
+    deepWalkMeta,
+    SimpleCache,
+    ItemWithMeta,
+    commonDict,
+    dictToDot,
+    doFormatting,
+)
 from .processors import BasePostprocessor
+from .plots.plots_1d import plotOne, plotRatio
+from .plots.plots_2d import plot2D
+from .grouping import GroupBuilder
+from analyzer.utils.structure_tools import globWithMeta
+from attrs import define, field
+import abc
+import pickle as pkl
+from pathlib import Path
+import lz4.frame
 
 
-@registerPostprocessor
-class ExportHists(BasePostprocessor):
-    histogram_names: list[str]
-    input: SectorPipelineSpec
+def exportItem(
+    item,
+    meta,
+    output_path,
+    compressed=True,
+):
+    ret = {"metadata": meta, "item": item}
+    output_path = Path(output_path)
+    output_path.parent.mkdir(exist_ok=True, parents=True)
+
+    if compressed:
+        with lz4.frame.open(output_path, "wb") as f:
+            pkl.dump(ret, f)
+    else:
+        with open(output_path, "wb") as f:
+            pkl.dump(ret, f)
+
+
+@define
+class Dump(BasePostprocessor):
     output_name: str
-    overwrite: bool = True
+    compressed: bool = True
 
-    def getNeededHistograms(self):
-        return self.histogram_names
-
-    def getFileFields(self):
-        return set(self.input.group_fields.fields())
-
-    def neededFileSets(self, params_mapping):
-        return gatherByPattern(params_mapping, self.input.group_fields)
-
-    def getExe(self, results):
-        pipelines = self.input.makePipelines(results)
-        for name, sector_pipeline in it.product(self.histogram_names, pipelines):
-            histograms = sector_pipeline.getHists(name)
-            provenance = histograms[0].provenance
-            output_path = doFormatting(self.output_name, **provenance.allEntries())
-            if len(histograms) != 1:
-                raise RuntimeError()
-            yield ft.partial(
-                exportHist, histograms[0], output_path, overwrite=self.overwrite
-            )
-
-    def init(self):
-        return
+    def getRunFuncs(self, group, prefix=None):
+        if len(group) != 1:
+            raise RuntimeError()
+        item, meta = group[0]
+        output_path = doFormatting(self.output_name, **dict(meta), prefix=prefix)
+        yield ft.partial(
+            exportItem, item.histogram, meta, output_path, compressed=self.compressed
+        )
 
 
-def writeOutput(path, data):
+def writeNumpy(path, data):
+    import numpy as np
+
     path = Path(path)
     path.parent.mkdir(exist_ok=True, parents=True)
-    with open(path, 'wb') as f:
+
+    with open(path, "wb") as f:
         np.save(f, data)
 
 
-@registerPostprocessor
-class ExtractOtherData(BasePostprocessor):
-    other_names: list[str]
-    input: SectorPipelineSpec
+@define
+class DumpNPZ(BasePostprocessor):
     output_name: str
 
-    def getNeededHistograms(self):
-        return []
+    def getRunFuncs(self, group, prefix=None):
+        if len(group) != 1:
+            raise RuntimeError()
+        item, meta = group[0]
 
-    def getFileFields(self):
-        return set(self.input.group_fields.fields())
-
-    def neededFileSets(self, params_mapping):
-        return gatherByPattern(params_mapping, self.input.group_fields)
-
-    def getExe(self, results):
-        pipelines = self.input.makePipelines(results)
-        for name, sector_pipeline in it.product(self.other_names, pipelines):
-            output = doFormatting(
-                self.output_name, **sector_pipeline.sector_group.field_values, name=name
-            )
-            data = sector_pipeline.sector_group.sectors[0].result.other_data[name]
-            yield ft.partial(writeOutput, output, data)
-
-    def init(self):
-        return
+        output_path = doFormatting(self.output_name, **dict(meta), prefix=prefix)
+        yield ft.partial(writeNumpy, item.saved_columns, meta, output_path)

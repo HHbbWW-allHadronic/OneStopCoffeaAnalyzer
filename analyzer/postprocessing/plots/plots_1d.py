@@ -106,7 +106,7 @@ def plotOne(
     plt.close(fig)
 
 
-def makeStrHist(data, ax_name=None):
+def makeStrHist(data, ax_name):
     import hist
 
     ax = hist.axis.StrCategory([x[0] for x in data], name=ax_name)
@@ -115,10 +115,11 @@ def makeStrHist(data, ax_name=None):
     return h
 
 
-def __plotStrCatOne(
-    getter,
-    sectors,
+def plotDictAsBars(
+    items,
+    common_meta,
     output_path,
+    getter,
     style_set,
     ax_name=None,
     normalize=False,
@@ -131,13 +132,14 @@ def __plotStrCatOne(
     mpl.use("Agg")
 
     fig, ax = plt.subplots(layout="constrained")
-    for sector in sectors:
-        p = sector.sector_params
-        style = styler.getStyle(p)
-        h = makeStrHist(getter(sector), ax_name=ax_name)
+    for item, meta in items:
+        title = meta["dataset_title"]
+        flow = getter(item)
+        style = styler.getStyle(meta)
+        h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
         h.plot1d(
             ax=ax,
-            label=sector.sector_params.dataset.title,
+            label=title,
             density=normalize,
             **style.get(),
         )
@@ -147,77 +149,14 @@ def __plotStrCatOne(
     ax.tick_params(axis="x", rotation=90)
     addCMSBits(
         ax,
-        [x.sector_params for x in sectors],
+        [x.metadata for x in items],
         plot_configuration=pc,
     )
     ax.set_yscale(scale)
-    # mplhep.yscale_legend(ax, soft_fail=True)
     ax.legend(loc="upper right")
     mplhep.sort_legend(ax=ax)
-    # mplhep.yscale_legend(ax, soft_fail=True)
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
-
-
-# def __plotStrCatAsTable(
-#     getter,
-#     sectors,
-#     group_params,
-#     output_name,
-#     style_set,
-#     ax_name=None,
-#     normalize=False,
-#     plot_configuration=None,
-# ):
-#     pc = plot_configuration or PlotConfiguration()
-#     styler = Styler(style_set)
-#     loadStyles()
-#     mpl.use("Agg")
-#
-#     rep_data = getter(sectors[0])
-#     col_labels = [x[0] for x in rep_data]
-#     rows = []
-#     row_labels = []
-#
-#     figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
-#     fig, ax = plt.subplots(figsize=figsize, layout="constrained")
-#     fig.patch.set_visible(False)
-#     ax.axis("off")
-#     ax.axis("tight")
-#     for sector in sectors:
-#         p = sector.sector_params
-#         styler.getStyle(p)
-#         data = getter(sector)
-#         row_labels.append(sector.sector_params.dataset.title)
-#         rows.append([x[1] for x in data])
-#
-#     table = ax.table(
-#         cellText=rows,
-#         rowLabels=row_labels,
-#         colLabels=col_labels,
-#     )
-#
-#     o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
-#     saveFig(fig, o, extension=pc.image_type)
-#     plt.close(fig)
-
-
-def plotStrCat(plot_type, *args, table_mode=False, weighted=False, **kwargs):
-    def makeGetter(n):
-        def inner(sec):
-            if weighted:
-                return getattr(sec.result.selection_flow, n)
-            else:
-                return getattr(sec.result.raw_selection_flow, n)
-
-        return inner
-
-    if table_mode:
-        f = __plotStrCatAsTable
-    else:
-        f = __plotStrCatOne
-
-    f(makeGetter(plot_type), *args, ax_name=plot_type, **kwargs)
 
 
 def plotRatio(
