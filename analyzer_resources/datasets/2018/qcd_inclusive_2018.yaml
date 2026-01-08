@@ -35,3 +35,7 @@
       n_events: 48506751
       das_path: /QCD_HT700to1000_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
       x_sec: 6444000.0
+    - name: QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8
+      n_events: 5374711
+      das_path: /QCD_HT2000toInf_TuneCP5_PSWeights_13TeV-madgraph-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+      x_sec: 21980.0

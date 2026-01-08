@@ -1,4 +1,5 @@
 from __future__ import annotations
+from rich import print
 
 import functools as ft
 from typing import Literal
@@ -75,6 +76,8 @@ class RatioPlot(BasePostprocessor):
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
+        print(numerator)
+        print(denominator)
         yield ft.partial(
             plotRatio,
             denominator,

@@ -39,11 +39,11 @@ class BasePostprocessor(abc.ABC):
     style_set: StyleSet | None = field(default=None, kw_only=True)
     plot_configuration: PlotConfiguration | None = field(default=None, kw_only=True)
 
-    def run(self, data):
+    def run(self, data, prefix=None):
         for i in self.inputs:
             items = globWithMeta(data, i)
             for x in self.structure.apply(items):
-                yield from self.getRunFuncs(x)
+                yield from self.getRunFuncs(x, prefix)
 
     @abc.abstractmethod
     def getRunFuncs(self, group: PostprocessingGroup, prefix=None):

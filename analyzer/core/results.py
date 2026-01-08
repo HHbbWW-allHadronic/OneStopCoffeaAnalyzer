@@ -548,10 +548,14 @@ def mergeAndScale(results):
             s_meta = sample_data.metadata
             provenance = sample_data["_provenance"]
             processed_events = provenance.chunked_events
+            # print(f"{s_meta['sample_name'] = }")
+            # print(f"{processed_events = }")
+            # print(f"{s_meta['n_events'] = }")
             if s_meta["sample_type"] == "MC":
                 lumi = s_meta["era"]["lumi"]
                 xs = s_meta["x_sec"]
-                sample_data.iscale(lumi * xs / processed_events)
+                scale = lumi * xs / processed_events
+                sample_data.iscale(scale)
             elif s_meta["sample_type"] == "Data":
                 expected_nevents = s_meta["n_events"]
                 sample_data.iscale(expected_nevents / processed_events)

@@ -250,6 +250,10 @@ analyzer:
 
 
   Control:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim]
+      should_run:
+        sample_type: Data
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
@@ -273,7 +277,7 @@ analyzer:
 
   ControlNoBNN:
     - module_name: SimpleHLT
-      triggers: [HT,AK8SingleJetPt]
+      triggers: [HT,AK8SingleJetPtNoTrim]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
@@ -314,6 +318,8 @@ event_collections:
   - dataset: 'tt_to_hadronic*2018*'
     pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'zjets_to_qq*2018*'
+    pipelines: [Signal312, Signal313, Control, ControlNoBNN]
+  - dataset: 'wjets_to_qq*2018*'
     pipelines: [Signal312, Signal313, Control, ControlNoBNN]
   - dataset: 'single_top*2018*hadronic*'
     pipelines: [Signal312, Signal313, Control, ControlNoBNN]

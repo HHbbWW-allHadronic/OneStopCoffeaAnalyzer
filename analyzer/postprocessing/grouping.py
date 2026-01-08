@@ -36,7 +36,6 @@ class GroupBuilder:
     def apply(self, items):
         if self.select is not None:
             items = [x for x in items if self.select.match(x.metadata)]
-        print(items)
         if not self.group:
             return items
         gathered = gatherByCapture(self.group, items)
@@ -56,9 +55,9 @@ class GroupBuilder:
             if isinstance(self.subgroups, dict):
                 r = {}
                 for x, y in self.subgroups.items():
-                    print(f"IN SUBGROUP {x}")
+                    # print(f"IN SUBGROUP {x}")
                     r[x] = y.apply(group_items)
-                    print(f"LEAVING SUBGROUP {x}")
+                    # print(f"LEAVING SUBGROUP {x}")
             elif isinstance(self.subgroups, list):
                 r = []
                 for x in self.subgroups:

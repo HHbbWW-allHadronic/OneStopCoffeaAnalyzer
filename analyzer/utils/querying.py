@@ -89,7 +89,11 @@ class Pattern:
         elif self.mode == PatternMode.REGEX:
             return re.match(self.pattern, str(data))
         elif self.mode == PatternMode.GLOB:
-            return fnmatch(str(data), self.pattern)
+            try:
+                ret = fnmatch(data, self.pattern)
+            except TypeError as e:
+                return False
+            return ret
         else:
             return self.pattern == data
 

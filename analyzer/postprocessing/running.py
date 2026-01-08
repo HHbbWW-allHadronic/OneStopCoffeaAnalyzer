@@ -1,3 +1,4 @@
+from analyzer.cli.cli import postprocess
 from debugpy import configure
 from attr import Converter
 from analyzer.postprocessing.plots.common import PlotConfiguration
@@ -75,6 +76,7 @@ def runPostprocessors(path, input_files, parallel=8, prefix=None):
         data = yaml.load(f, Loader=Loader)
 
     postprocessor = converter.structure(data, PostprocessorConfig)
+    print(postprocessor.default_style_set)
 
     for processor in postprocessor.processors:
         if processor.style_set is None:
@@ -86,7 +88,7 @@ def runPostprocessors(path, input_files, parallel=8, prefix=None):
     results = mergeAndScale(results)
     all_funcs = []
     for processor in postprocessor.processors:
-        all_funcs.extend(list(processor.run(results)))
+        all_funcs.extend(list(processor.run(results, prefix)))
     for f in all_funcs:
         f()
 

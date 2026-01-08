@@ -167,7 +167,7 @@ def browse(inputs, interpretter, peek, merge_datasets):
 
 
 @cli.command()
-@click.argument("configuration", type=str, nargs=-1)
+@click.argument("configuration", type=str, nargs=1)
 @click.argument("inputs", type=str, nargs=-1)
 @click.option("--prefix", type=str, required=False, default=None)
 @click.option("--parallel", type=int, required=False, default=None)
