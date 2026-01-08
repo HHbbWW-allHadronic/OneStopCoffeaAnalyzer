@@ -134,6 +134,21 @@ class PatternAnd:
 
 
 @define
+class PatternNot:
+    not_expr: BasePattern
+
+    def match(self, data, strict=True):
+        return not (self.not_expr.match(data, strict=strict))
+
+    def capture(self, data):
+        matched = self.not_expr.match(data)
+        if matched:
+            return NO_MATCH
+        else:
+            return self.not_expr.capture(data)
+
+
+@define
 class PatternOr:
     or_exprs: list[BasePattern]
 
@@ -166,7 +181,7 @@ class DeepPattern:
         return {self.key: capture}
 
 
-BasePattern = Pattern | PatternOr | PatternAnd | DeepPattern
+BasePattern = Pattern | PatternOr | PatternAnd | DeepPattern | PatternNot
 
 
 def configureConverter(conv):
@@ -187,7 +202,10 @@ def configureConverter(conv):
     @conv.register_structure_hook
     def _(value, t) -> BasePattern:
         if isinstance(value, str | int | float):
-            return pattern_hook(value, Pattern)
+            if isinstance(value, str) and len(value) > 0 and value[0] == "!":
+                return PatternNot(not_expr=pattern_hook(value[1:], Pattern))
+            else:
+                return pattern_hook(value, Pattern)
         if isinstance(value, list):
             return and_hook(value, PatternAnd)
         return base_hook(value, t)

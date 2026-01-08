@@ -55,21 +55,55 @@ def run(
 
 @cli.command()
 @click.argument("config-path", type=str)
+@click.argument("dataset-name", type=str)
+@click.argument("sample-name", type=str)
 @click.argument("event-source", type=str)
 @click.argument("event-start", type=int)
 @click.argument("event-stop", type=int)
-def run_chunk(config_path, event_source, event_start, event_stop):
-    from analyzer.core.running import runFromPath
+def run_chunk(
+    config_path, dataset_name, sample_name, event_source, event_start, event_stop
+):
+    from analyzer.core.running import runFromPath, getRepos
     from analyzer.core.event_collection import FileChunk
     from analyzer.core.analysis import loadAnalysis, getSamples
+    from analyzer.utils.structure_tools import getWithMeta, globWithMeta
 
     analysis = loadAnalysis(config_path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
+    )
+
+    dataset = dataset_repo[dataset_name]
+    sample, meta = getWithMeta(dataset, sample_name)
+    meta = dict(meta)
+    meta["era"] = era_repo[meta["era"]]
     chunk = FileChunk(
         file_path=config_path, event_start=event_start, event_stop=event_stop
     )
-    analysis.analyzer.run(
-        chunk,
+    output = analysis.analyzer.run(chunk, meta)
+
+
+@cli.command()
+@click.argument("config-path", type=str)
+@click.argument("dataset-name", type=str)
+@click.argument("sample-name", type=str)
+def describe_analysis(config_path, dataset_name, sample_name):
+    from analyzer.core.running import runFromPath, getRepos
+    from analyzer.core.event_collection import FileChunk
+    from analyzer.core.analysis import loadAnalysis, getSamples
+    from analyzer.utils.structure_tools import getWithMeta, globWithMeta
+
+    analysis = loadAnalysis(config_path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
     )
+
+    dataset = dataset_repo[dataset_name]
+    sample, meta = getWithMeta(dataset, sample_name)
+    meta = dict(meta)
+    print(analysis.analyzer)
+
+    # output = analysis.analyzer.run(chunk, meta)
 
 
 @cli.command()
@@ -142,6 +176,9 @@ def cache():
 def clear(tag):
     from analyzer.core.caching import cache
 
+    if not click.confirm("Are you sure you want to clear the cache?"):
+        return
+
     if tag is None:
         cache.clear()
     else:
@@ -197,7 +234,7 @@ def datasets(filter, csv):
 
 @listData.group()
 def eras():
-    pass
+    raise NotImplementedError()
 
 
 def main():

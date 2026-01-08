@@ -137,7 +137,6 @@ def runFromPath(
     filter_samples=None,
     limit_pipelines=None,
 ):
-
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
 
@@ -172,7 +171,6 @@ def runFromPath(
 def patchFromPath(
     path, existing, output, executor_name, filter_samples=None, limit_pipelines=None
 ):
-
     from analyzer.core.datasets import DatasetRepo
     from analyzer.core.era import EraRepo
 

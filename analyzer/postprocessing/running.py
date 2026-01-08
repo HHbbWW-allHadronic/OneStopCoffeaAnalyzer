@@ -98,7 +98,7 @@ def main():
 
     runPostprocessors(
         "testpost.yaml",
-        ["2026_01_04_test/signal_2018_312_1500_600__signal_2018_312_1500_600.result"],
+        ["2026_01_07_no_jet_id_no_cleaning/*"],
     )
 
 
