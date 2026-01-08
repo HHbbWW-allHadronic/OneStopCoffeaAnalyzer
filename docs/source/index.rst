@@ -1,4 +1,4 @@
-SingleStopCoffea
+OneStopCoffea Analyzer
 ===========================
 
 .. toctree::
@@ -13,7 +13,7 @@ SingleStopCoffea
 
 
 
-The SingleStop Analyzer (SSA) is a modular, columnar analysis framework built on coffea and dask.
+The OneStopCoffea Analyzer (OSCA) is a modular, columnar analysis framework built on coffea and dask.
 It aims to simplify the more tedious aspects of doing analyses while providing enough flexibility to meet a variety of analysis goals.
 It has a number of features, including:
 
