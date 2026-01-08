@@ -145,7 +145,7 @@ class AnalyzerModule(BaseAnalyzerModule):
         ret = hash((self.name(), freeze(params), k))
         return ret
 
-    def getKeyNoParams(self, columns, params):
+    def getKeyNoParams(self, columns):
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
