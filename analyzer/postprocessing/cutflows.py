@@ -24,6 +24,10 @@ from attrs import define, field
 import abc
 
 
+def _get_cutflow(x):
+    return getattr(x, "cutflow")
+
+
 @define
 class PlotSelectionFlow(BasePostprocessor):
     output_name: str
@@ -37,14 +41,13 @@ class PlotSelectionFlow(BasePostprocessor):
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
-        getter = lambda x: getattr(x, "cutflow")
 
         yield ft.partial(
             plotDictAsBars,
             group,
             common_meta,
             output_path,
-            getter=getter,
+            getter=_get_cutflow,
             style_set=self.style_set,
             normalize=self.normalize,
             plot_configuration=pc,

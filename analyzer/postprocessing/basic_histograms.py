@@ -76,8 +76,6 @@ class RatioPlot(BasePostprocessor):
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
-        print(numerator)
-        print(denominator)
         yield ft.partial(
             plotRatio,
             denominator,

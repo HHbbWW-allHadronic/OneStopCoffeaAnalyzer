@@ -32,7 +32,6 @@ class SelectAxesValues(TransformHistogram):
         ret = []
         for item, meta in items:
             h = item.histogram
-            print(h)
             keys_vals = list(self.select_axes_values.items())
             keys, vals = list(zip(*keys_vals))
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]

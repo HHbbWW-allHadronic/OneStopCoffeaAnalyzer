@@ -55,6 +55,7 @@ def getContour(HH, val):
             return i
     return None
 
+
 def plot2DSigBkg(
     bkg_hist,
     sig_hist,

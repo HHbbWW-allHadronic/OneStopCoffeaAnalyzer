@@ -36,6 +36,7 @@ from analyzer.utils.querying import BasePattern
 import analyzer.utils.querying
 from .plots.mplstyles import loadStyles
 import analyzer.postprocessing.basic_histograms  # noqa
+import analyzer.postprocessing.cutflows  # noqa
 from .plots.mplstyles import loadStyles
 from attrs import field, define
 from .basic_histograms import BasePostprocessor
@@ -63,7 +64,7 @@ class LoadStyles(WorkerPlugin):
         pass
 
 
-def runPostprocessors(path, input_files, parallel=8, prefix=None):
+def runPostprocessors(path, input_files, parallel=None, prefix=None):
     converter = Converter()
 
     setupConverter(converter)
@@ -76,7 +77,6 @@ def runPostprocessors(path, input_files, parallel=8, prefix=None):
         data = yaml.load(f, Loader=Loader)
 
     postprocessor = converter.structure(data, PostprocessorConfig)
-    print(postprocessor.default_style_set)
 
     for processor in postprocessor.processors:
         if processor.style_set is None:
@@ -89,18 +89,17 @@ def runPostprocessors(path, input_files, parallel=8, prefix=None):
     all_funcs = []
     for processor in postprocessor.processors:
         all_funcs.extend(list(processor.run(results, prefix)))
-    for f in all_funcs:
-        f()
 
-
-def main():
-    from .transforms.registry import Transform
-
-    runPostprocessors(
-        "testpost.yaml",
-        ["2026_01_07_no_jet_id_no_cleaning/*"],
-    )
-
-
-if __name__ == "__main__":
-    main()
+    if parallel and parallel > 1:
+        with Progress() as progress:
+            task = progress.add_task("[green]Processing...", total=len(all_funcs))
+            with cf.ProcessPoolExecutor(
+                max_workers=parallel, initializer=initProcess
+            ) as executor:
+                futures = [executor.submit(f) for f in all_funcs]
+                for future in cf.as_completed(futures):
+                    future.result()
+                    progress.update(task, advance=1)
+    else:
+        for f in track(all_funcs, description="Processing..."):
+            f()
