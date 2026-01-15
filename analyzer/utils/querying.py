@@ -1,5 +1,5 @@
 from __future__ import annotations
-from bleach.html5lib_shim import InputStreamWithMemory
+
 
 import abc
 

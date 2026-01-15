@@ -1,7 +1,6 @@
 import operator as op
 
 
-
 def texEscape(s):
     return s.replace("_", "\\_")
 
@@ -25,13 +24,3 @@ def texTable(elems, separator=" & ", force_max=None, col_format_funcs=None):
     row_format = separator.join(f"{{: <{l}}}" for l in max_lens)
     res = " \\\\\n".join(row_format.format(*e) for e in elems)
     return res
-
-
-def createEraTable(era_repo, query):
-    ret = []
-    for era_name in era_repo:
-        era = era_repo[era_name]
-        era_dict = era.model_dump()
-        matches = query.capture(era_dict)
-        ret.append(matches)
-    return ret

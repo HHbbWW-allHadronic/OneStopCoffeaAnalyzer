@@ -15,14 +15,13 @@ from attrs import define, field, fields
 from analyzer.logging import logger
 
 import yaml
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
 
 from analyzer.configuration import CONFIG
-
-
 
 
 def getDatasets(query, client):
@@ -79,7 +78,7 @@ def configureConverter(conv):
 
     @conv.register_structure_hook
     def sampleHook(value, type) -> Sample:
-        if not "source" in value:
+        if "source" not in value:
             f = set(x.name for x in fields(Sample))
             # source = conv.structure(value, SourceDescription)
             source = {}
@@ -87,20 +86,21 @@ def configureConverter(conv):
                 if k not in f:
                     source[k] = value.pop(k)
             value["source"] = source
-        ret= base_sample_hook(value)
+        ret = base_sample_hook(value)
         return ret
 
     base_dataset_hook = conv.get_structure_hook(Dataset)
+
     @conv.register_structure_hook
     def datasetHook(value, type) -> Dataset:
-        if not "samples" in value:
+        if "samples" not in value:
             f = set(x.name for x in fields(Dataset))
-            sample = {"name" : value["name"]}
+            sample = {"name": value["name"]}
             for k in list(value.keys()):
                 if k not in f:
                     sample[k] = value.pop(k)
             value["samples"] = [sample]
-        ret= base_dataset_hook(value)
+        ret = base_dataset_hook(value)
         return ret
 
 
@@ -122,10 +122,6 @@ class Dataset:
             sample_type=self.sample_type,
             other_data=self.other_data,
         )
-
-    @property
-    def __iter__(self):
-        return iter(self.samples)
 
     def __iter__(self):
         return iter(self.samples)
@@ -159,12 +155,16 @@ class DatasetRepo:
 
     def addFromFile(self, path):
         path = Path(path)
-        data = getDatasetFromPathMTime(path, path.stat().st_mtime)
-        for d in data:
-            logger.debug(f"Adding dataset {d.name} to repo")
-            if d.name in self.datasets:
-                raise KeyError(f"A dataset with the name {d.name} already exists")
-            self.datasets[d.name] = d
+        try:
+            data = getDatasetFromPathMTime(path, path.stat().st_mtime)
+            for d in data:
+                logger.debug(f"Adding dataset {d.name} to repo")
+                if d.name in self.datasets:
+                    raise KeyError(f"A dataset with the name {d.name} already exists")
+                self.datasets[d.name] = d
+        except Exception as e:
+            logger.error(f"Failed to add dataset {path} to repo: {e}")
+            raise e
 
     def addFromDirectory(self, path):
         logger.info(f"Loading datasets recursively from path {path}")

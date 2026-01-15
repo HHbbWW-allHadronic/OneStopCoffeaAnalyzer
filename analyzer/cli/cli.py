@@ -218,6 +218,9 @@ def samples(filter, csv):
     from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
+    from analyzer.core.serialization import converter, setupConverter
+
+    setupConverter(converter)
 
     if filter:
         filter_pattern = Pattern(filter)
@@ -235,6 +238,9 @@ def datasets(filter, csv):
     from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
+    from analyzer.core.serialization import converter, setupConverter
+
+    setupConverter(converter)
 
     if filter:
         filter_pattern = Pattern(filter)
