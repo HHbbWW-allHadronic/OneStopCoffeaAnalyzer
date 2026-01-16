@@ -169,7 +169,7 @@ class NormalizeSystematicByProjection(TransformHistogram):
             provenance = copy.deepcopy(ph.provenance)
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), meta=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
                 )
             )
 
@@ -200,7 +200,7 @@ class OrBinaryAxes(TransformHistogram):
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), meta=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
                 )
             )
 
@@ -228,7 +228,7 @@ class RebinAxes(TransformHistogram):
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), meta=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
                 )
             )
 
@@ -254,7 +254,7 @@ class SliceAxes(TransformHistogram):
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), meta=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
                 )
             )
 
@@ -272,5 +272,5 @@ class FormatTitle(TransformHistogram):
                 meta,
                 {"title": doFormatting(self.title_format, **dict(dictToDot(meta)))},
             )
-            ret.append(ItemWithMeta(ph, meta=meta))
+            ret.append(ItemWithMeta(ph, metadata=meta))
         return ret

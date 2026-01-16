@@ -201,7 +201,7 @@ analyzer:
     - *common_objects
     - *common_pre_sel_weights
     - module_name: TriggerBNN
-      base_path: trained_bnns/ht_pt_no_trim/
+      base_path: trained_bnns/no_cleaning/
       net_pattern: "{era}_mixed.json"
       input_col: GoodJet
     - module_name: NObjFilter
@@ -227,7 +227,7 @@ analyzer:
     - *common_objects
     - *common_pre_sel_weights
     - module_name: TriggerBNN
-      base_path: trained_bnns/ht_pt_no_trim/
+      base_path: trained_bnns/no_cleaning/
       net_pattern: "{era}_mixed.json"
       input_col: GoodJet
     - module_name: NObjFilter
@@ -262,7 +262,7 @@ analyzer:
     - *common_objects
     - *common_pre_sel_weights
     - module_name: TriggerBNN
-      base_path: trained_bnns/ht_pt_no_trim/
+      base_path: trained_bnns/no_cleaning/
       net_pattern: "{era}_mixed.json"
       input_col: GoodJet
     - module_name: NObjFilter
