@@ -1,3 +1,5 @@
+from analyzer.cli.cli import run
+from dask.array import compute
 import numpy as np
 from rich import print
 
@@ -174,6 +176,13 @@ def computeRatio(n, d, normalize=False, ratio_type="poisson"):
     return ratio, unc
 
 
+def computeSignificance(n, d, normalize=False, ratio_type="poisson"):
+    with np.errstate(divide="ignore", invalid="ignore"):
+        significance = n / np.sqrt(d)
+
+    return significance, None
+
+
 def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
     opts = {
         **style.get("errorbar", include_type=False),
@@ -239,6 +248,7 @@ def plotMultiNumerators(
     normalize,
     ratio_type,
     x_values,
+    ratio_func=computeRatio,
 ):
     for item, meta in numerators:
         hist = item.histogram
@@ -247,7 +257,7 @@ def plotMultiNumerators(
         n_vals = hist.values()
         d_vals = den_total.values()
 
-        ratio, unc = computeRatio(
+        ratio, unc = ratio_func(
             n_vals,
             d_vals,
             normalize=normalize,
@@ -274,6 +284,7 @@ def plotSingleNumeratorMultiDen(
     normalize,
     ratio_type,
     x_values,
+    ratio_func=computeRatio,
 ):
     hist = numerator.item.histogram
 
@@ -289,7 +300,7 @@ def plotSingleNumeratorMultiDen(
         n_vals = hist.values()
         d_vals = den.histogram.values()
 
-        ratio, unc = computeRatio(
+        ratio, unc = ratio_func(
             n_vals,
             d_vals,
             normalize=normalize,
@@ -323,6 +334,7 @@ def plotRatio(
     left_edge = den_hist.axes.edges[0][0]
     right_edge = den_hist.axes.edges[-1][-1]
 
+    ratio_func = computeSignificance if ratio_type == "significance" else computeRatio
     if no_stack:
         den_to_plot, den_styles = plotUnstackedDenominators(
             ax,
@@ -339,6 +351,7 @@ def plotRatio(
             normalize=normalize,
             ratio_type=ratio_type,
             x_values=x_values,
+            ratio_func=ratio_func,
         )
     else:
         den_total = plotStackedDenominators(
@@ -356,6 +369,7 @@ def plotRatio(
             normalize=normalize,
             ratio_type=ratio_type,
             x_values=x_values,
+            ratio_func=ratio_func,
         )
 
     for y in ratio_hlines:
@@ -363,7 +377,11 @@ def plotRatio(
 
     ratio_ax.set_xlim(left_edge, right_edge)
     ratio_ax.set_ylim(*ratio_ylim)
-    ratio_ax.set_ylabel("Ratio")
+    if ratio_type == "significance":
+        rylabel = "Significance"
+    else:
+        rylabel = "Significance"
+    ratio_ax.set_ylabel(rylabel)
 
     labelAxis(
         ax,

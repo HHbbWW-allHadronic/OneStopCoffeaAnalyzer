@@ -65,7 +65,9 @@ class RatioPlot(BasePostprocessor):
     ratio_ylim: tuple[float, float] = (0, 2)
     ratio_hlines: list[float] = field(factory=lambda: [1.0])
     ratio_height: float = 0.5
-    ratio_type: Literal["poisson", "poisson-ratio", "efficiency"] = "poisson"
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "poisson"
+    )
     no_stack: bool = False
 
     def getRunFuncs(self, group, prefix=None):
