@@ -34,10 +34,9 @@ from distributed import (
 )
 from analyzer.utils.querying import BasePattern
 import analyzer.utils.querying
-from .plots.mplstyles import loadStyles
 import analyzer.postprocessing.basic_histograms  # noqa
 import analyzer.postprocessing.cutflows  # noqa
-from .plots.mplstyles import loadStyles
+from .style import loadStyles
 from attrs import field, define
 from .basic_histograms import BasePostprocessor
 from analyzer.utils.querying import BasePattern

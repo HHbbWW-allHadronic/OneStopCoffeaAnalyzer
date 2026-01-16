@@ -12,8 +12,7 @@ from analyzer.postprocessing.style import Styler
 # from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
-from .mplstyles import loadStyles
-from .utils import addAxesToHist, fixBadLabels, saveFig, scaleYAxis
+from .utils import addAxesToHist, saveFig, scaleYAxis, addLegend
 from analyzer.utils.debugging import jumpIn
 
 
@@ -89,14 +88,12 @@ def plotOne(
         extra_text=f"{common_metadata['pipeline']}",
         plot_configuration=pc,
     )
-    if style.legend:
-        legend_kwargs = {}
-        if style.legend_font:
-            legend_kwargs["fontsize"] = style.legend_font
-        ax.legend(loc="upper right", **legend_kwargs)
-        mplhep.sort_legend(ax=ax)
+
     ax.set_yscale(scale)
     mplhep.yscale_legend(ax, soft_fail=True)
+    addLegend(ax, pc)
+
+    scaleYAxis(ax)
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
@@ -128,7 +125,6 @@ def plotDictAsBars(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    loadStyles()
     mpl.use("Agg")
 
     fig, ax = plt.subplots(layout="constrained")
@@ -153,8 +149,9 @@ def plotDictAsBars(
         plot_configuration=pc,
     )
     ax.set_yscale(scale)
-    ax.legend(loc="upper right")
+    addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
+    scaleYAxis(ax)
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
@@ -233,7 +230,6 @@ def plotRatio(
         for item, meta in numerators:
             title = meta["dataset_title"]
             h = item.histogram
-            fixBadLabels(h)
             style = styler.getStyle(meta)
             n, d = h.values(), den_total.values()
 
@@ -277,7 +273,6 @@ def plotRatio(
         meta = num.metadata
         title = meta["dataset_title"]
         style = styler.getStyle(meta)
-        fixBadLabels(h)
         h.plot1d(
             ax=ax,
             label=title,
@@ -327,7 +322,7 @@ def plotRatio(
         y_label = None
 
     labelAxis(ax, "y", den_hist.axes, label=y_label)
-    ax.legend(loc="upper right")
+    addLegend(ax, pc)
     ax.set_xlabel(None)
 
     addCMSBits(
@@ -337,7 +332,6 @@ def plotRatio(
     )
 
     ratio_ax.set_ylabel("Ratio", loc="center")
-    # labelAxis(ax, "x", den_hist.axes)
 
     ax.tick_params(axis="x", which="both", labelbottom=False)
 
@@ -346,13 +340,6 @@ def plotRatio(
     ax.set_yscale(scale)
     labelAxis(ratio_ax, "x", den_hist.axes)
     scaleYAxis(ax)
-
-    # mplhep.yscale_legend(ax, soft_fail=True)
-    # mplhep.yscale_anchored_text(ax, soft_fail=True)
-
-    # ratio_ax.set_xlabel("Ratio", loc="center")
-    # ratio_ax.set_xlabel("HELLO WORLD")
-    # fig.tight_layout()
 
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)

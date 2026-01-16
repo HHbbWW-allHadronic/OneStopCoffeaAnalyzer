@@ -7,8 +7,7 @@ from analyzer.postprocessing.style import Styler
 
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig, fixBadLabels
-from .mplstyles import loadStyles
+from .utils import saveFig
 
 
 def plot2D(
@@ -21,12 +20,9 @@ def plot2D(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
-    loadStyles()
     fig, ax = plt.subplots(layout="constrained")
     styler.getStyle(packaged_hist.provenance.sector_parameters)
     h = packaged_hist.histogram
-    fixBadLabels(h)
 
     if normalize:
         h = h / np.sum(h.values())
@@ -69,12 +65,9 @@ def plot2DSigBkg(
     override_axis_labels = override_axis_labels or {}
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
-    loadStyles()
     fig, ax = plt.subplots(layout="constrained")
     styler.getStyle(bkg_hist.sector_parameters)
     h = bkg_hist.histogram
-    fixBadLabels(h)
 
     if normalize:
         h = h / np.sum(h.values())
@@ -131,5 +124,5 @@ def plot2DSigBkg(
         text_color="white",
         plot_configuration=plot_configuration,
     )
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)

@@ -1,7 +1,9 @@
 from pathlib import Path
+from matplotlib.axes import Axes
 
 import matplotlib as mpl
 import mplhep
+from .common import PlotConfiguration
 
 
 def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=True):
@@ -14,9 +16,13 @@ def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=
     setattr(ax, f"{position}_axes", current_axes + [new_ax])
     return new_ax
 
+
 def scaleYAxis(ax):
     children = ax.get_children()
-    text_children = [x for x in children if isinstance(x, mpl.text.Text)]
+    text_children = [
+        x for x in children if isinstance(x, mpl.text.Text | mpl.legend.Legend)
+    ]
+    # breakpoint()
     bbs = [t.get_tightbbox() for t in text_children]
     min_b = min(x.y0 for x in bbs)
     max_b = max(x.y1 for x in bbs)
@@ -27,10 +33,6 @@ def scaleYAxis(ax):
 
     ax.set_ylim((old_ylim[0], new_max_y))
     return ax
-    
-
-
-    
 
 
 def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
@@ -41,9 +43,24 @@ def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
     fig.savefig(path, metadata=metadata, **kwargs)
 
 
-def fixBadLabels(h):
-    for x in h.axes:
-        x.label = x.label.replace("textrm", "text")
-        x.label = x.label.replace(
-            "m_{3,\\text{uncompressed}$", "m_{3,\\text{uncompressed}}$"
-        )
+def addLegend(ax: Axes, cfg: PlotConfiguration, **legend_kwargs):
+    """
+    Add and style a legend on a matplotlib axis using PlotConfiguration.
+    """
+    legend_loc = cfg.legend_loc
+
+    legend = ax.legend(
+        loc=legend_loc,
+        ncol=cfg.legend_num_cols,
+        prop={"family": cfg.legend_font} if cfg.legend_font else None,
+        **legend_kwargs,
+    )
+    frame = legend.get_frame()
+
+    if cfg.legend_fill_color is not None:
+        frame.set_facecolor(cfg.legend_fill_color)
+
+    if cfg.legend_fill_alpha is not None:
+        frame.set_alpha(cfg.legend_fill_alpha)
+
+    return legend

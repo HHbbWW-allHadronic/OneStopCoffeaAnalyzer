@@ -6,8 +6,79 @@ from analyzer.utils.querying import BasePattern
 import matplotlib.typing as mplt
 from cycler import cycler
 from attrs import define, field, asdict, filters
+from pathlib import Path
+import matplotlib.font_manager as font_manager
+import matplotlib as mpl
+import mplhep
+from analyzer.configuration import CONFIG
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
 logger = logging.getLogger("analyzer")
+
+
+cms_colors = {
+    # blues
+    "cms-blue": "#5790fc",
+    "cms-blue-dark": "#3f90da",
+    "cms-cyan": "#92dadd",
+    # oranges / yellows
+    "cms-orange": "#f89c20",
+    "cms-orange-light": "#ffa90e",
+    "cms-orange-dark": "#e76300",
+    "cms-gold": "#b9ac70",
+    # reds
+    "cms-red": "#e42536",
+    "cms-red-dark": "#bd1f01",
+    # purples
+    "cms-purple": "#964a8b",
+    "cms-purple-dark": "#7a21dd",
+    "cms-violet": "#832db6",
+    # neutrals
+    "cms-gray": "#9c9ca1",
+    "cms-gray-dark": "#717581",
+    "cms-gray-cool": "#94a4a2",
+    # earth / accent
+    "cms-brown": "#a96b59",
+}
+
+cms_colors_6 = [
+    cms_colors["cms-blue"],
+    cms_colors["cms-orange"],
+    cms_colors["cms-red"],
+    cms_colors["cms-purple"],
+    cms_colors["cms-gray"],
+    cms_colors["cms-purple-dark"],
+]
+
+cms_colors_10 = [
+    cms_colors["cms-blue-dark"],
+    cms_colors["cms-orange-light"],
+    cms_colors["cms-red-dark"],
+    cms_colors["cms-gray-cool"],
+    cms_colors["cms-violet"],
+    cms_colors["cms-brown"],
+    cms_colors["cms-orange-dark"],
+    cms_colors["cms-gold"],
+    cms_colors["cms-gray-dark"],
+    cms_colors["cms-cyan"],
+]
+
+
+def loadStyles():
+    font_dir = str(Path(CONFIG.post.static_resource_path) / "fonts")
+    mplhep.style.use("CMS")
+    # str(Path(CONFIG.STYLE_PATH) / "style.mplstyle")
+    mpl.rcParams["figure.constrained_layout.use"] = True
+    font_files = font_manager.findSystemFonts(fontpaths=[font_dir])
+    for font in font_files:
+        font_manager.fontManager.addfont(font)
+    mcolors.get_named_colors_mapping().update(cms_colors)
+    default_cycler = cycler(linestyle=["-", "--", ":", "-."]) * cycler(
+        color=cms_colors_10
+    )
+
+    plt.rcParams["axes.prop_cycle"] = default_cycler
 
 
 @define
@@ -54,29 +125,6 @@ class StyleRule:
     pattern: BasePattern | None = None
 
 
-cms_colors_6 = [
-    "#5790fc",
-    "#f89c20",
-    "#e42536",
-    "#964a8b",
-    "#9c9ca1",
-    "#7a21dd",
-]
-
-cms_colors_10 = [
-    "#3f90da",
-    "#ffa90e",
-    "#bd1f01",
-    "#94a4a2",
-    "#832db6",
-    "#a96b59",
-    "#e76300",
-    "#b9ac70",
-    "#717581",
-    "#92dadd",
-]
-
-
 @define
 class StyleSet:
     styles: list[StyleRule] = field(factory=list)
@@ -94,9 +142,7 @@ class Styler:
     def __init__(self, style_set, expected_num=6):
         self.style_set = style_set
         self.expected_num = expected_num
-        self.cycler = cycler(linestyle=["-", "--", ":", "-."]) * cycler(
-            color=cms_colors_10
-        )
+        self.cycler = plt.rcParams["axes.prop_cycle"]
         self.cycle_iter = iter(self.cycler)
 
     def getStyle(self, sector_params):

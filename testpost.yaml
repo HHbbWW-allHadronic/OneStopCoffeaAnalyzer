@@ -91,6 +91,7 @@ default_plot_config:
   cms_text: "Preliminary"
   image_type: ".png"
   cms_text_color: Black
+  legend_num_cols: 2
 
 
 default_style_set:
@@ -107,29 +108,24 @@ default_style_set:
         dataset_name: 'qcd*'
       style:
         plottype: fill
-        alpha: 0.3
 
     - pattern:
         dataset_name: 'tt*'
       style:
         plottype: fill
-        alpha: 0.3
 
     - pattern:
         dataset_name: 'single*'
       style:
         plottype: fill
-        alpha: 0.3
 
     - pattern:
         dataset_name: 'w*'
       style:
         plottype: fill
-        alpha: 0.3
 
 
     - pattern:
         dataset_name: 'z*'
       style:
         plottype: fill
-        alpha: 0.3
