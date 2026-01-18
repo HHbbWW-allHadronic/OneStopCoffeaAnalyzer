@@ -152,7 +152,7 @@ class SimpleCache(OrderedDict):
     def __setitem__(self, key, value):
         super().__setitem__(key, value)
         self.move_to_end(key)
-        if self.max_size and (len(self) >= self.max_size):
+        if self.max_size and (len(self) > self.max_size):
             self.popitem(last=False)
 
     def __getitem__(self, key):
