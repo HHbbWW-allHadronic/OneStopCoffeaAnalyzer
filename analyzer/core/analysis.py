@@ -44,7 +44,10 @@ def loadAnalysis(path):
         data = yaml.load(f, Loader=Loader)
 
     for path in data.get("extra_module_paths", []):
-        loadModuleFromPath(path)
+        from pathlib import Path
+
+        p = Path(path)
+        loadModuleFromPath(p.stem, path)
 
     setupConverter(converter)
     analysis = converter.structure(data, Analysis)
@@ -63,5 +66,3 @@ def getSamples(analysis, dataset_repo):
         for sample in dataset:
             ret.add((dataset_name, sample.name))
     return ret
-
-
