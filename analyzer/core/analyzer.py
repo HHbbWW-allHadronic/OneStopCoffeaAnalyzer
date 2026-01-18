@@ -10,11 +10,11 @@ from collections import deque
 
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
-    PipelineParameterSpec,
     ModuleAddition,
     PureResultModule,
     EventSourceModule,
 )
+from analyzer.core.param_specs import PipelineParameterSpec
 from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, CompleteSysts, RunBuilder
 from analyzer.core.results import (
     ResultProvenance,
