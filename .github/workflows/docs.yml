@@ -8,6 +8,10 @@ on:
 
 jobs:
   build-docs:
+    permissions:
+      pages: write
+      id-token: write
+
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +33,7 @@ jobs:
         with:
           name: documentation
           path: docs/build/html
-          
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
