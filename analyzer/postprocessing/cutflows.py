@@ -1,27 +1,16 @@
 from __future__ import annotations
 
 import functools as ft
-from pathlib import Path
 from typing import Literal
-import itertools as it
-from .plots.common import PlotConfiguration
 from .style import StyleSet
-from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import (
-    deepWalkMeta,
-    SimpleCache,
-    ItemWithMeta,
     commonDict,
     dictToDot,
     doFormatting,
 )
 from .processors import BasePostprocessor
-from .plots.plots_1d import plotOne, plotRatio, plotDictAsBars
-from .plots.plots_2d import plot2D
-from .grouping import GroupBuilder
-from analyzer.utils.structure_tools import globWithMeta
+from .plots.plots_1d import plotDictAsBars
 from attrs import define, field
-import abc
 
 
 def _get_cutflow(x):

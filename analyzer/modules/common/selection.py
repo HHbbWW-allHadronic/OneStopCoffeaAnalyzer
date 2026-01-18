@@ -1,11 +1,9 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 import awkward as ak
-from analyzer.core.columns import Column, EVENTS
-from attrs import define, field
+from analyzer.core.columns import Column
+from attrs import define
 from analyzer.core.columns import addSelection
 from analyzer.core.results import SelectionFlow
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
 
 
 @define

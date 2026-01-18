@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 import re
 
 from analyzer.core.columns import addSelection
@@ -10,23 +10,13 @@ import itertools as it
 from attrs import define, field
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
-import copy
-from rich import print
-import numpy as np
 
 
-import awkward as ak
 import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 import logging
 
 
 from analyzer.core.analysis_modules import (
-    AnalyzerModule,
-    register_module,
     MetadataExpr,
     MetadataAnd,
     IsRun,
@@ -611,8 +601,8 @@ class JetScaleCorrections(AnalyzerModule):
             return columns, []
 
         pt_raw = (1 - jets.rawFactor) * jets.pt
-        mass_raw = (1 - jets.rawFactor) * jets.mass
-        rho = (
+        (1 - jets.rawFactor) * jets.mass
+        (
             columns["fixedGridRhoFastjetAll"]
             if "fixedGridRhoFastjetAll" in columns.fields
             else columns["Rho.fixedGridRhoFastjetAll"]

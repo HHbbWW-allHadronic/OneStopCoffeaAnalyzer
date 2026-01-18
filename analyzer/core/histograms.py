@@ -4,7 +4,6 @@ from typing import Any
 
 import awkward as ak
 import hist
-import numpy as np
 import hist.dask as dah
 from pydantic import BaseModel, ConfigDict
 
@@ -26,7 +25,7 @@ def transformToFill(fill_data, per_event_value, mask=None):
         else:
             return per_event_value
 
-    if mask.ndim == 1 and not (fill_data is None) and fill_data.ndim == 2:
+    if mask.ndim == 1 and fill_data is not None and fill_data.ndim == 2:
         fill_data = ak.ones_like(fill_data, dtype=np.int32)
         fill_data = ak.fill_none(fill_data, 0)
         return ak.flatten(fill_data * per_event_value[mask])
@@ -85,7 +84,7 @@ class HistogramCollection(BaseModel):
                 "Cannot add two incompatible histograms specs. Hist1:\n"
                 f"{self.spec}\nHist2:\n{other.spec}"
             )
-            raise ValueError(f"Cannot add two incomatible histograms")
+            raise ValueError("Cannot add two incomatible histograms")
         return HistogramCollection(
             spec=self.spec,
             histogram=self.histogram + other.histogram,
@@ -97,7 +96,7 @@ class HistogramCollection(BaseModel):
                 "Cannot add two incompatible histograms specs. Hist1:\n"
                 f"{self.spec}\nHist2:\n{other.spec}"
             )
-            raise ValueError(f"Cannot add two incomatible histograms")
+            raise ValueError("Cannot add two incomatible histograms")
         self.histogram += other.histogram
         return self
 

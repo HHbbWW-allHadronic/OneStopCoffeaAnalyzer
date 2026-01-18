@@ -1,25 +1,21 @@
 from __future__ import annotations
 
-from rich import print
 import random
 import copy
-from analyzer.core.columns import Column, TrackedColumns
-from cattrs.strategies import include_subclasses, configure_tagged_union
+from analyzer.core.columns import TrackedColumns
+from cattrs.strategies import include_subclasses
 import functools as ft
 
 import uproot
 import math
 
-from attrs import define, field
+from attrs import define
 from coffea.nanoevents import NanoAODSchema
-from attrs import define, field, frozen
 
-from collections.abc import Iterable
 
 
 import abc
-from typing import Any
-from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
+from coffea.nanoevents import NanoEventsFactory
 from analyzer.core.caching import cache
 import logging
 
@@ -50,7 +46,6 @@ def getDatasets(query, client):
 
 def getReplicas(dataset, client):
     logger.info(f'Getting replicas for dataset "{dataset}"')
-    from analyzer.utils.file_tools import extractCmsLocation
     from coffea.dataset_tools import rucio_utils
 
     (
@@ -503,7 +498,6 @@ class FileChunk:
         return TrackedColumns.fromEvents(events, **view_kwargs)
 
     def overlaps(self, other: FileChunk):
-        same_source = self.file_path == other.file_path
         if not same_file:
             return False
         return (

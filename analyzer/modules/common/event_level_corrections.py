@@ -2,10 +2,8 @@ import coffea.lumi_tools as ltools
 import functools as ft
 from analyzer.core.columns import addSelection
 import operator as op
-from analyzer.configuration import CONFIG
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
-    register_module,
     ModuleParameterSpec,
     ParameterSpec,
     MetadataExpr,
@@ -15,22 +13,9 @@ from analyzer.core.analysis_modules import (
 )
 from analyzer.core.columns import Column
 from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
-import enum
 import correctionlib
-from pathlib import Path
-import fsspec
 import awkward as ak
-import correctionlib
 import correctionlib.convert
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-from correctionlib.convert import from_histogram
-import re
-from analyzer.core.columns import Column
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
 import correctionlib
 
 

@@ -1,26 +1,16 @@
 from __future__ import annotations
 import copy
-from typing import Generic
 import itertools as it
 from analyzer.core.results import Histogram
 import numpy as np
 from analyzer.utils.structure_tools import dictToDot, doFormatting
 import hist
-from rich import print
-from cattrs.converters import Converter, BaseConverter
-from typing import Type
 from collections import ChainMap, OrderedDict
-from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
-from analyzer.core.results import Histogram
+from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
-    deepWalkMeta,
-    SimpleCache,
     ItemWithMeta,
-    commonDict,
 )
-from analyzer.utils.structure_tools import globWithMeta
 from attrs import define
-import abc
 from .registry import TransformHistogram
 
 
@@ -166,7 +156,7 @@ class NormalizeSystematicByProjection(TransformHistogram):
                     [vals, weights], axis=-1
                 )
 
-            provenance = copy.deepcopy(ph.provenance)
+            copy.deepcopy(ph.provenance)
             ret.append(
                 ItemWithMeta(
                     Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta

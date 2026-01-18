@@ -14,7 +14,7 @@ def renderStatuses(statuses, all_samples, threshold=1.0, only_bad=False):
     for status in statuses:
         expected = status.events_expected
         found = status.events_found
-        diff = expected - found
+        expected - found
         percent = round(found / expected * 100, 2)
         frac_done = found / expected
         done = (frac_done >= threshold) and (frac_done <= 1.0)

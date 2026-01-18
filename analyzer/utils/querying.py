@@ -1,45 +1,20 @@
 from __future__ import annotations
 
 
-import abc
 
-import contextlib
-import copy
-import functools as ft
-import logging
 import re
-import string
-from collections import OrderedDict, defaultdict, namedtuple
-from collections.abc import Collection, Generator
 from enum import Enum
 from fnmatch import fnmatch
-from typing import Annotated, Any, Callable, DefaultDict, Generic, Literal, TypeVar
+from typing import Any
 
-from analyzer.core.columns import Column, ColumnCollection, TrackedColumns
-from analyzer.core.datasets import SampleType
-from analyzer.core.param_specs import (
-    ModuleParameterSpec,
-    ModuleParameterValues,
-    ParameterSpec,
-    PipelineParameterSpec,
-)
-from analyzer.core.results import ResultBase
-from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, RunBuilder
 from analyzer.utils.structure_tools import (
-    SimpleCache,
-    deepMerge,
     freeze,
-    mergeUpdate,
     ItemWithMeta,
 )
-from attrs import define, field, make_class
-from cattrs import structure, unstructure
+from attrs import define
 from cattrs.strategies import (
-    configure_tagged_union,
     configure_union_passthrough,
-    include_subclasses,
 )
-from rich import print
 
 
 def lookup(obj, key):
@@ -91,7 +66,7 @@ class Pattern:
         elif self.mode == PatternMode.GLOB:
             try:
                 ret = fnmatch(data, self.pattern)
-            except TypeError as e:
+            except TypeError:
                 return False
             return ret
         else:
@@ -193,7 +168,7 @@ def configureConverter(conv):
     configure_union_passthrough(str | int | float, conv)
     base_hook = conv.get_structure_hook(BasePattern)
     pattern_hook = conv.get_structure_hook(Pattern)
-    deep_hook = conv.get_structure_hook(DeepPattern)
+    conv.get_structure_hook(DeepPattern)
 
     base_and_hook = conv.get_structure_hook(PatternAnd)
 
@@ -220,8 +195,8 @@ def configureConverter(conv):
     def _(value, t) -> BasePattern:
         try:
             return base_hook2(value, t)
-        except Exception as e:
-            n = [{k: v} for k, v in value.items()]
+        except Exception:
+            [{k: v} for k, v in value.items()]
             return base_hook2(
                 [{"key": k.split("."), "pattern": v} for k, v in value.items()], t
             )

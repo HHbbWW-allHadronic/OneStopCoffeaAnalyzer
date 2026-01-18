@@ -393,14 +393,13 @@ class LPCCondorDask(Executor):
             )
 
     def setup(self, needed_resources):
-        import shutil
 
         configureDask()
 
         condor_temp_loc = (
             Path(CONFIG.general.base_data_path) / CONFIG.condor.temp_location
         )
-        condor_config = condor_temp_loc / ".cmslpc-local-conf"
+        condor_temp_loc / ".cmslpc-local-conf"
         # os.environ["LPC_CONDOR_CONFIG"] = "/etc/condor/config.d/01_cmslpc_interactive"
         #         os.environ["LPC_CONDOR_LOCAL"] = str(condor_config)
         # os.environ["CONDOR_CONFIG"] = os.environ["LPC_CONDOR_CONFIG"]

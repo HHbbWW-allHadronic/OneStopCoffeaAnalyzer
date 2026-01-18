@@ -1,5 +1,3 @@
-import itertools as it
-import re
 import io
 import csv
 from rich.table import Table

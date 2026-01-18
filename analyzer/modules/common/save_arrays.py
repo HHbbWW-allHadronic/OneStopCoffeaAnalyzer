@@ -1,11 +1,7 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
+from attrs import define
 from analyzer.core.results import SavedColumns
-import correctionlib
-import enum
 
 
 @define

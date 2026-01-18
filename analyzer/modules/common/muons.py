@@ -1,10 +1,7 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
 import enum
-import correctionlib
 
 
 class IdWps(str, enum.Enum):
@@ -73,7 +70,7 @@ class MuonMaker(AnalyzerModule):
         pass_mini_iso = muon.miniPFRelIso_all < self.max_mini_iso
         passed = pass_pt & pass_eta & pass_id_wp & pass_mini_iso
         if self.iso_working_point is not None:
-            pass_iso_wp = muon.pfIsoId >= cut_mapping[self.iso_working_point]
+            muon.pfIsoId >= cut_mapping[self.iso_working_point]
             passed &= pass_id_wp
 
         columns[self.output_col] = muon[passed]

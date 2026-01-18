@@ -1,15 +1,10 @@
 from __future__ import annotations
-from rich import print
 
 import functools as ft
 from typing import Literal
 import itertools as it
-from .plots.common import PlotConfiguration
 from .style import StyleSet
-from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import (
-    deepWalkMeta,
-    SimpleCache,
     ItemWithMeta,
     commonDict,
     dictToDot,
@@ -18,10 +13,7 @@ from analyzer.utils.structure_tools import (
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio
 from .plots.plots_2d import plot2D
-from .grouping import GroupBuilder
-from analyzer.utils.structure_tools import globWithMeta
 from attrs import define, field
-import abc
 
 ResultSet = list[list[ItemWithMeta]]
 
@@ -109,7 +101,7 @@ class Histogram2D(BasePostprocessor):
         output_path = doFormatting(
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
-        pc = self.plot_configuration.makeFormatted(common_meta)
+        self.plot_configuration.makeFormatted(common_meta)
         yield ft.partial(
             plot2D,
             hist,

@@ -5,7 +5,6 @@ from pathlib import Path
 
 import coffea.dataset_tools as dst
 from analyzer.configuration import CONFIG
-from analyzer.configuration import CONFIG
 
 
 def getPrepCachePath(task):

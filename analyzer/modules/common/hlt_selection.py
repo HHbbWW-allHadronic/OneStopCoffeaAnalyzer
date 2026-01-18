@@ -1,24 +1,11 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 import operator as op
-import awkward as ak
-import itertools as it
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
+from attrs import define
 from analyzer.core.columns import addSelection
-import copy
-from rich import print
-import numpy as np
 import functools as ft
 
 
-import awkward as ak
-import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 
 
 @define

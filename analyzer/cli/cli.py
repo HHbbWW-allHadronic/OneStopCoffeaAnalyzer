@@ -63,10 +63,10 @@ def run(
 def run_chunk(
     config_path, dataset_name, sample_name, event_source, event_start, event_stop
 ):
-    from analyzer.core.running import runFromPath, getRepos
+    from analyzer.core.running import getRepos
     from analyzer.core.event_collection import FileChunk
-    from analyzer.core.analysis import loadAnalysis, getSamples
-    from analyzer.utils.structure_tools import getWithMeta, globWithMeta
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.utils.structure_tools import getWithMeta
 
     analysis = loadAnalysis(config_path)
     dataset_repo, era_repo = getRepos(
@@ -80,7 +80,7 @@ def run_chunk(
     chunk = FileChunk(
         file_path=config_path, event_start=event_start, event_stop=event_stop
     )
-    output = analysis.analyzer.run(chunk, meta)
+    analysis.analyzer.run(chunk, meta)
 
 
 @cli.command()
@@ -88,10 +88,9 @@ def run_chunk(
 @click.argument("dataset-name", type=str)
 @click.argument("sample-name", type=str)
 def describe_analysis(config_path, dataset_name, sample_name):
-    from analyzer.core.running import runFromPath, getRepos
-    from analyzer.core.event_collection import FileChunk
-    from analyzer.core.analysis import loadAnalysis, getSamples
-    from analyzer.utils.structure_tools import getWithMeta, globWithMeta
+    from analyzer.core.running import getRepos
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.utils.structure_tools import getWithMeta
 
     analysis = loadAnalysis(config_path)
     dataset_repo, era_repo = getRepos(
@@ -113,8 +112,6 @@ def describe_analysis(config_path, dataset_name, sample_name):
 def check(files, configuration, only_bad):
     from analyzer.cli.result_status import renderStatuses
     from analyzer.core.analysis import getSamples, loadAnalysis
-    from analyzer.core.datasets import DatasetRepo
-    from analyzer.core.era import EraRepo
     from analyzer.core.results import checkResults
     from analyzer.core.running import getRepos
 
@@ -172,8 +169,6 @@ def browse(inputs, interpretter, peek, merge_datasets):
 @click.option("--prefix", type=str, required=False, default=None)
 @click.option("--parallel", type=int, required=False, default=None)
 def postprocess(configuration, inputs, parallel, prefix):
-    from analyzer.core.results import loadResults, mergeAndScale
-    from analyzer.core.serialization import converter, setupConverter
     from analyzer.postprocessing.running import runPostprocessors
 
     runPostprocessors(configuration, inputs, parallel=parallel, prefix=prefix)
@@ -215,7 +210,7 @@ def listData():
 @click.option("--csv", is_flag=True)
 @listData.command()
 def samples(filter, csv):
-    from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
+    from analyzer.cli.dataset_table import createSampleTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
     from analyzer.core.serialization import converter, setupConverter
@@ -235,7 +230,7 @@ def samples(filter, csv):
 @click.option("--csv", is_flag=True)
 @listData.command()
 def datasets(filter, csv):
-    from analyzer.cli.dataset_table import createDatasetTable, createSampleTable
+    from analyzer.cli.dataset_table import createDatasetTable
     from analyzer.core.running import getRepos
     from analyzer.utils.querying import Pattern
     from analyzer.core.serialization import converter, setupConverter

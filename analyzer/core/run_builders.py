@@ -3,7 +3,6 @@ import functools as ft
 from attrs import define
 from typing import Any
 from cattrs.strategies import include_subclasses, configure_tagged_union
-from cattrs import structure, unstructure
 import abc
 import copy
 

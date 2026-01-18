@@ -8,7 +8,6 @@ from cycler import cycler
 from attrs import define, field, asdict, filters
 from pathlib import Path
 import matplotlib.font_manager as font_manager
-import matplotlib as mpl
 import mplhep
 from analyzer.configuration import CONFIG
 import matplotlib.colors as mcolors

@@ -1,32 +1,17 @@
-import logging
 import itertools as it
-import pickle as pkl
-from pathlib import Path
-import fsspec
 import awkward as ak
 import correctionlib
 import correctionlib.convert
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-from correctionlib.convert import from_histogram
-import re
 from analyzer.core.columns import Column
 from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
 import correctionlib
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
-    register_module,
     MetadataExpr,
     ParameterSpec,
     ModuleParameterSpec,
     IsSampleType,
 )
-from analyzer.core.columns import Column
-import awkward as ak
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
 
 
 @define

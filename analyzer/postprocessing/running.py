@@ -1,5 +1,3 @@
-from analyzer.cli.cli import postprocess
-from debugpy import configure
 from attr import Converter
 from analyzer.postprocessing.plots.common import PlotConfiguration
 import concurrent.futures as cf
@@ -7,9 +5,8 @@ from analyzer.core.results import loadResults, mergeAndScale
 from cattrs.converters import Converter
 from .processors import configureConverter
 from .grouping import configureConverter as groupingConfConv
-from .style import Style, StyleSet
+from .style import StyleSet
 from analyzer.core.serialization import setupConverter
-import itertools as it
 import matplotlib as mpl
 
 try:
@@ -17,19 +14,8 @@ try:
 except ImportError:
     from yaml import Loader
 import yaml
-from analyzer.utils.debugging import jumpIn
-from collections import defaultdict
-from rich import print
 from rich.progress import Progress, track
 from distributed import (
-    Client,
-    LocalCluster,
-    fire_and_forget,
-    get_client,
-    secede,
-    rejoin,
-    Queue,
-    as_completed,
     WorkerPlugin,
 )
 from analyzer.utils.querying import BasePattern
@@ -37,9 +23,8 @@ import analyzer.utils.querying
 import analyzer.postprocessing.basic_histograms  # noqa
 import analyzer.postprocessing.cutflows  # noqa
 from .style import loadStyles
-from attrs import field, define
+from attrs import define
 from .basic_histograms import BasePostprocessor
-from analyzer.utils.querying import BasePattern
 
 
 @define

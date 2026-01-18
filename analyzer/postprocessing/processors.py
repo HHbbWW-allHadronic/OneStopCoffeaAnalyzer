@@ -5,25 +5,14 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from .transforms.registry import Transform
 
 import functools as ft
-from typing import Literal
-import itertools as it
 from .plots.common import PlotConfiguration
 from .style import StyleSet
-from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import (
-    deepWalkMeta,
-    SimpleCache,
     ItemWithMeta,
-    commonDict,
-    dictToDot,
-    doFormatting,
 )
-from .plots.plots_1d import plotOne, plotRatio
-from .plots.plots_2d import plot2D
 from .grouping import GroupBuilder
 from analyzer.utils.structure_tools import globWithMeta
 from attrs import define, field
-import abc
 
 ResultSet = list[list[ItemWithMeta]]
 

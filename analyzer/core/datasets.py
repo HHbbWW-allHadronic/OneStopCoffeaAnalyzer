@@ -1,12 +1,6 @@
 from __future__ import annotations
-import copy
-from rich import print
-import re
-import dataclasses
-from typing import ClassVar
 import enum
 from analyzer.core.event_collection import SourceDescription
-from rich.progress import track
 from pathlib import Path
 from analyzer.core.serialization import converter
 from analyzer.core.caching import cache
@@ -21,7 +15,6 @@ try:
 except ImportError:
     from yaml import Loader
 
-from analyzer.configuration import CONFIG
 
 
 def getDatasets(query, client):
@@ -37,7 +30,6 @@ def getDatasets(query, client):
 
 
 def getReplicas(dataset, client):
-    from analyzer.utils.file_tools import extractCmsLocation
     from coffea.dataset_tools import rucio_utils
 
     (

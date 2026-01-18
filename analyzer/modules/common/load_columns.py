@@ -1,10 +1,8 @@
 from analyzer.core.analysis_modules import (
-    AnalyzerModule,
     ModuleParameterSpec,
     ParameterSpec,
     EventSourceModule,
 )
-from analyzer.core.columns import Column, TrackedColumns
 from analyzer.core.event_collection import FileChunk
 from attrs import define
 

@@ -1,10 +1,7 @@
-import collections.abc
 import itertools as it
 import logging
-import pickle
 import os
 from analyzer.utils.pretty import progbar
-import shutil
 import zipfile
 import tarfile
 from pathlib import Path
@@ -162,7 +159,7 @@ def copyFile(fr, to, from_rel_to=None):
     ex = exists(client, to_path)
 
     if ex and not is_dir:
-        raise RuntimeError(f"Destination exists and is not a directory")
+        raise RuntimeError("Destination exists and is not a directory")
 
     elif ex and is_dir:
         logger.info(f'Dest path "{to_path}" exists and is a directory')

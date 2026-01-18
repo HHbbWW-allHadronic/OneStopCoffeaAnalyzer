@@ -1,40 +1,19 @@
-import awkward as ak
-from pathlib import Path
-import dask_awkward as da
-from analyzer.core.analysis_modules import (
-    AnalyzerModule,
-    register_module,
-    ModuleParameterSpec,
-    ParameterSpec,
-    MetadataExpr,
-    MetadataAnd,
-    IsRun,
-    IsSampleType,
-)
 import json
-import numpy as np
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
-import pickle
-import warnings
-from analyzer.core.columns import Column
+from pathlib import Path
+
 import awkward as ak
-import itertools as it
+import numpy as np
 from attrs import define, field
 
+from analyzer.core.analysis_modules import (
+    AnalyzerModule,
+    IsSampleType,
+    MetadataExpr,
+    ModuleParameterSpec,
+    ParameterSpec,
+)
+from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import SimpleCache
-from ..common.axis import RegularAxis
-from ..common.histogram_builder import makeHistogram
-import copy
-from rich import print
-import numpy as np
-
-
-import awkward as ak
-import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 
 
 class BNNEnsemble:
@@ -92,6 +71,7 @@ class TriggerBNN(AnalyzerModule):
     should_run : MetadataExpr, optional
         Condition to determine if the module should run. By default runs on MC samples.
     """
+
     base_path: str
     net_pattern: str
     weight_name: str = "trigger_eff"

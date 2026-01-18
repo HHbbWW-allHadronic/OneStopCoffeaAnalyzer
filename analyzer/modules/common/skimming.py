@@ -1,45 +1,18 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 import uuid
 import hashlib
 from pathlib import Path
-import tempfile
-import re
 import uproot
 
-from analyzer.core.columns import addSelection
-from analyzer.core.columns import Column
-from analyzer.core.results import SavedEventFile, SavedFiles
 from analyzer.utils.file_tools import copyFile
-from analyzer.utils.structure_tools import flatten, dictToDot, doFormatting
-import uuid
-from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
+from analyzer.utils.structure_tools import dictToDot, doFormatting
 import awkward as ak
-import itertools as it
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
-import copy
-from rich import print
-import numpy as np
+from attrs import define
 
 
-import awkward as ak
-import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 import logging
 
 
-from analyzer.core.analysis_modules import (
-    AnalyzerModule,
-    register_module,
-    MetadataExpr,
-    MetadataAnd,
-    IsRun,
-    IsSampleType,
-)
 
 logger = logging.getLogger("analyzer.modules")
 

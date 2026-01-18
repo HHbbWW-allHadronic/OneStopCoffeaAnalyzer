@@ -2,17 +2,12 @@ from __future__ import annotations
 
 import fnmatch
 import copy
-import functools as ft
-import itertools as it
 from collections import ChainMap, OrderedDict, namedtuple
 from collections.abc import Iterable
 from typing import Any
 
 
 import string
-import awkward as ak
-import dask_awkward as dak
-import numpy as np
 
 
 def doFormatting(s, **kwargs):

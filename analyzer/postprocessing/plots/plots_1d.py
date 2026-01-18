@@ -1,7 +1,4 @@
-from analyzer.cli.cli import run
-from dask.array import compute
 import numpy as np
-from rich import print
 
 import operator as op
 from collections import defaultdict
@@ -14,8 +11,7 @@ from analyzer.postprocessing.style import Styler
 # from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
-from .utils import addAxesToHist, saveFig, scaleYAxis, addLegend
-from analyzer.utils.debugging import jumpIn
+from .utils import saveFig, scaleYAxis, addLegend
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):

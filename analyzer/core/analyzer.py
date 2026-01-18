@@ -1,22 +1,17 @@
 from __future__ import annotations
 import copy
-import cProfile
 
 
-from rich import print
-from attrs import define, field, frozen, asdict
+from attrs import define, field, asdict
 
 import itertools as it
 
 from collections import deque
 
-from analyzer.core.columns import TrackedColumns
-from analyzer.core.serialization import converter
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
     PipelineParameterSpec,
     ModuleAddition,
-    BaseAnalyzerModule,
     PureResultModule,
     EventSourceModule,
 )
@@ -183,7 +178,7 @@ class Analyzer:
                             params, {node.node_id: res.this_module_parameters}
                         )
                     else:
-                        logger.debug(f"Running multi-parameter pipeline")
+                        logger.debug("Running multi-parameter pipeline")
                         if res.run_builder is DEFAULT_RUN_BUILDER:
                             run_builder = self.default_run_builder
                         else:

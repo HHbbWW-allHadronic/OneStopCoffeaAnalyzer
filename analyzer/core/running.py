@@ -1,7 +1,5 @@
-import logging
 from pathlib import Path
 
-from rich import print
 from analyzer.core.analysis import loadAnalysis, getSamples
 from collections import defaultdict
 from analyzer.configuration import CONFIG
@@ -70,7 +68,7 @@ def getTasks(dataset_repo, era_repo, dataset_descs, location_priorities=None):
     todo = []
     matched = getMatchedCollections(dataset_repo, dataset_descs)
     if any(len(x) != 1 for x in matched.values()):
-        raise RuntimeError(f"More than one matching pattern.")
+        raise RuntimeError("More than one matching pattern.")
     todo = [(k, x[0].pipelines) for k, x in matched.items()]
     ret = []
     for dataset_name, pipelines in todo:
@@ -98,7 +96,7 @@ def getTasksExplicit(
     for dataset_name, sample_name in samples:
         matched = [x for x in dataset_descs if x.dataset.match(dataset_name)]
         if len(matched) != 1:
-            raise RuntimeError(f"More than one matching pattern")
+            raise RuntimeError("More than one matching pattern")
         pipelines = matched[0].pipelines
         dataset = dataset_repo[dataset_name]
         sample, meta = getWithMeta(dataset, sample_name)
@@ -137,8 +135,6 @@ def runFromPath(
     filter_samples=None,
     limit_pipelines=None,
 ):
-    from analyzer.core.datasets import DatasetRepo
-    from analyzer.core.era import EraRepo
 
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
@@ -157,7 +153,7 @@ def runFromPath(
         analysis.event_collections,
         location_priorities=analysis.location_priorities,
     )
-    logger.info(f"Initializing analyzer")
+    logger.info("Initializing analyzer")
     for t in tasks:
         analysis.analyzer.initModules(t.metadata)
     logger.info(
@@ -171,8 +167,6 @@ def runFromPath(
 def patchFromPath(
     path, existing, output, executor_name, filter_samples=None, limit_pipelines=None
 ):
-    from analyzer.core.datasets import DatasetRepo
-    from analyzer.core.era import EraRepo
 
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)

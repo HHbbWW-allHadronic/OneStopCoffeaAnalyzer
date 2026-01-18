@@ -1,23 +1,14 @@
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 import pickle
 import warnings
 from analyzer.core.columns import Column
 import awkward as ak
-import itertools as it
-from attrs import define, field
+from attrs import define
 from ..common.axis import RegularAxis
 from ..common.histogram_builder import makeHistogram
-import copy
-from rich import print
 import numpy as np
 
 
-import awkward as ak
-import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 
 
 @define
@@ -40,7 +31,6 @@ class NNMassReco(AnalyzerModule):
 
     def run(self, columns, params):
         from analyzer.coffea_patches.torch_wrapper import torch_wrapper
-        import numpy as np
 
         class jetAssignmentNN(torch_wrapper):
             def prepare_awkward(_, jets, scalerFile, _fake):

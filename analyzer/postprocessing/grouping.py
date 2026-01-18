@@ -1,25 +1,11 @@
 from __future__ import annotations
-import copy
-import itertools as it
-import numpy as np
-from analyzer.utils.structure_tools import dictToDot, doFormatting
-import hist
-from rich import print
-from cattrs.converters import Converter, BaseConverter
-from typing import TypeVar, Generic
-from collections import ChainMap, OrderedDict
-from analyzer.utils.querying import BasePattern, Pattern, gatherByCapture, NO_MATCH
-from analyzer.core.results import Histogram
+from typing import TypeVar
+from analyzer.utils.querying import BasePattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import (
-    deepWalkMeta,
-    SimpleCache,
     ItemWithMeta,
-    commonDict,
 )
-from analyzer.utils.structure_tools import globWithMeta
 from attrs import define
 from .transforms.registry import Transform
-import abc
 
 ResultSet = list[list[ItemWithMeta]]
 
@@ -69,8 +55,8 @@ class GroupBuilder:
 
 def configureConverter(conv):
     base_list_str = conv.get_structure_hook(list[str])
-    base_list_int = conv.get_structure_hook(list[int])
-    base_list_float = conv.get_structure_hook(list[float])
+    conv.get_structure_hook(list[int])
+    conv.get_structure_hook(list[float])
 
     @conv.register_structure_hook
     def _(data, t) -> list[str] | list[int] | list[float]:

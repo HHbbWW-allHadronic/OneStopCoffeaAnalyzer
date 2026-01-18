@@ -1,4 +1,3 @@
-from analyzer.utils.structure_tools import mergeUpdate
 from attrs import define
 from typing import Generic,TypeVar
 

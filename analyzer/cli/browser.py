@@ -1,8 +1,7 @@
 from textual.app import App, ComposeResult
 from textual import on
 from textual.reactive import reactive
-from rich.console import Console
-from textual.widgets import Welcome, Header, Tree, Footer, Static, Pretty
+from textual.widgets import Header, Tree, Footer, Static, Pretty
 from textual.containers import Horizontal, Vertical
 from analyzer.core.results import ResultGroup
 from textual.widget import Widget

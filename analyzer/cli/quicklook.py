@@ -1,5 +1,5 @@
 from analyzer.core.results import loadSampleResultFromPaths
-from rich import print, inspect
+from rich import print
 import hist
 
 

@@ -1,5 +1,4 @@
-from collections import defaultdict
-from typing import TypeVar, Generic
+from typing import TypeVar
 from attrs import define
 
 T = TypeVar("T")

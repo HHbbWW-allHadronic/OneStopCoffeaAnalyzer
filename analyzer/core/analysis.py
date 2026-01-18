@@ -1,16 +1,9 @@
 from __future__ import annotations
-import re
-from analyzer.core.results import ResultGroup
-from rich.logging import RichHandler
-from analyzer.utils.structure_tools import getWithMeta
-import logging
 from attrs import define, field
-from rich import print
 from analyzer.core.serialization import converter, setupConverter
 
 from analyzer.core.analyzer import Analyzer
-from analyzer.core.executors import Executor, ExecutionTask
-from analyzer.core.datasets import DatasetRepo
+from analyzer.core.executors import Executor
 from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
 
@@ -49,7 +42,6 @@ class Analysis:
 def loadAnalysis(path):
     with open(path, "r") as f:
         data = yaml.load(f, Loader=Loader)
-    import analyzer.modules
 
     for path in data.get("extra_module_paths", []):
         loadModuleFromPath(path)

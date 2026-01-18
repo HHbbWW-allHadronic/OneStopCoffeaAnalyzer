@@ -1,28 +1,15 @@
 # From https://github.com/PocketCoffea/PocketCoffea
 
-from analyzer.core.analysis_modules import AnalyzerModule, register_module
+from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 import awkward as ak
-import itertools as it
-from attrs import define, field
-from .axis import RegularAxis
-from .histogram_builder import makeHistogram
-import copy
-from rich import print
+from attrs import define
 import numpy as np
 
 
-import awkward as ak
-import correctionlib
-import pydantic as pyd
-from coffea.lookup_tools.correctionlib_wrapper import correctionlib_wrapper
-import correctionlib.schemav2 as cs
-from functools import lru_cache
 from collections.abc import Iterable
 
-import awkward as ak
 import numba
-import numpy as np
 
 
 @numba.njit

@@ -1,5 +1,4 @@
 import itertools as it
-import re
 import io
 import csv
 

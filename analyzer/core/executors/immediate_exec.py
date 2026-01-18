@@ -2,12 +2,9 @@ from __future__ import annotations
 
 import copy
 from .finalizers import basicFinalizer
-from typing import Literal
-from analyzer.core.event_collection import FileInfo
 from .executor import Executor, CompletedTask
 import logging
 from attrs import define
-from analyzer.core.event_collection import getFileInfo
 
 logger = logging.getLogger("analyzer")
 
@@ -24,7 +21,7 @@ class ImmediateExecutor(Executor):
             file_set.updateFromCache()
             needed_updates = file_set.getNeededUpdatesFuncs()
             for update in needed_updates:
-                u = update()
+                update()
                 file_set.updateFileInfo(update())
                 if max_sample_events and file_set.total_file_events >= max_sample_events:
                     break

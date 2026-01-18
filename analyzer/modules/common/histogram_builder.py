@@ -39,7 +39,7 @@ class HistogramBuilder(PureResultModule):
             else:
                 return per_event_value
 
-        if mask.ndim == 1 and not (fill_data is None) and fill_data.ndim == 2:
+        if mask.ndim == 1 and fill_data is not None and fill_data.ndim == 2:
             fill_data = ak.ones_like(fill_data, dtype=np.int32)
             fill_data = ak.fill_none(fill_data, 0)
             return ak.flatten(fill_data * per_event_value[mask])
@@ -228,7 +228,6 @@ class SimpleHistogram(AnalyzerModule):
         return self.input_cols
 
     def run(self, columns, params):
-        ret = []
         data = [columns[x] for x in self.input_cols]
         h = makeHistogram(
             self.hist_name,

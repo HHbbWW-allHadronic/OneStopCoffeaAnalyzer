@@ -118,7 +118,7 @@ class RegionAnalyzer(BaseModel):
         weights = resolveModules(region_desc.weights, ModuleType.Weight)
         categories = resolveModules(region_desc.categories, ModuleType.Categorization)
 
-        preselection_histograms = resolveModules(
+        resolveModules(
             region_desc.preselection_histograms, ModuleType.Histogram
         )
         postselection_histograms = resolveModules(
@@ -147,7 +147,7 @@ class RegionAnalyzer(BaseModel):
         return SubSectorParams(sample=sample_params, region_name=self.region_name)
 
     def runPreselection(self, events, params, selection_set=None):
-        logger.info(f"Running preselection")
+        logger.info("Running preselection")
         params = self.getSectorParams(params)
 
         # If selection is not provided (ie running outside of analyzer)
@@ -165,7 +165,7 @@ class RegionAnalyzer(BaseModel):
 
     def runSelection(self, columns, params, selection_set=None):
         columns.syst
-        logger.info(f"Running Selection")
+        logger.info("Running Selection")
         params = self.getSectorParams(params)
         if selection_set is None:
             selection_set = SelectionSet()
@@ -178,7 +178,7 @@ class RegionAnalyzer(BaseModel):
         return selection
 
     def runCorrections(self, events, params, columns=None):
-        logger.info(f"Running Corrections")
+        logger.info("Running Corrections")
         params = self.getSectorParams(params)
         if columns is None:
             columns = Columns(events)
@@ -187,7 +187,7 @@ class RegionAnalyzer(BaseModel):
         return columns
 
     def runObjects(self, columns, params):
-        logger.info(f"Running objects")
+        logger.info("Running objects")
         active_shape = columns.syst
         logger.info(f"Running objects with active shape systematic {active_shape}")
         params = self.getSectorParams(params)

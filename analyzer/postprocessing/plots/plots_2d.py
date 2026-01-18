@@ -27,9 +27,9 @@ def plot2D(
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+        h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-        art = h.plot2d(ax=ax)
+        h.plot2d(ax=ax)
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     sp = packaged_hist.provenance.sector_parameters
@@ -72,9 +72,9 @@ def plot2DSigBkg(
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+        h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-        art = h.plot2d(ax=ax)
+        h.plot2d(ax=ax)
 
     from scipy.ndimage import gaussian_filter
 

@@ -2,15 +2,12 @@ from __future__ import annotations
 import awkward as ak
 from collections import ChainMap
 
-from rich import print
-from pathlib import Path
 
 from analyzer.utils.pretty import progbar
 from analyzer.core.exceptions import ResultIntegrityError
 from analyzer.utils.file_tools import iterPaths
 import numpy as np
 
-import itertools as it
 
 import numbers
 import pickle as pkl
@@ -24,18 +21,13 @@ import hist
 from analyzer.utils.structure_tools import globWithMeta
 
 from attrs import define, field
-import hist
-from attrs import define, field
 
 
 import copy
 import abc
-import awkward as ak
 from typing import Any, Literal, ClassVar
-import awkward as ak
 
 
-import functools as ft
 
 
 def getArrayMem(array):
@@ -134,7 +126,7 @@ class ResultGroup(ResultBase):
                 len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
             ]
             peek_size = int.from_bytes(header_value, byteorder="big")
-            peek = data[
+            data[
                 len(cls._MAGIC_ID) + cls._HEADER_SIZE : len(cls._MAGIC_ID)
                 + cls._HEADER_SIZE
                 + peek_size
@@ -492,7 +484,6 @@ class RawSelectionFlow(ResultBase):
 
 
 def configureConverter(conv):
-    import hist
 
     @conv.register_structure_hook
     def _(val: Any, _) -> hist.Hist:

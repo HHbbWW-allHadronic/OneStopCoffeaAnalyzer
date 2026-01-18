@@ -1,21 +1,8 @@
 from __future__ import annotations
-from typing import TypeVar, Generic
-from analyzer.core.datasets import SampleType
-from typing import Callable, Literal
-from collections import OrderedDict
-import functools as ft
-from cattrs.strategies import include_subclasses, configure_tagged_union
-from cattrs import structure, unstructure
-from rich import print
-from attrs import define, field, make_class
+from typing import Callable
 from attrs import define, field
-from analyzer.core.results import ResultBase
-from analyzer.utils.structure_tools import freeze, mergeUpdate, deepMerge, SimpleCache
+from analyzer.utils.structure_tools import deepMerge
 from collections.abc import Collection
-from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
-import copy
-import contextlib
-import abc
 from typing import Any
 import logging
 

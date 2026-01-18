@@ -9,7 +9,6 @@ def setupLogging(
     default_level=None,
 ):
     import logging.config
-    from pathlib import Path
     import yaml
 
 

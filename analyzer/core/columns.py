@@ -8,7 +8,6 @@ import functools as ft
 import copy
 import awkward as ak
 from typing import Any
-import awkward as ak
 import logging
 import enum
 from analyzer.utils.structure_tools import freeze
@@ -203,7 +202,7 @@ class TrackedColumns:
         for column in columns:
             try:
                 ret.append((column, self._column_provenance[column]))
-            except KeyError as e:
+            except KeyError:
                 continue
 
         logger.debug(f"Relevant columns for {columns} are :\n {ret}")
