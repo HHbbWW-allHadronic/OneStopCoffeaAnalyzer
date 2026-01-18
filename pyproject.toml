@@ -53,3 +53,7 @@ lpcjobqueue = { git = "https://github.com/CoffeaTeam/lpcjobqueue.git" }
 
 [project.scripts]
 analyzer = "analyzer"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
