@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 import awkward as ak
 from analyzer.core.columns import Column
 from attrs import define
@@ -28,6 +28,7 @@ class SelectOnColumns(AnalyzerModule):
     save_cutflow : bool, optional
         If True, stores cutflow information for monitoring, by default True.
     """
+
     sel_name: str
     selection_names: list[str] | None = None
     save_cutflow: bool = True
@@ -55,7 +56,7 @@ class SelectOnColumns(AnalyzerModule):
         if self.save_cutflow:
             return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
         else:
-            return columns,[]
+            return columns, []
 
     def inputs(self, metadata):
         if self.selection_names is None:

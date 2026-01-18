@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 import operator as op
 from attrs import define
@@ -6,10 +6,19 @@ from analyzer.core.columns import addSelection
 import functools as ft
 
 
-
-
 @define
 class SimpleHLT(AnalyzerModule):
+    """
+    Select events based on HLT triggers.
+
+    Parameters
+    ----------
+    triggers : list[str]
+        List of trigger names to select.
+    selection_name : str
+        Name of the selection to be added to the columns.
+    """
+
     triggers: list[str]
     selection_name: str = "PassHLT"
 

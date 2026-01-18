@@ -1,6 +1,6 @@
 from attrs import define
 from analyzer.core.columns import Column
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from .axis import Axis, RegularAxis
 
 

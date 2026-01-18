@@ -1,7 +1,7 @@
 # From https://github.com/PocketCoffea/PocketCoffea
 
-from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 import awkward as ak
 from attrs import define
 import numpy as np

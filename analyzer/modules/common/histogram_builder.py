@@ -6,6 +6,7 @@ import awkward as ak
 from analyzer.core.results import Histogram
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
+    MetadataExpr,
     ModuleAddition,
     PureResultModule,
 )

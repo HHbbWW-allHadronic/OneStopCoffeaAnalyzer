@@ -13,6 +13,7 @@ from analyzer.utils.structure_tools import freeze, SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import contextlib
 import abc
+from .param_specs import ParameterSpec  # noqa: F401
 from typing import Any
 import logging
 
@@ -115,6 +116,10 @@ class BaseAnalyzerModule(abc.ABC):
 
 @define
 class AnalyzerModule(BaseAnalyzerModule):
+    """Abstract base class for all analyzer modules.
+    Subclasses must implement the inputs and run methods.
+    """
+
     @abc.abstractmethod
     def outputs(
         self, metadata
@@ -199,6 +204,10 @@ class AnalyzerModule(BaseAnalyzerModule):
 
 @define
 class EventSourceModule(BaseAnalyzerModule):
+    """Abstract base class for event source modules.
+    Subclasses must implement the outputs and run methods.
+    """
+
     @abc.abstractmethod
     def outputs(self, metadata) -> ColumnCollection | list[Column]: ...
 
@@ -231,6 +240,10 @@ class EventSourceModule(BaseAnalyzerModule):
 
 @define
 class PureResultModule(BaseAnalyzerModule):
+    """Abstract base class for pure result modules.
+    Subclasses must implement the outputs and run methods.
+    """
+
     @abc.abstractmethod
     def outputs(self, metadata) -> ColumnCollection | list[Column]: ...
 

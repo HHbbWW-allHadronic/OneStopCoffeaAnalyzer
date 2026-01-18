@@ -28,7 +28,7 @@ logger = logging.getLogger("analyzer.modules")
 
 @define
 class FilterNear(AnalyzerModule):
-    """
+    r"""
     Filter objects based on proximity to another collection.
 
     This analyzer removes entries from a target collection that are within
@@ -127,7 +127,7 @@ class PromoteIndex(AnalyzerModule):
 
 @define
 class VetoMapFilter(AnalyzerModule):
-    """
+    r"""
     Apply a detector veto map to an input jet collection
     in order to remove jets falling into problematic detector regions.
     The veto map is evaluated as a function of jet ($\eta$, $\phi$) coordinates.
@@ -192,7 +192,7 @@ class VetoMapFilter(AnalyzerModule):
 
 @define
 class VetoMap(AnalyzerModule):
-    """
+    r"""
     Event-level veto selection based on detector veto maps.
     Events are excluded if any jet passing a loose selection lies withing a vetoed $\eta$-$\phi$  region.
 
@@ -254,7 +254,7 @@ class VetoMap(AnalyzerModule):
 
 @define
 class JetEtaPhiVeto(AnalyzerModule):
-    """
+    r"""
     Event-level veto based on jet ($\eta$, $\phi$) regions.
 
     This analyzer defines an event-level selection that vetoes events
@@ -413,7 +413,7 @@ class JetFilter(AnalyzerModule):
 
 @define
 class TopVecHistograms(AnalyzerModule):
-    """
+    r"""
     Produce kinematic histograms for the leading objects in a collection.
 
     This analyzer creates histograms of $p_T$,$\eta$, and $\phi$ for the first *N* objects

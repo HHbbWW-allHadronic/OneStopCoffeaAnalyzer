@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 import pickle
 import warnings
 from analyzer.core.columns import Column
@@ -9,10 +9,29 @@ from ..common.histogram_builder import makeHistogram
 import numpy as np
 
 
-
-
 @define
 class NNMassReco(AnalyzerModule):
+    """
+    Reconstruct top quark and neutralino masses using a Neural Network.
+
+    This module uses a trained PyTorch model to resolve jet combinatorics and
+    reconstruct the mass of the top quark ($m_{\\tilde{t}}$) and neutralino ($m_{\\chi}$).
+
+    Parameters
+    ----------
+    input_col : Column
+        Input column containing the jet collection (e.g. GoodJet).
+    m3_output : Column
+        Output column name for the reconstructed neutralino mass ($m_{\\chi}$).
+    m4_output : Column
+        Output column name for the reconstructed top quark mass ($m_{\\tilde{t}}$).
+    model_path : str
+        Path to the trained PyTorch model file (.pt).
+    scaler_path : str
+        Path to the scaler file (.pkl) used for input feature normalization.
+
+    """
+
     input_col: Column
     m3_output: Column
     m4_output: Column
@@ -34,7 +53,6 @@ class NNMassReco(AnalyzerModule):
 
         class jetAssignmentNN(torch_wrapper):
             def prepare_awkward(_, jets, scalerFile, _fake):
-
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     with open(scalerFile, "rb") as f:
@@ -116,6 +134,22 @@ class NNMassReco(AnalyzerModule):
 
 @define
 class NNMassPlots(AnalyzerModule):
+    """
+    Create histograms for reconstructed mass variables.
+
+    Generates 1D and 2D histograms for the reconstructed top squark and chargino masses,
+    as well as their ratio.
+
+    Parameters
+    ----------
+    m3_input : Column
+        Column containing the reconstructed chargino mass ($m_{\\chi}$).
+    m4_input : Column
+        Column containing the reconstructed top squark mass ($m_{\\tilde{t}}$).
+    prefix : str
+        Prefix required for all generated histograms to ensure uniqueness.
+    """
+
     m3_input: Column
     m4_input: Column
     prefix: str

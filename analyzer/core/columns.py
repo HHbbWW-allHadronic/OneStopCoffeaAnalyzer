@@ -7,7 +7,7 @@ import contextlib
 import functools as ft
 import copy
 import awkward as ak
-from typing import Any
+from typing import Any, ClassVar
 import logging
 import enum
 from analyzer.utils.structure_tools import freeze

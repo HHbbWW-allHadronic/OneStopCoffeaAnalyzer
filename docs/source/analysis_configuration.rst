@@ -18,6 +18,13 @@ A configuration file is divided into the following logical sections:
 - Other configuration options
 
 
+Prebuilt Modules
+-----------------
+
+A full list of available modules and their configuration parameters can be found in the :doc:`builtin_modules` documentation.
+
+
+
 A Note on YAML Anchors and Reuse
 ---------------------
 

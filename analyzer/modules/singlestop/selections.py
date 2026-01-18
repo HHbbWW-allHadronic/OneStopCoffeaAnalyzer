@@ -1,10 +1,8 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
 import awkward as ak
 from attrs import define
-
-
 
 
 @define
@@ -69,4 +67,3 @@ class VecPt(AnalyzerModule):
         sel = ak.fill_none(sel, False)
         addSelection(columns, self.selection_name, sel)
         return columns, []
-

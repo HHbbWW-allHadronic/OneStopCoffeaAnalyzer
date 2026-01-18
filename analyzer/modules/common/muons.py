@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 from attrs import define, field
 import enum
@@ -30,7 +30,7 @@ class MuonMaker(AnalyzerModule):
     Select muons based on kinematics, ID, and isolation criteria.
 
     This analyzer filters muons in an event according to minimum transverse
-    momentum, maximum pseudorapidity, a chosen ID working point, and 
+    momentum, maximum pseudorapidity, a chosen ID working point, and
     optional isolation requirements.
 
     Parameters

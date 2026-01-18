@@ -1,4 +1,4 @@
-from analyzer.core.analysis_modules import AnalyzerModule
+from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 from attrs import define, field
 import enum
@@ -40,6 +40,7 @@ class ElectronMaker(AnalyzerModule):
         Maximum mini-isolation, by default 0.1.
 
     """
+
     input_col: Column
     output_col: Column
     working_point: CutBasedWPs
