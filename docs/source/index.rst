@@ -6,10 +6,9 @@ OneStopCoffea Analyzer
    :caption: Contents:
 
    
-   installation
-   datasets_and_meta
-   analysis_structure
-   analysis_configuration
+   user_guide
+   configuration
+   reference
 
 
 The OneStopCoffea Analyzer (OSCA) is a modular, columnar analysis framework built on coffea and dask.
