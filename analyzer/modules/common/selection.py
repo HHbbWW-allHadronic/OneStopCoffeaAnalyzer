@@ -43,6 +43,9 @@ class SelectOnColumns(AnalyzerModule):
                 if not y
             ]
 
+        for s in columns.pipeline_data.get("Selections", {}):
+            columns.pipeline_data["Selections"][s] = True
+
         initial = ak.num(columns._events, axis=0)
 
         ret = columns[Column("Selection") + cuts[0]]
