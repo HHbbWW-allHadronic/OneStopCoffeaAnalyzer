@@ -316,7 +316,7 @@ class TrackedColumns:
 def mergeColumns(column_views):
     ret = copy.copy(column_views[0])
     for other in column_views[1:]:
-        ret = ret.addColumnsFrom(other)
+        ret.addColumnsFrom(other, list(other._column_provenance.keys()))
     return ret
 
 
