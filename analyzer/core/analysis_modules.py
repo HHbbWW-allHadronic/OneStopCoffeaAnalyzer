@@ -13,7 +13,7 @@ from analyzer.utils.structure_tools import freeze, SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import contextlib
 import abc
-from .param_specs import ParameterSpec  # noqa: F401
+from .param_specs import ParameterSpec, PipelineParameterSpec  # noqa: F401
 from typing import Any
 import logging
 
