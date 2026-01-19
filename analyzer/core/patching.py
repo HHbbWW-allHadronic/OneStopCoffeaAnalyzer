@@ -12,7 +12,6 @@ def getMissingFileset(target: FileSet, prepped: FileSet, processed: FileSet):
 
 
 def getSamplePatch(sample_result: SampleResult, dataset_repo):
-
     sample = dataset_repo[sample_result.sample_id]
     ran = sample_result.file_set_ran
     proc = sample_result.file_set_processed
