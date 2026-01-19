@@ -13,7 +13,6 @@ from attrs import define
 from coffea.nanoevents import NanoAODSchema
 
 
-
 import abc
 from coffea.nanoevents import NanoEventsFactory
 from analyzer.core.caching import cache
@@ -422,7 +421,10 @@ class FileSet:
 
     def splitFiles(self, files_per_set):
         lst = list(self.files.items())
-        files_split = {(i, i + n): dict(lst[i : i + n]) for i in range(0, len(lst), n)}
+        files_split = {
+            (i, i + files_per_set): dict(lst[i : i + files_per_set])
+            for i in range(0, len(lst), files_per_set)
+        }
         return {k: FileSet(files=v) for k, v in files_split.items()}
 
     def iterChunks(self):
@@ -498,6 +500,7 @@ class FileChunk:
         return TrackedColumns.fromEvents(events, **view_kwargs)
 
     def overlaps(self, other: FileChunk):
+        same_file = self.file_path == other.file_path
         if not same_file:
             return False
         return (
