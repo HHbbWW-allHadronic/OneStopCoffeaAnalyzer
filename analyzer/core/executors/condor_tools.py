@@ -87,7 +87,3 @@ def createCondorPackage(
         f.write(script)
 
     return CondorPackage(container, transfer_input_files, "setup.sh")
-
-
-if __name__ == "__main__":
-    createCondorPackage("TESTCONTAINER", ".venv", "TESTVIEW")
