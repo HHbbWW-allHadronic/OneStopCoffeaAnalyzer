@@ -1,6 +1,7 @@
 import logging
 from enum import Enum
 
+
 import click
 from rich import print
 
@@ -249,6 +250,14 @@ def datasets(filter, csv):
 @listData.group()
 def eras():
     raise NotImplementedError()
+
+
+@cli.command("search-modules")
+@click.argument("query", type=str)
+def searchModules(query):
+    from analyzer.cli.module_search import searchModules as runSearch
+
+    runSearch(query)
 
 
 def main():
