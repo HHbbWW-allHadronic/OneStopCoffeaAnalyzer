@@ -23,7 +23,7 @@ class MockObj:
         return getattr(self, key)
 
 
-def test_lookup():
+def testLookup():
     obj = MockObj(a=1, b=2)
     assert lookup(obj, "a") == 1
 
@@ -33,14 +33,14 @@ def test_lookup():
         lookup(obj, "c")
 
 
-def test_deep_lookup():
+def testDeepLookup():
     child = MockObj(x=10)
     parent = MockObj(child=child)
 
     assert deepLookup(parent, ["child", "x"]) == 10
 
 
-def test_pattern_modes():
+def testPatternModes():
     p_glob = Pattern("test*", mode=PatternMode.GLOB)
     assert p_glob.match("testing")
     assert not p_glob.match("other")
@@ -58,13 +58,13 @@ def test_pattern_modes():
     assert p_any.match(None)
 
 
-def test_pattern_capture():
+def testPatternCapture():
     p = Pattern("val", mode=PatternMode.LITERAL)
     assert p.capture("val") == "val"
     assert p.capture("other") is NO_MATCH
 
 
-def test_logical_patterns():
+def testLogicalPatterns():
     p1 = Pattern("a", mode=PatternMode.GLOB)
     p2 = Pattern("b", mode=PatternMode.GLOB)
 
@@ -88,7 +88,7 @@ def test_logical_patterns():
     assert p_not.match("b")
 
 
-def test_deep_pattern():
+def testDeepPattern():
     dp = DeepPattern(key=("data",), pattern=Pattern("val", mode=PatternMode.LITERAL))
     obj = MockObj(data="val")
     assert dp.match(obj)
@@ -97,7 +97,7 @@ def test_deep_pattern():
     assert not dp.match(obj_bad)
 
 
-def test_gather_by_capture():
+def testGatherByCapture():
     items = [
         ItemWithMeta("i1", {"type": "A", "id": 1}),
         ItemWithMeta("i2", {"type": "A", "id": 2}),

@@ -16,7 +16,7 @@ from analyzer.core.param_specs import (
 import pytest
 
 
-def test_toTuples_fromTuples():
+def testToTuplesFromTuples():
     data = {"a": {"b": 1}, "c": {"d": 2}}
     tuples = toTuples(data)
     assert tuples == {("a", "b"): 1, ("c", "d"): 2}
@@ -25,7 +25,7 @@ def test_toTuples_fromTuples():
     assert reconstructed == data
 
 
-def test_buildCombos():
+def testBuildCombos():
     p1 = ParameterSpec(default_value="d1", possible_values=["d1", "v1"], tags={"t1"})
     p2 = ParameterSpec(default_value="d2", possible_values=["d2", "v2"], tags={"t1"})
 
@@ -47,7 +47,7 @@ def test_buildCombos():
             assert val["mod"]["p2"] == "v2"
 
 
-def test_NoSystematics():
+def testNoSystematics():
     builder = NoSystematics()
     spec = PipelineParameterSpec(node_specs={})
     res = builder(spec, {})
@@ -55,7 +55,7 @@ def test_NoSystematics():
     assert res[0] == ("central", {})
 
 
-def test_CompleteSysts():
+def testCompleteSysts():
     def make_spec(tag):
         p = ParameterSpec(
             default_value="cen", possible_values=["cen", "up", "down"], tags={tag}
@@ -79,7 +79,7 @@ def test_CompleteSysts():
     assert len(res) == 3
 
 
-def test_SignalOnlySysts():
+def testSignalOnlySysts():
     def make_spec(tag):
         p = ParameterSpec(
             default_value="cen", possible_values=["cen", "up"], tags={tag}
@@ -98,7 +98,7 @@ def test_SignalOnlySysts():
     assert res[0][0] == "central"
 
 
-def test_MultiRunBuilder():
+def testMultiRunBuilder():
     b1 = NoSystematics()
     b2 = NoSystematics()
 
@@ -113,7 +113,7 @@ def test_MultiRunBuilder():
     assert res[1] == ("central", {})
 
 
-def test_complex_systs():
+def testComplexSysts():
     def make_param(name, tags):
         return ParameterSpec(
             default_value=f"{name}_def",

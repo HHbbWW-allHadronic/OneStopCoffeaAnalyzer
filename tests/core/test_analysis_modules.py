@@ -59,7 +59,7 @@ class AnalyzerTest(AnalyzerModule):
 
 
 class TestAnalyzerModule:
-    def test_run_caching(self, tracked_columns):
+    def testRunCaching(self, tracked_columns):
         module = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out"])
         params = ModuleParameterValues()
 
@@ -72,7 +72,7 @@ class TestAnalyzerModule:
         assert module.run_count == 1
         assert ak.all(res2["out"] == res1["out"])
 
-    def test_key_generation_sensitivity(self, tracked_columns):
+    def testKeyGenerationSensitivity(self, tracked_columns):
         module = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out"])
         params1 = ModuleParameterValues()
         params2 = ModuleParameterValues()
@@ -108,7 +108,7 @@ class SourceTest(EventSourceModule):
 
 
 class TestEventSourceModule:
-    def test_run_caching(self):
+    def testRunCaching(self):
         module = SourceTest()
         params = ModuleParameterValues()
 

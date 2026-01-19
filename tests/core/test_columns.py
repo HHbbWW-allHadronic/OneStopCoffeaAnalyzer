@@ -4,7 +4,7 @@ from analyzer.core.columns import Column, ColumnCollection, coerceFields
 
 
 class TestColumn:
-    def test_initialization(self):
+    def testInitialization(self):
         c1 = Column("a.b")
         assert c1.fields == ("a", "b")
         c2 = Column(("a", "b"))
@@ -12,7 +12,7 @@ class TestColumn:
         c3 = Column(c1)
         assert c3.fields == ("a", "b")
 
-    def test_contains(self):
+    def testContains(self):
         c1 = Column("a.b.c")
         c2 = Column("a.b")
         c3 = Column("a.x")
@@ -21,13 +21,13 @@ class TestColumn:
         assert not c1.contains(c2)
         assert not c1.contains(c3)
 
-    def test_extract(self):
+    def testExtract(self):
         events = ak.Array([{"a": {"b": 1}}, {"a": {"b": 2}}])
         col = Column("a.b")
         result = col.extract(events)
         assert ak.all(result == ak.Array([1, 2]))
 
-    def test_magic_methods(self):
+    def testMagicMethods(self):
         c1 = Column("a")
         c2 = Column("b")
 
@@ -50,13 +50,13 @@ class TestColumn:
 
 
 class TestColumnCollection:
-    def test_initialization(self):
+    def testInitialization(self):
         cols = ColumnCollection(["a.b", "c"])
         assert len(cols.columns) == 2
         assert Column("a.b") in cols.columns
         assert Column("c") in cols.columns
 
-    def test_contains(self):
+    def testContains(self):
         cols = ColumnCollection(["a.b", "c"])
         assert cols.contains(Column("a.b.c"))
 
@@ -64,7 +64,7 @@ class TestColumnCollection:
 
         assert cols.contains(Column("a.b"))
 
-    def test_intersect(self):
+    def testIntersect(self):
         c1 = ColumnCollection(["a", "b.c"])
         c2 = ColumnCollection(["a.x", "b"])
 
@@ -77,7 +77,7 @@ class TestColumnCollection:
         assert len(res) == 2
 
 
-def test_coerce_fields():
+def testCoerceFields():
     assert coerceFields("a.b") == ("a", "b")
     c = Column("a")
     assert coerceFields(c) == ("a",)
@@ -95,7 +95,7 @@ class TestTrackedColumns:
             }
         )
 
-    def test_initialization_from_events(self, sample_events):
+    def testInitializationFromEvents(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend
 
         tc = TrackedColumns.fromEvents(
@@ -105,7 +105,7 @@ class TestTrackedColumns:
         assert Column("pt") in tc._column_provenance
         assert Column("jets") in tc._column_provenance
 
-    def test_getitem_setitem(self, sample_events):
+    def testGetItemSetitem(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend
 
         tc = TrackedColumns.fromEvents(
@@ -125,7 +125,7 @@ class TestTrackedColumns:
         assert tc._column_provenance[Column("pt")] == 1
         assert ak.all(tc["pt"] == new_col)
 
-    def test_updated_columns(self, sample_events):
+    def testUpdatedColumns(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend
 
         tc1 = TrackedColumns.fromEvents(
@@ -144,7 +144,7 @@ class TestTrackedColumns:
         assert Column("pt") in updates
         assert len(updates) == 1
 
-    def test_copy_integrity(self, sample_events):
+    def testCopyIntegrity(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend
 
         metadata = {"meta_key": "meta_val"}
@@ -184,7 +184,7 @@ class TestTrackedColumns:
         assert tc_copy._column_provenance[Column("pt")] == 1
         assert tc_orig._column_provenance[Column("pt")] == 0
 
-    def test_allowed_inputs_outputs(self, sample_events):
+    def testAllowedInputsOutputs(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend
 
         tc = TrackedColumns.fromEvents(
@@ -206,7 +206,7 @@ class TestTrackedColumns:
 
 
 class TestUtils:
-    def test_set_column(self):
+    def testSetColumn(self):
         from analyzer.core.columns import setColumn
 
         events = ak.Array([{"a": {"b": 1}}, {"a": {"b": 2}}])
@@ -217,7 +217,7 @@ class TestUtils:
         events = setColumn(events, "x.y", ak.Array([5, 6]))
         assert ak.all(events.x.y == ak.Array([5, 6]))
 
-    def test_get_all_columns(self):
+    def testGetAllColumns(self):
         from analyzer.core.columns import getAllColumns
 
         events = ak.Array([{"a": {"b": 1, "c": 2}, "d": 3}])
@@ -228,7 +228,7 @@ class TestUtils:
         assert Column("d") in cols
         assert Column("a") in cols
 
-    def test_merge_columns(self):
+    def testMergeColumns(self):
         from analyzer.core.columns import mergeColumns, TrackedColumns, EventBackend
 
         events = ak.Array({"a": [1], "b": [2]})
@@ -242,7 +242,7 @@ class TestUtils:
         assert merged._column_provenance[Column("b")] == 1
         assert ak.all(merged["b"] == ak.Array([3]))
 
-    def test_add_selection(self):
+    def testAddSelection(self):
         from analyzer.core.columns import addSelection, TrackedColumns, EventBackend
 
         events = ak.Array({"a": [1]})

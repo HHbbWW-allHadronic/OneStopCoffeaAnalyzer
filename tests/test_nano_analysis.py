@@ -5,8 +5,7 @@ from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column, TrackedColumns
 
 
-@pytest.mark.filterwarnings("ignore::RuntimeWarning:coffea.*")
-def test_run_simple_analysis():
+def testRunSimpleAnalysis():
     # Resolve path to test data
     base_dir = Path(__file__).parent
     data_file = base_dir / "test_data" / "nano_dy.root"

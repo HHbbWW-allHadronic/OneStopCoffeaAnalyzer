@@ -23,19 +23,19 @@ class MockItem:
         return iter(self.children)
 
 
-def test_dict_to_dot():
+def testDictToDot():
     d = {"a": 1, "b": {"c": 2, "d": {"e": 3}}}
     result = dict(dictToDot(d))
     assert result == {"a": 1, "b.c": 2, "b.d.e": 3}
 
 
-def test_flatten():
+def testFlatten():
     l = [1, [2, [3, 4], 5], 6]
     assert flatten(l) == [1, 2, 3, 4, 5, 6]
     assert flatten([1, "a"]) == [1, "a"]
 
 
-def test_freeze():
+def testFreeze():
     d = {"a": [1, 2], "b": {"c": 3}}
     frozen = freeze(d)
     assert isinstance(frozen, frozenset)
@@ -46,7 +46,7 @@ def test_freeze():
     assert freeze([1, 2]) == frozenset({1, 2})
 
 
-def test_merge_update():
+def testMergeUpdate():
     a = {"a": 1, "b": {"x": 1}}
     b = {"b": {"y": 2}, "c": 3}
 
@@ -57,7 +57,7 @@ def test_merge_update():
     assert a["c"] == 3
 
 
-def test_deep_merge():
+def testDeepMerge():
     a = {"a": 1, "b": {"x": 1}}
     b = {"b": {"y": 2}, "c": 3}
 
@@ -66,7 +66,7 @@ def test_deep_merge():
     assert "y" not in a["b"]
 
 
-def test_get_with_meta():
+def testGetWithMeta():
     child = MockItem("child", {"level": 2})
     parent = MockItem("parent", {"level": 1}, {"child": child})
 
@@ -77,7 +77,7 @@ def test_get_with_meta():
     assert res.metadata.parents.parents["level"] == 1
 
 
-def test_glob_with_meta():
+def testGlobWithMeta():
     c1 = MockItem("c1", {"id": 1})
     c2 = MockItem("c2", {"id": 2})
     p = MockItem("root", {}, {"c1": c1, "c2": c2})
@@ -91,7 +91,7 @@ def test_glob_with_meta():
     assert res_c1.metadata["id"] == 1
 
 
-def test_simple_cache():
+def testSimpleCache():
     cache = SimpleCache(max_size=2)
     cache["a"] = 1
     cache["b"] = 2

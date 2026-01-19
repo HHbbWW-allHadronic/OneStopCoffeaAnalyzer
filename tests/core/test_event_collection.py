@@ -7,7 +7,7 @@ from analyzer.core.event_collection import (
 import pytest
 
 
-def test_chunkN():
+def testChunkN():
     chunks = chunkN(100, 10)
     assert len(chunks) == 10
     assert chunks == {(i * 10, (i + 1) * 10) for i in range(10)}
@@ -19,7 +19,7 @@ def test_chunkN():
     assert total == 105
 
 
-def test_FileInfo_chunking():
+def testFileInfoChunking():
     fi = FileInfo("f1", nevents=100)
     assert not fi.is_chunked
 
@@ -35,7 +35,7 @@ def test_FileInfo_chunking():
     assert len(fi3.chunks) == 5
 
 
-def test_FileInfo_ops():
+def testFileInfoOps():
     f1 = FileInfo("f1", nevents=100, chunks={(0, 10)})
     f2 = FileInfo("f1", nevents=100, chunks={(10, 20)})
 
@@ -51,7 +51,7 @@ def test_FileInfo_ops():
     assert f1.chunks == {(0, 10)}
 
 
-def test_FileInfo_intersection():
+def testFileInfoIntersection():
     f1 = FileInfo("f1", nevents=100, chunks={(0, 10), (10, 20)})
     f2 = FileInfo("f1", nevents=100, chunks={(10, 20), (20, 30)})
 
@@ -63,7 +63,7 @@ def test_FileInfo_intersection():
     assert not f1.intersects(f3)
 
 
-def test_FileSet_ops():
+def testFileSetOps():
     f1 = FileInfo("f1", nevents=100, chunks={(0, 10)})
     f2 = FileInfo("f2", nevents=50, chunks={(0, 50)})
 
@@ -86,7 +86,7 @@ def test_FileSet_ops():
     assert fs6.files["f1"].chunks == {(10, 20)}
 
 
-def test_FileSet_split():
+def testFileSetSplit():
     files = {f"f{i}": FileInfo(f"f{i}", nevents=10) for i in range(5)}
     fs = FileSet(files=files)
 
@@ -100,7 +100,7 @@ def test_FileSet_split():
     assert all_files == set(files.keys())
 
 
-def test_FileChunk_overlaps():
+def testFileChunkOverlaps():
     fc1 = FileChunk("f1", 0, 10)
     fc2 = FileChunk("f1", 5, 15)
     assert fc1.overlaps(fc2)

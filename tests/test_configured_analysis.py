@@ -114,8 +114,7 @@ def e2e_setup(tmp_path):
     return analysis_file, output_dir
 
 
-@pytest.mark.filterwarnings("ignore::RuntimeWarning:coffea.*")
-def test_run_e2e_analysis(e2e_setup):
+def testRunE2EAnalysis(e2e_setup):
     import numpy as np
 
     config_path, output_dir = e2e_setup

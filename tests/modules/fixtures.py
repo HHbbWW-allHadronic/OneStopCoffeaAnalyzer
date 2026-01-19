@@ -2,6 +2,7 @@ import awkward as ak
 from pathlib import Path
 from analyzer.core.columns import TrackedColumns, Column, EventBackend
 from typing import Any
+import pytest
 
 
 def createMockMetadata(
@@ -47,6 +48,7 @@ def createMockMetadata(
     return metadata
 
 
+@pytest.mark.filterwarnings("ignore::RuntimeWarning:coffea.*")
 def createMockEvents(
     n_events: int = 10,
     start_event: int = 0,
