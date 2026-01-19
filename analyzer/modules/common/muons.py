@@ -70,8 +70,8 @@ class MuonMaker(AnalyzerModule):
         pass_mini_iso = muon.miniPFRelIso_all < self.max_mini_iso
         passed = pass_pt & pass_eta & pass_id_wp & pass_mini_iso
         if self.iso_working_point is not None:
-            muon.pfIsoId >= cut_mapping[self.iso_working_point]
-            passed &= pass_id_wp
+            pass_iso = muon.pfIsoId >= cut_mapping[self.iso_working_point]
+            passed = passed & pass_iso
 
         columns[self.output_col] = muon[passed]
         return columns, []
