@@ -7,7 +7,7 @@ from analyzer.utils.structure_tools import flatten
 from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
 import itertools as it
-from attrs import define, field
+from attrs import define, field, evolve
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
 
@@ -506,6 +506,9 @@ class JetComboHistograms(AnalyzerModule):
     prefix: str
     input_col: Column
     jet_combos: list[list[int]]
+    mass_axis: RegularAxis = field(
+        factory=lambda: RegularAxis(50, 0, 3000, "", unit="GeV")
+    )
 
     def run(self, columns, params):
         jets = columns[self.input_col]
@@ -516,11 +519,22 @@ class JetComboHistograms(AnalyzerModule):
             i, j = min(combo), max(combo)
             mask = ak.num(jets, axis=1) > max(combo)
             summed = padded[:, combo].sum()
+
+            axis = self.mass_axis
+            name_suffix = f"$m_{{{i + 1}{j + 1}}}$"
+
+            if axis.name:
+                new_name = f"{axis.name} {name_suffix}"
+            else:
+                new_name = name_suffix
+
+            axis = evolve(axis, name=new_name)
+
             ret.append(
                 makeHistogram(
                     f"{self.prefix}_{i + 1}{j + 1}_m",
                     columns,
-                    RegularAxis(50, 0, 3000, f"$m_{{{i + 1}{j + 1}}}$", unit="GeV"),
+                    axis,
                     summed.mass,
                     mask=mask,
                 )

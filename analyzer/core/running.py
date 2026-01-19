@@ -134,8 +134,8 @@ def runFromPath(
     max_sample_events=None,
     filter_samples=None,
     limit_pipelines=None,
+    return_analyzer=False,
 ):
-
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)
@@ -162,12 +162,13 @@ def runFromPath(
     runTasks(
         analysis.analyzer, tasks, executor, output, max_sample_events=max_sample_events
     )
+    if return_analyzer:
+        return analysis.analyzer
 
 
 def patchFromPath(
     path, existing, output, executor_name, filter_samples=None, limit_pipelines=None
 ):
-
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)

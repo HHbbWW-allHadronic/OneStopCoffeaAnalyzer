@@ -107,13 +107,13 @@ class HistogramBuilder(PureResultModule):
         )
         for cset in column_sets:
             name, columns = cset
+            mask = None
             if self.mask_col is not None:
                 mask = columns[self.mask_col]
             data_to_fill = [columns[x] for x in self.columns]
             if self.mask_col is not None:
                 data_to_fill = [col[mask] for col in data_to_fill]
             representative = data_to_fill[0]
-            mask = None
 
             if "Weights" in columns.fields:
                 weights = columns["Weights"]

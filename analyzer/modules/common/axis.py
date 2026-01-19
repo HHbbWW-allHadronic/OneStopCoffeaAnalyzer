@@ -2,6 +2,7 @@ from attrs import define
 import abc
 import hist
 
+
 @define(frozen=True)
 class Axis(abc.ABC):
     @abc.abstractmethod
@@ -24,7 +25,7 @@ class RegularAxis(Axis):
     bins: int
     start: float
     stop: float
-    name: str
+    name: str = ""
     unit: str | None = None
 
     def toHist(self):

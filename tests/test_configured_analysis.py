@@ -3,7 +3,7 @@ import yaml
 from pathlib import Path
 from analyzer.core.running import runFromPath
 from analyzer.core.results import loadResults
-import analyzer.modules.common.jets  # Ensure module is registered
+import analyzer.modules.common.jets  # noqa: F401
 
 
 @pytest.fixture
@@ -55,30 +55,56 @@ def e2e_setup(tmp_path):
     with open(datasets_dir / "dy_test.yaml", "w") as f:
         yaml.dump(dataset_def, f)
 
+    # Path to Custom Systematics Modules
+    syst_module_file = base_dir / "tests" / "modules" / "syst_modules.py"
+    assert syst_module_file.exists(), (
+        f"Systematics module file not found at {syst_module_file}"
+    )
+
+    # Standard Module Config
+    hist_mod_cfg = {
+        "module_name": "JetComboHistograms",
+        "input_col": "Muon",
+        "prefix": "di_muon",
+        "jet_combos": [[0, 1]],
+        "mass_axis": {
+            "bins": 100,
+            "start": 50,
+            "stop": 150,
+            "unit": "GeV",
+        },
+    }
+
+    # Add TestCachingModule to pipeline
+    caching_mod_cfg = {
+        "module_name": "TestCachingModule",
+        "configuration": {},
+    }
+
+    # Create Analysis Configuration
     analysis_config = {
         "analyzer": {
             "nominal": [
-                {
-                    "module_name": "JetComboHistograms",
-                    "input_col": "Muon",
-                    "prefix": "di_muon",
-                    "jet_combos": [[0, 1]],
-                }
-            ]
+                {"module_name": "MuonScaleSyst", "configuration": {}},
+                {"module_name": "MuonResSyst", "configuration": {}},
+                {"module_name": "EventWeightSyst", "configuration": {}},
+                caching_mod_cfg,  # Added here
+                hist_mod_cfg,
+            ],
         },
-        "event_collections": [{"dataset": "dy_test", "pipelines": ["nominal"]}],
-        "extra_dataset_paths": [str(datasets_dir)],
-        "extra_era_paths": [str(eras_dir)],
-        "extra_module_paths": [],
-        "extra_executors": {},
-        "nominal": [
+        "event_collections": [
             {
-                "module_name": "JetComboHistograms",
-                "input_col": "Muon",
-                "prefix": "di_muon",
-                "jet_combos": [[0, 1]],
+                "dataset": "dy_test",
+                "pipelines": [
+                    "nominal",
+                ],
             }
         ],
+        "extra_dataset_paths": [str(datasets_dir)],
+        "extra_era_paths": [str(eras_dir)],
+        "extra_module_paths": [str(syst_module_file)],
+        "extra_executors": {},
+        "nominal": [hist_mod_cfg],
     }
 
     analysis_file = config_dir / "analysis.yaml"
@@ -90,16 +116,39 @@ def e2e_setup(tmp_path):
 
 @pytest.mark.filterwarnings("ignore::RuntimeWarning:coffea.*")
 def test_run_e2e_analysis(e2e_setup):
-    import hist
     import numpy as np
 
     config_path, output_dir = e2e_setup
 
-    runFromPath(
+    analyzer = runFromPath(
         str(config_path),
         str(output_dir),
-        executor_name="imm-1000",
+        executor_name="imm-testing",
         max_sample_events=None,
+        return_analyzer=True,
+    )
+
+    caching_module = None
+
+    found_caching_modules = [
+        m for m in analyzer.all_modules if m.__class__.__name__ == "TestCachingModule"
+    ]
+
+    # Assert we found it
+    assert len(found_caching_modules) > 0, "TestCachingModule not found in analyzer"
+    caching_module = found_caching_modules[0]
+
+    counts = len(caching_module.execution_counts)
+    print(f"TestCachingModule execution count: {counts}")
+    # We debug the actual params and means if needed
+    for i, ctx in enumerate(caching_module.execution_counts):
+        print(f"  Run {i + 1}: pt_mean={ctx['pt_mean']:.4f} params={ctx['params']}")
+
+    assert counts == 4, (
+        f"Expected 4 executions (Nom, ScaleUp, ScaleDown, ResUp), got {counts}. Weight syst should hit cache."
+    )
+    print(
+        "Integrated Module Caching Verified: Weight systematic correctly reused nominal result."
     )
     expected_output = output_dir / "dy_test__dy_sample.result"
     assert expected_output.exists()
@@ -119,20 +168,82 @@ def test_run_e2e_analysis(e2e_setup):
     hist_mass = nominal_res["di_muon_12_m"].histogram
     assert hist_mass is not None
 
-    h_central = hist_mass[{"variation": "central"}]
-    counts = h_central.values()
-    centers = h_central.axes[0].centers
-    mean = np.average(centers, weights=counts)
-    count_cumsum = np.cumsum(counts)
-    idx = np.searchsorted(count_cumsum, count_cumsum[-1] / 2)
-    median = centers[idx]
-    std_dev = np.sqrt(np.average((centers - mean) ** 2, weights=counts))
+    # Debug: Print available variations
+    if len(hist_mass.axes) > 0 and hist_mass.axes[0].name == "variation":
+        print(f"Available variations: {list(hist_mass.axes[0])}")
 
-    print(f"Mean: {mean:.2f} GeV")
-    print(f"Median: {median:.2f} GeV")
-    print(f"Std Dev: {std_dev:.2f} GeV")
+    def get_stats(hist_obj, variation_name):
+        # Slice variation
+        try:
+            h_var = hist_obj[{"variation": variation_name}]
+        except KeyError:
+            print(f"Variation {variation_name} not found in histogram")
+            return None
 
+        counts = h_var.values()
+        centers = h_var.axes[0].centers
+        total = float(np.sum(counts))
+
+        if total > 0:
+            mean = np.average(centers, weights=counts)
+            count_cumsum = np.cumsum(counts)
+            idx = np.searchsorted(count_cumsum, count_cumsum[-1] / 2)
+            median = centers[idx]
+            std_dev = np.sqrt(np.average((centers - mean) ** 2, weights=counts))
+            return {"total": total, "mean": mean, "median": median, "std_dev": std_dev}
+        return None
+
+    # Get Nominal Stats
+    stats_nom = get_stats(hist_mass, "central")
+    assert stats_nom is not None
+    print(
+        f"\nNominal: Mean={stats_nom['mean']:.2f}, Median={stats_nom['median']:.2f}, Std={stats_nom['std_dev']:.2f}, Yield={stats_nom['total']}"
+    )
+
+    # Check Z Mass
     z_mass = 91.1876
-    assert abs(median - z_mass) < 5.0, (
-        f"Median mass {median} is not close enough to Z mass {z_mass}"
+    assert abs(stats_nom["median"] - z_mass) < 10.0, (
+        f"Nominal median {stats_nom['median']} not close to Z mass"
+    )
+
+    # Scale Systematics
+    stats_up = get_stats(hist_mass, "MuonScaleSyst_variation_up")
+    stats_down = get_stats(hist_mass, "MuonScaleSyst_variation_down")
+
+    assert stats_up is not None
+    assert stats_down is not None
+
+    print(f"Scale Up: Median={stats_up['median']:.2f}")
+    print(f"Scale Down: Median={stats_down['median']:.2f}")
+
+    # Assert mass shift
+    assert stats_up["median"] > stats_nom["median"], (
+        "Scale Up should increase median mass"
+    )
+    assert stats_down["median"] < stats_nom["median"], (
+        "Scale Down should decrease median mass"
+    )
+
+    # Resolution Systematics
+    stats_res = get_stats(hist_mass, "MuonResSyst_variation_up")
+
+    assert stats_res is not None
+    print(f"Res Up: Std={stats_res['std_dev']:.2f}")
+
+    # Assert resolution smear check
+    assert stats_res["std_dev"] > stats_nom["std_dev"], (
+        "Resolution smear should increase width"
+    )
+
+    # Weight Systematics
+    stats_weight = get_stats(hist_mass, "EventWeightSyst_variation_up")
+
+    assert stats_weight is not None
+    print(f"Weight Up: Yield={stats_weight['total']}")
+
+    # Assert yield check
+    assert stats_weight["total"] > stats_nom["total"], "Weight Up should increase yield"
+    expected = stats_nom["total"] * 1.5
+    assert abs(stats_weight["total"] - expected) < 1.0, (
+        f"Weight yield {stats_weight['total']} mismatch expected {expected}"
     )

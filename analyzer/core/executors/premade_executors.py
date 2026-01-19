@@ -7,6 +7,7 @@ def getPremadeExcutors() -> dict[str, Executor]:
 
     return {
         "imm-1000": ImmediateExecutor(chunk_size=1000),
+        "imm-testing": ImmediateExecutor(chunk_size=1000, deepcopy_analyzer=False),
         "imm-10000": ImmediateExecutor(chunk_size=1000),
         "local-dask-4G-10000": LocalDaskExecutor(
             chunk_size=10000, min_workers=4, max_workers=4
