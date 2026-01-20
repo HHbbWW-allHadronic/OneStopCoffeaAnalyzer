@@ -22,6 +22,8 @@ from analyzer.utils.querying import BasePattern
 import analyzer.utils.querying
 import analyzer.postprocessing.basic_histograms  # noqa
 import analyzer.postprocessing.cutflows  # noqa
+import analyzer.postprocessing.combine  # noqa
+import analyzer.postprocessing.aggregate_plots  # noqa
 from .style import loadStyles
 from attrs import define
 from .basic_histograms import BasePostprocessor

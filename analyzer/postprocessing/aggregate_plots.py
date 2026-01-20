@@ -13,7 +13,7 @@ from analyzer.utils.structure_tools import (
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio
 from .plots.plots_2d import plot2D
-from analyzer.utils.quick_patterns import BasePattern
+from analyzer.utils.querying import BasePattern
 from attrs import define, field
 import numpy as np
 import enum
