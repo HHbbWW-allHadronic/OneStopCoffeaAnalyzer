@@ -108,6 +108,7 @@ class Style:
             fill=("color", "alpha"),
             band=("color",),
             errorbar=("color", "markersize", "marker"),
+            scatter_z=("markersize", "marker"),
         )
         ret = asdict(self, filter=filters.include(*mapping[plottype]))
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
@@ -115,6 +116,9 @@ class Style:
             ret["histtype"] = plottype
         if prepend:
             ret = {f"{prepend}_{x}": y for x, y in ret.items()}
+
+        if plottype == "scatter_z":
+            ret["s"] = ret.pop("markersize")
         return ret
 
 

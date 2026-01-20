@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 
-
 import re
 from enum import Enum
 from fnmatch import fnmatch
@@ -23,7 +22,7 @@ def lookup(obj, key):
     except AttributeError as e:
         try:
             return getattr(obj, "__getitem__")(key)
-        except (KeyError, AttributeError):
+        except (KeyError, AttributeError) as e:
             raise e
 
 

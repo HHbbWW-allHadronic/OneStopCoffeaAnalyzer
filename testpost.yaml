@@ -34,57 +34,82 @@ processors:
   #         split_axis_names: {"variation": "central"}
   #   output_name: "testplots/ratio_{era.name}_{name}.png"
 
-  - name: RatioPlot
-    inputs:
-      - "*/*/*/composite_13_m"
-      - "*/*/*/composite_14_m"
-      - "*/*/*/composite_24_m"
-      - "*/*/*/HT"
-    scale: log
-    structure:
-      select: {type: Histogram, dataset_name: "!signal*"}
-      group: {era.name: "*"}
-      subgroups:
-        numerator:
-          select: {sample_type: Data, pipeline: Control }
-        denominator:
-          select: {sample_type: MC,  pipeline: ControlNoBNN}
-      transforms:
-        - name: MergeAxes
-          merge_axis_names: [HT_Cat]
-        - name: SelectAxesValues
-          select_axes_values: {"variation": "central"}
-    output_name: "{prefix}/ratio_nobnn_{era.name}_{name}.png"
-    
-  - name: RatioPlot
-    inputs:
-      - "*/*/*/composite_13_m"
-      - "*/*/*/composite_14_m"
-      - "*/*/*/composite_24_m"
-      - "*/*/*/HT"
-    scale: log
-    structure:
-      select: {type: Histogram, dataset_name: "!signal*"}
-      group: {era.name: "*"}
-      subgroups:
-        numerator:
-          select: {sample_type: Data, pipeline: Control }
-        denominator:
-          select: {sample_type: MC,  pipeline: Control}
-      transforms:
-        - name: MergeAxes
-          merge_axis_names: [HT_Cat]
-        - name: SelectAxesValues
-          select_axes_values: {"variation": "central"}
-    output_name: "{prefix}/ratio_{era.name}_{name}.png"
+  # - name: RatioPlot
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #     - "*/*/*/composite_14_m"
+  #     - "*/*/*/composite_24_m"
+  #     - "*/*/*/HT"
+  #   scale: log
+  #   structure:
+  #     select: {type: Histogram, dataset_name: "!signal*"}
+  #     group: {era.name: "*"}
+  #     subgroups:
+  #       numerator:
+  #         select: {sample_type: Data, pipeline: Control }
+  #       denominator:
+  #         select: {sample_type: MC,  pipeline: ControlNoBNN}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SelectAxesValues
+  #         select_axes_values: {"variation": "central"}
+  #   output_name: "{prefix}/ratio_nobnn_{era.name}_{name}.png"
+  #   
+  # - name: RatioPlot
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #     - "*/*/*/composite_14_m"
+  #     - "*/*/*/composite_24_m"
+  #     - "*/*/*/HT"
+  #   scale: log
+  #   structure:
+  #     select: {type: Histogram, dataset_name: "!signal*"}
+  #     group: {era.name: "*"}
+  #     subgroups:
+  #       numerator:
+  #         select: {sample_type: Data, pipeline: Control }
+  #       denominator:
+  #         select: {sample_type: MC,  pipeline: Control}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SelectAxesValues
+  #         select_axes_values: {"variation": "central"}
+  #   output_name: "{prefix}/ratio_{era.name}_{name}.png"
+  # 
+  # - name: PlotSelectionFlow
+  #   inputs:
+  #     - "*/*/*/selection"
+  #   structure:
+  #     select: {type: SelectionFlow}
+  #     group: {era.name: "*", pipeline: "*"}
+  #   output_name: "{prefix}/cutflow_{era.name}_{pipeline}.png"
 
-  - name: PlotSelectionFlow
+  - name: Significance2D
     inputs:
-      - "*/*/*/selection"
+      - "*/*/*/uncomp_m14_vs_mChiRatio"
+    significance_type: poisson_basic
+    significance_calculation: quadrature_sum
+    group_xy_patterns: [["other_data","stop_mass"], ["other_data","chargino_mass"]]
+    xyz_labels: ["ms","mx","Sig"]
+    style:
+      markersize: 60
     structure:
-      select: {type: SelectionFlow}
-      group: {era.name: "*", pipeline: "*"}
-    output_name: "{prefix}/cutflow_{era.name}_{pipeline}.png"
+      select: {type: Histogram, sample_type: MC}
+      group: {era.name: "*"}
+      subgroups:
+        signal:
+          select: {dataset_name: "signal*", pipeline: Signal312 }
+        background:
+          select: {dataset_name: "!signal*",  pipeline: Signal312}
+      transforms:
+        - name: MergeAxes
+          merge_axis_names: [HT_Cat]
+        - name: SelectAxesValues
+          select_axes_values: {"variation": "central"}
+    output_name: "{prefix}/sig_{era.name}_{name}.png"
+    
 
 
 default_plot_config:
