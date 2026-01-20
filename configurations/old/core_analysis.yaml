@@ -1,0 +1,497 @@
+# The name of analysis to be run
+
+name: Complete
+# Samples and in which regions they should be processed
+datasets:
+
+  # Core 2023 plots
+  - dataset: 'qcd_inclusive*2023_pre*'
+    regions: [Signal312, Signal313, Control, NoCuts, SingleLepHighPtCR312,SingleLepHighPtCR313 ]
+  - dataset: 'data_JetHT_2023pre*'
+    regions: [Control,NoCuts]
+  - dataset: 'wjetsqq*2023_pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'tt_to_hadronic*2023_pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'zjetsqq*2023_pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'signal_*2023*pre*_312_*official'
+    regions: [Signal312]
+  - dataset: 'signal_*2023*pre*_313_*official'
+    regions: [Signal313]
+
+
+# Single lepton control region stuff
+
+  - dataset: 'data_electron_2023pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  - dataset: 'data_muon_2023pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  - dataset: 'tt_to_semilep*2023_pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  - dataset: 'wjetslnu_2023_pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  - dataset: 'single_top_2023_pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  - dataset: 'diboson_2023_pre*'
+    regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  
+
+# 2016 Data/MC studies
+
+  - dataset: 'zjetsqq*2016_pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'tt_to_hadronic*2016_pre*'
+    regions: [Control,NoCuts]
+  - dataset: 'qcd_inclusive*2016_pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'data_JetHT_2016pre*'
+    regions: [Control, NoCuts]
+  - dataset: 'wjetsqq*2016_pre*'
+    regions: [Control, NoCuts]
+
+  # - dataset: 'data_egamma_2018*'
+  #   regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  # - dataset: 'data_singlemuon_2018*'
+  #   regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+  # - dataset: 'tt_semilep*2018*'
+  #   regions: [SingleLepHighPtCR312, SingleLepHighPtCR313]
+
+
+  # - dataset: 'zjetsqq*2023_pre*'
+  #   regions: [Control, Signal312, Signal313]
+  # 
+  # - dataset: 'tt_to_hadronic*2023_pre*'
+  #   regions: [Control, Signal312, Signal313, SingleLepHighPtCR312, SingleLepHighPtCR313]
+  # 
+  # - dataset: 'data_JetHT_2023pre*'
+  #   regions: [Control]
+  # 
+
+  # 
+  # - dataset: 'wjetsqq*2016_pre*'
+  #   regions: [Control]
+  # 
+  # - dataset: 'tt_to_hadronic*2016_pre*'
+  #   regions: [Control]
+  # 
+  # - dataset: 'data_JetHT_2016pre*'
+  #   regions: [Control]
+
+  # - dataset: 'signal_*_312_*official'
+  #   regions: [Signal312]
+  # - dataset: 'signal_*_313_*official'
+  #   regions: [Signal313]
+
+  # - dataset: 'qcd_inclusive_*'
+  #   regions: [Control, Signal313, Signal312]
+  # - dataset: 'tt_to_hadronic*'
+  #   regions: [Signal313, Signal312]
+  # - dataset: 'data_JetHT_*'
+  #   regions: [Control,BlindedSignal313, BlindedSignal312]
+  # - dataset: 'signal_*_312_*official'
+  #   regions: [Signal312]
+  # - dataset: 'signal_*_313_*official'
+  #   regions: [Signal313]
+  # tt_to_hadronic_2016_preVFP: [Control]
+  # qcd_inclusive_2016_preVFP: [Control]
+  # data_JetHT_2016pre: [Control]
+  # signal_2018_312_.+: [Signal312]
+  # signal_2023_preBPix_312_1500_600_official: [Signal312]
+  # signal_2016_preVFP_312_1100_600_official: [Signal312]
+  # signal_2018_312_1500_600: [Signal312]
+  # signal_2018_313_.+: [Signal313]
+
+executors:
+  local:
+    executor_type: dask_local
+    step_size: 100000
+    min_workers: 1
+    max_workers: 4
+    timeouts:
+      - pattern: "*signal*"
+        timeout: 1200
+      - pattern: "*"
+        timeout: 120
+  imm:
+    executor_type: immediate
+    step_size: 100000
+    catch_exceptions: False
+
+  condor:
+    executor_type: condor
+    step_size: 100000
+
+  dask_condor:
+    executor_type: dask_condor
+    max_workers: 400
+    min_workers: 10
+    worker_memory: 4GB
+    worker_timeout: 7200
+    chunk_size: 400000
+    reduction_factor: 3
+    input_events_per_output: 5000000
+    timeouts:
+      - pattern: "*signal*"
+        timeout: 2400
+      - pattern: "*"
+        timeout: 120
+    extra_files:
+        - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
+        - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
+
+# Samples and in which regions they should be processed
+execution_config:
+
+file_config:
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  # location_priority_regex: [".*(T0|T1|T2).*","eos"]
+  use_replicas: True
+
+common_items:
+
+
+    common_corrections:  &common_corrections 
+      - name: corrected_jets
+        config:
+          input_col: Jet
+          output_col: CorrectedJet
+          # do_smearing: true
+          do_smearing: true
+          include_systematics: true
+        constraint:
+          sample_type: MC
+          name: "*signal*"
+      
+      - name: corrected_jets
+        config:
+          input_col: Jet
+          output_col: CorrectedJet
+          do_smearing: true
+          include_systematics: false
+        constraint:
+          sample_type: MC
+          name:
+            op: NOT
+            expr: "*signal*"
+
+    common_signal_histograms: &common_signal
+      - name: njets
+      - name: goodjet_ht
+      - name: jet_kinematics
+      - name: topfatjet_plots
+      # - name: b_discriminator
+      - name: b_quark_counts
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
+
+      - name: jet_combo_kinematics
+      - name: NN_mass_reco
+        config:
+          - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
+            scaler_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl
+            model_name: uncomp_0p67
+          - model_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt
+            scaler_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl
+            model_name: comp_0p67
+
+    common_objects: &common_objects
+
+      - name: jets
+        config:
+          jet_in: Jet
+          jet_out: good_jets
+        constraint:
+          sample_type: Data
+          era.name: '202*'
+
+      - name: jets
+        config:
+          jet_in: CorrectedJet
+          jet_out: good_jets
+        constraint:
+          sample_type: MC
+          era.name: '202*'
+
+      - name: jets
+        config:
+          jet_in: Jet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: Data
+          era.name: '201*'
+
+      - name: jets
+        config:
+          jet_in: CorrectedJet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: MC
+          era.name: '201*'
+
+      - name: jetmap_vetoed_jets
+        config:
+          jet_in: temp_good_jets
+          jet_out: good_jets
+        constraint:
+          era.name: '201*'
+
+      - name: ht
+        config:
+          jet_in: good_jets
+
+      - name: core_objects
+
+    common_lep_objects: &common_lep_objects
+      - name: jets
+        config:
+          jet_in: Jet
+          jet_out: good_jets
+        constraint:
+          sample_type: Data
+          era.name: '202*'
+
+      - name: jets
+        config:
+          jet_in: CorrectedJet
+          jet_out: good_jets
+        constraint:
+          sample_type: MC
+          era.name: '202*'
+
+      - name: jets
+        config:
+          jet_in: Jet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: Data
+          era.name: '201*'
+
+      - name: jets
+        config:
+          jet_in: CorrectedJet
+          jet_out: temp_good_jets
+        constraint:
+          sample_type: MC
+          era.name: '201*'
+
+      - name: jetmap_vetoed_jets
+        config:
+          jet_in: temp_good_jets
+          jet_out: good_jets
+        constraint:
+          era.name: '201*'
+
+      - name: ht
+        config:
+          jet_in: good_jets
+
+      - name: semilep_objects
+
+
+    common_preselection: &common_preselection 
+      - name: golden_lumi_filter
+        constraint:
+          sample_type: Data
+      - name: jet_veto_maps
+        constraint:
+          "era.name": '202*'
+      - name: noise_filters
+      # - name: min_one_fatjet
+
+
+
+    common_weights: &common_weights
+      # - name: trigger_weight
+      #   config:
+      #     correction_path_template: "root://cmseos.fnal.gov///store/user/ckapsiak/SingleStop/trigger_effs/trigger_eff_sept_2025/{dataset.era.name}/SingleJetEff/data_muon{era_name_short}/ht_ak8_pt_vs_sdmass_3d_efficiencytrigg_eff_corrections.json"
+      #   constraint:
+      #     sample_type: MC
+
+      - name: sign_gen_weight
+        constraint:
+          sample_type: MC
+
+      - name: pileup_sf
+        constraint:
+          sample_type: MC
+        config:
+          include_systematics: False
+        constraint:
+          sample_type: MC
+          name:
+            op: NOT
+            expr: "*signal*"
+
+      - name: pileup_sf
+        constraint:
+          sample_type: MC
+        config:
+          include_systematics: True
+        constraint:
+          sample_type: MC
+          name: "*signal*"
+
+
+
+      - name: btagging_shape_sf
+        config:
+          include_systematics: False
+        constraint:
+          sample_type: MC
+          name:
+            op: NOT
+            expr: "*signal*"
+
+      - name: btagging_shape_sf
+        config:
+          include_systematics: True
+        constraint:
+          sample_type: MC
+          name: "*signal*"
+
+
+
+
+      - name: puid_sf
+        config:
+          working_point: "M"
+          include_systematics: False
+        constraint:
+          sample_type: MC
+          era.name: '201*'
+          name:
+            op: NOT
+            expr: "*signal*"
+
+      - name: puid_sf
+        config:
+          working_point: "M"
+          include_systematics: True
+        constraint:
+          sample_type: MC
+          era.name: '201*'
+          name: "*signal*"
+
+
+regions:
+  - name: Signal312
+    # forbid_data: true
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal312_selection
+    histograms: *common_signal
+    weights: *common_weights
+
+  - name: Signal313
+    # forbid_data: true
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal313_selection
+    histograms: *common_signal
+    weights: *common_weights
+
+  - name: Control
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection: 
+      - *common_preselection
+      - name: signal_hlt
+        constraint:
+          sample_type: Data
+    selection: 
+      - name: general_selection
+      - name: partial_cr_selection
+    histograms: *common_signal
+    categories:
+      - name: zero_loose_b_category
+    weights: *common_weights
+
+  - name: NoCuts
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+    selection:  []
+    histograms: 
+      - name: njets
+      - name: goodjet_ht
+      - name: jet_kinematics
+      - name: topfatjet_plots
+      - name: b_discriminator
+      - name: b_quark_counts
+        config:
+          - working_point: L
+          - working_point: M
+          - working_point: T
+
+    categories:
+      - name: hlt_ht_trigger_category
+      - name: hlt_singlejet_trigger_category
+    weights: *common_weights
+
+  - name: BlindedSignal313
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal313_selection
+    histograms: 
+      - name: njets
+      - name: goodjet_ht
+    weights: *common_weights
+
+  - name: BlindedSignal312
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal312_selection
+    histograms: 
+      - name: njets
+      - name: goodjet_ht
+    weights: *common_weights
+
+  - name: SingleLepHighPtCR312
+    objects: *common_lep_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: one_lep_hlt
+    selection: 
+      - name: single_lep_selection
+      - name: partial_signal312_selection
+      - name: high_pt_jet_selection
+    histograms: *common_signal
+    weights: *common_weights
+
+  - name: SingleLepHighPtCR313
+    objects: *common_lep_objects
+    corrections: *common_corrections
+    preselection:
+      - *common_preselection
+      - name: one_lep_hlt
+    selection: 
+      - name: single_lep_selection
+      - name: partial_signal313_selection
+      - name: high_pt_jet_selection
+    histograms: *common_signal
+    weights: *common_weights

@@ -1,0 +1,140 @@
+analyzer:
+  TriggerData:
+    - module_name: SimpleHLT
+      triggers: [IsoMuon]
+    - module_name: GoldenLumi
+    - module_name: PileupSF
+    - module_name: JetScaleCorrections
+      input_col: Jet
+      output_col: Jet
+    - module_name: L1PrefiringSF
+    - module_name: VetoMapFilter
+      input_col: Jet
+      output_col: Jet
+
+    - module_name: VetoMap
+      input_col: Jet
+
+    - module_name: VetoMap
+      input_col: Jet
+
+    - module_name: NoiseFilter
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+
+    - module_name: ElectronMaker
+      input_col: Electron
+      output_col: GoodElectron
+      working_point: "tight"
+      min_pt: 10
+      max_abs_eta: 2.4
+      max_mini_iso: 0.1
+
+    - module_name: MuonMaker
+      input_col: Muon
+      output_col: GoodMuon
+      id_working_point: "mediumId"
+      min_pt: 30
+      max_abs_eta: 2.4
+      max_mini_iso: 0.1
+
+    - module_name: JetFilter
+      input_col: FatJet
+      output_col: GoodFatJet
+      min_pt: 200
+      max_abs_eta: 2.4
+
+    - module_name: JetFilter
+      input_col: Jet
+      output_col: GoodJet
+      include_pu_id: True
+      include_jet_id: True
+      min_pt: 30
+      max_abs_eta: 2.4
+
+    - module_name: FilterNear
+      target_col: GoodFatJet
+      near_col: GoodMuon
+      output_col: GoodFatJet
+      max_dr: 0.8
+
+    - module_name: NObjFilter
+      input_col: GoodMuon
+      selection_name: one_muon
+      min_count: 1
+      max_count: 1
+
+    - module_name: NObjFilter
+      input_col: GoodElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: GoodFatJet
+      selection_name: least_one_fatjet
+      min_count: 1
+
+    - module_name: SelectOnColumns
+      sel_name: selection
+
+    - module_name: HT
+      input_col: GoodJet
+
+    - module_name: PromoteIndex
+      input_col: GoodFatJet
+      output_col: LeadingFatJet
+
+    - module_name: SaveCols
+      save_name: trigger_data
+      to_save:
+        HT: "HT"
+        PT: "LeadingFatJet.pt"
+        MSD: "LeadingFatJet.msoftdrop"
+        PassHT: "HLTMAP:HT"
+        PassAK8: "HLTMAP:AK8SingleJetPt"
+
+    - module_name: TopJetHistograms
+      prefix: "jet"
+      input_col: GoodFatJet
+      max_idx: 1
+
+
+        
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  # - dataset: 'qcd*2018'
+  #   pipelines: [Signal312]
+  - dataset: 'signal_2018_312_1500_*0'
+    pipelines: [TriggerData]
+  # - dataset: 'signal_*official'
+  #   pipelines: [Signal312]
+  # - dataset: testqcd
+  #   pipelines: [Signal312]
+  # - dataset: "data_*muon_*"
+  #   pipelines: [TriggerData]
+  # - dataset: diboson_2018
+  #   pipelines: [TriggerData]
+    
+  
+extra_executors:
+  test:
+    executor_name: ImmediateExecutor
+    chunk_size: 1000000
+
+  test2:
+    executor_name: LocalDaskExecutor
+    chunk_size: 400000
+    min_workers: 1
+    max_workers: 3
+    reduction_factor: 2
+  
+  testcondor:
+    executor_name: LPCCondorDask
+    container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
+    venv_path: .venv
+    chunk_size: 400000
+    max_workers: 200
+    worker_memory: 6GB

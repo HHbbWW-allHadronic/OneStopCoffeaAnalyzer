@@ -1,0 +1,501 @@
+PostDefaults:
+  style_set: "style.yaml"
+  plot_configuration:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+
+# drop_sample_patterns: 
+  # - "*30to50*"
+  # - "*50to80*"
+  # - "*80to120*"
+  # - "*120to170*"
+  # - "*170to300*"
+  # - "*300to470*"
+  # - "*470to600*"
+
+  # - "*50to100*"
+  # - "*100to200*"
+  # - "*200to300*"
+  # - "*300to500*"
+
+Postprocessing:
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   style_set:
+  #     - pattern:
+  #         dataset.name: 'qcd*'
+  #       style:
+  #         plot_type: step
+  #     
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - split_axis_names: ["variation"]
+  #         pattern:
+  #           - central
+  #           - CorrectedJet__base
+  #       - title_format: "{dataset.title} {variation}"
+  #       - merge_axis_names: [ZeroLooseB]
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/variations_{region_name}_no_b_cut_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   style_set:
+  #     - pattern: 
+  #         dataset.name: 'qcd*'
+  #       style:
+  #         plot_type: step
+  #     
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - split_axis_names: ["variation"]
+  #         pattern:
+  #           - central
+  #           - CorrectedJet__base
+  #       - title_format: "{dataset.title} {variation}"
+  #       - select_axes_values: {ZeroLooseB: 1}
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/variations_{region_name}_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - merge_axis_names: [ZeroLooseB]
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_no_b_cut_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - merge_axis_names: [PassHLTHT]
+  #       - select_axes_values: {PassHLTSingleJet: 1}
+  # 
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_ak8_no_ht_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - merge_axis_names: [PassHLTSingleJet]
+  #       - select_axes_values: {PassHLTHT: 1}
+  # 
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_ht_no_ak8_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: Histogram1D 
+  #   histogram_names:
+  #     - HT
+  #     - pt_1
+  #   scale: log
+  #   input: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - or_axis_names: [PassHLTSingleJet, PassHLTHT]
+  # 
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_ht_or_ak8_{dataset.era.name}_{histogram_name}"
+  # 
+  - name: Plot
+    action: RatioPlot 
+    histogram_names:
+      - HT
+      - pt_1
+    scale: log
+    numerator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'Control', 'dataset.sample_type': Data}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - title_format: "{dataset.title}"
+        - select_axes_values: {ZeroLooseB: 1}
+  
+    denominator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'Control', "dataset.sample_type": MC}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - title_format: "{dataset.title}"
+        - select_axes_values: {ZeroLooseB: 1}
+    match_fields: ['dataset.era.name' ,'region_name']
+    output_name: "postprocessing/CR/plots/{dataset.era.name}/{region_name}/{region_name}_with_b_{dataset.era.name}_{histogram_name}"
+  # 
+  # - name: Plot
+  #   action: RatioPlot 
+  #   scale: log
+  #   histogram_names:
+  #     - L_nb
+  #     - M_nb
+  #     - T_nb
+  #     - HT
+  #     - pt_1
+  # 
+  #   numerator: 
+  #     group_fields: {'dataset.era.name': '*', 'region_name': 'Control', 'dataset.sample_type': Data}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - merge_axis_names: [ZeroLooseB]
+  # 
+  #   denominator: 
+  #     group_fields: {'dataset.era.name': '*', 'dataset.name': "*", 'region_name': 'Control', "dataset.sample_type": MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       # - merge_fields: null
+  #       - merge_axis_names: [ZeroLooseB]
+  # 
+  #   match_fields: ['dataset.era.name' ,'region_name']
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_no_b_cut_{dataset.era.name}_{histogram_name}"
+  # # 
+  #- name: Plot
+  #  action: RatioPlot 
+  #  scale: log
+  #  histogram_names:
+  #    - L_nb
+  #    - M_nb
+  #    - T_nb
+  #    - HT
+  #    - pt_1
+  #
+  #  numerator: 
+  #    group_fields: {'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': Data}
+  #    pipeline: 
+  #      - select_axes_values: {"variation":"central"}
+  #      - title_format: "{dataset.title}"
+  #      - merge_axis_names: [PassHLTHT]
+  #      - select_axes_values: {PassHLTSingleJet: 1}
+  #
+  #
+  #  denominator: 
+  #    group_fields: {'dataset.era.name': '*', 'region_name': 'NoCuts', "dataset.sample_type": MC}
+  #    pipeline: 
+  #      - select_axes_values: {"variation":"central"}
+  #      - title_format: "{dataset.title}"
+  #      # - merge_fields: null
+  #      - merge_axis_names: [PassHLTHT]
+  #      - select_axes_values: {PassHLTSingleJet: 1}
+  #
+  #  match_fields: ['dataset.era.name' ,'region_name']
+  #  output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_hltak8_only_{dataset.era.name}_{histogram_name}"
+
+  # - name: Plot
+  #   action: RatioPlot 
+  #   scale: log
+  #   histogram_names:
+  #     - L_nb
+  #     - HT
+  #     - pt_1
+  # 
+  #   numerator: 
+  #     group_fields: {'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': Data}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       - merge_axis_names: [PassHLTSingleJet]
+  #       - select_axes_values: {PassHLTHT: 1}
+  # 
+  # 
+  #   denominator: 
+  #     group_fields: {'dataset.era.name': '*','dataset.name': "*", 'region_name': 'NoCuts', "dataset.sample_type": MC}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title}"
+  #       # - merge_fields: null
+  #       - merge_axis_names: [PassHLTSingleJet]
+  #       - select_axes_values: {PassHLTHT: 1}
+  # 
+  #   match_fields: ['dataset.era.name' ,'region_name']
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{region_name}_hltht_only_{dataset.era.name}_{histogram_name}"
+
+  - name: Plot
+    action: RatioPlot 
+    histogram_names:
+      - L_nb
+      - M_nb
+      - T_nb
+      - HT
+      - pt_1
+  
+    scale: log
+    numerator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'NoCuts', 'dataset.sample_type': Data}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - title_format: "{dataset.title}"
+        - or_axis_names: [PassHLTSingleJet, PassHLTHT]
+  
+  
+    denominator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'NoCuts', "dataset.sample_type": MC}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - title_format: "{dataset.title}"
+        # - merge_fields: null
+        - or_axis_names: [PassHLTSingleJet, PassHLTHT]
+  
+    match_fields: ['dataset.era.name' ,'region_name']
+    output_name: "postprocessing/CR/plots/{dataset.era.name}/{region_name}/just_trigger_{dataset.era.name}_{histogram_name}"
+
+
+  # - name: Simple 1D Plots
+  #   action: Histogram1D
+  #   histogram_names: 
+  #       - uncomp_0p67_mChi
+  #       - comp_0p67_mChi
+  #       - uncomp_0p67_mStop
+  #       - comp_0p67_mStop
+  #       - m14_m
+  #       - m13_m
+  #       # - h_njet
+  #       # - HT
+  #       # - pt_1
+  #       # - pt_2
+  #   scale: linear
+  #   plot_configuration:
+  #     cms_text: "Preliminary\n{region_name}"
+  #   input: 
+  #     group_fields: {'dataset.era.name':'*', 'dataset.name':'*', 'region_name':'*'}
+  #     pipeline:
+  #       - select_axes_values: {"variation":"central"}
+  #       - rebin: 2
+  #       - title_format: "{dataset.title}"
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
+  # 
+  # - name: Simple 2D Plots
+  #   action: Histogram2D
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #     # - uncomp_0p67_m14_vs_mChi
+  #     # - comp_0p67_m14_vs_mChi
+  #   input: 
+  #     group_fields: {'dataset.name': '*', 'dataset.era.name': '*', 'region_name': '*'}
+  #     pipeline:
+  #       - select_axes_values: {"variation":"central"}
+  #       - rebin: 3
+  #       - title_format: "{dataset.title}"
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{region_name}/{dataset.name}/{histogram_name}"
+  #   plot_configuration:
+  #     cms_text_color: white
+
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #   input: 
+  #     group_fields:
+  #       dataset.name:
+  #         - 'signal*'
+  #       dataset.era.name: '*'
+  #       region_name:
+  #         - 'Signal312'
+  #         - 'Signal313'
+  #     pipeline: []
+  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"
+
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #   input: 
+  #     group_fields:
+  #       dataset.name:
+  #         - 'qcd*'
+  #       dataset.era.name: '*'
+  #       region_name:
+  #         - 'Control'
+  #         - 'Signal*'
+  #     pipeline: []
+  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"
+
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #   input: 
+  #     group_fields:
+  #       dataset.name:
+  #         - 'data*'
+  #       dataset.era.name: '*'
+  #       region_name:
+  #         - 'Control'
+  #     pipeline: []
+  #   output_name: "postprocessing/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"
+
+  # - name: yields
+  #   action: DumpYields
+  #   input:
+  #     group_fields: {}
+  #     pipeline: []
+  # 
+  #   output_name: "postprocessing/yields.csv"
+  # 
+  # - name: Cutflow
+  #   action: PlotCutflow
+  #   input:
+  #     group_fields: {'dataset.era.name':'*', 'dataset.name':'*', 'region_name':'*'}
+  #     pipeline: []
+  #     
+  #   # scale: log
+  #   style_set:
+  #     - style:
+  #         plot_type: step
+  # 
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
+
+
+  # - name: MC 2D Plots
+  #   action: Histogram2D
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #     - uncomp_0p67_m14_vs_mChi
+  #     - comp_0p67_m14_vs_mChi
+  #   to_process:
+  #     region_name: "*"
+  #     sample_name:
+  #       - 'qcd*'
+  #       - 'signal*'
+  #       - 'data*'
+  #       - 'tt*'
+  #   grouping: 
+  #     fields: ['dataset.name', 'dataset.era.name', 'region_name']
+  #     axis_options: {variation: central, REST: Rebin2}
+  #   output_name: "postprocessing/plots/{dataset.era.name}/{dataset.name}/{region_name}/{histogram_name}"
+  #   plot_configuration:
+  #     cms_text_color: white
+  # # 
+  - name: CutPlot
+    action: RatioPlot 
+    histogram_names:
+      - HT
+    #normalize: true
+    scale: log
+  
+    numerator: 
+      group_fields: {'dataset.sample_type': 'Data', 'dataset.era.name': '*', 'region_name': 'Control'}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - select_axes_values: {ZeroLooseB: 1}
+        - slices:
+            - [1050, null]
+        - title_format: "{dataset.title}"
+  
+    denominator: 
+      group_fields: {'dataset.sample_type': 'MC*', 'dataset.era.name': '*', 'region_name': 'Control'}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - select_axes_values: {ZeroLooseB: 1}
+        - slices:
+            - [1050, null]
+        - title_format: "{dataset.title}"
+    match_fields: ['dataset.era.name' ,'region_name']
+    output_name: "postprocessing/CR/plots/{dataset.era.name}/{region_name}/{region_name}_{dataset.era.name}_plateau_{histogram_name}"
+  
+  # - name: CutPlot
+  #   action: RatioPlot 
+  #   histogram_names:
+  #     - L_nb
+  #     - M_nb
+  #     - T_nb
+  #   normalize: true
+  # 
+  # 
+  #   style_set:
+  #     - pattern:
+  #         dataset.name: 'data*'
+  #       style:
+  #         plottype: errorbar
+  #         color: black
+  #         linestyle: null
+  #         marker: 'o'
+  # 
+  #     - pattern:
+  #         dataset.name: 'qcd*'
+  #       style:
+  #         plottype: step
+  #         color: "#5790fc"
+  # 
+  #   numerator: 
+  #     group_fields: {'dataset.name': 'data*', 'dataset.era.name': '*', 'region_name': 'Control'}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title} {dataset.era.name}"
+  # 
+  #   denominator: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control'}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title} {dataset.era.name}"
+  #   match_fields: ['dataset.era.name' ,'region_name']
+  #   output_name: "postprocessing/plots/ratios/{dataset.era.name}/{dataset.name}/{region_name}/{dataset.era.name}_{dataset.name}_plateau_{histogram_name}"
+  # 
+  # - name: CutPlot
+  #   action: RatioPlot 
+  #   histogram_names:
+  #     - L_nb
+  #     - M_nb
+  #     - T_nb
+  #   # normalize: true
+  # 
+  #   style_set:
+  #     - pattern:
+  #         dataset.name: 'data*'
+  #       style:
+  #         plottype: errorbar
+  #         color: black
+  #         linestyle: null
+  #         marker: 'o'
+  # 
+  #     - pattern:
+  #         dataset.name: 'qcd*'
+  #       style:
+  #         plottype: step
+  #         color: "#5790fc"
+  # 
+  #   numerator: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control'}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"unweighted"}
+  #       - title_format: "{dataset.title} {dataset.era.name} no BSF"
+  # 
+  #   denominator: 
+  #     group_fields: {'dataset.name': 'qcd*', 'dataset.era.name': '*', 'region_name': 'Control'}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - title_format: "{dataset.title} {dataset.era.name} with BSF"
+  #   match_fields: ['dataset.era.name' ,'region_name']
+  #   output_name: "postprocessing/plots/ratios/{dataset.era.name}/{dataset.name}/{region_name}/comparison_{dataset.era.name}_{dataset.name}_plateau_{histogram_name}"

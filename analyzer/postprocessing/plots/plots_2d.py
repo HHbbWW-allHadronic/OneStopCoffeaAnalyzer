@@ -7,8 +7,7 @@ from analyzer.postprocessing.style import Styler
 
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig, fixBadLabels
-from .mplstyles import loadStyles
+from .utils import saveFig
 
 
 def plot2D(
@@ -21,22 +20,19 @@ def plot2D(
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
-    loadStyles()
     fig, ax = plt.subplots(layout="constrained")
-    styler.getStyle(packaged_hist.sector_parameters)
+    styler.getStyle(packaged_hist.provenance.sector_parameters)
     h = packaged_hist.histogram
-    fixBadLabels(h)
 
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+        h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-        art = h.plot2d(ax=ax)
+        h.plot2d(ax=ax)
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    sp = packaged_hist.sector_parameters
+    sp = packaged_hist.provenance.sector_parameters
     addCMSBits(
         ax,
         [sp],
@@ -55,6 +51,7 @@ def getContour(HH, val):
             return i
     return None
 
+
 def plot2DSigBkg(
     bkg_hist,
     sig_hist,
@@ -68,19 +65,16 @@ def plot2DSigBkg(
     override_axis_labels = override_axis_labels or {}
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    matplotlib.use("Agg")
-    loadStyles()
     fig, ax = plt.subplots(layout="constrained")
     styler.getStyle(bkg_hist.sector_parameters)
     h = bkg_hist.histogram
-    fixBadLabels(h)
 
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        art = h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+        h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-        art = h.plot2d(ax=ax)
+        h.plot2d(ax=ax)
 
     from scipy.ndimage import gaussian_filter
 
@@ -130,5 +124,5 @@ def plot2DSigBkg(
         text_color="white",
         plot_configuration=plot_configuration,
     )
-    saveFig(fig, output_path, extension=plot_configuration.image_type)
+    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)

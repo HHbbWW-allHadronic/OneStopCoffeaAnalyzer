@@ -1,0 +1,94 @@
+PostDefaults:
+  style_set: "style.yaml"
+  plot_configuration:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+
+drop_sample_patterns: 
+  - "*qcd*30to50*"
+  - "*qcd*50to80*"
+  - "*qcd*80to120*"
+  - "*qcd*120to170*"
+  - "*qcd*170to300*"
+  - "*qcd*300to470*"
+  - "qcd*470to600*"
+
+  # - "*50to100*"
+  # - "*100to200*"
+  # - "*200to300*"
+  # - "*300to500*"
+
+Postprocessing:
+  - name: Plot
+    action: RatioPlot 
+    histogram_names:
+      - HT
+      - pt_1
+
+    style_set:
+      - pattern:
+          dataset.sample_type: 'MC'
+        style:
+          plottype: fill
+
+      - pattern:
+          dataset.sample_type: 'Data'
+        style:
+            plottype: errorbar
+            color: black
+            linestyle: null
+            marker: 'o'
+  
+    numerator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'SingleLep*', 'dataset.sample_type': Data}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - merge_fields: null
+        - title_format: "Data"
+  
+    denominator: 
+      group_fields: {'dataset.era.name': '*', 'region_name': 'SingleLep*', "dataset.sample_type": MC}
+      pipeline: 
+        - select_axes_values: {"variation":"central"}
+        - title_format: "{dataset.title}"
+  
+    match_fields: ['dataset.era.name' ,'region_name']
+    output_name: "postprocessing/single_lep/{dataset.era.name}/{region_name}/{dataset.era.name}_{histogram_name}"
+
+  # - name: Plot
+  #   action: Histogram2D 
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  # 
+  #   input: 
+  #     group_fields: {'dataset.era.name': '*', 'region_name': 'SingleLep*', 'dataset.sample_type': Data}
+  #     pipeline: 
+  #       - select_axes_values: {"variation":"central"}
+  #       - merge_fields: null
+  #       - title_format: "Data"
+  #       - rebin: 4
+  # 
+  #   output_name: "postprocessing/single_lep/{dataset.era.name}/{region_name}/data_{dataset.era.name}_{histogram_name}"
+
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #   input: 
+  #     group_fields: {'dataset.era.name': '*', 'region_name': 'SingleLep*', 'dataset.sample_type': 'Data'}
+  #     pipeline:
+  #       - merge_fields: null
+  #   output_name: "postprocessing/single_lep/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"
+  # 
+  # - name: Export
+  #   action: ExportHists
+  #   histogram_names:
+  #     - uncomp_0p67_m14_vs_mChiRatio
+  #     - comp_0p67_m14_vs_mChiRatio
+  #   input: 
+  #     group_fields: {'dataset.era.name': '*', 'region_name': 'SingleLep*', 'dataset.sample_type': 'MC'}
+  #     pipeline: []
+  #   output_name: "postprocessing/single_lep/export_hists/{dataset.name}/{region_name}/{histogram_name}.pklz4"

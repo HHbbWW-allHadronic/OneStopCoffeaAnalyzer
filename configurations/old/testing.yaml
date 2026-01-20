@@ -1,0 +1,158 @@
+# The name of analysis to be run
+name: Complete
+# Samples and in which regions they should be processed
+samples:
+  signal_2018_312_1500_1400: All
+  # signal_2018_312_1500_900: All
+  # signal_2018_312_1500_600: All
+
+executors:
+  local:
+    executor_type: dask_local
+    step_size: 10000
+    max_workers: 2
+    min_workers: 1
+    parallel_save: null
+    timeout: 240
+
+  imm:
+    executor_type: immediate
+    step_size: 1000000
+    catch_exceptions: False
+
+  condor:
+    executor_type: condor
+    step_size: 100000
+
+  dask_condor:
+    executor_type: dask_condor
+    max_workers: 10
+    min_workers: 10
+
+    step_size: 5000
+
+    use_threads: true
+    parallel_submission: 1
+    memory: 4GB
+    worker_timeout: 7200
+    bulk_mode: true
+    extra_files:
+        - nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/
+        - nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/
+
+
+# Samples and in which regions they should be processed
+execution_config:
+
+file_config:
+  location_priority_regex: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+  use_replicas: True
+
+# You can use yaml anchors to reduce the amount of duplication in the configuration file
+
+common_items:
+    common_signal_histograms: &common_signal
+      - name: njets
+      - name: goodjet_ht
+      - name: jet_kinematics
+      - name: jet_combo_kinematics
+      - name: b_quark_kinematics
+        config:
+          - working_point: M
+          - working_point: T
+      - name: NN_mass_reco
+        config:
+          - model_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt
+            scaler_path: nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl
+            model_name: uncomp_0p67
+          - model_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt
+            scaler_path: nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl
+            model_name: comp_0p67
+
+    common_objects: &common_objects
+      - name: jets_and_ht
+      - name: core_objects
+
+    common_corrections: &common_corrections
+      - name: corrected_jets_data
+        config:
+          input_col: Jet
+          output_col: CorrectedJet
+        constraint:
+          sample_type: data
+
+      - name: corrected_jets
+        config:
+          input_col: Jet
+          output_col: CorrectedJet
+          do_smearing: false
+        constraint:
+          sample_type: MC
+          
+
+    common_preselection: &common_preselection 
+      - name: golden_lumi_filter
+        constraint:
+          sample_type: Data
+
+    common_weights: &common_weights
+      - name: L1_prefiring_sf
+        config:
+          variations: All
+        constraint:
+          era.name: '201*'
+          sample_type: MC
+
+
+      - name: sign_gen_weight
+        constraint:
+          sample_type: MC
+
+      - name: pileup_sf
+        constraint:
+          sample_type: MC
+
+      - name: btagging_shape_sf
+        constraint:
+          sample_type: MC
+
+
+regions:
+  - name: Signal312
+    # forbid_data: true
+    objects: *common_objects
+    corrections: *common_corrections
+    preselection:
+      - <<: *common_preselection
+      - name: signal_hlt
+    selection: 
+      - name: general_selection
+      - name: partial_signal312_selection
+    histograms: *common_signal
+    weights: *common_weights
+
+  # - name: Signal313
+  #   # forbid_data: true
+  #   objects: *common_objects
+  #   # corrections: *common_corrections
+  #   preselection:
+  #     - <<: *common_preselection
+  #     - name: signal_hlt
+  #   selection: 
+  #     - name: general_selection
+  #     - name: partial_signal313_selection
+  #   histograms: *common_signal
+  #   weights: *common_weights
+  # 
+  # - name: Control
+  #   objects: *common_objects
+  #   # corrections: *common_corrections
+  #   preselection:
+  #     - <<: *common_preselection
+  #     - name: signal_hlt
+  #   selection: 
+  #     - name: general_selection
+  #     - name: partial_cr_selection
+  #   histograms: *common_signal
+  #   weights: *common_weights
+

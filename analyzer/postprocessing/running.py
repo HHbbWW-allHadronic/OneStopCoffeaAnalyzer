@@ -1,15 +1,40 @@
+from attr import Converter
+from analyzer.postprocessing.plots.common import PlotConfiguration
 import concurrent.futures as cf
-import itertools as it
-
+from analyzer.core.results import loadResults, mergeAndScale
+from cattrs.converters import Converter
+from .processors import configureConverter
+from .grouping import configureConverter as groupingConfConv
+from .style import StyleSet
+from analyzer.core.serialization import setupConverter
 import matplotlib as mpl
-from analyzer.core.results import loadSampleResultFromPaths, makeDatasetResults
-from analyzer.utils.progress import progbar
-from rich import print
-from rich.progress import Progress
 
-from .plots.mplstyles import loadStyles
-from .processors import PostProcessorType, postprocess_catalog
-from .registry import loadPostprocessors
+try:
+    from yaml import CLoader as Loader
+except ImportError:
+    from yaml import Loader
+import yaml
+from rich.progress import Progress, track
+from distributed import (
+    WorkerPlugin,
+)
+from analyzer.utils.querying import BasePattern
+import analyzer.utils.querying
+import analyzer.postprocessing.basic_histograms  # noqa
+import analyzer.postprocessing.cutflows  # noqa
+import analyzer.postprocessing.combine  # noqa
+import analyzer.postprocessing.aggregate_plots  # noqa
+from .style import loadStyles
+from attrs import define
+from .basic_histograms import BasePostprocessor
+
+
+@define
+class PostprocessorConfig:
+    processors: list[BasePostprocessor]
+    default_style_set: StyleSet
+    default_plot_config: PlotConfiguration
+    drop_sample_patterns: list[BasePattern] | None = None
 
 
 def initProcess():
@@ -17,67 +42,50 @@ def initProcess():
     loadStyles()
 
 
-def run(tasks, parallel):
-    with Progress() as progress:
-        task_id = progress.add_task("[cyan]Processing...", total=len(tasks))
-        if not parallel:
-            for f in tasks:
-                f()
-                progress.advance(task_id)
-        else:
+class LoadStyles(WorkerPlugin):
+    def setup(self, worker):
+        loadStyles()
+
+    def teardown(self, worker):
+        pass
+
+
+def runPostprocessors(path, input_files, parallel=None, prefix=None):
+    converter = Converter()
+
+    setupConverter(converter)
+    groupingConfConv(converter)
+    configureConverter(converter)
+
+    loadStyles()
+
+    with open(path, "r") as f:
+        data = yaml.load(f, Loader=Loader)
+
+    postprocessor = converter.structure(data, PostprocessorConfig)
+
+    for processor in postprocessor.processors:
+        if processor.style_set is None:
+            processor.style_set = postprocessor.default_style_set
+        if processor.plot_configuration is None:
+            processor.plot_configuration = postprocessor.default_plot_config
+
+    results = loadResults(input_files)
+    results = mergeAndScale(results)
+    all_funcs = []
+    for processor in postprocessor.processors:
+        all_funcs.extend(list(processor.run(results, prefix)))
+
+    if parallel and parallel > 1:
+        with Progress() as progress:
+            task = progress.add_task("[green]Processing...", total=len(all_funcs))
             with cf.ProcessPoolExecutor(
                 max_workers=parallel, initializer=initProcess
             ) as executor:
-                results = [executor.submit(f) for f in tasks]
-                for i in cf.as_completed(results):
-                    try:
-                        i.result()
-                    except Exception as e:
-                        raise
-                        print(f"Exception occurred {e}")
-                    progress.advance(task_id)
-
-
-def runPostprocessors(config, input_files, parallel=8):
-    loadStyles()
-    print("Loading Postprocessors")
-    loaded, catalog, drops, use_samples_as_datasets = loadPostprocessors(config)
-    all_needed_hists = [y for x in loaded for y in x.getNeededHistograms()]
-    print("Loading Samples")
-    sample_results = loadSampleResultFromPaths(input_files, include=all_needed_hists)
-
-    def dropSampleFunction(sid):
-        if not drops:
-            return False
-        return any(pattern.match(sid.sample_name) for pattern in drops)
-
-    dataset_results = makeDatasetResults(
-        sample_results,
-        drop_sample_fn=dropSampleFunction,
-        include_samples_as_datasets=use_samples_as_datasets,
-    )
-    print("Ready to Process ")
-    sector_results = list(
-        it.chain.from_iterable(r.sector_results for r in dataset_results.values())
-    )
-
-    tasks, items = [], []
-    acc_tasks = []
-    for processor in progbar(loaded):
-        processor.init()
-        if processor.postprocessor_type == PostProcessorType.Normal:
-            t, i = processor.getExe(sector_results)
-            tasks += t
-            items += i
-        elif processor.postprocessor_type == PostProcessorType.Accumulator:
-            t = processor.getExe(sector_results)
-            acc_tasks += t
-    if tasks:
-        run(tasks, parallel)
-
-    if tasks and catalog:
-        with open(catalog, "wb") as f:
-            f.write(postprocess_catalog.dump_json(items, indent=2))
-
-    if acc_tasks:
-        run(acc_tasks, parallel)
+                futures = [executor.submit(f) for f in all_funcs]
+                for future in cf.as_completed(futures):
+                    future.result()
+                    progress.update(task, advance=1)
+    else:
+        for f in track(all_funcs, description="Processing..."):
+            f()

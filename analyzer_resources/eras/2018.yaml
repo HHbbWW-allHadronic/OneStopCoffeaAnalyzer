@@ -15,6 +15,7 @@
   trigger_names:
     HT: PFHT1050
     AK8SingleJetPt: AK8PFJet400_TrimMass30
+    AK8SingleJetPtNoTrim: AK8PFJet500
     SingleMuon: Mu50
     IsoMuon: IsoMu24
     EleWPTight: Ele32_WPTight_Gsf
@@ -42,9 +43,9 @@
     working_points: {L: 4, M: 6, T: 7}
     name: PUJetID_eff
     
-  jet_veto_maps: null
-
-
+  jet_veto_map:
+    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/jetvetomaps.json.gz
+    name: Summer19UL18_V1
 
   jet_corrections:
     jet_names:
@@ -52,9 +53,67 @@
     files:
       AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/jet_jerc.json.gz
       AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2018_UL/fatjet_jerc.json.gz
+      smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
     jec:
-      MC: Summer19UL18_V5_MC
+      campaign: Summer19UL18
+      version: V5
+      systematics:
+        - AbsoluteMPFBias
+        - AbsoluteScale
+        - AbsoluteStat
+        - FlavorQCD
+        - Fragmentation
+        - PileUpDataMC
+        - PileUpPtBB
+        - PileUpPtEC1
+        - PileUpPtEC2
+        - PileUpPtHF
+        - PileUpPtRef
+        - RelativeFSR
+        - RelativeJEREC1
+        - RelativeJEREC2
+        - RelativeJERHF
+        - RelativePtBB
+        - RelativePtEC1
+        - RelativePtEC2
+        - RelativePtHF
+        - RelativeBal
+        - RelativeSample
+        - RelativeStatEC
+        - RelativeStatFSR
+        - RelativeStatHF
+        - SinglePionECAL
+        - SinglePionHCAL
+        - TimePtEta
+      regrouped_systematics:
+        - Regrouped_Absolute
+        - Regrouped_Absolute_2018
+        - Regrouped_FlavorQCD
+        - Regrouped_BBEC1
+        - Regrouped_BBEC1_2018
+        - Regrouped_EC2
+        - Regrouped_EC2_2018
+        - Regrouped_HF
+        - Regrouped_HF_2018
+        - Regrouped_RelativeSample_2018
+        - Regrouped_RelativeBal
     jer:
-      MC: Summer20UL18_JRV3_MC
+      campaign: Summer19UL18
+      version: JRV2
+      genjet_idx_col: genJetIdx
+      systematics:
+        - up
+        - down
 
-  
+  noise_filters:
+    - goodVertices
+    - globalSuperTightHalo2016Filter
+    - HBHENoiseFilter
+    - HBHENoiseIsoFilter
+    - EcalDeadCellTriggerPrimitiveFilter
+    - BadPFMuonFilter
+    # - BadPFMuonDzFilter
+    # - hfNoisyHitsFilter
+    - eeBadScFilter
+    - ecalBadCalibFilter
+    

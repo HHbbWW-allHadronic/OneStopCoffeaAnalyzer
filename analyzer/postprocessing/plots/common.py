@@ -1,11 +1,11 @@
-import pydantic as pyd
 import matplotlib.typing as mplt
 import copy
 from typing import Optional
-from ..grouping import doFormatting
+from attrs import define
 
 
-class PlotConfiguration(pyd.BaseModel):
+@define
+class PlotConfiguration:
     lumi_text: Optional[str] = None
     extra_text: Optional[str] = None
     cms_text: Optional[str] = None
@@ -22,14 +22,14 @@ class PlotConfiguration(pyd.BaseModel):
 
     legend_fill_color: mplt.ColorType | None = None
     legend_fill_alpha: float | None = None
+    legend_font: str | None = None
+    legend_loc: str = "upper right"
+    legend_num_cols: int = 1
 
-
-    def makeFormatted(self, params):
+    def makeFormatted(self, meta):
         ret = copy.deepcopy(self)
         if ret.extra_text:
-            ret.extra_text = doFormatting(ret.extra_text, params)
+            ret.extra_text = ret.extra_text.format(**meta)
         if ret.cms_text:
-            ret.cms_text = doFormatting(ret.cms_text, params)
+            ret.cms_text = ret.cms_text.format(**meta)
         return ret
-
-

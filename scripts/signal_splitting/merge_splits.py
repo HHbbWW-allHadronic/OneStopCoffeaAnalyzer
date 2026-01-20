@@ -7,18 +7,21 @@ import subprocess
 
 
 def getFiles():
-    command = "eos root://cmseos.fnal.gov// find  -f '/store/user/ckapsiak/SingleStop/raw_official_samples/'"
-    out = subprocess.run(command,shell=True, capture_output=True)
+    command = "eos root://cmseos.fnal.gov// find  -f '/store/user/ckapsiak/SingleStop/raw_official_samples/split_signals/'"
+    out = subprocess.run(command, shell=True, capture_output=True)
     lines = out.stdout.splitlines()
-    lines = [l.decode("utf-8").replace("/eos/uscms/", "root://cmseos.fnal.gov//") for l in lines]
+    lines = [
+        l.decode("utf-8").replace("/eos/uscms/", "root://cmseos.fnal.gov//")
+        for l in lines
+    ]
     return lines
 
 
 def merge(output_file, input_files):
     print(f"Saving outfile {output_file} containing {len(input_files)} files")
-    #output_file = Path(output_file)
+    # output_file = Path(output_file)
     print(output_file)
-    #output_file.parent.mkdir(exist_ok=True, parents=True)
+    # output_file.parent.mkdir(exist_ok=True, parents=True)
     subprocess.run(["hadd", "-f", str(output_file), *input_files])
 
 
@@ -31,10 +34,12 @@ def mergeFiles(files, year_field, outdir):
         # rel = f.relative_to(".")
         parts = fp.parts
         year = parts[year_field]
+        if "2022" not in year:
+            continue
         sig = fp.name
         year_sig[(year, sig)].append(f)
     for (year, sig), f in year_sig.items():
-        outfile =  outdir + "/"  + str(year) + "/" + sig
+        outfile = outdir + "/" + str(year) + "/" + sig
         merge(outfile, f)
 
 
@@ -45,7 +50,7 @@ def main():
 
     args = parser.parse_args()
 
-    mergeFiles(getFiles(),args.year_field, args.outdir)
+    mergeFiles(getFiles(), args.year_field, args.outdir)
 
 
 if __name__ == "__main__":

@@ -1,29 +1,39 @@
 styles:
-  - sector_spec:
-      sample_name: 'data*'
+  - pattern:
+      dataset.name: 'data*'
     style:
       plottype: errorbar
       color: black
       linestyle: null
       marker: 'o'
 
-  - sector_spec:
-      sample_name: 'qcd*'
+  - pattern:
+      dataset.name: 'qcd*'
     style:
       plottype: fill
-      color: "#5790fc"
       alpha: 0.3
 
-  - sector_spec:
-      sample_name: 'tt*'
+  - pattern:
+      dataset.name: 'tt*'
     style:
       plottype: fill
-      color: "#f89c20"
       alpha: 0.3
 
-  - sector_spec:
-      sample_name: 'single*'
+  - pattern:
+      dataset.name: 'single*'
     style:
       plottype: fill
-      color: "#e42536"
+      alpha: 0.3
+
+  - pattern:
+      dataset.name: 'w*'
+    style:
+      plottype: fill
+      alpha: 0.3
+
+
+  - pattern:
+      dataset.name: 'z*'
+    style:
+      plottype: fill
       alpha: 0.3

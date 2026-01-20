@@ -1,27 +1,63 @@
-from pathlib import Path
+from attrs import define
 
 
+@define
+class ExecutionConfig:
+    warn_ulimit_ratio: int = 10
+
+
+@define
+class DatasetConfig:
+    default_dataset_paths: list[str]
+    default_era_paths: list[str]
+    cache_datasets_by_mtime: bool = True
+    cache_eras_by_mtime: bool = True
+
+
+@define
+class GeneralConfig:
+    pretty: bool = True
+    do_safety_checks: bool = True
+    use_compression: bool = True
+    compression_lib: str = "lz4"
+    suppress_coffea_warnings: bool = True
+    suppress_xrootd_warnings: bool = True
+    base_data_path: str = ".application_data"
+
+
+@define
+class PostConfig:
+    static_resource_path: str = "analyzer_resources/static"
+
+
+@define
+class CacheConfig:
+    cache_subdir: str = "cache"
+
+
+@define
+class CondorConfig:
+    temp_location: str = "condor"
+
+
+@define
 class Config:
-    FILE_ROOTS = [("store", "store"), "store", "applocal"]
-    APPLICATION_DATA = "/srv/.application_data"
-    PHYSICS_DATA = APPLICATION_DATA + "/physics_data"
-    # APPLICATION_RESOURCES = "/srv/analyzer_resources"
-    APPLICATION_RESOURCES = "analyzer_resources"
-
-    DATASET_PATHS = [str(Path(APPLICATION_RESOURCES) / "datasets")]
-    ERA_PATHS = [str(Path(APPLICATION_RESOURCES) / "eras")]
-    CONFIG_PATH = str(Path(APPLICATION_RESOURCES) / "configuration")
-    DASK_CONFIG_PATH = str(Path(CONFIG_PATH) / "dask_config.yaml")
-    STATIC_PATH = str(Path(APPLICATION_RESOURCES) / "static")
-    STYLE_PATH = str(Path(APPLICATION_RESOURCES) / "styles")
-    TEMPLATE_PATH = str(Path(APPLICATION_RESOURCES) / "templates")
-
-    PRETTY_MODE = True
-
-    DEFAULT_PARALLEL_PROCESSES = None
-    DEFAULT_PARALLEL_THREADS = 8
-
-    WARN_LOAD_FILE_NUMBER = 50
+    general: GeneralConfig
+    condor: CondorConfig
+    cache: CacheConfig
+    execution: ExecutionConfig
+    datasets: DatasetConfig
+    post: PostConfig
 
 
-CONFIG = Config()
+CONFIG = Config(
+    general=GeneralConfig(),
+    execution=ExecutionConfig(),
+    condor=CondorConfig(),
+    cache=CacheConfig(),
+    post=PostConfig(),
+    datasets=DatasetConfig(
+        ["analyzer_resources/datasets"],
+        ["analyzer_resources/eras"],
+    ),
+)

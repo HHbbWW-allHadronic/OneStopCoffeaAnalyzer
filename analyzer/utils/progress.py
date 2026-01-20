@@ -35,6 +35,6 @@ def progbar(iterable, title=None):
 @contextmanager
 def spinner(*args, **kwargs):
     p = Progress(transient=True, disable=not CONFIG.PRETTY_MODE)
-    t = p.add_task(*args, **kwargs, total=None, start=None)
+    p.add_task(*args, **kwargs, total=None, start=None)
     with p:
         yield

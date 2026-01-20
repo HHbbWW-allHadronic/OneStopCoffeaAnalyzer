@@ -10,7 +10,7 @@ from pydantic import Field
 # from analyzer.core.executors.tasks import PackagedTask, AnalysisTask
 from analyzer.core.executors.executor import Executor
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 class CondorExecutor(Executor):
@@ -77,7 +77,7 @@ class CondorExecutor(Executor):
         # import classad
         import datetime
 
-        transfer_input_files = setupForCondor(
+        setupForCondor(
             # analysis_root_dir=self.apptainer_working_dir,
             venv_path=self.venv_path,
             x509_path=self.x509_path,

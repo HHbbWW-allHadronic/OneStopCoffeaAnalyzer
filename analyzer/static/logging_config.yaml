@@ -1,0 +1,55 @@
+---
+version: 1
+
+disable_existing_loggers: False
+
+formatters:
+  simple:
+    format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  just_name:
+    format: "%(name)s - %(message)s"
+
+handlers:
+  debug_console:
+    class: rich.logging.RichHandler
+    level: DEBUG
+    formatter: just_name
+
+  error_console:
+    class: rich.logging.RichHandler
+    level: ERROR
+    formatter: just_name
+
+  info_console:
+    class: rich.logging.RichHandler
+    level: INFO
+    formatter: just_name
+
+  warn_console:
+    class: rich.logging.RichHandler
+    level: WARN
+    formatter: just_name
+
+loggers:
+  analyzer:
+    level: INFO
+    handlers: [debug_console]
+  distributed:
+    level: ERROR
+    handlers: [ warn_console]
+  distributed.worker:
+    level: ERROR
+    handlers: [warn_console]
+  distributed.client:
+    level: ERROR
+    handlers: [warn_console]
+  distributed.bokeh:
+    level: ERROR
+    handlers: [warn_console]
+  lpcjobqueue:
+    level: ERROR 
+    handlers: [warn_console]
+
+root:
+  level: INFO
+  handlers: [warn_console]

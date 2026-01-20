@@ -1,15 +1,87 @@
 import logging
 
+import copy
 import matplotlib as mpl
+from analyzer.utils.querying import BasePattern
 import matplotlib.typing as mplt
-from analyzer.core.specifiers import SectorSpec
 from cycler import cycler
-from pydantic import BaseModel, Field, model_validator
+from attrs import define, field, asdict, filters
+from pathlib import Path
+import matplotlib.font_manager as font_manager
+import mplhep
+from analyzer.configuration import CONFIG
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
-class Style(BaseModel):
+cms_colors = {
+    # blues
+    "cms-blue": "#5790fc",
+    "cms-blue-dark": "#3f90da",
+    "cms-cyan": "#92dadd",
+    # oranges / yellows
+    "cms-orange": "#f89c20",
+    "cms-orange-light": "#ffa90e",
+    "cms-orange-dark": "#e76300",
+    "cms-gold": "#b9ac70",
+    # reds
+    "cms-red": "#e42536",
+    "cms-red-dark": "#bd1f01",
+    # purples
+    "cms-purple": "#964a8b",
+    "cms-purple-dark": "#7a21dd",
+    "cms-violet": "#832db6",
+    # neutrals
+    "cms-gray": "#9c9ca1",
+    "cms-gray-dark": "#717581",
+    "cms-gray-cool": "#94a4a2",
+    # earth / accent
+    "cms-brown": "#a96b59",
+}
+
+cms_colors_6 = [
+    cms_colors["cms-blue"],
+    cms_colors["cms-orange"],
+    cms_colors["cms-red"],
+    cms_colors["cms-purple"],
+    cms_colors["cms-gray"],
+    cms_colors["cms-purple-dark"],
+]
+
+cms_colors_10 = [
+    cms_colors["cms-blue-dark"],
+    cms_colors["cms-orange-light"],
+    cms_colors["cms-red-dark"],
+    cms_colors["cms-gray-cool"],
+    cms_colors["cms-violet"],
+    cms_colors["cms-brown"],
+    cms_colors["cms-orange-dark"],
+    cms_colors["cms-gold"],
+    cms_colors["cms-gray-dark"],
+    cms_colors["cms-cyan"],
+]
+
+
+def loadStyles():
+    font_dir = str(Path(CONFIG.post.static_resource_path) / "fonts")
+    mplhep.style.use("CMS")
+    # str(Path(CONFIG.STYLE_PATH) / "style.mplstyle")
+    mpl.rcParams["figure.constrained_layout.use"] = True
+    font_files = font_manager.findSystemFonts(fontpaths=[font_dir])
+    for font in font_files:
+        font_manager.fontManager.addfont(font)
+    mcolors.get_named_colors_mapping().update(cms_colors)
+    default_cycler = cycler(linestyle=["-", "--", ":", "-."]) * cycler(
+        color=cms_colors_10
+    )
+
+    plt.rcParams["axes.prop_cycle"] = default_cycler
+
+
+@define
+class Style:
     color: mplt.ColorType | None = None
     plottype: str = "step"
     linestyle: mplt.LineStyleType | None = None
@@ -28,73 +100,44 @@ class Style(BaseModel):
     legend: bool = True
     legend_font: int | None = None
 
-    def get(self, plottype=None, prepend=None):
+    def get(self, plottype=None, prepend=None, include_type=True):
         if plottype is None:
             plottype = self.plottype
         mapping = dict(
-            step=( "color",),
-            fill=( "color", "alpha"),
-            band=( "color",),
-            errorbar=( "color", "markersize", "marker"),
+            step=("color",),
+            fill=("color", "alpha"),
+            band=("color",),
+            errorbar=("color", "markersize", "marker"),
+            scatter_z=("markersize", "marker"),
         )
-        ret = self.model_dump(include=mapping[plottype])
+        ret = asdict(self, filter=filters.include(*mapping[plottype]))
         ret.setdefault("linewidth", mpl.rcParams["lines.linewidth"])
-        ret["histtype"] = plottype
+        if include_type:
+            ret["histtype"] = plottype
         if prepend:
             ret = {f"{prepend}_{x}": y for x, y in ret.items()}
+
+        if plottype == "scatter_z":
+            ret["s"] = ret.pop("markersize")
         return ret
 
 
-class StyleRule(BaseModel):
+@define
+class StyleRule:
     style: Style
-    sector_spec: SectorSpec | None = None
+    pattern: BasePattern | None = None
 
 
-cms_colors_6 = [
-    "#5790fc",
-    "#f89c20",
-    "#e42536",
-    "#964a8b",
-    "#9c9ca1",
-    "#7a21dd",
-]
-
-cms_colors_10 = [
-    "#3f90da",
-    "#ffa90e",
-    "#bd1f01",
-    "#94a4a2",
-    "#832db6",
-    "#a96b59",
-    "#e76300",
-    "#b9ac70",
-    "#717581",
-    "#92dadd",
-]
-
-
-class StyleSet(BaseModel):
-    styles: list[StyleRule] = Field(default_factory=list)
-
-    @model_validator(mode="before")
-    @classmethod
-    def flattenStyle(cls, data):
-        if isinstance(data, list):
-            return {"styles": data}
-        return data
+@define
+class StyleSet:
+    styles: list[StyleRule] = field(factory=list)
 
     def getStyle(self, sector_params, other_data=None):
         for style_rule in self.styles:
-            if style_rule.sector_spec is None:
+            if style_rule.pattern is None:
                 return style_rule.style
-            elif style_rule.sector_spec.passes(sector_params):
-                logger.debug(
-                    f"Found matching style rule for {sector_params.dataset.name}"
-                )
+            elif style_rule.pattern.match(sector_params):
                 return style_rule.style
-        logger.debug(
-            f"Did not find matching style rule for {sector_params.dataset.name}"
-        )
         return None
 
 
@@ -102,14 +145,16 @@ class Styler:
     def __init__(self, style_set, expected_num=6):
         self.style_set = style_set
         self.expected_num = expected_num
-        self.cycler = cycler(linestyle=["-", "--", ":", "-."]) * cycler(
-            color=cms_colors_10
-        )
+        self.cycler = plt.rcParams["axes.prop_cycle"]
         self.cycle_iter = iter(self.cycler)
 
     def getStyle(self, sector_params):
         found = self.style_set.getStyle(sector_params)
         if found is not None:
+            if found.color is None:
+                found = copy.deepcopy(found)
+                c = next(self.cycle_iter)
+                found.color = c["color"]
             return found
 
         c = next(self.cycle_iter)

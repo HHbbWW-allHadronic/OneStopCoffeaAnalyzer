@@ -3,7 +3,6 @@ import logging
 from dataclasses import dataclass, field
 
 
-from analyzer.configuration import CONFIG
 from coffea.analysis_tools import PackedSelection
 from pydantic import BaseModel, ConfigDict
 
@@ -21,14 +20,25 @@ class SelectionFlow(BaseModel):
 
     @property
     def total_events(self):
-        return cutflow[0][1]
+        return self.cutflow[0][1]
+
+    @property
+    def final_events(self):
+        return self.cutflow[-1][1]
 
     @property
     def selection_efficiency(self):
         return self.cutflow[-1][1] / self.cutflow[0][1]
 
-    def total_events(self):
-        return cutflow[0][1]
+    def scaled(self, scale):
+        def mult(tuples, v):
+            return [(x, v * y) for x, y in tuples]
+
+        return SelectionFlow(
+            cutflow=mult(self.cutflow, scale),
+            one_cut=mult(self.one_cut, scale),
+            n_minus_one=mult(self.n_minus_one, scale),
+        )
 
     def __add__(self, other):
         def add_tuples(a, b):
@@ -94,12 +104,18 @@ class SelectionSet:
             return None
 
     def getSelectionFlow(self, names):
-        nmo = self.selection.nminusone(*names).result()
-        cutflow = self.selection.cutflow(*names).result()
-        onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
-        cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
-        nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
-        ret = SelectionFlow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
+        logger.info(
+            f"Getting selection flow for {names}, from available selection {self.allNames()}"
+        )
+        if not names:
+            ret = SelectionFlow(cutflow=[], one_cut=[], n_minus_one=[])
+        else:
+            nmo = self.selection.nminusone(*names).result()
+            cutflow = self.selection.cutflow(*names).result()
+            onecut = list(map(tuple, zip(cutflow.labels, cutflow.nevonecut)))
+            cumcuts = list(map(tuple, zip(cutflow.labels, cutflow.nevcutflow)))
+            nmocuts = list(map(tuple, zip(nmo.labels, nmo.nev)))
+            ret = SelectionFlow(cutflow=cumcuts, one_cut=onecut, n_minus_one=nmocuts)
         if self.parent_selection is not None:
             parent_cutflow = self.parent_selection.getSelectionFlow()
             ret = parent_cutflow.concatChild(ret)

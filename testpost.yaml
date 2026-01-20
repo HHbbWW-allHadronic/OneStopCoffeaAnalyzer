@@ -1,0 +1,175 @@
+
+processors:
+  # - name: Histogram1D
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #       
+  #   structure:
+  #     group: {era: "*", pipeline: "Signal*"}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SplitAxes
+  #         split_axis_names: {"variation": "central"}
+  #   output_name: "testplots/{era.name}_{pipeline}_{name}.png"
+
+  # - name: RatioPlot
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #     - "*/*/*/composite_14_m"
+  #     - "*/*/*/composite_24_m"
+  #     - "*/*/*/HT"
+  #   structure:
+  #     select: {dataset_name: "!Signal*", pipeline: Control}
+  #     group: {era: "*"}
+  #     subgroups:
+  #       denominator:
+  #         select: {sample_type: MC}
+  #       numerator:
+  #         select: {sample_type: Data}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SplitAxes
+  #         split_axis_names: {"variation": "central"}
+  #   output_name: "testplots/ratio_{era.name}_{name}.png"
+
+  # - name: RatioPlot
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #     - "*/*/*/composite_14_m"
+  #     - "*/*/*/composite_24_m"
+  #     - "*/*/*/HT"
+  #   scale: log
+  #   structure:
+  #     select: {type: Histogram, dataset_name: "!signal*"}
+  #     group: {era.name: "*"}
+  #     subgroups:
+  #       numerator:
+  #         select: {sample_type: Data, pipeline: Control }
+  #       denominator:
+  #         select: {sample_type: MC,  pipeline: ControlNoBNN}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SelectAxesValues
+  #         select_axes_values: {"variation": "central"}
+  #   output_name: "{prefix}/ratio_nobnn_{era.name}_{name}.png"
+  #   
+  # - name: RatioPlot
+  #   inputs:
+  #     - "*/*/*/composite_13_m"
+  #     - "*/*/*/composite_14_m"
+  #     - "*/*/*/composite_24_m"
+  #     - "*/*/*/HT"
+  #   scale: log
+  #   structure:
+  #     select: {type: Histogram, dataset_name: "!signal*"}
+  #     group: {era.name: "*"}
+  #     subgroups:
+  #       numerator:
+  #         select: {sample_type: Data, pipeline: Control }
+  #       denominator:
+  #         select: {sample_type: MC,  pipeline: Control}
+  #     transforms:
+  #       - name: MergeAxes
+  #         merge_axis_names: [HT_Cat]
+  #       - name: SelectAxesValues
+  #         select_axes_values: {"variation": "central"}
+  #   output_name: "{prefix}/ratio_{era.name}_{name}.png"
+  # 
+  # - name: PlotSelectionFlow
+  #   inputs:
+  #     - "*/*/*/selection"
+  #   structure:
+  #     select: {type: SelectionFlow}
+  #     group: {era.name: "*", pipeline: "*"}
+  #   output_name: "{prefix}/cutflow_{era.name}_{pipeline}.png"
+
+  - name: Significance2D
+    inputs:
+      - "*/*/*/uncomp_m14_vs_mChiRatio"
+    significance_type: poisson_basic
+    significance_calculation: quadrature_sum
+    group_xy_patterns: [["other_data","stop_mass"], ["other_data","chargino_mass"]]
+    xyz_labels: ["ms","mx","Sig"]
+    style:
+      markersize: 60
+    structure:
+      select: {type: Histogram, sample_type: MC}
+      group: {era.name: "*"}
+      subgroups:
+        signal:
+          select: {dataset_name: "signal*", pipeline: Signal312 }
+        background:
+          select: {dataset_name: "!signal*",  pipeline: Signal312}
+      transforms:
+        - name: MergeAxes
+          merge_axis_names: [HT_Cat]
+        - name: SelectAxesValues
+          select_axes_values: {"variation": "central"}
+    output_name: "{prefix}/sig_{era.name}_{name}.png"
+
+
+  - name: CombineDatacard
+    inputs:
+      - "*/*/*/uncomp_m14_vs_mChiRatio"
+    channel: "{pipeline}"
+    structure:
+      select: {type: Histogram, sample_type: MC}
+      group: {era.name: "*"}
+      subgroups:
+        signal:
+          select: {dataset_name: "signal*", pipeline: Signal312 }
+        background:
+          select: {dataset_name: "!signal*",  pipeline: Signal312}
+      transforms:
+        - name: MergeAxes
+          merge_axis_names: [HT_Cat]
+    output_name: "{prefix}/combine_{era.name}_{dataset_name}"
+
+    
+
+
+default_plot_config:
+  cms_text: "Preliminary"
+  image_type: ".png"
+  cms_text_color: Black
+  legend_num_cols: 2
+
+
+default_style_set:
+  styles:
+    - pattern:
+        dataset_name: 'data*'
+      style:
+        plottype: errorbar
+        color: black
+        linestyle: null
+        marker: 'o'
+
+    - pattern:
+        dataset_name: 'qcd*'
+      style:
+        plottype: fill
+
+    - pattern:
+        dataset_name: 'tt*'
+      style:
+        plottype: fill
+
+    - pattern:
+        dataset_name: 'single*'
+      style:
+        plottype: fill
+
+    - pattern:
+        dataset_name: 'w*'
+      style:
+        plottype: fill
+
+
+    - pattern:
+        dataset_name: 'z*'
+      style:
+        plottype: fill

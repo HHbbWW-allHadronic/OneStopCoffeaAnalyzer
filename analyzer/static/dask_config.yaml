@@ -1,0 +1,113 @@
+distributed:
+  dashboard:
+    link:  "{scheme}://{host}:{port}/status"
+  worker:
+    daemon: false
+    # memory:
+    #   spill: 0.6  # default: 0.7
+    #   target: 0.5  # default: 0.6
+    #   terminate: 0.95  # default: 0.95
+    # profile:
+    #   enabled: true
+    # memory:
+    #   terminate: false
+  # adaptive: {}
+    
+    
+  comm:
+    retry:
+      count: 100
+    timeouts:
+      connect: 1000
+      tcp: 1000
+  # deploy:
+  #   lost-worker-timeout: 100
+  nanny:
+    environ:
+      MALLOC_TRIM_THRESHOLD_: 0
+  # scheduler:
+
+  scheduler: 
+    worker-saturation: 1.1
+    # no-workers-timeout: true
+
+  # admin:
+  #     log-length: 0
+  #     low-level-log-length: 0
+  # 
+  # diagnostics:
+  #   computations:
+  #     max-history: 0
+
+# optimization: {}
+  # fuse:
+  #   ave-width: 10000
+  #   delayed: true
+  #   active: true
+
+adaptive:
+  wait-count: 20
+
+jobqueue:
+  lpccondor:
+    name: dask-worker
+    cores: 1                     # Total number of cores per job
+    memory: 4GB                # Total amount of memory per job
+    processes: 1               # Number of Python processes per job
+    threads: 3
+
+    interface: null             # Network interface to use like eth0 or ib0
+    death-timeout: 120           # Number of seconds to wait if a worker can not find a scheduler
+    local-directory: /srv       # Location of fast local storage like /scratch or $TMPDIR
+    shared-temp-directory: null
+    extra: null
+
+    worker-extra-args:
+      - "--worker-port 10000:10300"
+      - "--nanny-port 10301:10600"
+      # - "--no-dashboard"
+      - "--preload"
+      - "analyzer.core.dask_sizes"
+      - "--preload"
+      - "lpcjobqueue.patch"
+
+    # HTCondor Resource Manager options
+    disk: 4GB                  # Total amount of disk per job
+    job-extra: {}               # Extra submit attributes
+    log-directory: logs
+    env-extra: null
+    job-extra: null             # Extra submit attributes
+    job-extra-directives: {}
+    job-directives-skip: []
+    submit-command-extra: []    # Extra condor_submit arguments
+    cancel-command-extra: []    # Extra condor_rm arguments
+    log-directory: null
+    shebang: "#!/usr/bin/env condor_submit" # doesn't matter
+    
+    # Scheduler options
+    scheduler-options: {}
+
+  # local:
+  #   name: dask-worker
+  #   cores: 1                 # Total number of cores per job
+  #   memory: 4GB                # Total amount of memory per job
+  #   processes: 1                # Number of Python processes per job
+
+    # interface: null             # Network interface to use like eth0 or ib0
+    # death-timeout: 60           # Number of seconds to wait if a worker can not find a scheduler
+    # local-directory: null       # Location of fast local storage like /scratch or $TMPDIR
+    # extra: []
+    # 
+    # env-extra: []
+    # job-extra: []
+    # log-directory: null
+    # 
+    # # Scheduler options
+    # scheduler-options: {}
+
+  local:
+    name: dask-worker
+    cores: 1                     # Total number of cores per job
+    memory: 4GB                # Total amount of memory per job
+    processes: 3               # Number of Python processes per job
+    threads: 3

@@ -1,404 +1,267 @@
-# PYTHON_ARGCOMPLETE_OK
-import argparse
 import logging
-import sys
-from pathlib import Path
+from enum import Enum
 
-from analyzer.logging import setup_logging
+
+import click
 from rich import print
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
-def handleGenReplicas(args):
-    from analyzer.datasets import DatasetRepo
+def jumpIn(**kwargs):
+    import code
+    import readline
+    import rlcompleter
 
-    dr = DatasetRepo.getConfig()
-    dr.buildReplicaCache(args.force)
-
-
-def addSubparserGenerateReplicaCache(subparsers):
-    subparser = subparsers.add_parser(
-        "generate-replicas",
-        help="Use Rucio to get the replicas for datasets representing a standard CMS sample",
-    )
-    subparser.add_argument(
-        "-f",
-        "--force",
-        action="store_true",
-        help="Regenerate already existing replicas as well.",
-    )
-    subparser.set_defaults(func=handleGenReplicas)
+    vars = globals()
+    vars.update(locals())
+    vars.update(kwargs)
+    readline.set_completer(rlcompleter.Completer(vars).complete)
+    readline.parse_and_bind("tab: complete")
+    code.InteractiveConsole(vars).interact()
 
 
-def handleUpdateMeta(args):
-    from analyzer.core.results import updateMeta
-
-    updateMeta(args.input)
-
-
-def handleMerge(args):
-    from analyzer.core.results import merge
-
-    merge(args.input, args.outdir)
+class LogLevel(str, Enum):
+    ERROR = logging.ERROR
+    WARNING = logging.WARNING
+    INFO = logging.INFO
+    DEBUG = logging.DEBUG
 
 
-def addSubparserUpdateMetaInfo(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "update-meta", help="Update Metadata based on new configuration options"
-    )
-    subparser.add_argument("input", nargs="+", help="Input file")
-    subparser.set_defaults(func=handleUpdateMeta)
+@click.group()
+@click.option(
+    "--log-level",
+    default=LogLevel.WARNING,
+    type=click.Choice(LogLevel, case_sensitive=False),
+)
+def cli(log_level):
+    pass
 
 
-def handleCheckResults(args):
-    from analyzer.core.results import checkResult
-
-    checkResult(args.input, configuration=args.configuration)
-
-
-def addSubparserCheckResult(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("check-results", help="Check results")
-    subparser.add_argument("input", nargs="+", type=Path, help="Input data paths.")
-    subparser.add_argument(
-        "-c",
-        "--configuration",
-        type=str,
-        default=None,
-        help="Optionally provide a configuration to check for completely omitted samples",
-    )
-    subparser.set_defaults(func=handleCheckResults)
-
-
-def handleQuickDataset(args):
-    from analyzer.tools.quick_dataset import run
-
-    run(args.input, args.output_dir, args.limit_regex)
-
-
-def addSubparserQuickDataset(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "dataset-builder", help="Construct datasets from simple descriptions."
-    )
-    subparser.add_argument("input", type=Path, help="Input data path.")
-    subparser.add_argument(
-        "-o",
-        "--output-dir",
-        required=True,
-    )
-    subparser.add_argument("-l", "--limit-regex")
-    subparser.set_defaults(func=handleQuickDataset)
-
-
-def handleStoreResults(args):
-    from analyzer.tools.save_results import storeResults
-
-    storeResults(args.input, f"{args.prefix}_{args.output_name}")
-
-
-def addSubParserStoreResults(subparsers):
-    """Update an existing results file with missing info"""
-    import os
-    import datetime
-
-    subparser = subparsers.add_parser("store-results", help="store results")
-    subparser.add_argument("-o", "--output-name")
-    subparser.add_argument(
-        "--eos-path",
-        type=str,
-        required=False,
-        default=f"/store/user/{os.getlogin()}/single_stop/results/",
-    )
-    subparser.add_argument(
-        "--prefix",
-        type=str,
-        required=False,
-        default=datetime.datetime.now().strftime("%Y-%m-%d"),
-    )
-    subparser.add_argument("input")
-    subparser.set_defaults(func=handleStoreResults)
-
-
-def handleSamples(args):
-    from .sample_report import createSampleTable
-    from analyzer.datasets import DatasetRepo
-    from rich.console import Console
-
-    console = Console()
-    repo = DatasetRepo.getConfig()
-    table = createSampleTable(repo)
-    console.print(table)
-
-
-def addSubparserSampleReport(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "samples", help="Get information on available samples"
-    )
-    subparser.set_defaults(func=handleSamples)
-
-
-def handleSummaryTable(args):
-    from analyzer.tools.summary_table import (
-        createEraTable,
-        makeTableFromDict,
-        texTable,
-    )
-    from analyzer.datasets import EraRepo
-
-    query = {x: "*" for x in args.fields}
-    format_opts = {"TT": "\\texttt{{{}}}", "RM": "\\textrm{{{}}}"}
-
-    era_repo = EraRepo.getConfig()
-    r = createEraTable(
-        era_repo,
-        query,
-    )
-    t = makeTableFromDict(r)
-    format_funcs = {
-        i: lambda x: format_opts[k].format(x) for i, k in args.extra_format or []
-    }
-    print(texTable(t, col_format_funcs=format_funcs))
-
-
-def addSubparserSummaryTable(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("summary-table", help="Get summary table")
-    subparser.add_argument("-f", "--fields", type=str, nargs="+")
-
-    def formatPair(arg):
-        sp = arg.split(",")
-        return (int(sp[0]), str(sp[1]))
-
-    subparser.add_argument("-e", "--extra-format", type=formatPair, nargs="*")
-    subparser.set_defaults(func=handleSummaryTable)
-
-
-def handleRunPackaged(args):
-    from analyzer.core.executors import PackagedTask
-
-    with open(args.input, "rb") as f:
-        task = f.load(f)
-        task = PackagedTask(**task)
-    runPackagedTask(task, output_dir=args.output_dir)
-
-
-def addSubparserRunPackaged(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("run-packaged", help="Run a packaged task")
-    subparser.add_argument("input", type=Path, help="Input data path.")
-    subparser.add_argument("--output-dir", type=Path, help="Output data path.")
-    subparser.set_defaults(func=handleRunPackaged)
-
-
-def handleRun(args):
+@cli.command()
+@click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+@click.argument("output", type=click.Path(file_okay=False, dir_okay=True))
+@click.option("--executor", "-e", type=str, required=True)
+@click.option("--max-sample-events", type=int, default=None)
+def run(
+    input,
+    output,
+    executor,
+    max_sample_events,
+):
     from analyzer.core.running import runFromPath
 
-    runFromPath(
-        args.input,
-        args.output,
-        args.executor,
-        test_mode=args.test_mode,
-        filter_samples=args.filter_samples,
+    runFromPath(input, output, executor, max_sample_events=max_sample_events)
+
+
+@cli.command()
+@click.argument("config-path", type=str)
+@click.argument("dataset-name", type=str)
+@click.argument("sample-name", type=str)
+@click.argument("event-source", type=str)
+@click.argument("event-start", type=int)
+@click.argument("event-stop", type=int)
+def run_chunk(
+    config_path, dataset_name, sample_name, event_source, event_start, event_stop
+):
+    from analyzer.core.running import getRepos
+    from analyzer.core.event_collection import FileChunk
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.utils.structure_tools import getWithMeta
+
+    analysis = loadAnalysis(config_path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
     )
 
-
-def handleStartCluster(args):
-    from analyzer.core.executors import LPCCondorDask
-    import time
-
-    print("HELLO")
-    cluster = LPCCondorDask(max_workers=2)
-    cluster.setup()
-    print(cluster._cluster)
-    time.sleep(20000)
-
-
-def addSubparserRun(subparsers):
-    """Update an existing results file with missing info"""
-
-    def parsePatterns(p):
-        from analyzer.utils.querying import Pattern
-
-        return Pattern(pattern=p)
-
-    subparser = subparsers.add_parser(
-        "run", help="Run analyzer based on provided configuration"
+    dataset = dataset_repo[dataset_name]
+    sample, meta = getWithMeta(dataset, sample_name)
+    meta = dict(meta)
+    meta["era"] = era_repo[meta["era"]]
+    chunk = FileChunk(
+        file_path=config_path, event_start=event_start, event_stop=event_stop
     )
-    subparser.add_argument("input", type=Path, help="Input data path.")
-    subparser.add_argument(
-        "-o", "--output", type=Path, help="Output path", required=True
+    analysis.analyzer.run(chunk, meta)
+
+
+@cli.command()
+@click.argument("config-path", type=str)
+@click.argument("dataset-name", type=str)
+@click.argument("sample-name", type=str)
+def describe_analysis(config_path, dataset_name, sample_name):
+    from analyzer.core.running import getRepos
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.utils.structure_tools import getWithMeta
+
+    analysis = loadAnalysis(config_path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
     )
-    subparser.add_argument(
-        "--test-mode",
-        default=False,
-        action="store_true",
-        help="Run in test mode",
+
+    dataset = dataset_repo[dataset_name]
+    sample, meta = getWithMeta(dataset, sample_name)
+    meta = dict(meta)
+    print(analysis.analyzer)
+
+    # output = analysis.analyzer.run(chunk, meta)
+
+
+@cli.command()
+@click.argument("files", nargs=-1)
+@click.option("--configuration", "-c", type=str, required=str)
+@click.option("--only-bad", is_flag=True)
+def check(files, configuration, only_bad):
+    from analyzer.cli.result_status import renderStatuses
+    from analyzer.core.analysis import getSamples, loadAnalysis
+    from analyzer.core.results import checkResults
+    from analyzer.core.running import getRepos
+
+    analysis = loadAnalysis(configuration)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
     )
-    subparser.add_argument(
-        "--filter-samples",
-        nargs="*",
-        type=parsePatterns,
-        required=False,
-        default=None,
-        help="Filter samples",
-    )
-    subparser.add_argument(
-        "-s",
-        "--save-separate",
-        action="store_true",
-        help="If set, store results separately",
-    )
-    subparser.add_argument(
-        "-e", "--executor", type=str, help="Name of executor to use", required=True
-    )
-    subparser.set_defaults(func=handleRun)
+    all_samples = getSamples(analysis, dataset_repo)
+
+    ret = checkResults(files)
+    renderStatuses(ret, all_samples, only_bad=only_bad)
 
 
-def addSubparserStartCluster(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "start-cluster", help="Run analyzer based on provided configuration"
-    )
-    subparser.set_defaults(func=handleStartCluster)
-
-
-def handlePost(args):
-    from analyzer.postprocessing.running import runPostprocessors
-
-    return runPostprocessors(args.config, args.input, parallel=args.parallel)
-
-
-def addSubparserPost(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser("postprocess", help="Postprocessing utilities")
-    subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
-    subparser.add_argument(
-        "-c", "--config", type=Path, help="Configuration path", required=True
-    )
-    subparser.add_argument(
-        "-p", "--parallel", type=int, default=None, help="Number of processes to use"
-    )
-    subparser.set_defaults(func=handlePost)
-
-
-def handleQuicklook(args):
-    from .quicklook import quicklookFiles, quicklookHistsPath
-
-    if args.region_name:
-        quicklookHistsPath(args.input, args.region_name, args.hist_name, args.interact)
-    else:
-        quicklookFiles(args.input)
-
-
-def addSubparserQuicklookFile(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "quicklook", help="Quick information about a result."
-    )
-    subparser.add_argument("input", nargs="+", type=Path, help="Input files path.")
-    subparser.add_argument(
-        "-r", "--region-name", default=None, type=str, help="Region name"
-    )
-    subparser.add_argument(
-        "-n", "--hist-name", default=None, type=str, help="hist_name"
-    )
-    subparser.add_argument(
-        "-i", "--interact", action="store_true", default=False, help="interact"
-    )
-    subparser.set_defaults(func=handleQuicklook)
-
-
-def handlePatch(args):
+@cli.command()
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--output", "-o", type=str, required=True)
+@click.option("--configuration", "-c", type=str, required=True)
+@click.option("--executor", "-e", type=str, required=True)
+def patch(
+    inputs,
+    output,
+    configuration,
+    executor,
+):
     from analyzer.core.running import patchFromPath
 
-    patchFromPath(
-        args.input,
-        args.output,
-        args.executor,
-        args.description,
-        args.ignore_ret_prefs,
-    )
+    patchFromPath(configuration, inputs, output, executor)
 
 
-def addSubparserPatch(subparsers):
-    """Update an existing results file with missing info"""
-    subparser = subparsers.add_parser(
-        "patch", help="Patch a result by running over missing chunks."
-    )
-    subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
-    subparser.add_argument(
-        "-o", "--output", type=Path, help="Output path", required=True
-    )
-    subparser.add_argument(
-        "-s",
-        "--save-separate",
-        action="store_true",
-        help="If set, store results separately",
-    )
-    subparser.add_argument(
-        "-e", "--executor", type=str, help="Name of executor to use", required=True
-    )
-    subparser.add_argument(
-        "-i", "--ignore-ret-prefs", action="store_true", default=False
-    )
+@cli.command()
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--interpretter", is_flag=True)
+@click.option("--peek", is_flag=True, default=False)
+@click.option("--merge-datasets", is_flag=True)
+def browse(inputs, interpretter, peek, merge_datasets):
+    from analyzer.core.results import loadResults, mergeAndScale
+    from analyzer.core.serialization import converter, setupConverter
 
-    subparser.add_argument(
-        "-d", "--description", type=str, help="Description", required=True
-    )
-    subparser.set_defaults(func=handlePatch)
+    setupConverter(converter)
+    res = loadResults(inputs, peek_only=peek)
+    if merge_datasets:
+        res = mergeAndScale(res)
+    if interpretter:
+        jumpIn(results=res)
+    else:
+        from analyzer.cli.browser import ResultBrowser
+
+        browser = ResultBrowser(res)
+        browser.run()
 
 
-def addSubparserMerge(subparsers):
-    subparser = subparsers.add_parser("merge", help="Merge multiple output files")
-    subparser.add_argument("input", nargs="+", type=Path, help="Input data path.")
-    subparser.add_argument(
-        "-o", "--outdir", type=Path, help="Output path", required=True
-    )
-    subparser.set_defaults(func=handleMerge)
+@cli.command()
+@click.argument("configuration", type=str, nargs=1)
+@click.argument("inputs", type=str, nargs=-1)
+@click.option("--prefix", type=str, required=False, default=None)
+@click.option("--parallel", type=int, required=False, default=None)
+def postprocess(configuration, inputs, parallel, prefix):
+    from analyzer.postprocessing.running import runPostprocessors
+
+    runPostprocessors(configuration, inputs, parallel=parallel, prefix=prefix)
 
 
-def addGeneralArguments(parser):
-    parser.add_argument("--log-level", type=str, default="WARN", help="Logging level")
+@cli.group()
+def cache():
+    pass
 
 
-def runCli():
-    import argcomplete
+@cache.command()
+@click.option("--tag", type=str, default=None)
+def clear(tag):
+    from analyzer.core.caching import cache
 
-    parser = argparse.ArgumentParser(prog="SingleStopAnalyzer")
-    addGeneralArguments(parser)
+    if not click.confirm("Are you sure you want to clear the cache?"):
+        return
 
-    subparsers = parser.add_subparsers()
-    addSubparserRun(subparsers)
-    addSubparserSampleReport(subparsers)
-    addSubparserPatch(subparsers)
-    addSubparserCheckResult(subparsers)
-    addSubparserGenerateReplicaCache(subparsers)
-    addSubparserQuicklookFile(subparsers)
-    addSubparserPost(subparsers)
-    addSubparserQuickDataset(subparsers)
-    addSubParserStoreResults(subparsers)
-    addSubparserSummaryTable(subparsers)
-    addSubparserStartCluster(subparsers)
-    addSubparserUpdateMetaInfo(subparsers)
-    addSubparserMerge(subparsers)
+    if tag is None:
+        cache.clear()
+    else:
+        cache.evict(tag)
 
-    argcomplete.autocomplete(parser)
 
-    args = parser.parse_args()
+@cache.command()
+def list():
+    from analyzer.core.caching import cache
 
-    if not hasattr(args, "func"):
-        parser.print_help(sys.stderr)
+    for f in cache:
+        print(f)
 
-    return args
+
+@cli.group("list")
+def listData():
+    pass
+
+
+@click.option("--filter", type=str)
+@click.option("--csv", is_flag=True)
+@listData.command()
+def samples(filter, csv):
+    from analyzer.cli.dataset_table import createSampleTable
+    from analyzer.core.running import getRepos
+    from analyzer.utils.querying import Pattern
+    from analyzer.core.serialization import converter, setupConverter
+
+    setupConverter(converter)
+
+    if filter:
+        filter_pattern = Pattern(filter)
+    else:
+        filter_pattern = None
+    dataset_repo, era_repo = getRepos()
+    table = createSampleTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
+    print(table)
+
+
+@click.option("--filter", type=str)
+@click.option("--csv", is_flag=True)
+@listData.command()
+def datasets(filter, csv):
+    from analyzer.cli.dataset_table import createDatasetTable
+    from analyzer.core.running import getRepos
+    from analyzer.utils.querying import Pattern
+    from analyzer.core.serialization import converter, setupConverter
+
+    setupConverter(converter)
+
+    if filter:
+        filter_pattern = Pattern(filter)
+    else:
+        filter_pattern = None
+    dataset_repo, era_repo = getRepos()
+    table = createDatasetTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
+    print(table)
+
+
+@listData.group()
+def eras():
+    raise NotImplementedError()
+
+
+@cli.command("search-modules")
+@click.argument("query", type=str)
+def searchModules(query):
+    from analyzer.cli.module_search import searchModules as runSearch
+
+    runSearch(query)
 
 
 def main():
-    args = runCli()
+    from analyzer.logging import setupLogging
 
-    setup_logging(default_level=args.log_level)
-    if hasattr(args, "func"):
-        args.func(args)
+    setupLogging()
+    cli()

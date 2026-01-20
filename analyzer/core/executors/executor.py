@@ -1,19 +1,39 @@
 from __future__ import annotations
 
 import abc
+import functools as ft
+from attrs import define
 from typing import Any
+from analyzer.core.event_collection import FileSet
+from cattrs.strategies import include_subclasses, configure_tagged_union
 
 
-from pydantic import BaseModel
+@define
+class ExecutionTask:
+    file_set: FileSet
+    metadata: dict
+    pipelines: list[str]
+    output_name: str
 
 
+@define
+class CompletedTask:
+    result: Any
+    metadata: dict
+    output_name: str
 
-class Executor(abc.ABC, BaseModel):
-    test_mode: bool = False
 
-    def setup(self):
-        pass
+@define
+class Executor(abc.ABC):
 
     @abc.abstractmethod
-    def run(self, tasks: dict[Any, AnalysisTask], result_complete_callback=None):
-        pass
+    def run(self, analyzer, tasks: list[ExecutionTask], max_sample_events=None): ...
+
+    def setup(self, needed_resources): ...
+
+    def teardown(self): ...
+
+
+def configureConverter(conv):
+    union_strategy = ft.partial(configure_tagged_union, tag_name="executor_name")
+    include_subclasses(Executor, conv, union_strategy=union_strategy)

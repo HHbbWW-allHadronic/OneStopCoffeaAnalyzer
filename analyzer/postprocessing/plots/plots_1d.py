@@ -1,16 +1,17 @@
 import numpy as np
-from collections import defaultdict
 
+import operator as op
+from collections import defaultdict
+import functools as ft
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 from analyzer.postprocessing.style import Styler
 
-from ..grouping import doFormatting
+# from ..grouping import doFormatting
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
-from .mplstyles import loadStyles
-from .utils import addAxesToHist, fixBadLabels, saveFig
+from .utils import saveFig, scaleYAxis, addLegend
 
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
@@ -25,23 +26,24 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
 
 
 def plotOne(
-    packaged_hists,
-    group_params,
+    histograms,
+    stacked_hists,
+    common_metadata,
     output_path,
     style_set,
     scale="linear",
     normalize=False,
     plot_configuration=None,
-    stacked_hists=None,
 ):
+    stacked_hists = stacked_hists or []
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
     fig, ax = plt.subplots()
-    for packaged_hist in packaged_hists:
-        title = packaged_hist.title
-        h = packaged_hist.histogram
-        fixBadLabels(h)
-        style = styler.getStyle(packaged_hist.sector_parameters)
+    h = None
+    for item, meta in histograms:
+        title = meta["dataset_title"]
+        h = item.histogram
+        style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
             label=title,
@@ -50,15 +52,19 @@ def plotOne(
             flow="none",
             **style.get(),
         )
+    if h is None:
+        h = stacked_hists[0]
     if stacked_hists:
-        stacked_hists = sorted(stacked_hists, key=lambda x: x.histogram.sum().value)
+        stacked_hists = sorted(
+            stacked_hists, key=lambda x: x.item.histogram.sum().value
+        )
         style_kwargs = defaultdict(list)
         hists = []
         titles = []
-        for x in stacked_hists:
-            hists.append(x.histogram)
-            titles.append(x.title)
-            style = styler.getStyle(x.sector_parameters)
+        for item, meta in stacked_hists:
+            hists.append(item.histogram)
+            titles.append(meta["dataset_title"])
+            style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
 
@@ -76,16 +82,17 @@ def plotOne(
     labelAxis(ax, "x", h.axes, label=pc.x_label)
     addCMSBits(
         ax,
-        [x.sector_parameters for x in packaged_hists],
+        [x.metadata for x in histograms] + [x.metadata for x in stacked_hists],
+        extra_text=f"{common_metadata['pipeline']}",
         plot_configuration=pc,
     )
-    if style.legend:
-        legend_kwargs = {}
-        if style.legend_font:
-            legend_kwargs["fontsize"] = style.legend_font
-        ax.legend(loc="upper right", **legend_kwargs)
-        mplhep.sort_legend(ax=ax)
+
     ax.set_yscale(scale)
+    mplhep.yscale_legend(ax, soft_fail=True)
+    addLegend(ax, pc)
+
+    scaleYAxis(ax)
+    # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
     else:
@@ -94,7 +101,7 @@ def plotOne(
     plt.close(fig)
 
 
-def makeStrHist(data, ax_name=None):
+def makeStrHist(data, ax_name):
     import hist
 
     ax = hist.axis.StrCategory([x[0] for x in data], name=ax_name)
@@ -103,30 +110,30 @@ def makeStrHist(data, ax_name=None):
     return h
 
 
-def __plotStrCatOne(
-    getter,
-    group_params,
-    sectors,
+def plotDictAsBars(
+    items,
+    common_meta,
     output_path,
+    getter,
     style_set,
     ax_name=None,
     normalize=False,
-        scale="linear",
+    scale="linear",
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
-    loadStyles()
     mpl.use("Agg")
 
     fig, ax = plt.subplots(layout="constrained")
-    for sector in sectors:
-        p = sector.sector_params
-        style = styler.getStyle(p)
-        h = makeStrHist(getter(sector), ax_name=ax_name)
+    for item, meta in items:
+        title = meta["dataset_title"]
+        flow = getter(item)
+        style = styler.getStyle(meta)
+        h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
         h.plot1d(
             ax=ax,
-            label=sector.sector_params.dataset.title,
+            label=title,
             density=normalize,
             **style.get(),
         )
@@ -136,74 +143,167 @@ def __plotStrCatOne(
     ax.tick_params(axis="x", rotation=90)
     addCMSBits(
         ax,
-        [x.sector_params for x in sectors],
+        [x.metadata for x in items],
         plot_configuration=pc,
     )
     ax.set_yscale(scale)
-    # mplhep.yscale_legend(ax, soft_fail=True)
-    ax.legend(loc="upper right")
+    addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
-    # mplhep.yscale_legend(ax, soft_fail=True)
+    scaleYAxis(ax)
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
 
-def __plotStrCatAsTable(
-    getter,
-    sectors,
-    group_params,
-    output_name,
-    style_set,
-    ax_name=None,
-    normalize=False,
-    plot_configuration=None,
-):
-    pc = plot_configuration or PlotConfiguration()
-    styler = Styler(style_set)
-    loadStyles()
-    mpl.use("Agg")
+def makeRatioAxes(ratio_height):
+    gs_kw = dict(height_ratios=[1, ratio_height])
+    fig, (ax, ratio_ax) = plt.subplots(2, 1, sharex=True, gridspec_kw=gs_kw)
+    return fig, ax, ratio_ax
 
-    rep_data = getter(sectors[0])
-    col_labels = [x[0] for x in rep_data]
-    rows = []
-    row_labels = []
 
-    figsize = (len(rep_data) * 0.3, len(sectors) * 0.3)
-    fig, ax = plt.subplots(figsize=figsize, layout="constrained")
-    fig.patch.set_visible(False)
-    ax.axis("off")
-    ax.axis("tight")
-    for sector in sectors:
-        p = sector.sector_params
-        styler.getStyle(p)
-        data = getter(sector)
-        row_labels.append(sector.sector_params.dataset.title)
-        rows.append([x[1] for x in data])
+def computeRatio(n, d, normalize=False, ratio_type="poisson"):
+    ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
 
-    table = ax.table(
-        cellText=rows,
-        rowLabels=row_labels,
-        colLabels=col_labels,
+    if normalize:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            ratio = (n / np.sum(n)) / (d / np.sum(d))
+
+    ratio[ratio == 0] = np.nan
+    ratio[np.isinf(ratio)] = np.nan
+    return ratio, unc
+
+
+def computeSignificance(n, d, normalize=False, ratio_type="poisson"):
+    with np.errstate(divide="ignore", invalid="ignore"):
+        significance = n / np.sqrt(d)
+
+    return significance, None
+
+
+def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
+    opts = {
+        **style.get("errorbar", include_type=False),
+        "linestyle": "none",
+    }
+    ratio_ax.errorbar(x_values, ratio, yerr=unc, **opts)
+
+
+def plotStackedDenominators(ax, denominators, styler, normalize=False):
+    den_to_plot = sorted(denominators, key=lambda x: x.item.histogram.sum().value)
+
+    hists = []
+    titles = []
+    style_kwargs = defaultdict(list)
+
+    for item, meta in den_to_plot:
+        hists.append(item.histogram)
+        titles.append(meta["dataset_title"])
+        style = styler.getStyle(meta)
+        for key, value in style.get().items():
+            style_kwargs[key].append(value)
+
+    style_kwargs["histtype"] = style_kwargs["histtype"][0]
+
+    mplhep.histplot(
+        hists,
+        ax=ax,
+        stack=True,
+        density=normalize,
+        label=titles,
+        **style_kwargs,
     )
 
-    o = doFormatting(output_name, group_params, histogram_name=(ax_name or ""))
-    saveFig(fig, o, extension=pc.image_type)
-    plt.close(fig)
+    den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
+    return den_total
 
 
-def plotStrCat(plot_type, *args, table_mode=False, **kwargs):
-    def makeGetter(n):
-        def inner(sec):
-            return getattr(sec.result.selection_flow, n)
+def plotUnstackedDenominators(ax, denominators, styler, *, normalize):
+    den_to_plot = sorted(denominators, key=lambda x: x.metadata["title"].lower())
 
-        return inner
+    den_styles = []
+    for item, meta in den_to_plot:
+        style = styler.getStyle(meta)
+        den_styles.append(style)
+        item.histogram.plot1d(
+            ax=ax,
+            label=meta["dataset_title"],
+            density=normalize,
+            yerr=style.yerr,
+            flow="none",
+            **style.get(),
+        )
 
-    if table_mode:
-        f = __plotStrCatAsTable
-    else:
-        f = __plotStrCatOne
+    return den_to_plot, den_styles
 
-    f(makeGetter(plot_type), *args, ax_name=plot_type, **kwargs)
+
+def plotMultiNumerators(
+    ax,
+    ratio_ax,
+    numerators,
+    den_total,
+    styler,
+    normalize,
+    ratio_type,
+    x_values,
+    ratio_func=computeRatio,
+):
+    for item, meta in numerators:
+        hist = item.histogram
+        style = styler.getStyle(meta)
+
+        n_vals = hist.values()
+        d_vals = den_total.values()
+
+        ratio, unc = ratio_func(
+            n_vals,
+            d_vals,
+            normalize=normalize,
+            ratio_type=ratio_type,
+        )
+
+        hist.plot1d(
+            ax=ax,
+            label=meta["dataset_title"],
+            density=normalize,
+            yerr=True,
+            **style.get(),
+        )
+
+        plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style)
+
+
+def plotSingleNumeratorMultiDen(
+    ax,
+    ratio_ax,
+    numerator,
+    den_to_plot,
+    den_styles,
+    normalize,
+    ratio_type,
+    x_values,
+    ratio_func=computeRatio,
+):
+    hist = numerator.item.histogram
+
+    hist.plot1d(
+        ax=ax,
+        label=numerator.metadata["dataset_title"],
+        density=normalize,
+        yerr=True,
+        **den_styles[0].get(),
+    )
+
+    for den, style in zip(den_to_plot, den_styles):
+        n_vals = hist.values()
+        d_vals = den.histogram.values()
+
+        ratio, unc = ratio_func(
+            n_vals,
+            d_vals,
+            normalize=normalize,
+            ratio_type=ratio_type,
+        )
+
+        plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style)
 
 
 def plotRatio(
@@ -216,91 +316,86 @@ def plotRatio(
     ratio_type="poisson",
     scale="linear",
     plot_configuration=None,
+    no_stack=False,
     ratio_hlines=(1.0,),
-    ratio_height=1.5,
+    ratio_height=0.3,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
 
-    fig, ax = plt.subplots(layout="constrained")
-    ratio_ax = addAxesToHist(ax, size=ratio_height, pad=0.3)
+    fig, ax, ratio_ax = makeRatioAxes(ratio_height)
 
-    den_hist = denominator.histogram
-
-    fixBadLabels(den_hist)
-
-    style = denominator.style or styler.getStyle(denominator.sector_parameters)
-    den_hist.plot1d(
-        ax=ax,
-        label=denominator.title,
-        density=normalize,
-        yerr=True,
-        **style.get(),
-    )
-
+    den_hist = denominator[0].item.histogram
     x_values = den_hist.axes[0].centers
     left_edge = den_hist.axes.edges[0][0]
     right_edge = den_hist.axes.edges[-1][-1]
 
-    all_ratios, all_uncertainties = [], []
-
-    for num in numerators:
-        title = num.title
-        h = num.histogram
-        fixBadLabels(h)
-        num.sector_parameters
-        s = num.style or styler.getStyle(num.sector_parameters)
-
-        n, d = h.values(), den_hist.values()
-        ratio, unc = getRatioAndUnc(n, d, uncertainty_type=ratio_type)
-        if normalize:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                ratio = (n / np.sum(n)) / (d / np.sum(d))
-        all_ratios.append(ratio)
-        all_uncertainties.append(unc)
-        h.plot1d(
-            ax=ax,
-            label=title,
-            density=normalize,
-            yerr=True,
-            **s.get(),
+    ratio_func = computeSignificance if ratio_type == "significance" else computeRatio
+    if no_stack:
+        den_to_plot, den_styles = plotUnstackedDenominators(
+            ax,
+            denominator,
+            styler,
+            normalize=normalize,
+        )
+        plotSingleNumeratorMultiDen(
+            ax,
+            ratio_ax,
+            numerators[0],
+            den_to_plot,
+            den_styles,
+            normalize=normalize,
+            ratio_type=ratio_type,
+            x_values=x_values,
+            ratio_func=ratio_func,
+        )
+    else:
+        den_total = plotStackedDenominators(
+            ax,
+            denominator,
+            styler,
+            normalize=normalize,
+        )
+        plotMultiNumerators(
+            ax,
+            ratio_ax,
+            numerators,
+            den_total,
+            styler,
+            normalize=normalize,
+            ratio_type=ratio_type,
+            x_values=x_values,
+            ratio_func=ratio_func,
         )
 
-        ratio[ratio == 0] = np.nan
-        ratio[np.isinf(ratio)] = np.nan
-        all_opts = {**s.get("errorbar"), **dict(linestyle="none")}
-        ratio_ax.errorbar(
-            x_values,
-            ratio,
-            yerr=unc,
-            **all_opts,
-        )
-        # hist.plot.plot_ratio_array(den, ratio, unc, ax=ratio_ax,
-
-    for l in ratio_hlines:
-        ratio_ax.axhline(l, color="black", linestyle="dashed", linewidth=1.0)
+    for y in ratio_hlines:
+        ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
 
     ratio_ax.set_xlim(left_edge, right_edge)
-    ratio_ax.set_ylim(bottom=ratio_ylim[0], top=ratio_ylim[1])
-    if normalize:
-        y_label = "Normalized Events"
+    ratio_ax.set_ylim(*ratio_ylim)
+    if ratio_type == "significance":
+        rylabel = "Significance"
     else:
-        y_label = None
+        rylabel = "Significance"
+    ratio_ax.set_ylabel(rylabel)
 
-    labelAxis(ax, "y", den_hist.axes, label=y_label)
-    ax.legend(loc="upper right")
-    ax.set_xlabel(None)
-
+    labelAxis(
+        ax,
+        "y",
+        den_hist.axes,
+        label="Normalized Events" if normalize else None,
+    )
     labelAxis(ratio_ax, "x", den_hist.axes)
+
+    addLegend(ax, pc)
     addCMSBits(
         ax,
-        [denominator.sector_parameters, *(x.sector_parameters for x in numerators)],
+        [x.metadata for x in numerators] + [x.metadata for x in denominator],
         plot_configuration=pc,
     )
 
-    ratio_ax.set_ylabel("Ratio", loc="center")
-    ax.tick_params(axis="x", which="both", labelbottom=False)
-    mplhep.sort_legend(ax=ax)
     ax.set_yscale(scale)
-    ax.set_yscale(scale)
+    scaleYAxis(ax)
+
     saveFig(fig, output_path, extension=pc.image_type)
+    plt.close(fig)

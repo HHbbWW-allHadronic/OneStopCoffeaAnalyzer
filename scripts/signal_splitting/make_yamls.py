@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import re
 import csv
+import yaml
 
 
 xsec_dict = None
@@ -54,8 +55,10 @@ def makeEntry(signal_name, year, plus, minus):
         "other_data": other_data,
         "samples": [],
     }
-    ret["samples"].append(makeFile(plus, year, name + "_plus", basename + "_plus"))
-    ret["samples"].append(makeFile(minus, year, name + "_minus", basename + "_minus"))
+    if plus:
+        ret["samples"].append(makeFile(plus, year, name + "_plus", basename + "_plus"))
+    if minus:
+        ret["samples"].append(makeFile(minus, year, name + "_minus", basename + "_minus"))
     return ret
 
 
@@ -87,17 +90,23 @@ def main():
     parser.add_argument("-y", "--year", type=str, required=True)
     parser.add_argument("-o", "--output", type=str, required=True)
     parser.add_argument("input", type=str)
-
     args = parser.parse_args()
+
+    out = Path(args.output)
+    out.parent.mkdir(exist_ok=True, parents=True)
+
 
     f = getFiles(args.input)
     g = makeGroups(f)
-    g = {k: v for k, v in g.items() if not [x for x in v if x is None]}
     ret = []
     for group, items in g.items():
         e = makeEntry(group, args.year, *items)
         print(e)
         ret.append(e)
+
+    yaml_string = yaml.dump(ret,sort_keys=False)
+    with open(out,'w') as f:
+        f.write(yaml_string)
 
 
 if __name__ == "__main__":

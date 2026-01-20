@@ -1,13 +1,15 @@
-import collections.abc
+import itertools as it
 import logging
-import pickle
-import shutil
+import os
+from analyzer.utils.pretty import progbar
+import zipfile
+import tarfile
 from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 from analyzer.configuration import CONFIG
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("analyzer")
 
 
 def stripPort(url):
@@ -41,8 +43,8 @@ def multiMatch(l, elements):
 
 def extractCmsLocation(url):
     _, _, p, *rest = urlparse(url)
-    #parts = Path(p).parts
-    parts = p.split('/')
+    # parts = Path(p).parts
+    parts = p.split("/")
     root_idx = None
     for r in CONFIG.FILE_ROOTS:
         m = multiMatch(parts, r)
@@ -52,79 +54,66 @@ def extractCmsLocation(url):
     if root_idx is None:
         raise RuntimeError(f"Could not find 'store' in {parts}")
     good_parts = parts[root_idx:]
-    #cms_path = Path(*good_parts)
-    cms_path = '/'.join(good_parts)
+    # cms_path = Path(*good_parts)
+    cms_path = "/".join(good_parts)
     return str(cms_path)
 
-# def extractCmsLocation(url):
-#     _, _, p, *rest = urlparse(url)
-#     parts = Path(p).parts
-#     root_idx = None
-#     for r in CONFIG.FILE_ROOTS:
-#         m = multiMatch(parts, r)
-#         if m is not None:
-#             root_idx = m
-#             break
-#     if root_idx is None:
-#         raise RuntimeError(f"Could not find 'store' in {parts}")
-#     good_parts = parts[root_idx:]
-#     cms_path = Path(*good_parts)
-#     return str(cms_path)
 
-
-def pickleWithParents(outpath, data):
-    p = Path(outpath)
-    p.parent.mkdir(exist_ok=True, parents=True)
-    with open(p, "wb") as f:
-        pickle.dump(data, f)
-
-
-def compressDirectory(
-    input_dir,
-    root_dir,
+def zipDirectory(
+    path,
     output,
-    archive_type="gztar",
-    temporary_path=".temporary",
+    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
+    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
 ):
-    logger.info(f"Compressing directory '{input_dir}' relative to '{root_dir}'")
-    logger.info(f"Output is '{output}'")
-    stem = output.name
-    temp = Path(temporary_path)
-    temp.parent.mkdir(exist_ok=True, parents=True)
-    output.parent.mkdir(exist_ok=True, parents=True)
-    # base_name = base_dir.stem
-    # if not zip_path:
-    #     temp_path = Path(tempfile.gettempdir())
-    # else:
-    #     temp_path = Path(zip_path)
+    with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as z:
+        for root, dirs, files in progbar(os.walk(path)):
+            for file in files:
+                filename = os.path.join(root, file)
+                if any(predicate(filename) for predicate in skip):
+                    continue
+                dirs = filename.split(os.sep)
+                if any(word in dirs for word in skip_words):
+                    continue
 
-    # trimmed_path = temp_path / f"temp_{base_name}" / base_name
-    # if trimmed_path.is_dir():
-    #     logger.info(f"Deleting tree at {trimmed_path}")
-    #     shutil.rmtree(trimmed_path)
+                archive_name = os.path.relpath(
+                    os.path.join(root, file), os.path.join(path, "..")
+                )
+                z.write(filename, archive_name)
 
-    # logger.info(f"Using {trimmed_path} as copy location.")
-    # temp_analyzer = shutil.copytree(
-    #     base_dir,
-    #     trimmed_path,
-    #     ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*~", "*.md"),
-    # )
-    package_path = shutil.make_archive(
-        str(temp / stem),
-        archive_type,
-        root_dir=str(root_dir),
-        base_dir=str(input_dir),
-        verbose=True,
-        dry_run=False,
-        group=None,
-        owner=None,
-        logger=logger,
-    )
-    logger.info(f"Created analyzer archive at {package_path}")
-    shutil.copy(package_path, output)
-    shutil.rmtree(temp)
-    # final_path = temp_path / f"{name}.{archive_type}"
-    return output
+
+def tarDirectory(
+    path,
+    output,
+    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
+    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
+    mode="w",
+):
+    with tarfile.open(output, f"{mode}:gz") as z:
+        for root, dirs, files in os.walk(path):
+            for file in files:
+                filename = os.path.join(root, file)
+                if any(predicate(filename) for predicate in skip):
+                    continue
+                dirs = filename.split(os.sep)
+                if any(word in dirs for word in skip_words):
+                    continue
+
+                archive_name = os.path.relpath(
+                    os.path.join(root, file), os.path.join(path, "..")
+                )
+                z.add(filename, archive_name)
+
+
+def tarFiles(
+    paths,
+    output,
+    skip_words=(".git", ".github", ".pytest_cache", "tests", "docs"),
+    skip=(lambda fn: os.path.splitext(fn)[1] == ".pyc",),
+    mode="w",
+):
+    with tarfile.open(output, f"{mode}:gz") as z:
+        for file in paths:
+            z.add(file)
 
 
 def exists(client, loc):
@@ -159,7 +148,6 @@ def copyFile(fr, to, from_rel_to=None):
     fr = urlunparse((fr_scheme, fr_netloc, str(Path(fr_path).absolute()), *fr_rest))
     to = urlunparse((to_scheme, to_netloc, to_path, *to_rest))
 
-
     import XRootD
     import XRootD.client
 
@@ -171,7 +159,7 @@ def copyFile(fr, to, from_rel_to=None):
     ex = exists(client, to_path)
 
     if ex and not is_dir:
-        raise RuntimeError(f"Destination exists and is not a directory")
+        raise RuntimeError("Destination exists and is not a directory")
 
     elif ex and is_dir:
         logger.info(f'Dest path "{to_path}" exists and is a directory')
@@ -195,30 +183,28 @@ def copyFile(fr, to, from_rel_to=None):
             makeDir(client, str(parent_path))
 
     logger.info(f'FINAL DEST IS: "{to}"')
-    # copyproc = XRootD.client.CopyProcess()
-    # copyproc.add_job(str(fr), str(to))
-
     status = client.copy(str(fr), str(to), force=True)[0]
     logger.info(status)
     assert status.ok
     del client
 
 
-def appendToUrl(url, *args):
-    scheme, netloc, path, *rest = urlparse(str(url))
-    path = Path(path, *args)
-    return urlunparse((scheme, netloc, str(path), *rest))
+def getVomsProxyPath(check_ok=True):
+    import subprocess
+
+    if check_ok:
+        res = subprocess.run(
+            ["voms-proxy-info", "-exists", "-valid", "2:0"], check=True
+        )
+        if res.returncode:
+            raise Exception(
+                "VOMS ERROR: please run `voms-proxy-init -voms cms -rfc --valid 168:0`"
+            )
+    proxy = subprocess.check_output(["voms-proxy-info", "-path"], text=True).strip()
+    return proxy
 
 
-def getStem(url):
-    scheme, netloc, path, *fr_rest = urlparse(str(url))
-    return str(Path(path).stem)
-
-
-def update(d, u):
-    for k, v in u.items():
-        if isinstance(v, collections.abc.Mapping):
-            d[k] = update(d.get(k, {}), v)
-        else:
-            d[k] = v
-    return d
+def iterPaths(paths_or_patterns):
+    return it.chain.from_iterable(
+        Path(".").glob(x) if "*" in x else (x,) for x in paths_or_patterns
+    )

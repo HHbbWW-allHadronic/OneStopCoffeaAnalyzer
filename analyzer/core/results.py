@@ -1,428 +1,588 @@
-import copy
-import logging
-from pathlib import Path
+from __future__ import annotations
+import awkward as ak
+from collections import ChainMap
+
+
+from analyzer.utils.pretty import progbar
+from analyzer.core.exceptions import ResultIntegrityError
+from analyzer.utils.file_tools import iterPaths
+import numpy as np
+
+
+import numbers
 import pickle as pkl
-from rich.prompt import Confirm
-from collections import defaultdict
-from typing import Any
+import lz4.frame
+import dask_awkward as dak
+import functools as ft
+from cattrs.strategies import include_subclasses, configure_tagged_union
+from analyzer.core.event_collection import FileSet
+from analyzer.core.serialization import converter
+import hist
+from analyzer.utils.structure_tools import globWithMeta
 
-import analyzer.core.histograms as anh
-import analyzer.core.region_analyzer as anr
-import analyzer.core.selection as ans
-import analyzer.core.specifiers as spec
-import analyzer.datasets as ad
-import pydantic as pyd
-from analyzer.configuration import CONFIG
-from analyzer.datasets import DatasetParams, FileSet, SampleParams, SampleType
-from analyzer.utils.structure_tools import accumulate
-from .exceptions import ResultIntegrityError
-from rich.progress import track
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from attrs import define, field
 
 
-logger = logging.getLogger(__name__)
+import copy
+import abc
+from typing import Any, Literal, ClassVar
 
 
-class BaseResult(pyd.BaseModel):
-    histograms: dict[str, anh.HistogramCollection] = pyd.Field(default_factory=dict)
-    other_data: dict[str, Any] = pyd.Field(default_factory=dict)
-    selection_flow: ans.SelectionFlow | None = None
-    post_sel_weight_flow: dict[str, float] | None = None
-
-    def includeOnly(self, histograms):
-        self.histograms = {x: y for x, y in self.histograms.items() if x in histograms}
-
-    def __add__(self, other: "SubSectorResult"):
-        ret = copy.deepcopy(self)
-        ret += other
-        return ret
-
-    def __iadd__(self, other: "SubSectorResult"):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-
-        new_hists = accumulate([self.histograms, other.histograms])
-        new_other = accumulate([self.other_data, other.other_data])
-        new_post_weight = accumulate(
-            [self.post_sel_weight_flow, other.post_sel_weight_flow]
-        )
-        self.histograms = new_hists
-        self.other_data = new_other
-        self.post_sel_weight_flow = new_post_weight
-        self.selection_flow = self.selection_flow + other.selection_flow
-        return self
-
-    def scaled(self, scale):
-        """
-        Scale all data. Currently selection flow is left unscaled.
-        """
-        return BaseResult(
-            histograms={x: y.scaled(scale) for x, y in self.histograms.items()},
-            other_data=self.other_data,
-            selection_flow=self.selection_flow,  # .scaled(scale),
-            post_sel_weight_flow=(
-                {x: y * scale for x, y in self.post_sel_weight_flow}
-                if self.post_sel_weight_flow is not None
-                else None
-            ),
-        )
 
 
-class SubSectorResult(pyd.BaseModel):
-    region: anr.RegionAnalyzer
-    base_result: BaseResult
+def getArrayMem(array):
+    from dask.sizeof import sizeof
 
-    def __add__(self, other: "SubSectorResult"):
-        ret = copy.deepcopy(self)
-        ret += other
-        return ret
-
-    def __iadd__(self, other: "SubSectorResult"):
-        """Two SubSector results may be added if they have the same parameters
-        We simply sum the histograms and cutflow data.
-        """
-        if self.region != other.region:
-            raise ResultIntegrityError("Cannot add different regions together.")
-        self.base_result += other.base_result
-        return self
-
-    def includeOnly(self, histograms):
-        self.base_result.includeOnly(histograms)
-
-    def scaled(self, scale):
-        return SubSectorResult(
-            region=self.region, base_result=self.base_result.scaled(scale)
-        )
+    if isinstance(array, ak.highlevel.Array):
+        return array.nbytes
+    return sizeof(array)
 
 
-class SampleResult(pyd.BaseModel):
-    sample_id: ad.SampleId
-
-    params: SampleParams
-    results: dict[str, SubSectorResult]
-
-    file_set_ran: FileSet
-    file_set_processed: FileSet
+@define
+class ResultBase(abc.ABC):
+    name: str
+    _metadata: dict[str, Any] = field(factory=dict, kw_only=True)
 
     @property
-    def processed_events(self):
-        return self.file_set_processed.events
+    def metadata(self):
+        return ChainMap(self.getMetadata(), {"type": self.__class__.__name__})
 
-    def includeOnly(self, histograms):
-        for r in self.results.values():
-            r.includeOnly(histograms)
+    def getMetadata(self):
+        return self._metadata
 
-    def compatible(self, other):
-        # Compute the overlap of the two results, this must be empty
-        fs = self.file_set_processed.intersect(other.file_set_processed)
-        if not fs.empty:
-            error = (
-                f"Could not add analysis results because the file sets over which they successfully processed overlap."
-                f"Overlapping files:\n{fs}"
-            )
-            raise ResultIntegrityError(error)
+    @abc.abstractmethod
+    def __iadd__(self, other) -> ResultBase:
+        pass
 
-        # We can only add results if the parameters are the same
-        if self.params != other.params:
-            raise ResultIntegrityError(
-                f"Error: Attempting to merge incomaptible analysis results"
-            )
+    @abc.abstractmethod
+    def iscale(self, value) -> ResultBase:
+        pass
+
+    @abc.abstractmethod
+    def approxSize(self) -> int:
+        pass
+
+    @abc.abstractmethod
+    def finalize(self) -> ResultBase: ...
+
+    def summary(self):
+        return self
 
     def __add__(self, other):
-        self.compatible(other)
         ret = copy.deepcopy(self)
         ret += other
         return ret
 
-    def __iadd__(self, other):
-        self.compatible(other)
-        self.file_set_ran += other.file_set_ran
-        self.file_set_processed += other.file_set_processed
-        self.results = accumulate([self.results, other.results])
-        return self
+    def scale(self, value):
+        ret = copy.deepcopy(self)
+        return ret.iscale(value)
 
-    def scaled(self, scale):
-        return SampleResult(
-            sample_id=self.sample_id,
-            params=self.params,
-            file_set_ran=self.file_set_ran,
-            file_set_processed=self.file_set_processed,
-            results={k: v.scaled(scale) for k, v in self.results.items()},
-        )
+    def widget(self, *args, **kwargs):
+        return None
 
-    def scaleToPhysical(self):
-        """
-        Scale MC results to the correct value based on their lumi and cross section
-        All results are scaled to remove effect of missing files/failed chunks.
-        """
-        if self.params.dataset.sample_type == SampleType.MC:
-            scale = (
-                self.params.dataset.lumi
-                * self.params.x_sec
-                / self.file_set_processed.events
+
+@define
+class ResultGroup(ResultBase):
+    _MAGIC_ID: ClassVar[Literal[b"sstopresult"]] = b"sstopresult"
+    _HEADER_SIZE: ClassVar[Literal[4]] = 4
+
+    results: dict[str, ResultBase] = field(factory=dict)
+
+    def globWithMeta(self, pattern):
+        from analyzer.utils.structure_tools import globWithMeta
+
+        return globWithMeta(self, pattern)
+
+    @classmethod
+    def peekFile(cls, f):
+        maybe_magic = f.read(len(cls._MAGIC_ID))
+        if maybe_magic == cls._MAGIC_ID:
+            peek_size = int.from_bytes(f.read(cls._HEADER_SIZE), byteorder="big")
+            ret = converter.unstructure(pkl.loads(f.read(peek_size)), ResultGroup)
+            return ret
+        else:
+            return converter.structure(pkl.loads(maybe_magic + f.read())).summary()
+
+    @classmethod
+    def peekBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            peek = data[
+                len(cls._MAGIC_ID) + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            return converter.structure(pkl.loads(peek), ResultGroup)
+        else:
+            return converter.structure(pkl.loads(data)).summary()
+
+    @classmethod
+    def fromBytes(cls, data: bytes):
+        if data[0 : len(cls._MAGIC_ID)] == cls._MAGIC_ID:
+            header_value = data[
+                len(cls._MAGIC_ID) : len(cls._MAGIC_ID) + cls._HEADER_SIZE
+            ]
+            peek_size = int.from_bytes(header_value, byteorder="big")
+            data[
+                len(cls._MAGIC_ID) + cls._HEADER_SIZE : len(cls._MAGIC_ID)
+                + cls._HEADER_SIZE
+                + peek_size
+            ]
+            core_data = lz4.frame.decompress(
+                data[len(cls._MAGIC_ID) + cls._HEADER_SIZE + peek_size :]
+            )
+            ret = converter.structure(pkl.loads(core_data), cls)
+        else:
+            ret = converter.structure(pkl.loads(data), cls)
+        return ret
+
+    def toBytes(self, packed_mode=True) -> bytes:
+        if packed_mode:
+            peek = pkl.dumps(converter.unstructure(self.summary()))
+            core_data = lz4.frame.compress(pkl.dumps(converter.unstructure(self)))
+            pl = len(peek)
+            plb = (pl.bit_length() + 7) // 8
+            if plb > self._HEADER_SIZE:
+                raise RuntimeError
+            return (
+                self._MAGIC_ID
+                + pl.to_bytes(self._HEADER_SIZE, byteorder="big")
+                + peek
+                + core_data
             )
         else:
-            scale = self.params.n_events / self.file_set_processed.events
-        return self.scaled(scale)
+            return pkl.dumps(converter.unstructure(self))
 
-
-class SectorResult(pyd.BaseModel):
-    sector_params: spec.SectorParams
-    result: BaseResult
-
-    @property
-    def params_dict(self):
-        return self.sector_params.model_dump()
-
-    @property
-    def histograms(self):
-        return self.result.histograms
-
-
-class DatasetResult(pyd.BaseModel):
-    dataset_params: DatasetParams
-    results: dict[str, BaseResult]
-
-    file_set_ran: FileSet
-    file_set_processed: FileSet
-
-    @staticmethod
-    def fromSampleResult(sample_results):
-        # All samples must belong to the same dataset
-        if not len(set(x.sample_id.dataset_name for x in sample_results)) == 1:
-            raise ResultIntegrityError()
-
-        # Dataset is created by adding sample results
-        return DatasetResult(
-            dataset_params=sample_results[0].params.dataset,
-            results=accumulate(
-                [
-                    {k: v.base_result for k, v in r.results.items()}
-                    for r in sample_results
-                ]
-            ),
-            file_set_ran=accumulate([x.file_set_ran for x in sample_results]),
-            file_set_processed=accumulate(
-                [x.file_set_processed for x in sample_results]
-            ),
+    def summary(self):
+        return ResultGroup(
+            name=self.name,
+            results={x: y.summary() for x, y in self.results.items()},
+            metadata=self.metadata,
         )
 
+    def approxSize(self):
+        return sum(x.approxSize() for x in self.results.values())
+
+    def addResult(self, res):
+        self.results[res.name] = res
+
+    # def __setitem__(self, key, value):
+    #     self.results[key] = value
+
+    def __getitem__(self, key):
+        return self.results[key]
+
+    def __iter__(self):
+        return iter(self.results)
+
+    def keys(self):
+        return self.results.keys()
+
+    def checkOk(self, other):
+        if "_provenance" in self.results:
+            if "_provenance" not in other.results:
+                raise RuntimeError()
+            if (
+                not self["_provenance"]
+                .file_set.intersection(other["_provenance"].file_set)
+                .empty
+            ):
+                raise ResultIntegrityError("Overlapping Provenance.")
+
+    def __iadd__(self, other):
+        self.checkOk(other)
+        for k in other.results:
+            if k in self.results:
+                self.results[k] += other.results[k]
+            else:
+                self.addResult(other.results[k])
+        return self
+
+    def iscale(self, value):
+        for k in self.results:
+            self.results[k].iscale(value)
+        return self
+
+    def finalize(self, finalizer):
+        for result in self.results.values():
+            result.finalize(finalizer)
+
+
+@define
+class ResultProvenance(ResultBase):
+    file_set: FileSet
+
+    def approxSize(self):
+        return 50 * len(self.file_set.files)
+
+    def __iadd__(self, other):
+        self.file_set += other.file_set
+        return self
+
+    def iscale(self, value):
+        return self
+
     @property
-    def sector_results(self):
-        return [
-            SectorResult(
-                sector_params=spec.SectorParams(
-                    dataset=self.dataset_params, region_name=rn
-                ),
-                result=result,
-            )
-            for rn, result in self.results.items()
-        ]
+    def chunked_events(self):
+        return self.file_set.chunked_events
+
+    def finalize(self, finalizer):
+        pass
 
 
-results_adapter = pyd.TypeAdapter(dict[ad.SampleId, SampleResult])
-subsector_adapter = pyd.TypeAdapter(dict[str, SubSectorResult])
+@define
+class Histogram(ResultBase):
+    @define
+    class Summary(ResultBase):
+        axes: Any
+
+        def __iadd__(self, other):
+            return self
+
+        def iscale(self, value):
+            return self
+
+        def approxSize(self):
+            return 0
+
+        def finalize(self, finalizer):
+            return self
+
+    axes: Any
+    histogram: hist.Hist
+
+    def summary(self):
+        return Histogram.Summary(name=self.name, axes=self.axes)
+
+    def approxSize(self):
+        from dask.sizeof import sizeof
+
+        return sizeof(self.histogram.view(flow=True))
+
+    def __iadd__(self, other):
+        self.histogram += other.histogram
+        return self
+
+    def iscale(self, value):
+        self.histogram *= value
+        return self
+
+    def finalize(self, finalizer):
+        return self
+
+    def widget(self, *args, **kwargs):
+        from textual_plotext import PlotextPlot
+
+        return None
+
+        widget = PlotextPlot()
+        plt = widget.plt
+        h = self.histogram
+        axes = h.axes
+        h = h[{"variation": "central"}]
+        if len(h.axes) == 1:
+            plt.bar(h.axes[0].centers, h.values())
+            return widget
+        plt.set_xlabel = axes[0].name
+        return None
 
 
-def loadResults(obj):
-    return results_adapter.validate_python(obj)
+Array = ak.Array | dak.Array | np.ndarray
 
 
-def openAndLoad(path):
-    with open(path, "rb") as f:
-        data = pkl.load(f)
-    return loadResults(data)
+@define
+class ScalableArray(ResultBase):
+    array: ak.Array | dak.Array | np.ndarray
+
+    def __iadd__(self, other):
+        if isinstance(self.array, np.ndarray):
+            self.array = np.concatenate([self.array, other.array], axis=0)
+        return self
+
+    def approxSize(self):
+        return getArrayMem(self.array)
+
+    def iscale(self, value):
+        self.array *= value
+        return self
+
+    def finalize(self, finalizer):
+        self.array = finalizer(self.array)
 
 
-def loadSampleResultFromPaths(
-    paths, include=None, parallel=CONFIG.DEFAULT_PARALLEL_PROCESSES, show_warning=True
-):
-    ret = {}
+@define
+class RawArray(ResultBase):
+    array: ak.Array | dak.Array | np.ndarray
 
-    if len(paths) > CONFIG.WARN_LOAD_FILE_NUMBER and show_warning:
-        print(
-            f"You are attempting to load {len(paths)} files. "
-            f"You may want to consider running 'analyzer merge' to improve loading speed."
-        )
+    def __iadd__(self, other):
+        if isinstance(self.array, np.ndarray):
+            self.array = np.concatenate([self.array, other.array], axis=0)
+        return self
 
-    if not parallel:
-        iterator = track(
-            paths,
-            total=len(paths),
-            transient=True,
-            description="Loading Files",
-            disable=not CONFIG.PRETTY_MODE,
-        )
-        for p in iterator:
-            with open(p, "rb") as f:
-                data = pkl.load(f)
-                r = loadResults(data)
-                for k in list(r.keys()):
-                    if include is not None:
-                        r[k].includeOnly(include)
-                    if k not in ret:
-                        ret[k] = r[k]
-                    else:
-                        ret[k] += r[k]
-                    del r[k]
-    else:
-        with ProcessPoolExecutor(max_workers=parallel) as executor:
-            futures = [executor.submit(openAndLoad, path) for path in paths]
-            # futures = executor.map(openAndLoad, paths)
-            iterator = track(
-                as_completed(futures),
-                total=len(paths),
-                transient=True,
-                description="Loading Files",
-                disable=not CONFIG.PRETTY_MODE,
-            )
-            for f in iterator:
-                r = f.result()
-                for k in list(r.keys()):
-                    if include is not None:
-                        r[k].includeOnly(include)
-                    if k not in ret:
-                        ret[k] = r[k]
-                    else:
-                        ret[k] += r[k]
-                    del r[k]
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        self.array = finalizer(self.array)
+
+    def approxSize(self):
+        return getArrayMem(self.array)
+
+
+@define
+class SavedColumns(ResultBase):
+    data: dict[str, ak.Array | dak.Array | np.ndarray]
+
+    def __iadd__(self, other):
+        if set(self.data) != set(other.data):
+            raise RuntimeError()
+        for k in self.data:
+            self.data[k] = np.concatenate([self.data[k], other.data[k]], axis=0)
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        for k in self.data:
+            self.data[k] = finalizer(self.data[k])
+
+    def approxSize(self):
+        return sum(getArrayMem(x) for x in self.data.values())
+
+
+Scalar = dak.Scalar | numbers.Real
+
+
+@define
+class SelectionFlow(ResultBase):
+    cuts: list[str]
+
+    cutflow: dict[str, Scalar]
+    # n_minus_one: dict[str, Scalar]
+    # one_cut: dict[str, Scalar]
+
+    def approxSize(self):
+        return 30 * len(self.cuts)
+
+    def __iadd__(self, other):
+        if self.cuts != other.cuts:
+            raise RuntimeError()
+        for x in self.cutflow:
+            self.cutflow[x] = self.cutflow[x] + other.cutflow[x]
+        return self
+        # for x in self.n_minus_one:
+        #     self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
+        # for x in self.one_cut:
+        #     self.one_cut[x] = self.one_cut[x] + other.one_cut[x]
+
+    def iscale(self, value):
+        for x in self.cutflow:
+            self.cutflow[x] = value * self.cutflow[x]
+        return self
+        # for x in self.n_minus_one:
+        #     self.n_minus_one[x] = value * self.n_minus_one[x]
+        # for x in self.one_cut:
+        #     self.one_cut[x] = value * self.one_cut[x]
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
+class SavedEventFile:
+    file_path: str
+    nevents: int
+    metadata: dict
+
+
+@define
+class SavedFiles(ResultBase):
+    saved_files: list[SavedEventFile]
+
+    def approxSize(self):
+        return 200 * len(self.saved_files)
+
+    def __iadd__(self, other):
+        self.saved_files += other.saved_files
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
+class RawEventCount(ResultBase):
+    count: float
+
+    def __iadd__(self, other):
+        self.count += other.count
+        return self
+
+    def approxSize(self):
+        return 8
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
+class ScaledEventCount(ResultBase):
+    count: float
+
+    def approxSize(self):
+        return 8
+
+    def __iadd__(self, other):
+        self.count += other.count
+        return self
+
+    def iscale(self, value):
+        self.count *= value
+        return self
+
+    def finalize(self, finalizer):
+        pass
+
+
+@define
+class RawSelectionFlow(ResultBase):
+    cuts: list[str]
+
+    cutflow: dict[str, Scalar]
+    n_minus_one: dict[str, Scalar]
+    one_cut: dict[str, Scalar]
+
+    def approxSize(self):
+        return 30 * len(self.cuts)
+
+    def __iadd__(self, other):
+        if self.cuts != other.cuts:
+            raise RuntimeError()
+        for x in self.cutflow:
+            self.cutflow[x] = self.cutflow[x] + other.cutflow[x]
+        for x in self.n_minus_one:
+            self.n_minus_one[x] = self.n_minus_one[x] + other.n_minus_one[x]
+        for x in self.one_cut:
+            self.one_cut[x] = self.one_cut[x] + other.one_cut[x]
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        pass
+
+
+def configureConverter(conv):
+
+    @conv.register_structure_hook
+    def _(val: Any, _) -> hist.Hist:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: hist.Hist) -> hist.Hist:
+        return val
+
+    @conv.register_structure_hook
+    def _(val: Scalar, _) -> Scalar:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: Scalar) -> Scalar:
+        return val
+
+    @conv.register_structure_hook
+    def _(val: Array, _) -> Array:
+        return val
+
+    @conv.register_unstructure_hook
+    def _(val: Array) -> Array:
+        return val
+
+    union_strategy = ft.partial(configure_tagged_union, tag_name="result_type")
+    include_subclasses(ResultBase, conv, union_strategy=union_strategy)
+
+
+configureConverter(converter)
+
+
+def loadResults(paths, peek_only=False):
+    all_paths = paths
+    ret = None
+    func = ResultGroup.peekBytes if peek_only else ResultGroup.fromBytes
+    for p in progbar(iterPaths(all_paths)):
+        with open(p, "rb") as f:
+            result = func(f.read())
+        if ret is None:
+            ret = result
+        else:
+            ret += result
     return ret
 
 
-def merge(paths, outdir):
-    outdir = Path(outdir)
-    outdir.mkdir(exist_ok=True, parents=True)
-    if any(outdir.iterdir()):
-        ok = Confirm.ask(
-            f"Output directory '{outdir}' is not empty. This may cause problem. Do you want to proceed?"
-        )
-        if not ok:
-            print("Aborting")
-            return
-
-    results = loadSampleResultFromPaths(paths, show_warning=False)
-    for sample_id, result in results.items():
-        output = outdir / f"{sample_id}.pkl"
-        print(f'Saving sample {sample_id} to "{output}"')
-        if output.exists():
-            raise ResultIntegrityError("Cannot overwrite when merging!")
-
-        with open(output, "wb") as f:
-            pkl.dump({sample_id: result.model_dump()}, f)
-
-
-def makeDatasetResults(
-    sample_results,
-    drop_samples=None,
-    drop_sample_fn=lambda x: False,
-    include_samples_as_datasets=False,
-):
-    drop_samples = drop_samples or []
-    scaled_sample_results = defaultdict(list)
-    # Make datasets results by grouping samples for each dataset
-    for result in sample_results.values():
-        if result.sample_id in drop_samples or drop_sample_fn(result.sample_id):
-            logger.warn(f'Not including sample "{result.sample_id}"')
-            continue
-        if result.processed_events > 0:
-            scaled_sample_results[result.sample_id.dataset_name].append(
-                result.scaleToPhysical()
-            )
-    if not include_samples_as_datasets:
-        return {
-            x: DatasetResult.fromSampleResult(y)
-            for x, y in scaled_sample_results.items()
-        }
-    else:
-        ret = {}
-        for x, y in scaled_sample_results.items():
-            ret[x] = DatasetResult.fromSampleResult(y)
-            for s in y:
-                ds = DatasetResult.fromSampleResult([s])
-                ds.dataset_params = copy.deepcopy(ds.dataset_params)
-                ds.dataset_params.name = str(s.sample_id)
-                ds.dataset_params.title = str(s.sample_id.sample_name)
-                ret[s.sample_id] = ds
-                print(s.sample_id)
-        return ret
+def mergeAndScale(results):
+    for dataset, meta in globWithMeta(results, ["*"]):
+        merged_metadata = copy.deepcopy(meta)
+        total = None
+        for s in dataset:
+            sample_data = dataset[s]
+            s_meta = sample_data.metadata
+            provenance = sample_data["_provenance"]
+            processed_events = provenance.chunked_events
+            # print(f"{s_meta['sample_name'] = }")
+            # print(f"{processed_events = }")
+            # print(f"{s_meta['n_events'] = }")
+            if s_meta["sample_type"] == "MC":
+                lumi = s_meta["era"]["lumi"]
+                xs = s_meta["x_sec"]
+                scale = lumi * xs / processed_events
+                sample_data.iscale(scale)
+            elif s_meta["sample_type"] == "Data":
+                expected_nevents = s_meta["n_events"]
+                sample_data.iscale(expected_nevents / processed_events)
+            merged_metadata = {
+                k: v
+                for k, v in merged_metadata.items()
+                if k in s_meta and merged_metadata[k] == s_meta[k]
+            }
+            if total is None:
+                total = sample_data
+            else:
+                total += sample_data
+        total.name = dataset.name
+        results.addResult(total)
+    return results
 
 
-def checkResult(paths, configuration=None):
-    from rich.console import Console
-    from rich.style import Style
-    from rich.table import Table
+@define
+class ResultStatus:
+    dataset_name: str
+    sample_name: str
+    events_expected: int
+    events_found: int
 
-    console = Console()
-
-    loaded = loadSampleResultFromPaths(paths, include=[])
-    results = list(loaded.values())
-
-    # from analyzer.utils.debugging import jumpIn
-    # jumpIn(**locals())
-
-    if configuration:
-        # If a configuration is provided we also check for completely missing samples
-        from analyzer.datasets import DatasetRepo
-        from analyzer.core.configuration import loadDescription
-
-        description = loadDescription(configuration)
-        dataset_repo = DatasetRepo.getConfig()
-        config_samples = set(
-            s.sample_id
-            for n in description.samples
-            for x in dataset_repo.getRegex(n)
-            for s in x.samples
-        )
-        missing_samples = sorted(list(config_samples - set(loaded)))
-
-    table = Table(title="Missing Events")
-    for x in ("Dataset Name", "Sample Name", "% Complete", "Processed", "Total"):
-        table.add_column(x)
-
-    for result in results:
-        sample_id = result.params.sample_id
-        exp = result.params.n_events
-        val = result.processed_events
-        diff = exp - val
-        done = diff == 0
-        percent = round(val / exp * 100, 2)
-
-        table.add_row(
-            sample_id.dataset_name,
-            sample_id.sample_name,
-            str(percent),
-            f"{val}",
-            f"{exp}",
-            style=Style(color="green" if done else "red"),
-        )
-        # print(f"{sample_id} is missing {diff} events")
-    if configuration:
-        for sample_id in missing_samples:
-            table.add_row(
-                sample_id.dataset_name,
-                sample_id.sample_name,
-                "Missing",
-                "Missing",
-                "Missing",
-                style=Style(color="red"),
-            )
-    console.print(table)
+    @property
+    def frac_complete(self):
+        return self.events_found / self.events_expected
 
 
-def updateMeta(paths):
-    from analyzer.datasets import DatasetRepo, EraRepo
-
-    dataset_repo = DatasetRepo.getConfig()
-    era_repo = EraRepo.getConfig()
-    for path in paths:
-        with open(path, "rb") as f:
-            data = pkl.load(f)
-        results = loadResults(data)
-        for k in results.values():
-            sid = k.sample_id
-            p = dataset_repo[sid].params
-            p.dataset.populateEra(era_repo)
-            k.params = p
-        with open(path, "wb") as f:
-            pkl.dump({x: y.model_dump() for x, y in results.items()}, f)
+def checkResults(paths):
+    results = loadResults(paths, peek_only=True)
+    ret = []
+    for prov, meta in globWithMeta(results, ["*", "*", "_provenance"]):
+        expected = meta["n_events"]
+        found = prov.chunked_events
+        dataset_name = meta["dataset_name"]
+        sample_name = meta["sample_name"]
+        ret.append(ResultStatus(dataset_name, sample_name, expected, found))
+    return ret
