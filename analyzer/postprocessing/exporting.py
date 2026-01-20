@@ -40,7 +40,11 @@ class Dump(BasePostprocessor):
         item, meta = group[0]
         output_path = doFormatting(self.output_name, **dict(meta), prefix=prefix)
         yield ft.partial(
-            exportItem, item.histogram, meta, output_path, compressed=self.compressed
+            exportItem,
+            item.histogram,
+            dict(meta),
+            output_path,
+            compressed=self.compressed,
         )
 
 

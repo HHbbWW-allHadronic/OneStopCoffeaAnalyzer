@@ -13,7 +13,6 @@ from attrs import define
 import logging
 
 
-
 logger = logging.getLogger("analyzer.modules")
 
 
@@ -50,7 +49,7 @@ def uprootWriteable(events):
 @define
 class SaveEvents(AnalyzerModule):
     prefix: str
-    output_format: str = "{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}"
+    output_format: str = "{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}.root"
 
     def run(self, columns, params):
         events = columns._events
@@ -68,14 +67,14 @@ class SaveEvents(AnalyzerModule):
             uuid=uid,
         )
 
-        target = self.prefix + target
+        target = self.prefix + "/" + target
         base = Path("localsaved")
         base.mkdir(exist_ok=True, parents=True)
 
         local_filename = base / f"{uid}.root"
         try:
             with uproot.recreate(local_filename, compression=uproot.ZSTD(5)) as f:
-                f["Events"] = uprootWriteable(events)
+                f.mktree("Events", uprootWriteable(events))
             copyFile(local_filename, target)
         finally:
             local_filename.unlink(missing_ok=True)
