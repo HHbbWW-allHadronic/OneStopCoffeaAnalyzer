@@ -18,8 +18,6 @@ from attrs import define, field
 import numpy as np
 import enum
 
-ResultSet = list[list[ItemWithMeta]]
-
 
 class SignificanceType(str, enum.Enum):
     poisson_basic = "poisson_basic"

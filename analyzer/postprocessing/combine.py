@@ -192,10 +192,10 @@ def _handleProcessSystematics(
     systematics_pattern,
     root_file_name,
 ):
-    if hasattr(hist.axes, "name") and "systematic" in hist.axes.name:
+    if hasattr(hist.axes, "name") and "variation" in hist.axes.name:
         import re
 
-        syst_ax = hist.axes["systematic"]
+        syst_ax = hist.axes["variation"]
         for syst_idx, syst_name in enumerate(syst_ax):
             if syst_name == "nominal":
                 continue
@@ -233,11 +233,11 @@ def _processList(
             card.addProcess(proc)
 
         # Get nominal
-        if hasattr(hist.axes, "name") and "systematic" in hist.axes.name:
-            if "nominal" in hist.axes["systematic"]:
-                h_nom = hist[{"systematic": "nominal"}]
+        if hasattr(hist.axes, "name") and "variation" in hist.axes.name:
+            if "nominal" in hist.axes["variation"]:
+                h_nom = hist[{"variation": "nominal"}]
             else:
-                h_nom = hist[{"systematic": 0}]
+                h_nom = hist[{"variation": 0}]
             rate = h_nom.sum().value
             rf[process_name] = h_nom
         else:
@@ -271,8 +271,14 @@ def _handleObservation(rf, card, observation, background, channel, root_file_nam
     else:
         background_hists = [item.item.histogram for item in background]
         if background_hists:
-            sum_hist = ft.reduce(op.add, background_hists)
-            rf["data_obs"] = sum_hist
+            hist = ft.reduce(op.add, background_hists)
+
+            if hasattr(hist.axes, "name") and "variation" in hist.axes.name:
+                if "nominal" in hist.axes["variation"]:
+                    hist = hist[{"variation": "nominal"}]
+                else:
+                    hist = hist[{"variation": 0}]
+            rf["data_obs"] = hist
             card.addObservation(channel, root_file_name, "data_obs", -1)
 
 
@@ -338,19 +344,17 @@ RUN_CMD=""
 if command -v combine &> /dev/null; then
     echo "Using system 'combine'..."
     RUN_CMD=""
-elif [ -f "/cvmfs/cms.cern.ch/cat/combine_env.sh" ]; then
-    echo "Using CVMFS combine_env.sh..."
-    function run_combine() {
-        source /cvmfs/cms.cern.ch/cat/combine_env.sh
-        "$@"
-    }
-    RUN_CMD="run_combine"
 elif command -v apptainer &> /dev/null && [ -d "/cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/cms-analysis/general/combine-container:latest" ]; then
     echo "Using Apptainer with CVMFS container..."
     export APPTAINER_CACHEDIR="/tmp/$(whoami)/apptainer_cache"
-    IMAGE="/cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/cms-analysis/general/combine-container:latest"
     
-    RUN_CMD="apptainer exec -B /cvmfs -B /eos -B /afs $IMAGE /bin/bash -c 'source /cvmfs/cms.cern.ch/cmsset_default.sh && cd /home/cmsusr/CMSSW_14_1_0_pre4/ && eval \\$(scramv1 runtime -sh) && exec \"\\$@\"' --"
+
+    function run_combine() {
+       IMAGE="/cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/cms-analysis/general/combine-container:latest"
+       apptainer exec -B /cvmfs  $IMAGE /bin/bash -c 'source /cvmfs/cms.cern.ch/cmsset_default.sh && pushd $PWD && cd /home/cmsusr/CMSSW_14_1_0_pre4/ && eval $(scramv1 runtime -sh) && popd && exec \"$@\"' -- $@
+    }
+    RUN_CMD="run_combine"
+
 
 elif command -v docker &> /dev/null; then
     echo "Using Docker container..."
@@ -398,8 +402,8 @@ fi
 
 {% for path in datacards %}
 echo 'Running combine for {{ path.name }}'
-$RUN_CMD combine -M Significance {{ path.name }} > {{ path.stem }}_significance.log
-$RUN_CMD combine -M AsymptoticLimits {{ path.name }} > {{ path.stem }}_limits.log
+$RUN_CMD combine -M Significance {{ path.name }} | tee {{ path.stem }}_significance.log
+$RUN_CMD combine -M AsymptoticLimits {{ path.name }} | tee {{ path.stem }}_limits.log
 {% endfor %}
 """
     template = jinja2.Template(template_str)

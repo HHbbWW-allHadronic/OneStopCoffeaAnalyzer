@@ -109,6 +109,25 @@ processors:
         - name: SelectAxesValues
           select_axes_values: {"variation": "central"}
     output_name: "{prefix}/sig_{era.name}_{name}.png"
+
+
+  - name: CombineDatacard
+    inputs:
+      - "*/*/*/uncomp_m14_vs_mChiRatio"
+    channel: "{pipeline}"
+    structure:
+      select: {type: Histogram, sample_type: MC}
+      group: {era.name: "*"}
+      subgroups:
+        signal:
+          select: {dataset_name: "signal*", pipeline: Signal312 }
+        background:
+          select: {dataset_name: "!signal*",  pipeline: Signal312}
+      transforms:
+        - name: MergeAxes
+          merge_axis_names: [HT_Cat]
+    output_name: "{prefix}/combine_{era.name}_{dataset_name}"
+
     
 
 
