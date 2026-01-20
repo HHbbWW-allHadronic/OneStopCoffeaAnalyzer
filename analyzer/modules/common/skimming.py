@@ -7,7 +7,7 @@ import uproot
 from analyzer.utils.file_tools import copyFile
 from analyzer.utils.structure_tools import dictToDot, dotFormat
 import awkward as ak
-from attrs import define
+from attrs import define, field
 
 
 import logging
@@ -50,8 +50,12 @@ def uprootWriteable(events):
 class SaveEvents(AnalyzerModule):
     prefix: str
     output_format: str = "{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}.root"
+    __has_run: set = field(factory=set)
 
     def run(self, columns, params):
+        k = self.getKeyNoParams(columns)
+        if k in self.__has_run:
+            return columns, []
         events = columns._events
         file_id = (
             hashlib.md5((columns.metadata["chunk"]["file_path"]).encode())
@@ -78,6 +82,7 @@ class SaveEvents(AnalyzerModule):
             copyFile(local_filename, target)
         finally:
             local_filename.unlink(missing_ok=True)
+        self.__has_run.add(k)
         return columns, []
 
     def inputs(self, metadata):
