@@ -8,7 +8,7 @@ from analyzer.utils.structure_tools import (
     ItemWithMeta,
     commonDict,
     dictToDot,
-    doFormatting,
+    dotFormat,
 )
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio
@@ -33,7 +33,7 @@ class Histogram1D(BasePostprocessor):
             unstacked = group
             stacked = None
         common_meta = commonDict(it.chain((stacked or []), (unstacked or [])))
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
@@ -66,7 +66,7 @@ class RatioPlot(BasePostprocessor):
         numerator = group["numerator"]
         denominator = group["denominator"]
         common_meta = commonDict(it.chain(numerator, denominator))
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
@@ -98,7 +98,7 @@ class Histogram2D(BasePostprocessor):
             raise RuntimeError()
         hist = group[0]
         common_meta = commonDict(group)
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
         self.plot_configuration.makeFormatted(common_meta)

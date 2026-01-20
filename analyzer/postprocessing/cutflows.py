@@ -6,7 +6,7 @@ from .style import StyleSet
 from analyzer.utils.structure_tools import (
     commonDict,
     dictToDot,
-    doFormatting,
+    dotFormat,
 )
 from rich import print
 from .processors import BasePostprocessor
@@ -27,7 +27,7 @@ class PlotSelectionFlow(BasePostprocessor):
 
     def getRunFuncs(self, group, prefix=None):
         common_meta = commonDict(group)
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
@@ -51,7 +51,7 @@ class CutflowTable(BasePostprocessor):
 
     def getRunFuncs(self, group, prefix=None):
         common_meta = commonDict(group)
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
 

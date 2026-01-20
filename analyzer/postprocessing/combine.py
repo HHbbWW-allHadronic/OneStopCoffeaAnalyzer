@@ -13,7 +13,7 @@ from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
     commonDict,
     dictToDot,
-    doFormatting,
+    dotFormat,
 )
 from .processors import BasePostprocessor
 
@@ -434,14 +434,12 @@ class CombineDatacard(BasePostprocessor):
         for sig in signal:
             current_signal = [sig]
             common_meta = commonDict(it.chain(current_signal, observation or []))
-            formatted_output_dir = doFormatting(
+            formatted_output_dir = dotFormat(
                 self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
             )
 
             if self.channel:
-                channel_name = doFormatting(
-                    self.channel, **dict(dictToDot(common_meta))
-                )
+                channel_name = dotFormat(self.channel, **dict(dictToDot(common_meta)))
             else:
                 channel_name = "bin1"
 

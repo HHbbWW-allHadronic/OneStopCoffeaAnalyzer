@@ -5,7 +5,7 @@ from pathlib import Path
 import uproot
 
 from analyzer.utils.file_tools import copyFile
-from analyzer.utils.structure_tools import dictToDot, doFormatting
+from analyzer.utils.structure_tools import dictToDot, dotFormat
 import awkward as ak
 from attrs import define
 
@@ -60,7 +60,7 @@ class SaveEvents(AnalyzerModule):
         )
         uid = str(uuid.uuid4())
 
-        target = doFormatting(
+        target = dotFormat(
             self.output_format,
             **dict(dictToDot(columns.metadata)),
             file_id=file_id,

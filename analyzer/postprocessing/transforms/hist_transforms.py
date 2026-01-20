@@ -3,7 +3,7 @@ import copy
 import itertools as it
 from analyzer.core.results import Histogram
 import numpy as np
-from analyzer.utils.structure_tools import dictToDot, doFormatting
+from analyzer.utils.structure_tools import dictToDot, dotFormat
 import hist
 from collections import ChainMap, OrderedDict
 from analyzer.utils.querying import BasePattern
@@ -260,7 +260,7 @@ class FormatTitle(TransformHistogram):
         for ph, meta in histograms:
             meta = ChainMap(
                 meta,
-                {"title": doFormatting(self.title_format, **dict(dictToDot(meta)))},
+                {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
             )
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret

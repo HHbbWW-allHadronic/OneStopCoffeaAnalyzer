@@ -10,7 +10,7 @@ from typing import Any
 import string
 
 
-def doFormatting(s, **kwargs):
+def dotFormat(s, **kwargs):
     parsed = string.Formatter().parse(s)
     s = ""
     for x in parsed:

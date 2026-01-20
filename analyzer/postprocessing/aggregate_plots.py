@@ -8,7 +8,7 @@ from analyzer.utils.structure_tools import (
     ItemWithMeta,
     commonDict,
     dictToDot,
-    doFormatting,
+    dotFormat,
 )
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio
@@ -133,7 +133,7 @@ class Significance2D(BasePostprocessor):
         background = group["background"]
         signal = group["signal"]
         common_meta = commonDict(it.chain(background, signal))
-        output_path = doFormatting(
+        output_path = dotFormat(
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
