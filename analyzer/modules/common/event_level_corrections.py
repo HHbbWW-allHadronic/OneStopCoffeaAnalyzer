@@ -56,6 +56,9 @@ class PileupSF(AnalyzerModule):
 
     def run(self, columns, params):
         if params["variation"] == "disabled":
+            columns[Column(("Weights", self.weight_name))] = ak.ones_like(
+                columns["Pileup.nTrueInt"], dtype=float
+            )
             return columns, []
         corr = self.getCorrection(columns.metadata)
         n_pu = columns["Pileup.nTrueInt"]
@@ -99,6 +102,7 @@ class L1PrefiringSF(AnalyzerModule):
         Condition to determine if the module should run. By default, it runs
         on MC samples for Run 2.
     """
+
     weight_name: str = "l1_prefiring"
     should_run: MetadataExpr = field(
         factory=lambda: MetadataAnd([IsSampleType("MC"), IsRun(2)])
@@ -167,6 +171,7 @@ class GoldenLumi(AnalyzerModule):
     - The certified luminosity sections are read from the metadata for
         the given era under "golden_json".
     """
+
     selection_name: str = "golden_lumi"
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("Data"))
 
