@@ -228,8 +228,8 @@ class VetoMap(AnalyzerModule):
             & ((j.chEmEF + j.neEmEF) < 0.9)
         ]
         vetoes = corr.evaluate(self.veto_type, j.eta, j.phi)
-        passed = ak.any(vetoes != 0, axis=1)
-        addSelection(columns, self.selection_name, passed)
+        failed = ak.any(vetoes != 0, axis=1)
+        addSelection(columns, self.selection_name, ~failed)
         return columns, []
 
     def getCorr(self, metadata):
