@@ -238,7 +238,7 @@ class VetoMap(AnalyzerModule):
         k = (path, name)
         if k in self.__corrections:
             return self.__corrections[k]
-        ret = correctionlib.CorrectionSet.from_file(path)[name]
+        ret = correctionlib.CorrectionSet.from_file(path)
         self.__corrections[k] = ret
         return ret
 
