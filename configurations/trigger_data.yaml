@@ -125,3 +125,14 @@ event_collections:
   #   pipelines: [TriggerData]
     
   
+Postprocessing:
+  processors:
+    - name: DumpNPZ
+      inputs:
+        - "*/*/*/trigger_data"
+      structure:
+        select: {type: SavedColumns, sample_type: Data}
+        group: {era.name: "*"}
+      output_name: "{prefix}/nn_inputs/{era.name}_trigger_data.npz"
+    
+  

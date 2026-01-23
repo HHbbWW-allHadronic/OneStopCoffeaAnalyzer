@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import functools as ft
-from analyzer.utils.structure_tools import (
-    dotFormat,
-)
+from analyzer.utils.structure_tools import dotFormat, dictToDot
 from .processors import BasePostprocessor
 from attrs import define
 import pickle as pkl
@@ -66,6 +64,10 @@ class DumpNPZ(BasePostprocessor):
         if len(group) != 1:
             raise RuntimeError()
         item, meta = group[0]
+        print(item)
+        print(meta)
 
-        output_path = dotFormat(self.output_name, **dict(meta), prefix=prefix)
-        yield ft.partial(writeNumpy, item.saved_columns, meta, output_path)
+        output_path = dotFormat(
+            self.output_name, **dict(dictToDot(meta)), prefix=prefix
+        )
+        yield ft.partial(writeNumpy, output_path, item.data)
