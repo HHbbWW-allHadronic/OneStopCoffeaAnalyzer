@@ -375,7 +375,7 @@ def plotRatio(
     if ratio_type == "significance":
         rylabel = "Significance"
     else:
-        rylabel = "Significance"
+        rylabel = "Ratio"
     ratio_ax.set_ylabel(rylabel)
 
     labelAxis(
