@@ -14,6 +14,7 @@ from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio
 from .plots.plots_2d import plot2D
 from attrs import define, field
+from rich import print
 
 ResultSet = list[list[ItemWithMeta]]
 
@@ -43,6 +44,7 @@ class Histogram1D(BasePostprocessor):
             stacked,
             common_meta,
             output_path,
+            scale=self.scale,
             style_set=self.style_set,
             normalize=self.normalize,
             plot_configuration=pc,

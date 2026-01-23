@@ -393,7 +393,6 @@ class LPCCondorDask(Executor):
             )
 
     def setup(self, needed_resources):
-
         configureDask()
 
         condor_temp_loc = (

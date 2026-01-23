@@ -2,11 +2,9 @@ analyzer:
   TriggerData:
     - module_name: SimpleHLT
       triggers: [IsoMuon]
+
     - module_name: GoldenLumi
     - module_name: PileupSF
-    - module_name: JetScaleCorrections
-      input_col: Jet
-      output_col: Jet
     - module_name: L1PrefiringSF
     - module_name: VetoMapFilter
       input_col: Jet
@@ -15,10 +13,8 @@ analyzer:
     - module_name: VetoMap
       input_col: Jet
 
-    - module_name: VetoMap
-      input_col: Jet
-
     - module_name: NoiseFilter
+      
     - module_name: SelectOnColumns
       sel_name: pre_selection
 
@@ -55,8 +51,14 @@ analyzer:
     - module_name: FilterNear
       target_col: GoodFatJet
       near_col: GoodMuon
-      output_col: GoodFatJet
+      output_col: GoodCleanedFatJet
       max_dr: 0.8
+
+    - module_name: FilterNear
+      target_col: GoodJet
+      near_col: GoodMuon
+      output_col: GoodCleanedJet
+      max_dr: 0.4
 
     - module_name: NObjFilter
       input_col: GoodMuon
@@ -71,7 +73,7 @@ analyzer:
       max_count: 0
 
     - module_name: NObjFilter
-      input_col: GoodFatJet
+      input_col: GoodCleanedFatJet
       selection_name: least_one_fatjet
       min_count: 1
 
@@ -81,60 +83,45 @@ analyzer:
     - module_name: HT
       input_col: GoodJet
 
+    - module_name: HT
+      output_col: CleanedHT
+      input_col: GoodCleanedJet
+
     - module_name: PromoteIndex
       input_col: GoodFatJet
       output_col: LeadingFatJet
+
+    - module_name: PromoteIndex
+      input_col: GoodCleanedFatJet
+      output_col: LeadingCleanedFatJet
 
     - module_name: SaveCols
       save_name: trigger_data
       to_save:
         HT: "HT"
+        CleanedHT: "CleanedHT"
         PT: "LeadingFatJet.pt"
+        CleanedPT: "LeadingCleanedFatJet.pt"
         MSD: "LeadingFatJet.msoftdrop"
         PassHT: "HLTMAP:HT"
-        PassAK8: "HLTMAP:AK8SingleJetPt"
-
-    - module_name: TopJetHistograms
-      prefix: "jet"
-      input_col: GoodFatJet
-      max_idx: 1
+        PassAK8: "HLTMAP:AK8SingleJetPtNoTrim"
 
 
-        
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # - dataset: 'qcd*2018'
   #   pipelines: [Signal312]
-  - dataset: 'signal_2018_312_1500_*0'
-    pipelines: [TriggerData]
+  # - dataset: 'signal_2018_312_1500_*0'
+  #   pipelines: [TriggerData]
   # - dataset: 'signal_*official'
   #   pipelines: [Signal312]
   # - dataset: testqcd
   #   pipelines: [Signal312]
-  # - dataset: "data_*muon_*"
-  #   pipelines: [TriggerData]
+  - dataset: "data_*muon_*"
+    pipelines: [TriggerData]
   # - dataset: diboson_2018
   #   pipelines: [TriggerData]
     
   
-extra_executors:
-  test:
-    executor_name: ImmediateExecutor
-    chunk_size: 1000000
-
-  test2:
-    executor_name: LocalDaskExecutor
-    chunk_size: 400000
-    min_workers: 1
-    max_workers: 3
-    reduction_factor: 2
-  
-  testcondor:
-    executor_name: LPCCondorDask
-    container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
-    venv_path: .venv
-    chunk_size: 400000
-    max_workers: 200
-    worker_memory: 6GB

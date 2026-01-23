@@ -88,7 +88,6 @@ def plotOne(
     )
 
     ax.set_yscale(scale)
-    mplhep.yscale_legend(ax, soft_fail=True)
     addLegend(ax, pc)
 
     scaleYAxis(ax)
