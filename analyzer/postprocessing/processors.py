@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import abc
-from cattrs.strategies import include_subclasses, configure_tagged_union
+from cattrs.strategies import (
+    include_subclasses,
+    configure_tagged_union,
+    configure_union_passthrough,
+)
 from .transforms.registry import Transform
 
 import functools as ft
@@ -47,6 +51,8 @@ def configureConverter(conv):
     include_subclasses(Transform, conv, union_strategy=union_strategy)
 
     base_hook = conv.get_structure_hook(BasePostprocessor)
+    conv.register_structure_hook(int | float | None, lambda x, t: x)
+    configure_union_passthrough(int | float | None, conv)
 
     @conv.register_structure_hook
     def _(data, t) -> BasePostprocessor:

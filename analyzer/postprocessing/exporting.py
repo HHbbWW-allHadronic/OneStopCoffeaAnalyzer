@@ -47,13 +47,11 @@ class Dump(BasePostprocessor):
 
 
 def writeNumpy(path, data):
-    import numpy as np
-
     path = Path(path)
     path.parent.mkdir(exist_ok=True, parents=True)
 
     with open(path, "wb") as f:
-        np.save(f, data)
+        pkl.dump(data, f)
 
 
 @define
@@ -64,10 +62,9 @@ class DumpNPZ(BasePostprocessor):
         if len(group) != 1:
             raise RuntimeError()
         item, meta = group[0]
-        print(item)
-        print(meta)
 
         output_path = dotFormat(
             self.output_name, **dict(dictToDot(meta)), prefix=prefix
         )
+        print(output_path)
         yield ft.partial(writeNumpy, output_path, item.data)
