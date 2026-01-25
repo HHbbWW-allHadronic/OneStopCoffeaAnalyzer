@@ -177,7 +177,7 @@ class NNMassPlots(AnalyzerModule):
         )
         ret.append(
             makeHistogram(
-                f"{self.prefix}_m14_vs_mChi",
+                f"{self.prefix}_mStop_vs_mChi",
                 columns,
                 [
                     RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
@@ -188,7 +188,7 @@ class NNMassPlots(AnalyzerModule):
         )
         ret.append(
             makeHistogram(
-                f"{self.prefix}_m14_vs_mChiRatio",
+                f"{self.prefix}_mStop_vs_mChiRatio",
                 columns,
                 [
                     RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
