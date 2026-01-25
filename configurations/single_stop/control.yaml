@@ -25,8 +25,8 @@ common_corrections: &common_corrections
     output_col: Jet
 
 common_pre_sel_weights: &common_pre_sel_weights
-  - module_name: BJetShapeSF
-    input_col: GoodJet
+  # - module_name: BJetShapeSF
+  #   input_col: GoodJet
   - module_name: PileupSF
   # - module_name: L1PrefiringSF
   - module_name: PosNegGenWeight
@@ -73,8 +73,8 @@ common_objects: &common_objects
   - module_name: JetFilter
     input_col: Jet
     output_col: GoodJet
-    include_pu_id: False
-    include_jet_id: False
+    include_pu_id: True
+    include_jet_id: True
     min_pt: 30
     max_abs_eta: 2.4
 
@@ -185,7 +185,7 @@ common_histograms: &common_histograms
 
 analyzer:
   default_run_builder:
-    strategy_name: NoSystematics
+    strategy_name: WeightsOnly
 
   Control:
     - module_name: SimpleHLT
@@ -215,21 +215,96 @@ location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*
 
 event_collections:
   # Data samples
-  - dataset: 'data_JetHT_*2023_pre*'
+  - dataset: 'data_JetHT_*'
     pipelines: [Control]
   
   # Background MC Samples
-  - dataset: 'qcd*2023_pre*'
+  - dataset: 'qcd*'
     pipelines: [Control]
-  - dataset: 'diboson*2023_pre*'
+  - dataset: 'diboson*'
     pipelines: [Control]
-  - dataset: 'tt_to_hadronic*2023_pre*'
+  - dataset: 'tt_to_hadronic*'
     pipelines: [Control]
-  - dataset: 'zjets_to_qq*2023_pre*'
+  - dataset: 'zjets_to_qq*'
     pipelines: [Control]
-  - dataset: 'wjets_to_qq*2023*'
+  - dataset: 'wjets_to_qq*'
     pipelines: [Control]
-  - dataset: 'single_top*hadronic*2023_pre*'
+  - dataset: 'single_top*hadronic*'
     pipelines: [Control]
 
+
+Postprocessing:
+  processors:
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/composite_13_m"
+        - "*/*/*/composite_14_m"
+        - "*/*/*/composite_24_m"
+        - "*/*/*/HT"
+      scale: log
+      normalize: True
+      structure:
+        select: {dataset_name: "!Signal*", pipeline: Control}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: MC}
+          numerator:
+            select: {sample_type: Data}
+        transforms:
+          - name: SliceAxes
+            slices: {HT_Cat: [1200, null]}
+          - name: MergeAxes
+            merge_axis_names: [HT_Cat]
+
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "{prefix}/control/{era.name}/ratio_{era.name}_{name}.png"
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/composite_13_m"
+        - "*/*/*/composite_14_m"
+        - "*/*/*/composite_24_m"
+        - "*/*/*/HT"
+      scale: log
+      normalize: True
+      structure:
+        select: {dataset_name: "!Signal*", pipeline: Control}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: MC}
+          numerator:
+            select: {sample_type: Data}
+        transforms:
+          - name: MergeAxes
+            merge_axis_names: [HT_Cat]
+
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "{prefix}/control/{era.name}/ratio_no_cut_{era.name}_{name}.png"
+
   
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 2
+
+
+  default_style_set:
+    styles:
+      - pattern:
+          dataset_name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          linestyle: null
+          marker: 'o'
+      - pattern:
+          sample_type: 'MC'
+        style:
+          plottype: fill
+      

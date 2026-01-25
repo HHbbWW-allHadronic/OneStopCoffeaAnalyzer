@@ -123,6 +123,7 @@ event_collections:
     pipelines: [TriggerData]
   # - dataset: diboson_2018
   #   pipelines: [TriggerData]
+  
     
   
 Postprocessing:
@@ -133,6 +134,6 @@ Postprocessing:
       structure:
         select: {type: SavedColumns, sample_type: Data}
         group: {era.name: "*"}
-      output_name: "{prefix}/{era.name}_trigger_data.npz"
+      output_name: "{prefix}/{era.name}_trigger_data.pkl"
     
   
