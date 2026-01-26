@@ -6,6 +6,11 @@ common_cleanup: &common_cleanup
     input_col: Jet
     output_col: Jet
   - module_name: NoiseFilter
+  
+  - module_name: NObjFilter
+    input_col: GoodFatJet
+    selection_name: least_one_fatjet
+    min_count: 1
 
 
 common_presel_objects: &common_presel_objects
@@ -126,6 +131,7 @@ common_selection: &common_selection
 
 
 
+
 common_histograms: &common_histograms
   - module_name: NNMassReco
     input_col: GoodJet
@@ -207,6 +213,32 @@ analyzer:
     - *common_categories
     - *common_histograms
 
+  ControlBNN:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim]
+      should_run:
+        sample_type: Data
+    - *common_presel_objects
+    - *common_cleanup
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    #- *common_corrections
+    - *common_objects
+    - *common_pre_sel_weights
+    - module_name: TriggerBNN
+      base_path: trained_bnns/l1_aware/
+      net_pattern: "{era}_mixed.json"
+      input_col: GoodJet
+    - module_name: NObjFilter
+      input_col: LooseB
+      selection_name: 0bjet
+      max_count: 0
+    - *common_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_categories
+    - *common_histograms
+
 
         
 
@@ -220,17 +252,17 @@ event_collections:
   
   # Background MC Samples
   - dataset: 'qcd*'
-    pipelines: [Control]
+    pipelines: [Control, ControlBNN]
   - dataset: 'diboson*'
-    pipelines: [Control]
+    pipelines: [Control, ControlBNN]
   - dataset: 'tt_to_hadronic*'
-    pipelines: [Control]
+    pipelines: [Control, ControlBNN]
   - dataset: 'zjets_to_qq*'
-    pipelines: [Control]
+    pipelines: [Control , ControlBNN]
   - dataset: 'wjets_to_qq*'
-    pipelines: [Control]
+    pipelines: [Control, ControlBNN]
   - dataset: 'single_top*hadronic*'
-    pipelines: [Control]
+    pipelines: [Control, ControlBNN]
 
 
 Postprocessing:
