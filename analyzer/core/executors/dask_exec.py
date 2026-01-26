@@ -375,7 +375,7 @@ class LPCCondorDask(Executor):
     schedd_address: str | None = "localhost:12358"
     adapt: bool = True
     chunk_size: int | None = 100000
-    reduction_factor: int = 10
+    reduction_factor: int = 3
     timeout: int = 120
     cluster: Any = None
     client: Any = None
