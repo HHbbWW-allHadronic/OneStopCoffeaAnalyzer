@@ -19,12 +19,12 @@ def setupConverter(conv):
 
     use_class_methods(conv, "_structure", "_unstructure")
 
+    analyzer.utils.querying.configureConverter(conv)
     analyzer.core.analysis_modules.configureConverter(conv)
     analyzer.core.event_collection.configureConverter(conv)
     analyzer.core.executors.executor.configureConverter(conv)
     analyzer.core.run_builders.configureConverter(conv)
     # analyzer.core.results.configureConverter(conv)
     analyzer.core.datasets.configureConverter(conv)
-    analyzer.utils.querying.configureConverter(conv)
 
     return conv
