@@ -53,15 +53,37 @@ class ComplexHLTConfig:
 @define
 class ComplexHLT(AnalyzerModule):
     """
-    Select events based on HLT triggers, with different triggers for different datasets.
-    Also supports vetoing events based on other triggers (e.g. for removing overlap).
+    Analyzer module applying complex HLT-based selections with dataset-dependent
+    trigger logic.
+
+    This module evaluates High-Level Trigger (HLT) decisions using a configurable
+    set of trigger and veto definitions. The configuration is selected dynamically
+    based on the dataset name using regular-expression pattern matching.
+
+    For a matched configuration:
+      - All configured trigger paths are OR-combined to form the *pass* condition.
+      - All configured veto paths are OR-combined to form the *veto* condition.
+      - The final selection is defined as::
+
+            pass_trigger AND (NOT veto_trigger)
+
 
     Parameters
     ----------
     trigger_config : list[ComplexHLTConfig]
-        List of configuration objects for triggers.
-    selection_name : str
-        Name of the selection to be added to the columns.
+        Ordered list of trigger configurations. Each configuration must define
+        a regular-expression pattern used to match the dataset name, along with
+        trigger and veto path names. The first matching configuration is used.
+    selection_name : str, optional
+        Name of the selection written to the output columns. The selection is stored
+        under ``Selection.<selection_name>``. Default is ``"PassHLT"``.
+
+    Raises
+    ------
+    ValueError
+        If no trigger configuration matches the dataset name.
+
+
     """
 
     trigger_config: list[ComplexHLTConfig]
@@ -91,18 +113,14 @@ class ComplexHLT(AnalyzerModule):
         triggers = matched_config.triggers
         vetos = matched_config.veto
 
-        if triggers:
-            pass_trigger = ft.reduce(
-                op.or_, (hlt[trigger_names[name]] for name in triggers)
-            )
+        pass_trigger = ft.reduce(
+            op.or_, (hlt[trigger_names[name]] for name in triggers)
+        )
 
         if vetos:
             veto_trigger = ft.reduce(
                 op.or_, (hlt[trigger_names[name]] for name in vetos)
             )
-
-        if pass_trigger is None:
-            pass_trigger = ak.full_like(hlt[next(iter(trigger_names.values()))], False)
 
         final_selection = pass_trigger
         if veto_trigger is not None:
