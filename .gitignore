@@ -56,3 +56,7 @@ oldpkl/
 *.result
 *.png
 *.pdf
+
+
+trained_bnns/
+nn_models/
