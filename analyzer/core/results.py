@@ -18,7 +18,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
-from analyzer.utils.structure_tools import globWithMeta
+from analyzer.utils.structure_tools import globWithMeta, commonDict
 
 from attrs import define, field
 
@@ -26,8 +26,6 @@ from attrs import define, field
 import copy
 import abc
 from typing import Any, Literal, ClassVar
-
-
 
 
 def getArrayMem(array):
@@ -484,7 +482,6 @@ class RawSelectionFlow(ResultBase):
 
 
 def configureConverter(conv):
-
     @conv.register_structure_hook
     def _(val: Any, _) -> hist.Hist:
         return val
@@ -532,7 +529,7 @@ def loadResults(paths, peek_only=False):
 
 def mergeAndScale(results):
     for dataset, meta in globWithMeta(results, ["*"]):
-        merged_metadata = copy.deepcopy(meta)
+        all_meta = []
         total = None
         for s in dataset:
             sample_data = dataset[s]
@@ -550,16 +547,14 @@ def mergeAndScale(results):
             elif s_meta["sample_type"] == "Data":
                 expected_nevents = s_meta["n_events"]
                 sample_data.iscale(expected_nevents / processed_events)
-            merged_metadata = {
-                k: v
-                for k, v in merged_metadata.items()
-                if k in s_meta and merged_metadata[k] == s_meta[k]
-            }
             if total is None:
                 total = sample_data
             else:
                 total += sample_data
+
+        merged_metadata = commonDict(dataset[x] for x in dataset)
         total.name = dataset.name
+        total._metadata = merged_metadata
         results.addResult(total)
     return results
 

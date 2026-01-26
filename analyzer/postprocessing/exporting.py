@@ -1,9 +1,7 @@
 from __future__ import annotations
 
 import functools as ft
-from analyzer.utils.structure_tools import (
-    dotFormat,
-)
+from analyzer.utils.structure_tools import dotFormat, dictToDot
 from .processors import BasePostprocessor
 from attrs import define
 import pickle as pkl
@@ -49,13 +47,11 @@ class Dump(BasePostprocessor):
 
 
 def writeNumpy(path, data):
-    import numpy as np
-
     path = Path(path)
     path.parent.mkdir(exist_ok=True, parents=True)
 
     with open(path, "wb") as f:
-        np.save(f, data)
+        pkl.dump(data, f)
 
 
 @define
@@ -67,5 +63,8 @@ class DumpNPZ(BasePostprocessor):
             raise RuntimeError()
         item, meta = group[0]
 
-        output_path = dotFormat(self.output_name, **dict(meta), prefix=prefix)
-        yield ft.partial(writeNumpy, item.saved_columns, meta, output_path)
+        output_path = dotFormat(
+            self.output_name, **dict(dictToDot(meta)), prefix=prefix
+        )
+        print(output_path)
+        yield ft.partial(writeNumpy, output_path, item.data)

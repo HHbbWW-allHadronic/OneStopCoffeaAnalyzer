@@ -48,6 +48,34 @@ def uprootWriteable(events):
 
 @define
 class SaveEvents(AnalyzerModule):
+    """
+    Analyzer module that serializes and persists event-level data to ROOT files.
+
+    `SaveEvents` writes the full event record from the current analysis columns
+    to a ROOT file using `uproot`. Files are written locally first and then copied
+    to a target destination defined by a configurable output path template.
+
+    Each unique input (as defined by `getKeyNoParams`) is written at most once per
+    process execution.
+
+    Parameters
+    ----------
+    prefix : str
+        Destination directory prefix where the output ROOT files will be copied.
+        This may be a local or remote path, depending on the configured copy backend.
+
+    output_format : str, optional
+        Filename template used to construct the final output path. The template
+        is expanded using metadata fields from `columns.metadata`, plus the
+        following automatically provided fields:
+
+        - ``file_id`` : MD5 hash of the input file path
+        - ``uuid`` : Random UUID to guarantee local filename uniqueness
+
+        Default:
+        ``"{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}.root"``
+    """
+
     prefix: str
     output_format: str = "{dataset_name}__{sample_name}__{file_id}__{chunk.event_start}_{chunk.event_stop}.root"
     __has_run: set = field(factory=set)

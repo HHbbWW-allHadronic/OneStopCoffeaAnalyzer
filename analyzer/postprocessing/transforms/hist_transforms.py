@@ -44,7 +44,7 @@ class MergeAxes(TransformHistogram):
         ret = []
         for item, meta in items:
             h = item.histogram
-            merging = {x: sum for x in self.merge_axis_names}
+            merging = {x: slice(0, len(h.axes[x]), sum) for x in self.merge_axis_names}
             h = h[merging]
             ret.append(
                 ItemWithMeta(Histogram(name=item.name, axes=[], histogram=h), meta)
@@ -227,16 +227,16 @@ class RebinAxes(TransformHistogram):
 
 @define
 class SliceAxes(TransformHistogram):
-    slices: list[tuple[int | float | None, int | float | None]]
+    slices: dict[str, tuple[int | float | None, int | float | None]]
 
     def __call__(self, items):
         ret = []
         for ph, meta in items:
             h = ph.histogram
-            slices = dict(
-                (a.name, slice(*(hist.loc(x) if x else x for x in s)))
-                for a, s in zip(h.axes, self.slices)
-            )
+            slices = {
+                x: slice(*(hist.loc(y) if y else y for y in z))
+                for x, z in self.slices.items()
+            }
             h = h[slices]
             meta = ChainMap(
                 meta,

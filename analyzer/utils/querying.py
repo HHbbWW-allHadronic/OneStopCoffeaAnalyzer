@@ -165,6 +165,7 @@ BasePattern = Pattern | PatternOr | PatternAnd | DeepPattern | PatternNot
 def configureConverter(conv):
     # union_strategy = ft.partial(configure_tagged_union)
     configure_union_passthrough(str | int | float, conv)
+
     base_hook = conv.get_structure_hook(BasePattern)
     pattern_hook = conv.get_structure_hook(Pattern)
     conv.get_structure_hook(DeepPattern)

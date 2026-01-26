@@ -31,6 +31,8 @@ auto-save-list
 tramp
 .\#*
 
+logs/
+
 
 *.pdf
 *.pth
@@ -56,3 +58,7 @@ oldpkl/
 *.result
 *.png
 *.pdf
+
+
+trained_bnns/
+nn_models/

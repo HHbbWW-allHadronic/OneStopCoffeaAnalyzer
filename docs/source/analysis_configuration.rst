@@ -26,7 +26,7 @@ A full list of available modules and their configuration parameters can be found
 
 
 A Note on YAML Anchors and Reuse
----------------------
+-----------------------------------
 
 Common analysis logic can be factored into reusable blocks using YAML anchors:
 

@@ -24,16 +24,17 @@ import analyzer.postprocessing.basic_histograms  # noqa
 import analyzer.postprocessing.cutflows  # noqa
 import analyzer.postprocessing.combine  # noqa
 import analyzer.postprocessing.aggregate_plots  # noqa
+import analyzer.postprocessing.exporting  # noqa
 from .style import loadStyles
-from attrs import define
+from attrs import define, field
 from .basic_histograms import BasePostprocessor
 
 
 @define
 class PostprocessorConfig:
     processors: list[BasePostprocessor]
-    default_style_set: StyleSet
-    default_plot_config: PlotConfiguration
+    default_style_set: StyleSet = field(factory=StyleSet)
+    default_plot_config: PlotConfiguration = field(factory=PlotConfiguration)
     drop_sample_patterns: list[BasePattern] | None = None
 
 
@@ -61,6 +62,9 @@ def runPostprocessors(path, input_files, parallel=None, prefix=None):
 
     with open(path, "r") as f:
         data = yaml.load(f, Loader=Loader)
+
+    if "Postprocessing" in data:
+        data = data["Postprocessing"]
 
     postprocessor = converter.structure(data, PostprocessorConfig)
 

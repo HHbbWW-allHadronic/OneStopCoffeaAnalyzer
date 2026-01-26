@@ -8,6 +8,7 @@ OneStopCoffea Analyzer
    
    user_guide
    configuration
+   dataset_list
    reference
 
 

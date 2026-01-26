@@ -88,7 +88,6 @@ def plotOne(
     )
 
     ax.set_yscale(scale)
-    mplhep.yscale_legend(ax, soft_fail=True)
     addLegend(ax, pc)
 
     scaleYAxis(ax)
@@ -376,7 +375,7 @@ def plotRatio(
     if ratio_type == "significance":
         rylabel = "Significance"
     else:
-        rylabel = "Significance"
+        rylabel = "Ratio"
     ratio_ax.set_ylabel(rylabel)
 
     labelAxis(
