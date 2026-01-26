@@ -21,9 +21,9 @@ sys.path.append(os.path.abspath("./_ext"))
 
 extensions = [
     "sphinx.ext.autodoc",
-    "sphinx.ext.napoleon",
     "sphinx.ext.autosummary",
     "sphinx.ext.viewcode",
+    "sphinx.ext.mathjax",
     "sphinx_autodoc_typehints",
     "dataset_doc",
 ]
