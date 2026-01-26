@@ -31,6 +31,8 @@ auto-save-list
 tramp
 .\#*
 
+logs/
+
 
 *.pdf
 *.pth
