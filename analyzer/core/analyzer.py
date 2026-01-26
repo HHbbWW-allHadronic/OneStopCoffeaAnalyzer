@@ -28,14 +28,6 @@ import logging
 from analyzer.utils.structure_tools import SimpleCache, freeze, flatten
 
 
-# Define the log message format
-FORMAT = "%(message)s"
-
-# Configure basic logging with RichHandler
-logging.basicConfig(
-    level="WARNING",  # Set the logging level (e.g., DEBUG, INFO, WARNING, ERROR)
-    format=FORMAT,
-)
 logger = logging.getLogger("analyzer.core")
 
 
