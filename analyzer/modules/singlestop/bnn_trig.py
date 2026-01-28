@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import correctionlib
 
 import awkward as ak
 import numpy as np
@@ -132,5 +133,86 @@ class TriggerBNN(AnalyzerModule):
             w = up
         elif systematic == "down":
             w = down
+        columns[Column(("Weights", self.weight_name))] = w
+        return columns, []
+
+
+@define
+class TriggerBNNCorrection(AnalyzerModule):
+    """
+    Compute trigger efficiency weights using correctionlib for BNN.
+
+    Parameters
+    ----------
+    base_path : str
+        Base directory where correction files are stored.
+    correction_pattern : str
+        Pattern for the correction filename, formatted with the era name (e.g. bnn_correction_{era}.json.gz).
+    correction_name : str, optional
+        Name of the correction in the file, by default "BNN_Trigger_Efficiency".
+    weight_name : str, optional
+        Name of the output weight column, by default "trigger_eff".
+    should_run : MetadataExpr, optional
+        Condition to determine if the module should run. By default runs on MC samples.
+    """
+
+    base_path: str
+    correction_pattern: str
+    correction_name: str = "BNN_Trigger_Efficiency"
+    weight_name: str = "trigger_eff"
+
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
+
+    __corrections: dict = field(factory=dict)
+
+    def inputs(self, metadata):
+        return [Column("HT"), Column("GoodFatJet")]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Weights", self.weight_name))]
+
+    def neededResources(self, metadata):
+        return [self.base_path]
+
+    def getParameterSpec(self, metadata):
+        return ModuleParameterSpec(
+            {
+                "variation": ParameterSpec(
+                    default_value="central",
+                    possible_values=["central", "up", "down"],
+                    tags={
+                        "weight_variation",
+                    },
+                ),
+            }
+        )
+
+    def getCorrection(self, metadata):
+        name = metadata["era"]["name"]
+        path = str(Path(self.base_path) / self.correction_pattern.format(era=name))
+
+        if path in self.__corrections:
+            return self.__corrections[path]
+
+        cset = correctionlib.CorrectionSet.from_file(path)
+        corr = cset[self.correction_name]
+        self.__corrections[path] = corr
+        return corr
+
+    def run(self, columns, params):
+        systematic = params["variation"]
+
+        syst_map = {"central": "nominal", "up": "up", "down": "down"}
+
+        corr_syst = syst_map.get(systematic, "nominal")
+
+        ht = columns["HT"]
+        fj = columns["GoodFatJet"]
+        fjpt = fj[:, 0].pt
+
+        corr = self.getCorrection(columns.metadata)
+
+        w = corr.evaluate(corr_syst, ht, fjpt)
+
         columns[Column(("Weights", self.weight_name))] = w
         return columns, []
