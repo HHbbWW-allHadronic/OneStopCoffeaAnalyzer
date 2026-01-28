@@ -3,10 +3,10 @@ distributed:
     link:  "{scheme}://{host}:{port}/status"
   worker:
     daemon: false
-    # memory:
-    #   spill: 0.6  # default: 0.7
-    #   target: 0.5  # default: 0.6
-    #   terminate: 0.95  # default: 0.95
+    memory:
+      spill: 0.6  # default: 0.7
+      target: 0.5  # default: 0.6
+      terminate: 0.95  # default: 0.95
     # profile:
     #   enabled: true
     # memory:
@@ -54,7 +54,7 @@ jobqueue:
     cores: 1                     # Total number of cores per job
     memory: 4GB                # Total amount of memory per job
     processes: 1               # Number of Python processes per job
-    threads: 3
+    threads: 1
 
     interface: null             # Network interface to use like eth0 or ib0
     death-timeout: 120           # Number of seconds to wait if a worker can not find a scheduler
@@ -65,9 +65,6 @@ jobqueue:
     worker-extra-args:
       - "--worker-port 10000:10300"
       - "--nanny-port 10301:10600"
-      # - "--no-dashboard"
-      - "--preload"
-      - "analyzer.core.dask_sizes"
       - "--preload"
       - "lpcjobqueue.patch"
 
