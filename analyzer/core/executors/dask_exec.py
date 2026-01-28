@@ -301,6 +301,7 @@ def run(
                         chunk_size,
                         reduction_factor,
                         max_sample_events=max_sample_events,
+                        timeout=timeout,
                     )
                     as_comp.update(new_tasks)
                     total_events += n_events
@@ -375,8 +376,8 @@ class LPCCondorDask(Executor):
     schedd_address: str | None = "localhost:12358"
     adapt: bool = True
     chunk_size: int | None = 100000
-    reduction_factor: int = 3
-    timeout: int = 120
+    reduction_factor: int = 2
+    timeout: int = 480
     cluster: Any = None
     client: Any = None
 
