@@ -225,9 +225,9 @@ analyzer:
     #- *common_corrections
     - *common_objects
     - *common_pre_sel_weights
-    - module_name: TriggerBNN
+    - module_name: TriggerBNNCorrection
       base_path: trained_bnns/l1_aware/
-      net_pattern: "{era}_mixed.json"
+      correction_pattern: "bnn_correction_{era}.json.gz"
       input_col: GoodJet
     - module_name: NObjFilter
       input_col: LooseB
@@ -242,8 +242,8 @@ analyzer:
 
         
 
-location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-# location_priorities: [".*(T0|T1|T2).*","eos"]
+#location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # Data samples

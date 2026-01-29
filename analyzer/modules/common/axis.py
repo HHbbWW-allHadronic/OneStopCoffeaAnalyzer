@@ -17,7 +17,10 @@ class IntegerAxis(Axis):
     unit: str | None = None
 
     def toHist(self):
-        return hist.axis.Integer(self.start, self.stop, name=self.name)
+        a = hist.axis.Integer(self.start, self.stop, name=self.name)
+        if self.unit:
+            a.unit = self.unit
+        return a
 
 
 @define(frozen=True)
@@ -29,4 +32,7 @@ class RegularAxis(Axis):
     unit: str | None = None
 
     def toHist(self):
-        return hist.axis.Regular(self.bins, self.start, self.stop, name=self.name)
+        a = hist.axis.Regular(self.bins, self.start, self.stop, name=self.name)
+        if self.unit:
+            a.unit = self.unit
+        return a
