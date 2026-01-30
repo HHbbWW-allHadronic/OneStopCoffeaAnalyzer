@@ -117,10 +117,17 @@ class HistogramBuilder(PureResultModule):
 
             if "Weights" in columns.fields:
                 weights = columns["Weights"]
-                total_weight = ak.prod([weights[x] for x in weights.fields], axis=0)
-                total_weight = HistogramBuilder.transformToFill(
-                    representative, total_weight, mask
-                )
+                wf = weights.fields
+                if not wf:
+                    total_weight = None
+                else:
+                    wf = iter(wf)
+                    total_weight = weights[next(wf)]
+                    for w in wf:
+                        total_weight = total_weight * weights[w]
+                    total_weight = HistogramBuilder.transformToFill(
+                        representative, total_weight, mask
+                    )
             else:
                 total_weight = None
 
