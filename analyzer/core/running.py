@@ -64,16 +64,27 @@ def getMatchedCollections(dataset_repo, descs):
     return ret
 
 
-def getTasks(dataset_repo, era_repo, dataset_descs, location_priorities=None):
+def getTasks(
+    dataset_repo,
+    era_repo,
+    dataset_descs,
+    location_priorities=None,
+    filter_dataset=None,
+    filter_sample=None,
+):
     todo = []
     matched = getMatchedCollections(dataset_repo, dataset_descs)
     if any(len(x) != 1 for x in matched.values()):
         raise RuntimeError("More than one matching pattern.")
     todo = [(k, x[0].pipelines) for k, x in matched.items()]
     ret = []
+    if filter_dataset:
+        todo = [(k, v) for k, v in todo if filter_dataset.match(k)]
     for dataset_name, pipelines in todo:
         dataset = dataset_repo[dataset_name]
         for sample in dataset:
+            if filter_sample is not None and not filter_sample.match(sample.name):
+                continue
             sample, meta = getWithMeta(dataset, sample.name)
             meta = dict(meta)
             meta["era"] = era_repo[meta["era"]]
@@ -132,10 +143,14 @@ def runFromPath(
     output,
     executor_name,
     max_sample_events=None,
-    filter_samples=None,
+    filter_dataset=None,
+    filter_sample=None,
     limit_pipelines=None,
     return_analyzer=False,
 ):
+    from analyzer.utils.querying import BasePattern
+    from analyzer.core.serialization import converter
+
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)
@@ -147,11 +162,18 @@ def runFromPath(
 
     executor = all_executors[executor_name]
 
+    if filter_dataset is not None:
+        filter_dataset = converter.structure(filter_dataset, BasePattern)
+    if filter_sample is not None:
+        filter_sample = converter.structure(filter_sample, BasePattern)
+
     tasks = getTasks(
         dataset_repo,
         era_repo,
         analysis.event_collections,
         location_priorities=analysis.location_priorities,
+        filter_dataset=filter_dataset,
+        filter_sample=filter_sample,
     )
     logger.info("Initializing analyzer")
     for t in tasks:

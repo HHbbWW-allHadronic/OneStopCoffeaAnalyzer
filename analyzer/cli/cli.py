@@ -43,15 +43,26 @@ def cli(log_level):
 @click.argument("output", type=click.Path(file_okay=False, dir_okay=True))
 @click.option("--executor", "-e", type=str, required=True)
 @click.option("--max-sample-events", type=int, default=None)
+@click.option("--filter-dataset", type=str, default=None)
+@click.option("--filter-sample", type=str, default=None)
 def run(
     input,
     output,
     executor,
     max_sample_events,
+    filter_dataset,
+    filter_sample,
 ):
     from analyzer.core.running import runFromPath
 
-    runFromPath(input, output, executor, max_sample_events=max_sample_events)
+    runFromPath(
+        input,
+        output,
+        executor,
+        max_sample_events=max_sample_events,
+        filter_dataset=filter_dataset,
+        filter_sample=filter_sample,
+    )
 
 
 @cli.command()
