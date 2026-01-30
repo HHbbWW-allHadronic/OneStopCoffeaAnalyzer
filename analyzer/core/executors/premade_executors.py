@@ -10,10 +10,13 @@ def getPremadeExcutors() -> dict[str, Executor]:
         "imm-testing": ImmediateExecutor(chunk_size=1000, deepcopy_analyzer=False),
         "imm-10000": ImmediateExecutor(chunk_size=1000),
         "local-dask-4G-10000": LocalDaskExecutor(
-            chunk_size=10000, min_workers=4, max_workers=4
+            chunk_size=10000, min_workers=4, max_workers=4, timeout=None
         ),
         "local-dask-4G-100000": LocalDaskExecutor(
-            chunk_size=100000, min_workers=4, max_workers=4
+            chunk_size=100000,
+            min_workers=4,
+            max_workers=4,
+            timeout=None,
         ),
         "lpc-dask-condor-4G-100000": LPCCondorDask(
             chunk_size=100000,

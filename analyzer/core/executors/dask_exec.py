@@ -147,12 +147,20 @@ def runWithFinalize(analyzer, *args, **kwargs):
 def getAnalyzerRunFunc(analyzer, task, timeout=120):
     def inner(chunk):
         try:
-            ret = callTimeout(
-                timeout, runWithFinalize, analyzer, chunk, task.metadata, task.pipelines
-            )
-            # ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
+            if timeout is None:
+                ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
+            else:
+                ret = callTimeout(
+                    timeout,
+                    runWithFinalize,
+                    analyzer,
+                    chunk,
+                    task.metadata,
+                    task.pipelines,
+                )
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
+            raise e
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
     return inner
@@ -284,6 +292,7 @@ def run(
                 result = future.result()
             except Exception as e:
                 logger.warning(e)
+                raise e
                 result = None
             if future in file_prep_task_mapping:
                 progress_bar.update(bar_prep, advance=1)
