@@ -160,7 +160,6 @@ def getAnalyzerRunFunc(analyzer, task, timeout=120):
                 )
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
-            raise e
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
     return inner
@@ -292,7 +291,6 @@ def run(
                 result = future.result()
             except Exception as e:
                 logger.warning(e)
-                raise e
                 result = None
             if future in file_prep_task_mapping:
                 progress_bar.update(bar_prep, advance=1)
