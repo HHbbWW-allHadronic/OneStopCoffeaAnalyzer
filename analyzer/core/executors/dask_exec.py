@@ -384,7 +384,7 @@ class LPCCondorDask(Executor):
     adapt: bool = True
     chunk_size: int | None = 100000
     reduction_factor: int = 2
-    timeout: int = 480
+    timeout: int = 300
     cluster: Any = None
     client: Any = None
 
