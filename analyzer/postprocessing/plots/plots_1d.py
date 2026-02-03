@@ -398,3 +398,102 @@ def plotRatio(
 
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
+
+
+def plotRatioOfRatios(
+    num_numerator,
+    num_denominator,
+    den_numerator,
+    den_denominator,
+    output_path,
+    style_set,
+    r1_label="Ratio 1",
+    r2_label="Ratio 2",
+    double_ratio_label="Ratio of Ratios",
+    normalize=False,
+    ratio_ylim=(0, 2),
+    ratio_type="poisson",
+    scale="linear",
+    plot_configuration=None,
+    ratio_hlines=(1.0,),
+    ratio_height=0.3,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+
+    fig, ax, ratio_ax = makeRatioAxes(ratio_height)
+
+    # Assume all share the same axis
+    ref_hist = num_denominator.item.histogram
+    x_values = ref_hist.axes[0].centers
+    left_edge = ref_hist.axes.edges[0][0]
+    right_edge = ref_hist.axes.edges[-1][-1]
+
+    # Calculate 4 components
+    h_num_num = num_numerator.item.histogram
+    h_num_den = num_denominator.item.histogram
+    h_den_num = den_numerator.item.histogram
+    h_den_den = den_denominator.item.histogram
+
+    # Calculate Ratios
+    r1, r1_unc = computeRatio(
+        h_num_num.values(),
+        h_num_den.values(),
+        normalize=normalize,
+        ratio_type=ratio_type,
+    )
+
+    r2, r2_unc = computeRatio(
+        h_den_num.values(),
+        h_den_den.values(),
+        normalize=normalize,
+        ratio_type=ratio_type,
+    )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        double_ratio = r1 / r2
+        double_ratio_unc = np.abs(double_ratio) * np.sqrt(
+            (r1_unc / r1) ** 2 + (r2_unc / r2) ** 2
+        )
+
+    double_ratio[np.isnan(double_ratio)] = 0
+    double_ratio[np.isinf(double_ratio)] = 0
+    double_ratio_unc[np.isnan(double_ratio_unc)] = 0
+
+    style1 = styler.getStyle(num_numerator.metadata)
+    style2 = styler.getStyle(den_numerator.metadata)
+
+    opts1 = {
+        **style1.get("errorbar", include_type=False),
+        "label": r1_label,
+    }
+    opts2 = {**style2.get("errorbar", include_type=False), "label": r2_label}
+
+    ax.errorbar(x_values, r1, yerr=r1_unc, **opts1)
+    ax.errorbar(x_values, r2, yerr=r2_unc, **opts2)
+
+    ratio_ax.errorbar(
+        x_values, double_ratio, yerr=double_ratio_unc, color="black", fmt="o"
+    )
+
+    for y in ratio_hlines:
+        ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
+
+    ratio_ax.set_xlim(left_edge, right_edge)
+    ratio_ax.set_ylim(*ratio_ylim)
+    ratio_ax.set_ylabel(double_ratio_label)
+
+    labelAxis(ax, "y", ref_hist.axes, label="Ratio")
+    labelAxis(ratio_ax, "x", ref_hist.axes)
+
+    addLegend(ax, pc)
+    all_meta = [
+        x.metadata
+        for x in [num_numerator, num_denominator, den_numerator, den_denominator]
+    ]
+    addCMSBits(ax, all_meta, plot_configuration=pc)
+
+    ax.set_yscale(scale)
+
+    saveFig(fig, output_path, extension=pc.image_type)
+    plt.close(fig)

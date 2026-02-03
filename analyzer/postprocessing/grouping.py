@@ -41,9 +41,7 @@ class GroupBuilder:
             if isinstance(self.subgroups, dict):
                 r = {}
                 for x, y in self.subgroups.items():
-                    # print(f"IN SUBGROUP {x}")
                     r[x] = y.apply(group_items)
-                    # print(f"LEAVING SUBGROUP {x}")
             elif isinstance(self.subgroups, list):
                 r = []
                 for x in self.subgroups:
