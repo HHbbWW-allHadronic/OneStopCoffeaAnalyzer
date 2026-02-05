@@ -23,12 +23,24 @@ from rich.progress import (
     TextColumn,
     BarColumn,
     TaskProgressColumn,
+    ProgressColumn,
+    BarColumn,
+    TextColumn,
+    Task,
 )
-
+from rich.text import Text
 from .condor_tools import createCondorPackage
 from .executor import CompletedTask, Executor
 from .finalizers import basicFinalizer
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
+
+
+class RateColumn(ProgressColumn):
+    def render(self, task: Task) -> Text:
+        speed = task.finished_speed or task.speed
+        if speed is None:
+            return Text("", style="progress.percentage")
+        return Text(f"{speed:.1f} it/s", style="progress.percentage")
 
 
 def configureDask():
@@ -158,8 +170,12 @@ def getAnalyzerRunFunc(analyzer, task, timeout=120):
                     task.metadata,
                     task.pipelines,
                 )
+            # get_worker().log_event(
+            #     "chunk_completed", {"chunk": chunk, "nevents": chunk.nevents}
+            # )
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
+            # get_worker().log_event("chunk_failed", {"chunk": chunk, "error": e})
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
     return inner
@@ -206,7 +222,7 @@ def processTask(
             chunks,
             key=f"analyze--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=0):
+    with dask.annotate(priority=50):
         reduced_futures = reduceResults(
             client,
             iaddMany,
@@ -214,13 +230,13 @@ def processTask(
             reduction_factor,
             key_suffix=f"{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    with dask.annotate(priority=3):
+    with dask.annotate(priority=100):
         final = client.map(
             ft.partial(dumpAndComplete, task.metadata, task.output_name),
             reduced_futures,
             key=f"complete--{task.metadata['dataset_name']}-{task.metadata['sample_name']}",
         )
-    return n_events, final
+    return n_events, final, task_futures, reduced_futures
 
 
 def run(
@@ -243,12 +259,15 @@ def run(
         TaskProgressColumn(),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
+        RateColumn(),
     )
-
-    bar_prep = progress_bar.add_task("Prep Tasks")
-    bar_events = progress_bar.add_task("Events")
     total_prep = 0
     total_events = 0
+    total_chunks = 0
+    bar_prep = progress_bar.add_task("Prep Tasks")
+    # bar_events = progress_bar.add_task("Analyzed Events")
+    # bar_chunks = progress_bar.add_task("Chunks")
+    bar_completed = progress_bar.add_task("Completed Events")
 
     for i, task in tasks.items():
         file_set = task.file_set
@@ -265,13 +284,30 @@ def run(
             file_prep_task_mapping[f] = i
 
     progress_bar.update(bar_prep, total=total_prep)
-    progress_bar.update(bar_events, total=0)
+    # progress_bar.update(bar_events, total=0)
 
     as_comp = as_completed((y for x in file_prep_tasks.values() for y in x))
+    # all_analysis_tasks = set()
+    # all_merge_tasks = set()
+    all_complete_tasks = set()
+
+    def handleTaskProcess(n_events, completion_tasks, analysis_tasks, merge_tasks):
+        nonlocal total_events, total_chunks
+        as_comp.update(completion_tasks)
+        # as_comp.update(analysis_tasks)
+        # as_comp.update(merge_tasks)
+        # all_analysis_tasks.update(analysis_tasks)
+        all_complete_tasks.update(completion_tasks)
+        # all_merge_tasks.update(merge_tasks)
+        total_events += n_events
+        # total_chunks += len(analysis_tasks)
+        # progress_bar.update(bar_events, total=total_events)
+        # progress_bar.update(bar_chunks, total=total_chunks)
+        progress_bar.update(bar_completed, total=total_events)
 
     for i, task in tasks.items():
         if not file_prep_tasks[i]:
-            n_events, new_tasks = processTask(
+            n_events, completion_tasks, analysis_tasks, merge_tasks = processTask(
                 client,
                 analyzer,
                 task,
@@ -280,51 +316,65 @@ def run(
                 max_sample_events=max_sample_events,
                 timeout=timeout,
             )
-            as_comp.update(new_tasks)
-            total_events += n_events
-
-    progress_bar.update(bar_events, total=total_events)
+            handleTaskProcess(n_events, completion_tasks, analysis_tasks, merge_tasks)
 
     with progress_bar:
-        for future in as_comp:
-            try:
-                result = future.result()
-            except Exception as e:
-                logger.warning(e)
-                result = None
-            if future in file_prep_task_mapping:
-                progress_bar.update(bar_prep, advance=1)
-                index = file_prep_task_mapping.pop(future)
-                if result is not None:
-                    tasks[index].file_set.updateFileInfo(result)
-                future.cancel()
-                file_prep_tasks[index].remove(future)
-                if not file_prep_tasks[index]:
-                    task = tasks[index]
-                    n_events, new_tasks = processTask(
-                        client,
-                        analyzer,
-                        task,
-                        chunk_size,
-                        reduction_factor,
-                        max_sample_events=max_sample_events,
-                        timeout=timeout,
-                    )
-                    as_comp.update(new_tasks)
-                    total_events += n_events
-                    progress_bar.update(bar_events, total=total_events)
+        for batch in as_comp.batches():
+            for future in batch:
+                #     if future in all_analysis_tasks or future in all_merge_tasks:
+                #         chunk_processed_events = client.get_events("chunks_processed")
+                #         chunk_error_events = client.get_events("chunks_error")
+                #         progress_bar.update(bar_chunks, advance=len(chunk_processed_events))
+                #         progress_bar.update(bar_chunks, advance=len(chunk_error_events))
+                #         for chunk in chunk_processed_events:
+                #             progress_bar.update(bar_events, advance=chunk.nevents)
+                #         continue
 
-            elif isinstance(result, DaskRunResult):
-                ret = result.maybe_result
-                progress_bar.update(bar_events, advance=result.events_processed)
-                if ret.result is not None:
-                    yield ret
-                else:
-                    logger.warning(
-                        f"Result was None. Encountered exceptions during execution:\n{result.maybe_exceptions}"
-                    )
+                try:
+                    result = future.result()
+                except Exception as e:
+                    logger.warning(e)
+                    result = None
 
-                future.cancel()
+                if future in file_prep_task_mapping:
+                    progress_bar.update(bar_prep, advance=1)
+                    index = file_prep_task_mapping.pop(future)
+                    if result is not None:
+                        tasks[index].file_set.updateFileInfo(result)
+                    future.cancel()
+                    file_prep_tasks[index].remove(future)
+                    if not file_prep_tasks[index]:
+                        task = tasks[index]
+                        n_events, completion_tasks, analysis_tasks, merge_tasks = (
+                            processTask(
+                                client,
+                                analyzer,
+                                task,
+                                chunk_size,
+                                reduction_factor,
+                                max_sample_events=max_sample_events,
+                                timeout=timeout,
+                            )
+                        )
+                        handleTaskProcess(
+                            n_events, completion_tasks, analysis_tasks, merge_tasks
+                        )
+
+                elif future in all_complete_tasks:
+                    ret = result.maybe_result
+                    progress_bar.update(bar_completed, advance=result.events_processed)
+                    if ret.result is not None:
+                        yield ret
+                    else:
+                        logger.warning(
+                            f"Result was None. Encountered exceptions during execution:\n{result.maybe_exceptions}"
+                        )
+
+                    future.cancel()
+                # elif future in all_analysis_tasks:
+                #     ret = result.maybe_result
+                #     progress_bar.update(bar_events, advance=result.events_processed)
+                #     progress_bar.update(bar_chunks, advance=1)
 
 
 @define
@@ -340,7 +390,7 @@ class LocalDaskExecutor(Executor):
     processes: bool = True
     cluster: Any = None
     client: Any = None
-    reduction_factor: int = 10
+    reduction_factor: int = 2
     timeout: int = 120
 
     def setup(self, needed_resources):
