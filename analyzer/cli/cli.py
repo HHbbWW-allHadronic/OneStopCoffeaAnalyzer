@@ -142,15 +142,26 @@ def check(files, configuration, only_bad):
 @click.option("--output", "-o", type=str, required=True)
 @click.option("--configuration", "-c", type=str, required=True)
 @click.option("--executor", "-e", type=str, required=True)
+@click.option("--filter-dataset", type=str, default=None)
+@click.option("--filter-sample", type=str, default=None)
 def patch(
     inputs,
     output,
     configuration,
     executor,
+    filter_dataset,
+    filter_sample,
 ):
     from analyzer.core.running import patchFromPath
 
-    patchFromPath(configuration, inputs, output, executor)
+    patchFromPath(
+        configuration,
+        inputs,
+        output,
+        executor,
+        filter_dataset=filter_dataset,
+        filter_sample=filter_sample,
+    )
 
 
 @cli.command()

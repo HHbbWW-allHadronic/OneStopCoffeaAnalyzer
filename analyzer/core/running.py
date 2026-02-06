@@ -189,8 +189,18 @@ def runFromPath(
 
 
 def patchFromPath(
-    path, existing, output, executor_name, filter_samples=None, limit_pipelines=None
+    path,
+    existing,
+    output,
+    executor_name,
+    filter_dataset=None,
+    filter_sample=None,
+    limit_pipelines=None,
 ):
+
+    from analyzer.utils.querying import BasePattern
+    from analyzer.core.serialization import converter
+
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)
@@ -201,10 +211,20 @@ def patchFromPath(
     all_executors.update(analysis.extra_executors)
     executor = all_executors[executor_name]
 
+    if filter_dataset is not None:
+        filter_dataset = converter.structure(filter_dataset, BasePattern)
+    if filter_sample is not None:
+        filter_sample = converter.structure(filter_sample, BasePattern)
+
     results = loadResults(existing, peek_only=True)
 
     provenances = globWithMeta(results, ("*", "*", "_provenance"))
-    all_samples = getSamples(analysis, dataset_repo)
+    all_samples = getSamples(
+        analysis,
+        dataset_repo,
+        filter_dataset=filter_dataset,
+        filter_sample=filter_sample,
+    )
     present = set((x["dataset_name"], x["sample_name"]) for _, x in provenances)
     missing = sorted(all_samples - present)
     missing_tasks = getTasksExplicit(

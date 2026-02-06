@@ -54,7 +54,7 @@ def loadAnalysis(path):
     return analysis
 
 
-def getSamples(analysis, dataset_repo):
+def getSamples(analysis, dataset_repo, filter_dataset=None, filter_sample=None):
     todo = set()
     for desc in analysis.event_collections:
         ds = set(x for x in dataset_repo if desc.dataset.match(x))
@@ -62,7 +62,11 @@ def getSamples(analysis, dataset_repo):
 
     ret = set()
     for dataset_name in todo:
+        if filter_dataset is not None and not filter_dataset.match(dataset_name):
+            continue
         dataset = dataset_repo[dataset_name]
         for sample in dataset:
+            if filter_sample is not None and not filter_sample.match(sample.name):
+                continue
             ret.add((dataset_name, sample.name))
     return ret
