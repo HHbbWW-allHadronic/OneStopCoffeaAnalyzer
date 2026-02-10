@@ -26,7 +26,7 @@ echo "UNTARRING {{item}}"
 tar zxf {{ item }}
 {% endfor %}
 ls -alhtr
-export X509_USER_PROXY=$(realpath x509up_u57509)
+export X509_USER_PROXY=$(realpath {{ voms_path_in_container }})
 echo $X509_USER_PROXY
 echo "ACTIVATING VENV {{ venv_activate_path }}"
 source {{ venv_activate_path }}
@@ -49,7 +49,8 @@ def createCondorPackage(
 
     analyzer_path = Path(analyzer.__file__).parent
 
-    voms_path = getVomsProxyPath()
+    voms_path = Path(getVomsProxyPath())
+    voms_path_in_container = voms_path.name
 
     if not compressed_env.exists():
         logger.info(f"Did not find {compressed_env}, creating compressed directory.")
@@ -66,7 +67,12 @@ def createCondorPackage(
     tarDirectory(analyzer_path, compressed_analyzer)
 
     script_path = condor_temp_loc / "setup.sh"
-    transfer_input_files = [script_path, compressed_env, compressed_analyzer, voms_path]
+    transfer_input_files = [
+        script_path,
+        compressed_env,
+        compressed_analyzer,
+        str(voms_path),
+    ]
 
     files_to_unzip = [compressed_env, compressed_analyzer]
 
@@ -82,6 +88,7 @@ def createCondorPackage(
     script = template.render(
         files_to_unzip=[str(x.name) for x in files_to_unzip],
         venv_activate_path=venv_activate_path,
+        voms_path_in_container=voms_path_in_container,
     )
     with open(script_path, "w") as f:
         f.write(script)
