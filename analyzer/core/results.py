@@ -342,6 +342,7 @@ class SavedColumns(ResultBase):
         return self
 
     def iscale(self, value):
+        self.data["Scale"] = np.ones_like(next(iter(self.data.values()))) * value
         return self
 
     def finalize(self, finalizer):
