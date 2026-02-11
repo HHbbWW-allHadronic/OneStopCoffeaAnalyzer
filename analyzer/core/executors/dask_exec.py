@@ -24,8 +24,6 @@ from rich.progress import (
     BarColumn,
     TaskProgressColumn,
     ProgressColumn,
-    BarColumn,
-    TextColumn,
     Task,
 )
 from rich.text import Text
@@ -361,6 +359,8 @@ def run(
                         )
 
                 elif future in all_complete_tasks:
+                    if result is None:
+                        continue
                     ret = result.maybe_result
                     progress_bar.update(bar_completed, advance=result.events_processed)
                     if ret.result is not None:
@@ -434,7 +434,7 @@ class LPCCondorDask(Executor):
     adapt: bool = True
     chunk_size: int | None = 100000
     reduction_factor: int = 2
-    timeout: int = 300
+    timeout: int = 180
     cluster: Any = None
     client: Any = None
 
