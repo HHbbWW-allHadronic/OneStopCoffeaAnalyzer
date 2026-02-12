@@ -7,6 +7,7 @@ from attrs import define
 import pickle as pkl
 from pathlib import Path
 import lz4.frame
+import numpy as np
 
 
 def exportItem(
@@ -46,17 +47,24 @@ class Dump(BasePostprocessor):
         )
 
 
-def writeNumpy(path, data):
+def writeNumpy(path, data, order, mask_fill_value=0):
     path = Path(path)
     path.parent.mkdir(exist_ok=True, parents=True)
 
-    with open(path, "wb") as f:
-        pkl.dump(data, f)
+    def fill(x):
+        if isinstance(x, np.ma.MaskedArray):
+            return x.filled(mask_fill_value)
+        return x
+
+    data = np.stack([fill(data[key]) for key in order], axis=1)
+    np.save(path, data)
 
 
 @define
-class DumpNPZ(BasePostprocessor):
+class DumpNumpy(BasePostprocessor):
     output_name: str
+    order: list[str]
+    mask_fill_value: float = 0
 
     def getRunFuncs(self, group, prefix=None):
         if len(group) != 1:
@@ -66,5 +74,10 @@ class DumpNPZ(BasePostprocessor):
         output_path = dotFormat(
             self.output_name, **dict(dictToDot(meta)), prefix=prefix
         )
-        print(output_path)
-        yield ft.partial(writeNumpy, output_path, item.data)
+        yield ft.partial(
+            writeNumpy,
+            output_path,
+            item.data,
+            self.order,
+            mask_fill_value=self.mask_fill_value,
+        )
