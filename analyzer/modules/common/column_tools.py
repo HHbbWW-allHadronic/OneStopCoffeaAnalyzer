@@ -70,7 +70,9 @@ class PromoteIndex(AnalyzerModule):
     index: int = 0
 
     def run(self, columns, params):
-        columns[self.output_col] = columns[self.input_col][:, self.index]
+        columns[self.output_col] = ak.pad_none(
+            columns[self.input_col], self.index + 1, axis=1
+        )[:, self.index]
         return columns, []
 
     def inputs(self, metadata):
