@@ -4,6 +4,8 @@ from analyzer.core.columns import Column, TrackedColumns, EventBackend
 import numpy as np
 import awkward as ak
 from analyzer.core.results import Histogram
+import functools as ft
+import operator as op
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
     MetadataExpr,
@@ -228,6 +230,7 @@ class SimpleHistogram(AnalyzerModule):
     hist_name: str
     input_cols: list[Column]
     axes: list[RegularAxis]
+    mask_cols: list[Column] | None = None
 
     def outputs(self, metadata):
         return []
@@ -237,10 +240,15 @@ class SimpleHistogram(AnalyzerModule):
 
     def run(self, columns, params):
         data = [columns[x] for x in self.input_cols]
+        if self.mask_cols is not None:
+            mask = ft.reduce(op.and_, [columns[x] for x in self.mask_cols])
+        else:
+            mask = None
         h = makeHistogram(
             self.hist_name,
             columns,
             self.axes,
             data,
+            mask=mask,
         )
         return columns, [h]
