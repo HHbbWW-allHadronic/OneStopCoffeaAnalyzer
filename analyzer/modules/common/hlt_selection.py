@@ -44,6 +44,30 @@ class SimpleHLT(AnalyzerModule):
 
 
 @define
+class SaveHLT(AnalyzerModule):
+    """
+    Save HLT triggers to the output columns.
+    """
+
+    triggers: list[str]
+    save_name: str = "SavedHLT"
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        trigger_names = metadata["era"]["trigger_names"]
+        hlt = columns["HLT"]
+        for name in self.triggers:
+            columns[f"{self.save_name}.{name}"] = hlt[trigger_names[name]]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [Column(("HLT"))]
+
+    def outputs(self, metadata):
+        return [Column(f"{self.save_name}.{name}") for name in self.triggers]
+
+
+@define
 class ComplexHLTConfig:
     pattern: BasePattern
     triggers: list[str]
