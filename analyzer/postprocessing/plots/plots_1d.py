@@ -94,8 +94,6 @@ def plotOne(
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
-    else:
-        mplhep.ylow(ax)
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 

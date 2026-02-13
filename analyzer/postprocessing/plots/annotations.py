@@ -23,16 +23,17 @@ def addCMSBits(
             or f"{'/'.join(lumis)} fb$^{{-1}}$ ({'/'.join(energies)} TeV)"
         )
         info_text = era_text + ", " + lumi_text
-    mplhep.cms.lumitext(text=info_text, ax=ax)
 
     text = plot_configuration.cms_text or ""
     if extra_text is not None:
         text += "\n" + extra_text
-    a, b, c = mplhep.cms.text(text=text, ax=ax, loc=plot_configuration.cms_text_pos)
-    if text_color is not None:
-        a.set(color=plot_configuration.cms_text_color)
-        b.set(color=plot_configuration.cms_text_color)
-        c.set(color=plot_configuration.cms_text_color)
+    mplhep.cms.text(
+        text=text,
+        lumi=info_text,
+        ax=ax,
+        loc=plot_configuration.cms_text_pos,
+        color=text_color or plot_configuration.cms_text_color,
+    )
 
 
 def labelAxis(ax, which, axes, label=None, label_complete=None):
