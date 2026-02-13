@@ -4,10 +4,11 @@ from analyzer.core.param_specs import (
     ModuleParameterSpec,
     ModuleParameterValues,
 )
+from analyzer.utils.structure_tools import freeze
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.run_builders import RunBuilder, DEFAULT_RUN_BUILDER
-from attrs import define, field, make_class
+from attrs import define, field, make_class, asdict, filters
 from analyzer.core.results import ResultBase
 from analyzer.utils.structure_tools import freeze, SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
@@ -132,21 +133,24 @@ class AnalyzerModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns, params):
+        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
             k = columns.getKeyForColumns(self.inputs(columns.metadata))
-        ret = hash((self.name(), freeze(params), k))
+        ret = hash((freeze(selfdict), self.name(), freeze(params), k))
         return ret
 
     def getKeyNoParams(self, columns):
+        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
+
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
             k = columns.getKeyForColumns(self.inputs(columns.metadata))
-        ret = hash((self.name(), k))
+        ret = hash((freeze(selfdict), self.name(), k))
         return ret
 
     def __run(self, columns, params):
@@ -216,7 +220,8 @@ class EventSourceModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, params):
-        ret = hash((self.name(), freeze(params)))
+        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
+        ret = hash((self.name(), freeze(selfdict), freeze(params)))
         return ret
 
     def __call__(self, params):
@@ -254,10 +259,12 @@ class PureResultModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns: MultiColumns, params: ModuleParameterValues):
+        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
         ret = hash(
             (
                 self.name(),
                 freeze(params),
+                freeze(selfdict),
                 frozenset(
                     (x, y.getKeyForColumns(self.inputs(y.metadata)))
                     for x, y in (columns or [])
