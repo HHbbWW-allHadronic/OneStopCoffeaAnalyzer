@@ -199,12 +199,9 @@ class TrackedColumns:
         Returns a hash dependent on the provenance of all the columns contains in the input.
         """
         ret = []
-        for column in columns:
-            try:
-                ret.append((column, self._column_provenance[column]))
-            except KeyError:
-                continue
-
+        for col, prov in self._column_provenance.items():
+            if any(x.contains(col) for x in columns):
+                ret.append((col, self._column_provenance))
         logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
 
