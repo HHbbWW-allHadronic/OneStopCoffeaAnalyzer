@@ -10,7 +10,7 @@ from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
 )
-from attrs import define
+from attrs import define, field
 from .registry import TransformHistogram
 
 
@@ -255,6 +255,10 @@ class SliceAxes(TransformHistogram):
 class FormatTitle(TransformHistogram):
     title_format: str
 
+@define
+class FormatTitle(TransformHistogram):
+    title_format: str
+
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
@@ -263,4 +267,71 @@ class FormatTitle(TransformHistogram):
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
             )
             ret.append(ItemWithMeta(ph, metadata=meta))
+        return ret
+
+
+@define
+class ABCDTransformer(TransformHistogram):
+    csv_path: str
+    x_axis_name: str
+    y_axis_name: str
+    target_axis_name: str
+    key_format: str
+    start_idx: int = 1
+    _edges: dict[str, tuple[float, float]] = field(init=False, factory=dict)
+
+    def __attrs_post_init__(self):
+        import csv
+
+        with open(self.csv_path, "r") as f:
+            reader = csv.reader(f)
+            rows = list(reader)
+            for row in rows[self.start_idx :]:
+                key = row[0].strip()
+                x = float(row[1])
+                y = float(row[2])
+                self._edges[key] = (x, y)
+
+    def __call__(self, items):
+        ret = []
+        for ph, meta in items:
+            h = ph.histogram
+
+            formatted_key = dotFormat(self.key_format, **dict(dictToDot(meta)))
+
+            x_edge, y_edge = self._edges[formatted_key]
+
+            def makeSlice(x_slice, y_slice):
+                return {
+                    self.x_axis_name: slice(*x_slice, sum),
+                    self.y_axis_name: slice(*y_slice, sum),
+                }
+
+            s_a = makeSlice((None, x_edge), (y_edge, None))
+            s_b = makeSlice((x_edge, None), (y_edge, None))
+            s_c = makeSlice((None, x_edge), (None, y_edge))
+            s_d = makeSlice((x_edge, None), (None, y_edge))
+
+            h_a, h_b, h_c, h_d = h[s_a], h[s_b], h[s_c], h[s_d]
+            cat_axis = hist.axis.StrCategory(
+                ["A", "B", "C", "D"], name=self.target_axis_name, label="Region"
+            )
+            new_axes = list(h_a.axes) + [cat_axis]
+            nh = hist.Hist(*new_axes, storage=h.storage_type())
+
+            v_a, v_b, v_c, v_d = (
+                h_a.view(flow=True),
+                h_b.view(flow=True),
+                h_c.view(flow=True),
+                h_d.view(flow=True),
+            )
+
+            stacked_view = np.stack([v_a, v_b, v_c, v_d], axis=-1)
+            nh.view(flow=True)[...] = stacked_view
+            ret.append(
+                ItemWithMeta(
+                    Histogram(name=ph.name, axes=None, histogram=nh), metadata=meta
+                )
+            )
+
         return ret
