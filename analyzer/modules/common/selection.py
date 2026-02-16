@@ -42,6 +42,8 @@ class SelectOnColumns(AnalyzerModule):
                 for x, y in columns.pipeline_data.get("Selections", {}).items()
                 if not y
             ]
+        if not cuts:
+            return columns, []
 
         for s in columns.pipeline_data.get("Selections", {}):
             columns.pipeline_data["Selections"][s] = True
