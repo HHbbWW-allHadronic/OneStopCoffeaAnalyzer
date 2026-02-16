@@ -255,10 +255,6 @@ class SliceAxes(TransformHistogram):
 class FormatTitle(TransformHistogram):
     title_format: str
 
-@define
-class FormatTitle(TransformHistogram):
-    title_format: str
-
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
@@ -279,6 +275,32 @@ class ABCDTransformer(TransformHistogram):
     key_format: str
     start_idx: int = 1
     _edges: dict[str, tuple[float, float]] = field(init=False, factory=dict)
+
+    """
+    Transforms a 2D histogram into a 1D categorical histogram with 4 bins (A, B, C, D) based on x and y cuts.
+
+    The quadrants are defined as:
+    - A: x < x_edge, y >= y_edge
+    - B: x >= x_edge, y >= y_edge
+    - C: x < x_edge, y < y_edge
+    - D: x >= x_edge, y < y_edge
+
+    Parameters
+    ----------
+    csv_path : str
+        Path to a CSV file containing the cut values. The CSV should have columns:
+        key_column, x_edge, y_edge
+    x_axis_name : str
+        Name of the x-axis in the histogram.
+    y_axis_name : str
+        Name of the y-axis in the histogram.
+    target_axis_name : str
+        Name of the new categorical axis to be created.
+    key_format : str
+        Format string to construct the lookup key from histogram metadata (e.g. "{dataset_name}_{era.name}").
+    start_idx : int, optional
+        Row index to start reading the CSV file (default is 1 to skip header).
+    """
 
     def __attrs_post_init__(self):
         import csv
