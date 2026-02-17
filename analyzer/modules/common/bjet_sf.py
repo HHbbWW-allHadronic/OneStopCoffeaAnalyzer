@@ -27,9 +27,11 @@ class BJetShapeSF(AnalyzerModule):
         b_meta = metadata["era"]["btag_scale_factors"]
         systematics = b_meta["systematics"]
         possible_values = it.product(["up", "down"], systematics)
-        possible_values = ["central"] + [
-            f"{updown}_{name}" for updown, name in possible_values
-        ]
+        possible_values = (
+            ["central"]
+            + [f"{updown}_{name}" for updown, name in possible_values]
+            + ["disabled"]
+        )
 
         return ModuleParameterSpec(
             {
@@ -45,6 +47,9 @@ class BJetShapeSF(AnalyzerModule):
         sf_eval = self.getCorrection(columns.metadata)
         systematic = params["variation"]
         gj = columns[self.input_col]
+        if systematic == "disabled":
+            columns[self.weight_name] = ak.ones_like(gj.pt)
+            return columns, []
         # bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
         if systematic == "central":
             j = gj
