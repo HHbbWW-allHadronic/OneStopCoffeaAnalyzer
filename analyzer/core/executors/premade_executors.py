@@ -17,6 +17,11 @@ def getPremadeExcutors() -> dict[str, Executor]:
             min_workers=4,
             max_workers=4,
         ),
+        "local-dask-4G-400000": LocalDaskExecutor(
+            chunk_size=400000,
+            min_workers=4,
+            max_workers=4,
+        ),
         "lpc-dask-condor-4G-100000": LPCCondorDask(
             chunk_size=100000,
             min_workers=5,
