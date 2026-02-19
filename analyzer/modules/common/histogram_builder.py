@@ -230,6 +230,7 @@ class SimpleHistogram(AnalyzerModule):
     hist_name: str
     input_cols: list[Column]
     axes: list[RegularAxis]
+    replace_none: float | None = None
     mask_cols: list[Column] | None = None
 
     def outputs(self, metadata):
@@ -240,6 +241,8 @@ class SimpleHistogram(AnalyzerModule):
 
     def run(self, columns, params):
         data = [columns[x] for x in self.input_cols]
+        if self.replace_none is not None:
+            data = [ak.fill_none(x, self.replace_none) for x in data]
         if self.mask_cols is not None:
             mask = ft.reduce(op.and_, [columns[x] for x in self.mask_cols])
         else:
