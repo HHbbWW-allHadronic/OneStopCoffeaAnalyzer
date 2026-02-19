@@ -36,6 +36,13 @@
     SingleMuon: Mu50
     EleWPTight: Ele27_WPTight_Gsf
     EleCaloIdVT: Ele115_CaloIdVT_GsfTrkIdT
+    HT350: PFHT350
+    HT450: PFHT475
+    HT500: PFHT475
+    HT600: PFHT600
+    AK8_200: AK8PFJet200
+    AK8_250: AK8PFJet260
+    AK8_300: AK8PFJet320
 
   trigger_plateaus:
     HT: 1050
