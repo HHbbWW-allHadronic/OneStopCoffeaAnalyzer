@@ -26,6 +26,7 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx_autodoc_typehints",
     "dataset_doc",
+    "analyzer_modules_doc",
 ]
 
 autosummary_generate = True
