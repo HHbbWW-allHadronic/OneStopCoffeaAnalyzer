@@ -114,6 +114,12 @@ class BaseAnalyzerModule(abc.ABC):
     def clearCache(self):
         self._cache.clear()
 
+    @ft.cached_property
+    def selfkey(self):
+        return hash(
+            freeze(asdict(self, filter=filters.exclude("_cache", "should_run")))
+        )
+
 
 @define
 class AnalyzerModule(BaseAnalyzerModule):
@@ -133,24 +139,21 @@ class AnalyzerModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns, params):
-        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
             k = columns.getKeyForColumns(self.inputs(columns.metadata))
-        ret = hash((freeze(selfdict), self.name(), freeze(params), k))
+        ret = hash((self.selfkey, self.name(), freeze(params), k))
         return ret
 
     def getKeyNoParams(self, columns):
-        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
-
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
             k = columns.getKeyForColumns(self.inputs(columns.metadata))
-        ret = hash((freeze(selfdict), self.name(), k))
+        ret = hash((self.selfkey, self.name(), k))
         return ret
 
     def __run(self, columns, params):
@@ -220,8 +223,7 @@ class EventSourceModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, params):
-        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
-        ret = hash((self.name(), freeze(selfdict), freeze(params)))
+        ret = hash((self.name(), self.selfkey, freeze(params)))
         return ret
 
     def __call__(self, params):
@@ -259,12 +261,11 @@ class PureResultModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns: MultiColumns, params: ModuleParameterValues):
-        selfdict = asdict(self, filter=filters.exclude("_cache", "should_run"))
         ret = hash(
             (
                 self.name(),
                 freeze(params),
-                freeze(selfdict),
+                self.selfkey,
                 frozenset(
                     (x, y.getKeyForColumns(self.inputs(y.metadata)))
                     for x, y in (columns or [])

@@ -78,6 +78,9 @@ class Column:
         if isinstance(data, str):
             return Column(data)
 
+    def parents(self):
+        return [Column(self.fields[: i + 1]) for i in range(len(self.fields) - 1)]
+
 
 def setColumn(events, column, value):
     column = Column(column)
@@ -199,10 +202,16 @@ class TrackedColumns:
         Returns a hash dependent on the provenance of all the columns contains in the input.
         """
         ret = []
-        for col, prov in self._column_provenance.items():
-            if any(x.contains(col) for x in columns):
-                ret.append((col, self._column_provenance))
-        logger.debug(f"Relevant columns for {columns} are :\n {ret}")
+        for column in columns:
+            try:
+                ret.append((column, self._column_provenance[column]))
+            except KeyError:
+                continue
+        # for col, prov in self._column_provenance.items():
+        #     if any(x.contains(col) for x in columns):
+        #         ret.append((col, self._column_provenance))
+
+        # logger.debug(f"Relevant columns for {columns} are :\n {ret}")
         return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
 
     def getKeyForAll(self):
@@ -230,19 +239,13 @@ class TrackedColumns:
             all_columns = {column}
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
-            # logger.debug(
-            #     f"Adding column {c} to events with provenance {self._current_provenance}"
-            # )
-        for part in column.fields:
-            c = Column(part)
-            self._column_provenance[c] = self._current_provenance
-            logger.debug(
-                f"Updating parent column {c} to events with provenance {self._current_provenance}"
-            )
 
-        # for c in self._column_provenance:
-        #     if c.contains(column):
-        #         self._column_provenance[c] = self._current_provenance
+        for c in column.parents():
+            p = hash((self._column_provenance.get(c, None), self._current_provenance))
+            self._column_provenance[c] = p
+            logger.debug(
+                f"Updating parent {c} of {column} to events with provenance {p}"
+            )
 
     def __getitem__(self, column):
         column = Column(column)
