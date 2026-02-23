@@ -204,6 +204,84 @@ class TestTrackedColumns:
             with pytest.raises(RuntimeError):
                 tc["forbidden_col"] = ak.Array([1, 2, 3])
 
+    def testParentColumnProvenanceHashes(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+
+        # 1) Simple update on an existing nested column
+        tc._current_provenance = 1
+        tc["jets.pt"] = ak.Array([[100], [200], [300]])
+
+        assert tc._column_provenance[Column("jets.pt")] == 1
+        jets_hash1 = tc._column_provenance[Column("jets")]
+        assert jets_hash1 == hash((0, 1))
+
+        # 2) Second update on a sibling child of the same parent
+        tc._current_provenance = 2
+        tc["jets.mass"] = ak.Array([[10], [20], [30]])
+
+        assert tc._column_provenance[Column("jets.mass")] == 2
+        jets_hash2 = tc._column_provenance[Column("jets")]
+        # Important: the hash incorporates the previous state of the parent
+        # (which encapsulates all previous child updates), NOT just the original 0
+        assert jets_hash2 == hash((jets_hash1, 2))
+        assert jets_hash2 != hash(
+            (0, 2)
+        )  # Failing condition exactly as user experienced it
+
+        # 3) Updating a non-existent deeply nested column branches
+        tc._current_provenance = 3
+        tc["a.b.c"] = ak.Array([1, 2, 3])
+
+        assert tc._column_provenance[Column("a.b.c")] == 3
+        b_hash1 = tc._column_provenance[Column("a.b")]
+        a_hash1 = tc._column_provenance[Column("a")]
+
+        assert b_hash1 == hash((None, 3))
+        assert a_hash1 == hash((None, 3))
+
+        # 4) Updating another branch on the newly created tree
+        tc._current_provenance = 4
+        tc["a.b.d"] = ak.Array([4, 5, 6])
+
+        b_hash2 = tc._column_provenance[Column("a.b")]
+        a_hash2 = tc._column_provenance[Column("a")]
+
+        assert b_hash2 == hash((b_hash1, 4))
+        assert a_hash2 == hash((a_hash1, 4))
+
+        # 5) Checking parents up the chain updating separately
+        tc._current_provenance = 5
+        tc["a.x"] = ak.Array([7, 8, 9])
+
+        a_hash3 = tc._column_provenance[Column("a")]
+        assert a_hash3 == hash((a_hash2, 5))
+
+        # 6) Reassigning the parent entirely overrides its hash and its children's hashes with the active provenance
+        tc._current_provenance = 6
+        tc["jets"] = ak.Array(
+            {"pt": [[1], [2], [3]], "mass": [[2], [3], [4]], "energy": [[3], [4], [5]]}
+        )
+        assert tc._column_provenance[Column("jets")] == 6
+        assert tc._column_provenance[Column("jets.pt")] == 6
+        assert tc._column_provenance[Column("jets.mass")] == 6
+        assert tc._column_provenance[Column("jets.energy")] == 6
+
+        # 7) Updating child again after parent reassignment correctly uses the reassigned provenance as base
+        tc._current_provenance = 7
+        tc["jets.pt"] = ak.Array([[100], [200], [300]])
+        assert tc._column_provenance[Column("jets.pt")] == 7
+        assert tc._column_provenance[Column("jets")] == hash((6, 7))
+
+        # 8) Adding a new child to an existing structure
+        tc._current_provenance = 8
+        tc["jets.new_child"] = ak.Array([[5], [6], [7]])
+        assert tc._column_provenance[Column("jets.new_child")] == 8
+        assert tc._column_provenance[Column("jets")] == hash((hash((6, 7)), 8))
+
 
 class TestUtils:
     def testSetColumn(self):
