@@ -1,0 +1,301 @@
+common_cleanup: &common_cleanup
+  - module_name: GoldenLumi
+  # - module_name: VetoMap
+  #   input_col: Jet
+  # - module_name: VetoMapFilter
+  #   input_col: Jet
+  #   output_col: Jet
+  - module_name: NoiseFilter
+  
+common_presel_objects: &common_presel_objects
+  - module_name: JetFilter
+    input_col: FatJet
+    output_col: GoodFatJet
+    min_pt: 200
+    max_abs_eta: 2.4
+
+common_corrections: &common_corrections
+  - module_name: JetScaleCorrections
+    input_col: Jet
+    output_col: Jet
+  - module_name: JetResolutionCorrections
+    input_col: Jet
+    genjet_col: GenJet
+    output_col: Jet
+
+common_pre_sel_weights: &common_pre_sel_weights
+  # - module_name: BJetShapeSF
+  #   input_col: GoodJet
+  # - module_name: PileupSF
+  # - module_name: L1PrefiringSF
+  - module_name: PosNegGenWeight
+  # - module_name: PileupJetIdSF
+  #   input_col: GoodJet
+  #   working_point: M
+
+common_objects: &common_objects
+
+  - module_name: SaveHLT
+    triggers: [HT,AK8SingleJetPtNoTrim]
+    save_name: SavedHLT
+
+  - module_name: ElectronMaker
+    input_col: Electron
+    output_col: GoodElectron
+    working_point: "loose"
+    min_pt: 10
+    max_abs_eta: 2.4
+    max_mini_iso: 0.1
+
+  - module_name: MuonMaker
+    input_col: Muon
+    output_col: GoodMuon
+    id_working_point: "looseId"
+    min_pt: 30
+    max_abs_eta: 2.4
+    max_mini_iso: 0.1
+
+  - module_name: JetFilter
+    input_col: Jet
+    output_col: GoodJet
+    include_pu_id: False
+    include_jet_id: False
+    min_pt: 30
+    max_abs_eta: 2.4
+
+  - module_name: BQuarkMaker
+    input_col: GoodJet
+    output_col: MedB
+    working_point: M
+
+  - module_name: BQuarkMaker
+    input_col: GoodJet
+    output_col: LooseB
+    working_point: L
+
+  - module_name: BQuarkMaker
+    input_col: GoodJet
+    output_col: TightB
+    working_point: T
+
+  - module_name: HT
+    input_col: GoodJet
+
+  - module_name: Count
+    input_col: GoodJet
+    output_col: NJet 
+  
+  - module_name: Count
+    input_col: LooseB
+    output_col: NLooseB 
+
+  - module_name: Count
+    input_col: GoodElectron
+    output_col: NElectron
+
+  - module_name: Count
+    input_col: GoodMuon
+    output_col: NMuon
+
+  - module_name: PromoteIndex
+    input_col: GoodFatJet
+    output_col: LeadingFatJet
+
+  - module_name: PromoteIndex
+    input_col: GoodJet
+    output_col: LeadingJet
+  
+
+
+common_selection: &common_selection
+  # - module_name: NObjFilter
+  #   input_col: GoodElectron
+  #   selection_name: zero_electron
+  #   min_count: 0
+  #   max_count: 0
+
+  # - module_name: NObjFilter
+  #   input_col: GoodMuon
+  #   selection_name: zero_muon
+  #   min_count: 0
+  #   max_count: 0
+
+  # - module_name: NObjFilter
+  #   input_col: GoodJet
+  #   selection_name: njets
+  #   min_count: 4
+  #   max_count: 6
+
+  # - module_name: VecPt
+  #   input_col: GoodJet
+  #   selection_name: jetpt
+  #   min_pt: 300
+
+
+
+
+common_histograms: &common_histograms
+  - module_name: SimpleHistogram
+    hist_name: EventsPass
+    mask_cols: ["SavedHLT.HT"]
+    input_cols: [HT,LeadingFatJet.pt]
+    replace_none: 0
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+      - name: PTFat
+        start: 0
+        stop: 1200
+        bins: 40
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: EventsAll
+    input_cols: [HT,LeadingFatJet.pt]
+    replace_none: 0
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+      - name: PTFat
+        start: 0
+        stop: 1200
+        bins: 40
+        unit: GeV
+
+  - module_name: SaveCols
+    save_name: trigger_data
+    to_save:
+      HT: "HT"
+      PTFat: "LeadingFatJet.pt"
+      # PTLeading: "LeadingJet.pt"
+      # NJet: "NJet"
+      # NLooseB: "NLooseB"
+      # NElectron: "NElectron"
+      # NMuon: "NMuon"
+      PassHT: "HLTMAP:HT"
+      PassAK8: "HLTMAP:AK8SingleJetPtNoTrim"
+      # PassHT450: "HLTMAP:HT450"
+      # PassHT500: "HLTMAP:HT500"
+      # PassHT600: "HLTMAP:HT600"
+      # PassAK8_200: "HLTMAP:AK8_200"
+      # PassAK8_250: "HLTMAP:AK8_250"
+      # PassAK8_300: "HLTMAP:AK8_300"
+
+
+analyzer:
+  default_run_builder:
+    strategy_name: WeightsOnly
+
+  Prescaled:
+    - module_name: SimpleHLT
+      triggers: [HT350, HT500, HT600, HT450, AK8_200, AK8_250, AK8_300]
+    - *common_presel_objects
+    - *common_cleanup
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    - *common_objects
+    - *common_pre_sel_weights
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  Control:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim]
+    - *common_presel_objects
+    - *common_cleanup
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    #- *common_corrections
+    - *common_objects
+    - *common_pre_sel_weights
+    # - module_name: NObjFilter
+    #   input_col: LooseB
+    #   selection_name: 0bjet
+    #   max_count: 0
+    # - *common_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  ControlBNN:
+    - *common_presel_objects
+    - *common_cleanup
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    #- *common_corrections
+    - *common_objects
+    - *common_pre_sel_weights
+    # - module_name: NObjFilter
+    #   input_col: LooseB
+    #   selection_name: 0bjet
+    #   max_count: 0
+    # - *common_selection
+    #- module_name: SelectOnColumns
+    #  sel_name: selection
+    - *common_histograms
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+#location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  # Data samples
+  - dataset: 'data_JetHT_*'
+    pipelines: [Prescaled]
+  
+  # # Background MC Samples
+  # - dataset: 'qcd*'
+  #   pipelines: [ControlBNN]
+      
+
+
+extra_executors:
+  fiveout:
+    executor_name: LPCCondorDask
+    min_workers: 10
+    max_workers: 250
+    target_final_count: 10
+    chunk_size: 400000
+    container: "/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12"
+    
+  
+Postprocessing:
+  processors:
+    - name: DumpNumpy
+      inputs:
+        - "*/*/*/trigger_data"
+      structure:
+        select: {type: SavedColumns}
+        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+      output_name: "{prefix}/{era.name}_trigger_data"
+      order: ["HT", "PTFat", "PassHT", "PassAK8"] 
+
+    # - name: Histogram1D
+    #   inputs:
+    #     - "*/*/*/HT_Cut"
+    #   structure:
+    #     select: {type: Histogram}
+    #     group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+    #     transforms:
+    #       - name: SelectAxesValues
+    #         select_axes_values: {"variation": "central"}
+    #   scale: log
+    #   output_name: "{prefix}/}_{era.name}_{pipeline}_HT_Cut"
+
+    # - name: Histogram1D
+    #   inputs:
+    #     - "*/*/*/HT_All"
+    #   structure:
+    #     select: {type: Histogram}
+    #     group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+    #     transforms:
+    #       - name: SelectAxesValues
+    #         select_axes_values: {"variation": "central"}
+    #   scale: log
+    #   output_name: "{prefix}/{pipeline}/{dataset_name}_{era.name}_{pipeline}_HT_All"

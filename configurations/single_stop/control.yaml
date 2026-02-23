@@ -73,8 +73,6 @@ common_objects: &common_objects
     max_abs_eta: 2.4
     max_mini_iso: 0.1
 
-
-
   - module_name: JetFilter
     input_col: Jet
     output_col: GoodJet
@@ -225,10 +223,12 @@ analyzer:
     #- *common_corrections
     - *common_objects
     - *common_pre_sel_weights
+
     - module_name: TriggerBNNCorrection
-      base_path: trained_bnns/l1_aware/
+      base_path: trained_bnns/prescaled_cut/
       correction_pattern: "bnn_correction_{era}.json.gz"
       input_col: GoodJet
+      
     - module_name: NObjFilter
       input_col: LooseB
       selection_name: 0bjet
@@ -267,7 +267,6 @@ event_collections:
 
 Postprocessing:
   processors:
-
     - name: RatioPlot
       inputs:
         - "*/*/*/composite_13_m"
@@ -275,24 +274,23 @@ Postprocessing:
         - "*/*/*/composite_24_m"
         - "*/*/*/HT"
       scale: log
-      normalize: True
+      normalize: False
       structure:
-        select: {dataset_name: "!Signal*", pipeline: Control}
+        select: {dataset_name: "!Signal*"}
         group: {era.name: "*"}
         subgroups:
           denominator:
-            select: {sample_type: MC}
+            select: {sample_type: MC, pipeline: ControlBNN}
           numerator:
-            select: {sample_type: Data}
+            select: {sample_type: Data, pipeline: Control}
         transforms:
-          - name: SliceAxes
-            slices: {HT_Cat: [1200, null]}
           - name: MergeAxes
             merge_axis_names: [HT_Cat]
 
-          - name: SplitAxes
-            split_axis_names: {"variation": "central"}
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
       output_name: "{prefix}/control/{era.name}/ratio_{era.name}_{name}.png"
+    
     - name: RatioPlot
       inputs:
         - "*/*/*/composite_13_m"
@@ -300,22 +298,22 @@ Postprocessing:
         - "*/*/*/composite_24_m"
         - "*/*/*/HT"
       scale: log
-      normalize: True
+      normalize: False
       structure:
-        select: {dataset_name: "!Signal*", pipeline: Control}
-        group: {era.name: "*"}
+        select: {sample_type: MC, dataset_name: "!Signal*"}
+        group: {era.name: "*", dataset_name: "*"}
         subgroups:
           denominator:
-            select: {sample_type: MC}
+            select: {pipeline: ControlBNN}
           numerator:
-            select: {sample_type: Data}
+            select: {pipeline: Control}
         transforms:
           - name: MergeAxes
             merge_axis_names: [HT_Cat]
 
-          - name: SplitAxes
-            split_axis_names: {"variation": "central"}
-      output_name: "{prefix}/control/{era.name}/ratio_no_cut_{era.name}_{name}.png"
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "{prefix}/control/{era.name}/bnn_comp_{dataset_name}_{era.name}_{name}.png"
 
   
 

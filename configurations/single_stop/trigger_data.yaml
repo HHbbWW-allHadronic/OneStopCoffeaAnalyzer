@@ -4,8 +4,8 @@ analyzer:
       triggers: [IsoMuon]
 
     - module_name: GoldenLumi
-    - module_name: PileupSF
-    - module_name: L1PrefiringSF
+    #- module_name: PileupSF
+    #- module_name: L1PrefiringSF
     - module_name: VetoMapFilter
       input_col: Jet
       output_col: Jet
@@ -43,8 +43,8 @@ analyzer:
     - module_name: JetFilter
       input_col: Jet
       output_col: GoodJet
-      include_pu_id: True
-      include_jet_id: True
+      include_pu_id: False
+      include_jet_id: False
       min_pt: 30
       max_abs_eta: 2.4
 
@@ -72,11 +72,6 @@ analyzer:
       min_count: 0
       max_count: 0
 
-    - module_name: NObjFilter
-      input_col: GoodCleanedFatJet
-      selection_name: least_one_fatjet
-      min_count: 1
-
     - module_name: SelectOnColumns
       sel_name: selection
 
@@ -95,6 +90,22 @@ analyzer:
       input_col: GoodCleanedFatJet
       output_col: LeadingCleanedFatJet
 
+    - module_name: Count
+      input_col: GoodCleanedFatJet
+      output_col: NCleanedFatJet
+    
+    - module_name: Count
+      input_col: GoodCleanedJet
+      output_col: NCleanedJet
+
+    - module_name: Count
+      input_col: GoodJet
+      output_col: NJet
+
+    - module_name: Count
+      input_col: GoodFatJet
+      output_col: NFatJet
+
     - module_name: SaveCols
       save_name: trigger_data
       to_save:
@@ -102,7 +113,10 @@ analyzer:
         CleanedHT: "CleanedHT"
         PT: "LeadingFatJet.pt"
         CleanedPT: "LeadingCleanedFatJet.pt"
-        MSD: "LeadingFatJet.msoftdrop"
+        NJet: "NJet"
+        NCleanedJet: "NCleanedJet"
+        NFatJet: "NFatJet"
+        NCleanedFatJet: "NCleanedFatJet"
         PassHT: "HLTMAP:HT"
         PassAK8: "HLTMAP:AK8SingleJetPtNoTrim"
 
@@ -123,17 +137,28 @@ event_collections:
     pipelines: [TriggerData]
   # - dataset: diboson_2018
   #   pipelines: [TriggerData]
-  
+
+extra_executors:
+  triggerdask:
+    executor_name: LPCCondorDask
+    min_workers: 10
+    max_workers: 250
+    target_final_count: 10
+    chunk_size: 400000
+    container: "/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12"
+    
+    
     
   
 Postprocessing:
   processors:
-    - name: DumpNPZ
+    - name: DumpNumpy
       inputs:
         - "*/*/*/trigger_data"
       structure:
         select: {type: SavedColumns, sample_type: Data}
-        group: {era.name: "*"}
-      output_name: "{prefix}/{era.name}_trigger_data.pkl"
+        group: {era.name: "*", pipeline: "*"}
+      output_name: "{prefix}/{pipeline}/{era.name}_{pipeline}_data"
+      order: ["HT", "PT", "CleanedHT", "CleanedPT",  "NJet", "NCleanedJet", "NFatJet", "NCleanedFatJet", "PassHT", "PassAK8","Scale"]
     
   
