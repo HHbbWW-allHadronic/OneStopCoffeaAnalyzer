@@ -282,6 +282,82 @@ class TestTrackedColumns:
         assert tc._column_provenance[Column("jets.new_child")] == 8
         assert tc._column_provenance[Column("jets")] == hash((hash((6, 7)), 8))
 
+    def testGetKeyForColumns(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        from analyzer.utils.structure_tools import freeze
+
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+
+        key_jets_orig = tc.getKeyForColumns([Column("jets")])
+        key_jets_pt_orig = tc.getKeyForColumns([Column("jets.pt")])
+
+        # 1) Updating a child changes the key for the parent AND the child,
+        # but NOT for a sibling child.
+        tc._current_provenance = 1
+        tc["jets.pt"] = ak.Array([[100], [200], [300]])
+
+        key_jets_upd1 = tc.getKeyForColumns([Column("jets")])
+        key_jets_pt_upd1 = tc.getKeyForColumns([Column("jets.pt")])
+        key_jets_mass_upd1 = tc.getKeyForColumns([Column("jets.mass")])
+
+        assert key_jets_upd1 != key_jets_orig
+        assert key_jets_pt_upd1 != key_jets_pt_orig
+
+        # 2) Updating another sibling changes the parent again, but not the previous child
+        tc._current_provenance = 2
+        tc["jets.mass"] = ak.Array([[10], [20], [30]])
+
+        key_jets_upd2 = tc.getKeyForColumns([Column("jets")])
+        key_jets_mass_upd2 = tc.getKeyForColumns([Column("jets.mass")])
+        key_jets_pt_upd2 = tc.getKeyForColumns([Column("jets.pt")])
+
+        assert key_jets_upd2 != key_jets_upd1
+        assert key_jets_mass_upd2 != key_jets_mass_upd1
+        assert key_jets_pt_upd2 == key_jets_pt_upd1  # Unchanged!
+
+        # 3) Updating parent entirely overrides key for parent and all children
+        tc._current_provenance = 3
+        tc["jets"] = ak.Array(
+            {"pt": [[1], [2], [3]], "mass": [[2], [3], [4]], "energy": [[3], [4], [5]]}
+        )
+
+        key_jets_upd3 = tc.getKeyForColumns([Column("jets")])
+        key_jets_pt_upd3 = tc.getKeyForColumns([Column("jets.pt")])
+        key_jets_energy_upd3 = tc.getKeyForColumns([Column("jets.energy")])
+
+        assert key_jets_upd3 != key_jets_upd2
+        assert key_jets_pt_upd3 != key_jets_pt_upd2
+        assert key_jets_energy_upd3 is not None
+
+        # 4) Deeply nested fields testing (adding a new nested branch)
+        tc._current_provenance = 4
+        tc["a.b.c"] = ak.Array([1, 2, 3])
+
+        key_a_orig = tc.getKeyForColumns([Column("a")])
+        key_ab_orig = tc.getKeyForColumns([Column("a.b")])
+        key_abc_orig = tc.getKeyForColumns([Column("a.b.c")])
+
+        tc._current_provenance = 5
+        tc["a.b.c"] = ak.Array([4, 5, 6])
+
+        key_a_upd = tc.getKeyForColumns([Column("a")])
+        key_ab_upd = tc.getKeyForColumns([Column("a.b")])
+        key_abc_upd = tc.getKeyForColumns([Column("a.b.c")])
+
+        assert key_a_upd != key_a_orig
+        assert key_ab_upd != key_ab_orig
+        assert key_abc_upd != key_abc_orig
+
+        # And ensuring multiple columns queried together reflect composite correct keys
+        assert tc.getKeyForColumns(
+            [Column("a"), Column("jets")]
+        ) != tc.getKeyForColumns([Column("a")])
+        assert tc.getKeyForColumns(
+            [Column("a"), Column("jets")]
+        ) != tc.getKeyForColumns([Column("jets")])
+
 
 class TestUtils:
     def testSetColumn(self):
