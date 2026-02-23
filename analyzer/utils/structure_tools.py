@@ -41,10 +41,8 @@ def flatten(l, limit_to_types=(list,)):
 
 def freeze(data):
     if isinstance(data, dict):
-        return frozenset((freeze(x), freeze(y)) for x, y in data.items())
-    elif isinstance(data, list):
-        return frozenset(freeze(x) for x in data)
-    elif isinstance(data, tuple):
+        return tuple((x, freeze(y)) for x, y in data.items())
+    elif isinstance(data, (list, tuple)):
         return tuple(freeze(x) for x in data)
     else:
         return data
