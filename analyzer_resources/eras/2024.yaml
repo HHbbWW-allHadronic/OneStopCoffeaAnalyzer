@@ -1,6 +1,23 @@
 - name: '2024'
   energy: 13.6
   lumi: 109.95
+  sections: 
+    B:
+      lumi: 0.13
+    C: 	
+      lumi: 7.26
+    D: 	
+      lumi: 7.98
+    E:	
+      lumi: 11.42
+    F: 	
+      lumi: 28.04
+    G: 	
+      lumi: 38.07
+    H: 	
+      lumi: 5.49
+    I:	
+      lumi: 11.56
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2024_Summer24/btagging.json.gz
