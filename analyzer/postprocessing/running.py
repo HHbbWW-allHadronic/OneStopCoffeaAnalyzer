@@ -1,8 +1,7 @@
-from attr import Converter
+from cattrs import Converter
 from analyzer.postprocessing.plots.common import PlotConfiguration
 import concurrent.futures as cf
 from analyzer.core.results import loadResults, mergeAndScale
-from cattrs.converters import Converter
 from .processors import configureConverter
 from .grouping import configureConverter as groupingConfConv
 from .style import StyleSet
@@ -27,6 +26,7 @@ import analyzer.postprocessing.aggregate_plots  # noqa
 import analyzer.postprocessing.exporting  # noqa
 from .style import loadStyles
 from attrs import define, field
+from rich import print
 from .basic_histograms import BasePostprocessor
 
 
@@ -35,7 +35,7 @@ class PostprocessorConfig:
     processors: list[BasePostprocessor]
     default_style_set: StyleSet = field(factory=StyleSet)
     default_plot_config: PlotConfiguration = field(factory=PlotConfiguration)
-    drop_sample_patterns: list[BasePattern] | None = None
+    drop_sample_pattern: BasePattern | None = None
 
 
 def initProcess():
@@ -51,7 +51,9 @@ class LoadStyles(WorkerPlugin):
         pass
 
 
-def runPostprocessors(path, input_files, parallel=None, prefix=None):
+def runPostprocessors(
+    path, input_files, parallel=None, prefix=None, loaded_results=None
+):
     converter = Converter()
 
     setupConverter(converter)
@@ -74,8 +76,16 @@ def runPostprocessors(path, input_files, parallel=None, prefix=None):
         if processor.plot_configuration is None:
             processor.plot_configuration = postprocessor.default_plot_config
 
-    results = loadResults(input_files)
-    results = mergeAndScale(results)
+    if loaded_results is not None:
+        import copy
+
+        results = copy.deepcopy(loaded_results)
+    else:
+        results = loadResults(input_files)
+
+    results = mergeAndScale(
+        results, drop_sample_pattern=postprocessor.drop_sample_pattern
+    )
     all_funcs = []
     for processor in postprocessor.processors:
         all_funcs.extend(list(processor.run(results, prefix)))
