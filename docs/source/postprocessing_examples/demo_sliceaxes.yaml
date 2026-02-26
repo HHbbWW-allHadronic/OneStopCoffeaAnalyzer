@@ -1,0 +1,31 @@
+Postprocessing:
+  processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/HT"
+      scale: log
+      normalize: False
+      structure:
+        select: 
+          type: "Histogram"
+          pipeline: "Signal312"
+          dataset_name: "re:(signal_2018_312_1500_100$|signal_2018_312_1500_1000$|signal_2018_312_1000_100$|(?!signal_).*)"
+        group: {"era.name": "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {"HT": [500, null]} # Slice the axes above 500 HT
+      output_name: "{prefix}/demo_sliceaxes_{era.name}.png"
+  
+  default_style_set:
+    styles:
+      - pattern:
+          sample_type: 'MC'
+        style:
+          plottype: fill
+      - pattern:
+          dataset_name: 'signal*'
+        style:
+          plottype: step
+          linewidth: 2

@@ -1,0 +1,45 @@
+Postprocessing:
+  processors:
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/composite_14_m"
+      scale: log
+      ratio_type: "significance"
+      normalize: False
+      structure:
+        select: {type: Histogram, pipeline: "Signal312"}
+        group: {"era.name": "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: "MC", dataset_name: "!signal*"}
+          numerator:
+            select: {dataset_name: "signal_2018_312_1500_600"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "{prefix}/{era.name}/{pipeline}/{name}_demo_ratioplot.png"
+
+  default_style_set:
+    styles:
+      - pattern:
+          dataset_name: 'signal*'
+        style:
+          plottype: step
+          linewidth: 2
+      - pattern:
+          sample_type: 'MC'
+        style:
+          plottype: fill
+      - pattern:
+          dataset_name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          marker: 'o'
+
+  drop_sample_pattern:
+    or_exprs:
+      - sample_name: "*50to100*"
+      - sample_name: "*100to200*"
+      - sample_name: "*200to300*"
+      
