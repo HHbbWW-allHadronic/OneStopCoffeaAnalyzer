@@ -1,0 +1,9 @@
+- name: ggHHbbVV_2018
+  title: ggHHbbVV
+  sample_type: MC
+  era: '2018'
+  samples:
+    - name: GluGluToHHTobbVV_node_cHHH1_TuneCP5_13TeV-powheg-pythia8
+      n_events: 9644464
+      das_path: /GluGluToHHTobbVV_node_cHHH1_TuneCP5_13TeV-powheg-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v1/NANOAODSIM
+      x_sec: 4.02
