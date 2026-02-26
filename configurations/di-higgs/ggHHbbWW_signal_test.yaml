@@ -164,7 +164,7 @@ location_priorities: [".*(T0|T1|T2).*","eos"]
 event_collections:
   # Data samples
   # Signal Samples
-  - dataset: "ggtoHHto2B2W_HADRONIC_50k_set1"
+  - dataset: "ggtoHHto2B2W_HADRONIC_*"
     pipelines: [dihiggs_signal_region]
   
 extra_executors:
