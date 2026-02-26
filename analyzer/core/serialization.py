@@ -13,6 +13,7 @@ def setupConverter(conv):
     import analyzer.core.executors.executor
     import analyzer.core.run_builders
     import analyzer.utils.querying
+    import analyzer.modules.common.axis 
 
     # import analyzer.core.results
     import analyzer.core.datasets
@@ -26,5 +27,6 @@ def setupConverter(conv):
     analyzer.core.run_builders.configureConverter(conv)
     # analyzer.core.results.configureConverter(conv)
     analyzer.core.datasets.configureConverter(conv)
+    analyzer.modules.common.axis.configureConverter(conv)
 
     return conv
