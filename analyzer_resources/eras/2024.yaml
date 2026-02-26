@@ -23,4 +23,4 @@
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2024_Summer24/btagging.json.gz
 
   trigger_names:
-    250HT4J2B: HLT_PFHT250_QuadPFJet25_PNet2BTagMean0p55_v5
+    250HT4J2B: HLT_PFHT250_QuadPFJet25_PNet2BTagMean0p55
