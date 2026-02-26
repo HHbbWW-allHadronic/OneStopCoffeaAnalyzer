@@ -1,0 +1,44 @@
+- name: ggtoHHto2B2W_HADRONIC_set1
+  sample_type: MC
+  title: "ggtoHHto2b2W_FULLY_HADRONIC_set1"
+  n_events: 50000
+  x_sec: 3.5
+  era: '2024'
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output1.root
+
+- name: ggtoHHto2B2W_HADRONIC_set2
+  sample_type: MC
+  title: "ggtoHHto2b2W_FULLY_HADRONIC_set2"
+  n_events: 50000
+  x_sec: 3.5
+  era: '2024'
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output2.root
+
+- name: ggtoHHto2B2W_HADRONIC_set3
+  sample_type: MC
+  title: "ggtoHHto2b2W_FULLY_HADRONIC_set3"
+  n_events: 50000
+  x_sec: 3.5
+  era: '2024'
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output3.root
+
+- name: ggtoHHto2B2W_HADRONIC_set4
+  sample_type: MC
+  title: "ggtoHHto2b2W_FULLY_HADRONIC_set4"
+  n_events: 49300
+  x_sec: 3.5
+  era: '2024'
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output4.root
+
+- name: ggtoHHto2B2W_HADRONIC_set5
+  sample_type: MC
+  title: "ggtoHHto2b2W_FULLY_HADRONIC_set5"
+  n_events: 9800
+  x_sec: 3.5
+  era: '2024'
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output5.root

@@ -1,0 +1,21 @@
+Postprocessing:
+  processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/HT"
+        #- ""
+      scale: log
+      normalize: False 
+      structure:
+        select: {dataset_name: "*"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "/uscms/home/gvetters/nobackup/OneStopCoffeaAnalyzer/plots" 
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".pdf"
+    cms_text_color: Black
+    legend_num_cols: 1
