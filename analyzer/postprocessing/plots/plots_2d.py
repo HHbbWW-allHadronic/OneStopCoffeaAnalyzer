@@ -11,7 +11,8 @@ from .utils import saveFig
 
 
 def plot2D(
-    packaged_hist,
+    histogram,
+    common_meta,
     output_path,
     style_set,
     normalize=False,
@@ -19,10 +20,12 @@ def plot2D(
     color_scale="linear",
 ):
     pc = plot_configuration or PlotConfiguration()
+
     styler = Styler(style_set)
     fig, ax = plt.subplots(layout="constrained")
-    styler.getStyle(packaged_hist.provenance.sector_parameters)
-    h = packaged_hist.histogram
+    item,meta = histogram
+    h = item.histogram
+    style = styler.getStyle(meta)
 
     if normalize:
         h = h / np.sum(h.values())
@@ -31,12 +34,12 @@ def plot2D(
     else:
         h.plot2d(ax=ax)
     labelAxis(ax, "y", h.axes)
+
     labelAxis(ax, "x", h.axes)
-    sp = packaged_hist.provenance.sector_parameters
     addCMSBits(
         ax,
-        [sp],
-        extra_text=f"{sp.region_name}\n{packaged_hist.title}",
+        [meta],
+        extra_text=f"{common_meta['pipeline']}",
         text_color="white",
         plot_configuration=pc,
     )

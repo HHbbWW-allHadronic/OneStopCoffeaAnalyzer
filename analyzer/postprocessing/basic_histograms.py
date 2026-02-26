@@ -184,6 +184,7 @@ class Histogram2D(BasePostprocessor):
         yield ft.partial(
             plot2D,
             hist,
+            common_meta,
             output_path,
             style_set=self.style_set,
             normalize=self.normalize,
