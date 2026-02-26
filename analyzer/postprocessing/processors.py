@@ -52,6 +52,11 @@ def configureConverter(conv):
             return x.split("/")
         return x
 
+    def convStr(x):
+        if isinstance(x, str):
+            return x.split("/")
+        return x
+
     @conv.register_structure_hook
     def _(data, t) -> BasePostprocessor:
         real_inputs = []
