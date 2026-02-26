@@ -1,0 +1,9 @@
+- name: tt_hadronic_2018
+  title: "$t\\overline{t}$"
+  sample_type: MC
+  era: '2024'
+  samples:
+  - name: TTto4Q_TuneCP5_13p6TeV_powheg-pythia8
+    n_events: 493939649 
+    das_path: /TTto4Q_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAOD-140X_mcRun3_2024_realistic_v26-v2/NANOAODSIM
+    x_sec: 408400

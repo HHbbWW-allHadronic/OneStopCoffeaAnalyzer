@@ -1,0 +1,11 @@
+- name: ggHHbbVV_2024
+  title: ggHHbbVV
+  sample_type: MC
+  era: '2024'
+  n_events: 200000
+  x_sec: 3.5
+  files:
+     - root://cmseos.fnal.gov//eos/uscms/store/user/jgehrke/MYOMC/ggtoHHto2B2W_HADRONIC/output1.root
+     - root://cmseos.fnal.gov//eos/uscms/store/user/jgehrke/MYOMC/ggtoHHto2B2W_HADRONIC/output2.root
+     - root://cmseos.fnal.gov//eos/uscms/store/user/jgehrke/MYOMC/ggtoHHto2B2W_HADRONIC/output3.root
+     - root://cmseos.fnal.gov//eos/uscms/store/user/jgehrke/MYOMC/ggtoHHto2B2W_HADRONIC/output4.root
