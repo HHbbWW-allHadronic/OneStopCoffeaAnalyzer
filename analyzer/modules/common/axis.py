@@ -54,7 +54,6 @@ class VariableAxis(Axis):
             else:
                 return [x]
 
-        print([y for x in self.edges for y in toList(x)])
         a = hist.axis.Variable(
             [y for x in self.edges for y in toList(x)], name=self.name
         )

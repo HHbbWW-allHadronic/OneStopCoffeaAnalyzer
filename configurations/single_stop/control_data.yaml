@@ -35,10 +35,6 @@ common_pre_sel_weights: &common_pre_sel_weights
 
 common_objects: &common_objects
 
-  - module_name: SaveHLT
-    triggers: [HT,AK8SingleJetPtNoTrim]
-    save_name: SavedHLT
-
   - module_name: ElectronMaker
     input_col: Electron
     output_col: GoodElectron
@@ -135,51 +131,20 @@ common_selection: &common_selection
 
 
 common_histograms: &common_histograms
-  - module_name: SimpleHistogram
-    hist_name: EventsPass
-    mask_cols: ["SavedHLT.HT"]
-    input_cols: [HT,LeadingFatJet.pt]
-    replace_none: 0
-    axes:
-      - name: HT
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
-      - name: PTFat
-        start: 0
-        stop: 1200
-        bins: 40
-        unit: GeV
-
-  - module_name: SimpleHistogram
-    hist_name: EventsAll
-    input_cols: [HT,LeadingFatJet.pt]
-    replace_none: 0
-    axes:
-      - name: HT
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
-      - name: PTFat
-        start: 0
-        stop: 1200
-        bins: 40
-        unit: GeV
-
   - module_name: SaveCols
     save_name: trigger_data
     to_save:
       HT: "HT"
       PTFat: "LeadingFatJet.pt"
-      # PTLeading: "LeadingJet.pt"
-      # NJet: "NJet"
-      # NLooseB: "NLooseB"
-      # NElectron: "NElectron"
-      # NMuon: "NMuon"
+      MSDFat: "LeadingFatJet.msoftdrop"
+      PTLeading: "LeadingJet.pt"
+      NJet: "NJet"
+      NLooseB: "NLooseB"
+      NElectron: "NElectron"
+      NMuon: "NMuon"
       PassHT: "HLTMAP:HT"
       PassAK8: "HLTMAP:AK8SingleJetPtNoTrim"
+      PassAK8SD: "HLTMAP:AK8SingleJetPt"
       # PassHT450: "HLTMAP:HT450"
       # PassHT500: "HLTMAP:HT500"
       # PassHT600: "HLTMAP:HT600"
@@ -205,41 +170,19 @@ analyzer:
       sel_name: selection
     - *common_histograms
 
-  Control:
+  ControlTriggers:
     - module_name: SimpleHLT
-      triggers: [HT,AK8SingleJetPtNoTrim]
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
       sel_name: pre_selection
-    #- *common_corrections
     - *common_objects
     - *common_pre_sel_weights
-    # - module_name: NObjFilter
-    #   input_col: LooseB
-    #   selection_name: 0bjet
-    #   max_count: 0
-    # - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
 
-  ControlBNN:
-    - *common_presel_objects
-    - *common_cleanup
-    - module_name: SelectOnColumns
-      sel_name: pre_selection
-    #- *common_corrections
-    - *common_objects
-    - *common_pre_sel_weights
-    # - module_name: NObjFilter
-    #   input_col: LooseB
-    #   selection_name: 0bjet
-    #   max_count: 0
-    # - *common_selection
-    #- module_name: SelectOnColumns
-    #  sel_name: selection
-    - *common_histograms
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 #location_priorities: [".*(T0|T1|T2).*","eos"]
@@ -247,11 +190,11 @@ location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*
 event_collections:
   # Data samples
   - dataset: 'data_JetHT_*'
-    pipelines: [Prescaled]
+    pipelines: [Prescaled,ControlTriggers]
   
   # # Background MC Samples
-  # - dataset: 'qcd*'
-  #   pipelines: [ControlBNN]
+  - dataset: 'qcd*'
+    pipelines: [Prescaled,ControlTriggers]
       
 
 
@@ -266,27 +209,65 @@ extra_executors:
     
   
 Postprocessing:
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 2
   processors:
-    - name: DumpNumpy
-      inputs:
-        - "*/*/*/trigger_data"
-      structure:
-        select: {type: SavedColumns}
-        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
-      output_name: "{prefix}/{era.name}_trigger_data"
-      order: ["HT", "PTFat", "PassHT", "PassAK8"] 
-
-    # - name: Histogram1D
+    # - name: DumpNumpy
     #   inputs:
-    #     - "*/*/*/HT_Cut"
+    #     - "*/*/*/trigger_data"
     #   structure:
-    #     select: {type: Histogram}
+    #     select: {type: SavedColumns}
+    #     group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+    #   output_name: "{prefix}/{era.name}_{dataset_name}_trigger_data"
+    #   order: [HT, PTFat, MSDFat, PTLeading, NJet, NLooseB, NElectron,
+    #   NMuon, PassHT, PassAK8, PassAK8SD, Scale]
+
+    # - name: Histogram2D
+    #   inputs:
+    #     - "*/*/*/trigger_data"
+    #   scale: log
+    #   structure:
+    #     select: {type: SavedColumns}
     #     group: {era.name: "*", pipeline: "*", dataset_name: "*"}
     #     transforms:
-    #       - name: SelectAxesValues
-    #         select_axes_values: {"variation": "central"}
+    #       - name: MakeHistogram
+    #         histogram_name: test
+    #         column_axis_mapping:
+    #           HT:
+    #             edges: [0,500,[700,1200,20],1250,1400,2000]
+    #             name: HT
+    #           PTFat:
+    #             edges: [0,200,[260,760,20],  900,  1200]
+    #             name: PT
+    #             
+    #   output_name: "{prefix}/test_{era.name}_{pipeline}_HT_Cut"
+    # 
+    # - name: Histogram2D
+    #   inputs:
+    #     - "*/*/*/trigger_data"
     #   scale: log
-    #   output_name: "{prefix}/}_{era.name}_{pipeline}_HT_Cut"
+    #   structure:
+    #     select: {type: SavedColumns}
+    #     group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+    #     transforms:
+    #       - name: MaskData
+    #         mask: "PassHT & PassAK8"
+    # 
+    #       - name: MakeHistogram
+    # 
+    #         histogram_name: test
+    #         column_axis_mapping:
+    #           HT:
+    #             edges: [0,500,[700,1200,20],1250,1400,2000]
+    #             name: HT
+    #           PTFat:
+    #             edges: [0,200,[260,760,20],  900,  1200]
+    #             name: PT
+    #             
+    #   output_name: "{prefix}/test_{era.name}_{pipeline}_HT_Pass"
 
     # - name: Histogram1D
     #   inputs:
@@ -299,3 +280,61 @@ Postprocessing:
     #         select_axes_values: {"variation": "central"}
     #   scale: log
     #   output_name: "{prefix}/{pipeline}/{dataset_name}_{era.name}_{pipeline}_HT_All"
+
+
+    #   order: [HT, PTFat, MSDFat, PTLeading, NJet, NLooseB, NElectron,
+    #   NMuon, PassHT, PassAK8, PassAK8SD, Scale]
+
+    - name: CorrectionLibEff
+      inputs:
+        - "*/*/*/trigger_data"
+      correction_name: "trigger_eff"
+      output_name: "{prefix}/{era.name}.json.gz"
+      diagnostic_plots: true
+      diagnostic_output_name: "{prefix}/plots/{era.name}/test.png"
+      
+      structure:
+        select: {type: SavedColumns, pipeline: "Prescaled"}
+
+        group: {era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: MaskData
+            mask: "~(~PassHT & ~PassAK8 & PassAK8SD & (PTFat>550) & (MSDFat<70))"
+        subgroups:
+          numerator:
+            transforms:
+              - name: MaskData
+                mask: "PassHT | PassAK8 | PassAK8SD"
+              - name: MakeHistogram
+                histogram_name: test
+                column_axis_mapping:
+                  HT:
+                    edges: [[600,1500,25]]
+                    name: HT
+                    unit: GeV
+                  PTFat:
+                    edges: [[250,700,15]]
+                    name: PT
+                    unit: GeV
+              - name: FormatTitle
+                title_format: "Prescaled && HLT"
+              - name: SetStyle
+                style: {}
+          denominator:
+            transforms:
+              - name: MakeHistogram
+                histogram_name: test
+                column_axis_mapping:
+                  HT:
+                    edges: [[600,1500,25]]
+                    name: HT
+                    unit: GeV
+                  PTFat:
+                    edges: [[250,700,15]]
+                    name: PT
+                    unit: GeV
+              - name: FormatTitle
+                title_format: "Prescaled"
+              - name: SetStyle
+                style: {}
+

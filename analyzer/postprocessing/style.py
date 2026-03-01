@@ -149,7 +149,10 @@ class Styler:
         self.cycle_iter = iter(self.cycler)
 
     def getStyle(self, sector_params):
-        found = self.style_set.getStyle(sector_params)
+        if style := sector_params.get("style"):
+            found = Style(**style)
+        else:
+            found = self.style_set.getStyle(sector_params)
         if found is not None:
             if found.color is None:
                 found = copy.deepcopy(found)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import TypeVar
+from rich import print
 from analyzer.utils.querying import BasePattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
@@ -20,20 +21,21 @@ class GroupBuilder:
     transforms: list[Transform] | None = None
 
     def apply(self, items):
+        transforms = self.transforms or []
         if self.select is not None:
             items = [x for x in items if self.select.match(x.metadata)]
-        if not self.group:
-            return items
-        gathered = gatherByCapture(self.group, items)
-        groups: ResultSet = [g.items for g in gathered if g.capture is not NO_MATCH]
+        if  self.group:
+            gathered = gatherByCapture(self.group, items)
+            groups: ResultSet = [g.items for g in gathered if g.capture is not NO_MATCH]
+            for transform in transforms:
+                groups = [transform(g) for g in groups]
+        else:
+            groups = items
+            for transform in transforms:
+                groups = transform(groups)
 
-        for transform in self.transforms or []:
-            groups = [transform(g) for g in groups]
 
         if self.subgroups is None:
-            # if len(groups) == 1:
-            #     return groups[0]
-            # else:
             return groups
 
         ret = []
