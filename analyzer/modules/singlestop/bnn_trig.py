@@ -216,3 +216,32 @@ class TriggerBNNCorrection(AnalyzerModule):
 
         columns[Column(("Weights", self.weight_name))] = w
         return columns, []
+
+
+@define
+class MSDCleanerCategory(AnalyzerModule):
+    def inputs(self, metadata):
+        return [Column("HLT"), Column("FatJet")]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Categories", "PassMSDCleaner"))]
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        trigger_names = metadata["era"]["trigger_names"]
+        ht = columns["HT"]
+        fj = ak.pad_none(columns["GoodFatJet"], 1)[:, 0]
+        fjpt = ak.fill_none(fj.pt, 0)
+        fjmsd = ak.fill_none(fj.msoftdrop, 0)
+        hlt = columns["HLT"]
+        bad = (
+            ~hlt[trigger_names["HT"]]
+            & ~hlt[trigger_names["AK8SingleJetPtNoTrim"]]
+            & hlt[trigger_names["AK8SingleJetPt"]]
+            & (fjpt > 550)
+            & (fjmsd < 70)
+        )
+
+        addCategory(columns, "PassMSDCleaner", ~bad, IntegerAxis("PassMSDCLeaner", 0, 2))
+
+        return columns, []
