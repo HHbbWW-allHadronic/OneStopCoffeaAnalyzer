@@ -158,7 +158,7 @@ class TriggerBNNCorrection(AnalyzerModule):
 
     base_path: str
     correction_pattern: str
-    correction_name: str = "BNN_Trigger_Efficiency"
+    correction_name: str = "trigger_eff"
     weight_name: str = "trigger_eff"
 
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
@@ -195,9 +195,8 @@ class TriggerBNNCorrection(AnalyzerModule):
             return self.__corrections[path]
 
         cset = correctionlib.CorrectionSet.from_file(path)
-        corr = cset[self.correction_name]
-        self.__corrections[path] = corr
-        return corr
+        self.__corrections[path] = cset
+        return cset
 
     def run(self, columns, params):
         systematic = params["variation"]
@@ -207,12 +206,16 @@ class TriggerBNNCorrection(AnalyzerModule):
         corr_syst = syst_map.get(systematic, "nominal")
 
         ht = columns["HT"]
-        fj = columns["GoodFatJet"]
-        fjpt = fj[:, 0].pt
+        fj = ak.pad_none(columns["GoodFatJet"], 1)[:, 0]
+        fjpt = ak.fill_none(fj.pt, 0)
+        fjmsd = ak.fill_none(fj.msoftdrop, 0)
 
-        corr = self.getCorrection(columns.metadata)
 
-        w = corr.evaluate(corr_syst, ht, fjpt)
+        cset = self.getCorrection(columns.metadata)
+        corr = cset[f"{self.correction_name}_{corr_syst}"]
+
+        w = corr.evaluate(ht, fjpt)
+
 
         columns[Column(("Weights", self.weight_name))] = w
         return columns, []

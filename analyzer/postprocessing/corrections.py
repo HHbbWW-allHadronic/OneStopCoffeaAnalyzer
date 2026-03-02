@@ -3,7 +3,12 @@ from __future__ import annotations
 import functools as ft
 import itertools as it
 import copy
-from analyzer.utils.structure_tools import dotFormat, dictToDot, commonDict, ItemWithMeta
+from analyzer.utils.structure_tools import (
+    dotFormat,
+    dictToDot,
+    commonDict,
+    ItemWithMeta,
+)
 from .processors import BasePostprocessor
 from .style import StyleSet
 from .plots.common import PlotConfiguration
@@ -48,24 +53,28 @@ def exportEfficiencyToCorrectionLib(
     ratio, unc = getRatioAndUnc(n_vals, d_vals, uncertainty_type=ratio_type)
 
     axes = list(num_hist.axes)
-    sys_ax = hist.axis.StrCategory(["nominal", "up", "down"], name="systematic")
-    axes.append(sys_ax)
-
-    ret_hist = hist.Hist(*axes, storage=hist.storage.Double())
-
+    # sys_ax = hist.axis.StrCategory(["nominal", "up", "down"], name="systematic")
+    # axes = [sys_ax] + axes
     ratio = np.nan_to_num(ratio, nan=1.0)
     unc_0 = np.nan_to_num(unc[0], nan=0.0)
     unc_1 = np.nan_to_num(unc[1], nan=0.0)
 
-    ret_hist[..., "nominal"] = ratio
-    ret_hist[..., "down"] = ratio - unc_0
-    ret_hist[..., "up"] = ratio + unc_1
+    all_corrs = []
+    for name, val in [
+        ("nominal", ratio),
+        ("down", ratio - unc_0),
+        ("up", ratio + unc_1),
+    ]:
+        ret_hist = hist.Hist(*axes, storage=hist.storage.Double())
+        ret_hist[...] = val
+        ret_hist.name = f"{correction_name}_{name}"
+        ret_hist.label = "output"
+        corr = correctionlib.convert.from_histogram(ret_hist)
+        corr.description = description
+        corr.data.flow = "clamp"
+        all_corrs.append(corr)
 
-    ret_hist.name = correction_name
-    ret_hist.label = "output"
-    corr = correctionlib.convert.from_histogram(ret_hist)
-    corr.description = description
-    cset = cs.CorrectionSet(schema_version=2, corrections=[corr])
+    cset = cs.CorrectionSet(schema_version=2, corrections=all_corrs)
 
     output_path = Path(output_path)
     output_path.parent.mkdir(exist_ok=True, parents=True)
@@ -74,7 +83,6 @@ def exportEfficiencyToCorrectionLib(
         fout.write(cset.model_dump_json(exclude_unset=True))
 
     if diagnostic_plots and diagnostic_output_path is not None:
-
         generateDiagnosticPlots(
             num,
             den,
@@ -84,10 +92,22 @@ def exportEfficiencyToCorrectionLib(
             corr=corr,
             plot_configuration=plot_configuration,
             style_set=style_set,
+            ratio_unc=(ratio,*unc),
         )
 
-
 def generateDiagnosticPlots(
+    num,
+        *args,**kwargs
+):
+    num_hist, num_meta = num.item.histogram, num.metadata
+    generateDiagnosticPlots1D(num,*args,**kwargs)
+
+    if len(num_hist.axes) == 2:
+        generateDiagnosticPlots2D(num,*args,**kwargs)
+
+        
+
+def generateDiagnosticPlots1D(
     num,
     den,
     common_meta,
@@ -96,6 +116,7 @@ def generateDiagnosticPlots(
     corr=None,
     plot_configuration=None,
     style_set=None,
+        ratio_unc=None,
 ):
     import matplotlib.pyplot as plt
     from .plots.utils import saveFig
@@ -120,8 +141,12 @@ def generateDiagnosticPlots(
     for i, ax in enumerate(num_hist.axes):
         n_proj = num_hist.project(ax.name)
         d_proj = den_hist.project(ax.name)
-        n_to_pass = ItemWithMeta(Histogram(name=num.item.name, histogram=n_proj,axes=[]), num.metadata)
-        d_to_pass = ItemWithMeta(Histogram(name=den.item.name, histogram=d_proj,axes=[]), den.metadata)
+        n_to_pass = ItemWithMeta(
+            Histogram(name=num.item.name, histogram=n_proj, axes=[]), num.metadata
+        )
+        d_to_pass = ItemWithMeta(
+            Histogram(name=den.item.name, histogram=d_proj, axes=[]), den.metadata
+        )
         proj_output_path = base_output_path.replace(
             ext_dot, f"_proj_{ax.name}{ext_dot}"
         )
@@ -138,6 +163,64 @@ def generateDiagnosticPlots(
             scale="log",
             plot_configuration=plot_configuration,
         )
+
+def generateDiagnosticPlots2D(
+    num,
+    den,
+    common_meta,
+    ratio_type,
+    base_output_path,
+    corr=None,
+    plot_configuration=None,
+    style_set=None,
+        ratio_unc=None,
+):
+    import matplotlib.pyplot as plt
+    from .plots.utils import saveFig
+    from .plots.annotations import labelAxis, addCMSBits
+    from .plots.common import PlotConfiguration
+    from analyzer.core.results import Histogram
+    from .style import Styler
+    from .plots.plots_1d import plotRatio
+    import numpy as np
+
+
+    pc = plot_configuration or PlotConfiguration()
+    base_output_path = str(base_output_path)
+    ext = pc.image_type
+    if not base_output_path.endswith(f".{ext}"):
+        ext_dot = "." + base_output_path.split(".")[-1]
+    else:
+        ext_dot = f".{ext}"
+
+
+    ratio = num.item.histogram.copy(deep=True)
+    up = num.item.histogram.copy(deep=True)
+    down = num.item.histogram.copy(deep=True)
+    ratio[...] = ratio_unc[0]
+    up[...] = ratio_unc[1]
+    down[...] = ratio_unc[2]
+
+    for h,name in [(ratio,"eff"), (up,"up"), (down, "down")]:
+        styler = Styler(style_set)
+        fig, ax = plt.subplots(layout="constrained")
+        h.plot2d(ax=ax)
+        labelAxis(ax, "y", h.axes)
+        labelAxis(ax, "x", h.axes)
+
+        addCMSBits(
+            ax,
+            [common_meta],
+            extra_text=f"{common_meta['pipeline']}",
+            text_color="black",
+            plot_configuration=pc,
+        )
+        this_output_path = base_output_path.replace(
+            ext_dot, f"2d_{name}{ext_dot}"
+        )
+        saveFig(fig, this_output_path, extension=pc.image_type)
+        plt.close(fig)
+
 
 
 @define
