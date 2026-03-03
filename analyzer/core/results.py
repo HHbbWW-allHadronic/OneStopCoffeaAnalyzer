@@ -7,6 +7,7 @@ from analyzer.utils.pretty import progbar
 from analyzer.core.exceptions import ResultIntegrityError
 from analyzer.utils.file_tools import iterPaths
 import numpy as np
+import diskcache as dc
 
 
 import numbers
@@ -18,7 +19,7 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.event_collection import FileSet
 from analyzer.core.serialization import converter
 import hist
-from analyzer.utils.structure_tools import globWithMeta, commonDict
+from analyzer.utils.structure_tools import globWithMeta, commonDict, getWithMeta
 
 from attrs import define, field
 
@@ -26,6 +27,9 @@ from attrs import define, field
 import copy
 import abc
 from typing import Any, Literal, ClassVar
+import logging
+
+logger = logging.getLogger("analyzer")
 
 
 def getArrayMem(array):
@@ -214,7 +218,7 @@ class ResultProvenance(ResultBase):
     file_set: FileSet
 
     def approxSize(self):
-        return 50 * len(self.file_set.files)
+        return 200 * len(self.file_set.files)
 
     def __iadd__(self, other):
         self.file_set += other.file_set
@@ -292,6 +296,21 @@ Array = ak.Array | dak.Array | np.ndarray
 
 
 @define
+class BasicSummary(ResultBase):
+    def __iadd__(self, other):
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def approxSize(self):
+        return 0
+
+    def finalize(self, finalizer):
+        return self
+
+
+@define
 class ScalableArray(ResultBase):
     array: ak.Array | dak.Array | np.ndarray
 
@@ -299,6 +318,9 @@ class ScalableArray(ResultBase):
         if isinstance(self.array, np.ndarray):
             self.array = np.concatenate([self.array, other.array], axis=0)
         return self
+
+    def summary(self):
+        return BasicSummary(name=self.name)
 
     def approxSize(self):
         return getArrayMem(self.array)
@@ -326,6 +348,9 @@ class RawArray(ResultBase):
     def finalize(self, finalizer):
         self.array = finalizer(self.array)
 
+    def summary(self):
+        return BasicSummary(name=self.name)
+
     def approxSize(self):
         return getArrayMem(self.array)
 
@@ -348,6 +373,10 @@ class SavedColumns(ResultBase):
     def finalize(self, finalizer):
         for k in self.data:
             self.data[k] = finalizer(self.data[k])
+        return self
+
+    def summary(self):
+        return BasicSummary(name=self.name)
 
     def approxSize(self):
         return sum(getArrayMem(x) for x in self.data.values())
@@ -528,11 +557,17 @@ def loadResults(paths, peek_only=False):
     return ret
 
 
-def mergeAndScale(results):
+def mergeAndScale(results, drop_sample_pattern=None):
     for dataset, meta in globWithMeta(results, ["*"]):
-        all_meta = []
         total = None
         for s in dataset:
+            if drop_sample_pattern is not None:
+                item, meta = getWithMeta(results, [dataset.name, s])
+                if drop_sample_pattern.match(meta):
+                    logger.info(
+                        f"Dropping sample {meta['dataset_name']}--{meta['sample_name']}"
+                    )
+                    continue
             sample_data = dataset[s]
             s_meta = sample_data.metadata
             provenance = sample_data["_provenance"]

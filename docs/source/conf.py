@@ -27,6 +27,7 @@ extensions = [
     "sphinx_autodoc_typehints",
     "dataset_doc",
     "analyzer_modules_doc",
+    "postprocessor_doc",
 ]
 
 autosummary_generate = True
