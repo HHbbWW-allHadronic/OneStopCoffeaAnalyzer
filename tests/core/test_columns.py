@@ -358,6 +358,105 @@ class TestTrackedColumns:
             [Column("a"), Column("jets")]
         ) != tc.getKeyForColumns([Column("jets")])
 
+    def testLazyProxyUnmodifiedBeforeFlush(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+        
+        # Write to a column
+        new_pt = ak.Array([100, 200, 300])
+        tc["new.pt"] = new_pt
+        
+        # Verify it went to lazy dict
+        assert Column("new.pt") in tc._lazy_columns
+        
+        # Verify base events is strictly untouched
+        assert "new" not in tc._events.fields
+        
+        # Calling flush applies the arrays to base
+        tc.flush()
+        assert "new" in tc._events.fields
+        assert ak.all(tc._events.new.pt == new_pt)
+        assert len(tc._lazy_columns) == 0
+
+    def testLazyProxyGetItemBehaviors(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+        
+        tc["jets.new_pt"] = ak.Array([[100], [200], [300]])
+        tc["new_branch"] = ak.Array([4, 5, 6])
+        
+        # 1. Exact match hits lazy dictionary
+        assert ak.all(tc["jets.new_pt"] == ak.Array([[100], [200], [300]]))
+        
+        # 2. Extracting a parent of a lazy proxy forces a flush and returns correctly
+        assert "new_pt" not in tc._events.jets.fields
+        jets = tc["jets"]
+        assert "new_pt" in jets.fields
+        assert "new_pt" in tc._events.jets.fields # Proves flush occurred
+        
+        # Set a lazy proxy on parent
+        tc["other_jets"] = ak.Array({"a": [[1], [2], [3]], "b": [[4], [5], [6]]})
+        
+        # 3. Extracting a child of a lazy parent works without flushing base
+        assert "other_jets" not in tc._events.fields
+        assert ak.all(tc["other_jets.a"] == ak.Array([[1], [2], [3]]))
+        assert "other_jets" not in tc._events.fields # Base array still completely unaware
+        
+        # Setting a child clears the parent proxy and fragments it
+        tc["other_jets.b"] = ak.Array([[9], [9], [9]])
+        assert Column("other_jets.b") in tc._lazy_columns
+        
+        # Because we set a child (which overrides the parent's `b`), TrackedColumns lazy mechanism 
+        # MUST flush the parent to ensure `__getitem__("other_jets")` doesn't return the stale 
+        # proxy.
+        assert "other_jets" not in tc._lazy_columns
+        
+        # We can extract the parent and it must have the overridden child
+        new_parent = tc["other_jets"]
+        assert ak.all(new_parent.b == ak.Array([[9], [9], [9]]))
+        assert ak.all(new_parent.a == ak.Array([[1], [2], [3]]))
+
+    def testLazyProxyFilterSync(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+        
+        tc["new_val"] = ak.Array([10, 20, 30])
+        
+        mask = ak.Array([True, False, True])
+        tc.filter(mask)
+        
+        # Verifying both base array and lazy proxies are correctly filtered identically
+        assert len(tc._events) == 2
+        assert len(tc._lazy_columns[Column("new_val")]) == 2
+        
+        assert ak.all(tc["pt"] == ak.Array([1, 3]))
+        assert ak.all(tc["new_val"] == ak.Array([10, 30]))
+
+    def testLazyProxyCopy(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        tc = TrackedColumns.fromEvents(
+            sample_events, metadata={}, backend=EventBackend.coffea_imm, provenance=0
+        )
+        
+        tc["temp"] = ak.Array([1, 2, 3])
+        tc_copy = tc.copy()
+        
+        # Verify the proxy was copied separately
+        assert Column("temp") in tc_copy._lazy_columns
+        assert tc_copy._lazy_columns is not tc._lazy_columns
+        
+        # Modify the original proxy dict
+        tc["temp2"] = ak.Array([4, 5, 6])
+        
+        # Ensure it didn't leak
+        assert Column("temp2") not in tc_copy._lazy_columns
+
 
 class TestUtils:
     def testSetColumn(self):
