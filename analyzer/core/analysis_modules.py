@@ -80,6 +80,10 @@ class MetadataNot(MetadataExpr):
 MultiColumns = list[tuple[Any, TrackedColumns]]
 
 
+
+def moduleExcludeFilter(attribute, value):
+    return attribute.name not in ("should_run",) and  not attribute.name.startswith("_")
+
 @define
 class BaseAnalyzerModule(abc.ABC):
     MAX_CACHE_SIZE = 25
@@ -124,7 +128,7 @@ class BaseAnalyzerModule(abc.ABC):
     @ft.cached_property
     def selfkey(self):
         return hash(
-            freeze(asdict(self, filter=filters.exclude("_cache", "should_run")))
+            freeze(asdict(self, filter=moduleExcludeFilter))
         )
 
 
