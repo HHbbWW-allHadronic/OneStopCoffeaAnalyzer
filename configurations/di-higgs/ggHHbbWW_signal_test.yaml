@@ -6,50 +6,6 @@ common_cleanup: &common_cleanup
     input_col: Jet
     output_col: Jet
   - module_name: NoiseFilter
-
-common_presel_objects: &common_presel_objects
-  - module_name: JetFilter
-    input_col: FatJet
-    output_col: GoodFatJet
-    min_pt: 200
-    max_abs_eta: 2.4
-
-  - module_name: Count
-    input_col: GoodJet
-    output_col: NJet 
-
-common_selection: &common_selection
-  - module_name: NObjFilter
-    input_col: GoodElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: GoodMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: GoodJet
-    selection_name: njets
-    min_count: 4
-    max_count: 6
-
-  - module_name: VecPt
-    input_col: GoodJet
-    selection_name: jetpt
-    min_pt: 300
-
-common_histograms: &common_histograms
-  - module_name: HT
-    input_col: GoodJet
-
-  - module_name: TopVecHistograms
-    prefix: "jet"
-    input_col: GoodJet
-    max_idx: 6
           
 dihiggs_signal_region: &dihiggs_signal_region
   - module_name: SimpleHLT
@@ -72,9 +28,8 @@ dihiggs_signal_region: &dihiggs_signal_region
     output_col: GoodJet
     include_pu_id: False
     include_jet_id: False
-    min_pt: 50
-    max_abs_eta: 3.0
-    min_abs_eta: 2.5
+    min_pt: 30
+    max_abs_eta: 2.4
 
   # Create Lepton Objects
   - module_name: ElectronMaker
@@ -93,7 +48,6 @@ dihiggs_signal_region: &dihiggs_signal_region
     max_abs_eta: 2.4
     max_mini_iso: 0.1
 
-
   - module_name: UParTBQuarkMaker
     input_col: GoodJet
     output_col: MedB
@@ -102,6 +56,10 @@ dihiggs_signal_region: &dihiggs_signal_region
   - module_name: HT
     input_col: GoodJet
 
+  - module_name: Count
+    input_col: GoodJet
+    output_col: njets
+    
   # Basic Selection
   # Require Events to have:
   # Zero leptons
@@ -150,6 +108,127 @@ dihiggs_signal_region: &dihiggs_signal_region
         stop: 3000
         bins: 60
         unit: GeV
+  
+  - module_name: SimpleHistogram
+    hist_name: nJets
+    input_cols: [njets]
+    axes:
+    - name: njets
+      start: 0
+      stop: 14
+      bins: 15
+
+
+dihiggs_signal_region_NoSelection: &dihiggs_signal_region_NoSelection
+  - module_name: SelectOnColumns
+    sel_name: pre_selection
+    
+  - module_name: PosNegGenWeight
+
+  # Jet Objects
+  - module_name: JetFilter
+    input_col: FatJet
+    output_col: GoodFatJet
+    min_pt: 200
+    max_abs_eta: 2.4
+
+  - module_name: JetFilter
+    input_col: Jet
+    output_col: GoodJet
+    include_pu_id: False
+    include_jet_id: False
+    min_pt: 30
+    max_abs_eta: 2.4
+
+
+  # Create Lepton Objects
+  - module_name: ElectronMaker
+    input_col: Electron
+    output_col: GoodElectron
+    working_point: "loose"
+    min_pt: 10
+    max_abs_eta: 2.4
+    max_mini_iso: 0.1
+
+  - module_name: MuonMaker
+    input_col: Muon
+    output_col: GoodMuon
+    id_working_point: "looseId"
+    min_pt: 30
+    max_abs_eta: 2.4
+    max_mini_iso: 0.1
+
+  - module_name: UParTBQuarkMaker
+    input_col: GoodJet
+    output_col: MedB
+    working_point: M
+
+  - module_name: HT
+    input_col: GoodJet
+  
+  - module_name: Count
+    input_col: GoodJet
+    output_col: njets
+
+  # Basic Selection
+  # Require Events to have:
+  # Zero leptons
+  # at least 2 medium b jets
+  # At least 6 jets
+  - module_name: NObjFilter
+    input_col: GoodElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: GoodMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: GoodJet
+    selection_name: njets
+    min_count: 6
+
+  # IMPORTANT: trigger the selection. This will use all the selections defined up until this point
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+
+  # Can you reconstruct one of the higgs from the two leading b-jets?
+  - module_name: JetComboHistograms
+    input_col: MedB
+    prefix: "two_b_reco"
+    jet_combos:
+      - [0,1]
+
+  # General AK4 jet kinematics
+  - module_name: TopVecHistograms
+    prefix: "jet"
+    input_col: GoodJet
+    max_idx: 6
+
+  - module_name: SimpleHistogram
+    hist_name: HT
+    input_cols: [HT]
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+  
+  - module_name: SimpleHistogram
+    hist_name: njets
+    input_cols: [njets]
+    axes:
+    - name: njets
+      start: 0
+      stop: 14
+      bins: 15
+
 
 analyzer:
   default_run_builder:
@@ -158,14 +237,17 @@ analyzer:
   dihiggs_signal_region:
     - *dihiggs_signal_region
 
+  dihiggs_signal_region_NoSelection:
+    - *dihiggs_signal_region_NoSelection
+    
 # location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # Data samples
   # Signal Samples
-  - dataset: "ggtoHHto2B2W_HADRONIC_*"
-    pipelines: [dihiggs_signal_region]
+  - dataset: "signal_ggtoHHto2b2V"
+    pipelines: [dihiggs_signal_region, dihiggs_signal_region_NoSelection]
   
 extra_executors:
   test:
