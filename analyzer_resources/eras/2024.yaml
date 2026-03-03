@@ -1,21 +1,31 @@
 - name: '2024'
   energy: 13.6
-  lumi: 124.04
-
+  lumi: 109.95
   sections: 
-    C:
-      lumi: 124.04
+    B:
+      lumi: 0.13
+    C: 	
+      lumi: 7.26
+    D: 	
+      lumi: 7.98
+    E:	
+      lumi: 11.42
+    F: 	
+      lumi: 28.04
+    G: 	
+      lumi: 38.07
+    H: 	
+      lumi: 5.49
+    I:	
+      lumi: 11.56
 
-  #golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions23/Cert_Collisions2023_366442_370790_Golden.json
   golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json
 
   btag_scale_factors:
-    #file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23/btagging.json.gz
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2024_Summer24/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
   jet_veto_map:
-    #file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23/jetvetomaps.json.gz
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2024_Summer24/jetvetomaps.json.gz
     name: "2024_Summer24"
 
