@@ -34,7 +34,8 @@
     name: Collisions24_BCDEFGHI_goldenJSON   
 
   trigger_names:    
-    HLTQuadPF: PFHT250_QuadPFJet25
+    250HT4J: PFHT250_QuadPFJet25
+    250HT4J2B: HLT_PFHT250_QuadPFJet25_PNet2BTagMean0p55
 
   trigger_plateaus:
     HT: 1200
