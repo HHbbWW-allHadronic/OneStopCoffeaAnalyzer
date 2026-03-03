@@ -8,8 +8,7 @@ Postprocessing:
         - "*/*/*/jet_phi_1"
         - "*/*/*/two_b_reco_12_m"
         - "*/*/*/two_b_reco_12_pt"
-        - "*/*/*/nJets"  
-        #- ""
+        - "*/*/*/njets"
       scale: log
       normalize: False 
       structure:
@@ -28,7 +27,7 @@ Postprocessing:
         - "*/*/*/jet_phi_1"
         - "*/*/*/two_b_reco_12_m"
         - "*/*/*/two_b_reco_12_pt"
-        - "*/*/*/nJets"
+        - "*/*/*/njets"
       scale: log
       normalize: False
       structure:

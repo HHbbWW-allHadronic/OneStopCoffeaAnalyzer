@@ -22,37 +22,19 @@
   golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json
 
   btag_scale_factors:
-    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2024_Summer24/btagging.json.gz
+    file: /cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
   jet_veto_map:
-    file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2024_Summer24/jetvetomaps.json.gz
-    name: "2024_Summer24"
+    file: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz
+    name: "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15"
 
-  #pileup_scale_factors:
-    #file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/LUM/2023_Summer23/puWeights.json.gz
+  pileup_scale_factors:
+    file: /cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/puWeights_BCDEFGHI.json.gz
+    name: Collisions24_BCDEFGHI_goldenJSON   
 
-    #name: Collisions2023_366403_369802_eraBC_GoldenJson
-    #name: Collisions24_BCDEFGHI_goldenJSON
-
-  trigger_names:
-    HT: PFHT1050
-    AK8SingleJetPt: AK8PFJet420_MassSD30
-    AK8SingleJetPtNoTrim: AK8PFJet500
-    SingleMuon: Mu50
-    IsoMuon: IsoMu24
-    EleWPTight: Ele30_WPTight_Gsf
-    EleCaloIdVT: Ele115_CaloIdVT_GsfTrkIdT
+  trigger_names:    
     HLTQuadPF: PFHT250_QuadPFJet25
-
-
-    HT350: PFHT350
-    HT450: PFHT430
-    HT500: PFHT510
-    HT600: PFHT590
-    AK8_200: AK8PFJet200
-    AK8_250: AK8PFJet260
-    AK8_300: AK8PFJet320
 
   trigger_plateaus:
     HT: 1200
@@ -64,11 +46,11 @@
     jet_names:
       AK4: AK4PFPuppi
     files:
-      AK4: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2024_Summer24/jet_jerc.json.gz    
-      #AK8: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/fatjet_jerc.json.gz
+      AK4: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jet_jerc.json.gz    
+      AK8: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/fatJet_jerc.json.gz
       smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
     jec:
-      campaign: Summer24Prompt24
+      campaign: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
       version: V2
       systematics:
         - AbsoluteMPFBias
@@ -111,7 +93,7 @@
         - Regrouped_RelativeSample_2023
         - Regrouped_RelativeBal
     jer:
-      campaign: Summer24Prompt24
+      campaign: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
       version: V2
       genjet_idx_col: genJetIdx
       systematics:
