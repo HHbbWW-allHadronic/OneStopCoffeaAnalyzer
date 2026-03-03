@@ -1,8 +1,10 @@
 from __future__ import annotations
 from typing import Literal
+from rich import print
 from analyzer.core.param_specs import (
     ModuleParameterSpec,
     ModuleParameterValues,
+    ParameterSpec,
 )
 from analyzer.utils.structure_tools import freeze
 import functools as ft
@@ -14,7 +16,6 @@ from analyzer.utils.structure_tools import freeze, SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import contextlib
 import abc
-from .param_specs import ParameterSpec, PipelineParameterSpec  # noqa: F401
 from typing import Any
 import logging
 
@@ -95,8 +96,13 @@ class BaseAnalyzerModule(abc.ABC):
         self, metadata
     ) -> ColumnCollection | list[Column] | Literal["EVENTS"]: ...
 
-    def getParameterSpec(self, metadata: dict) -> ModuleParameterSpec:
-        return ModuleParameterSpec()
+    def getParameterSpec(self, metadata: dict) -> MultiParameterSpec:
+        return {}
+
+    def filterParams(self, metadata, params):
+        spec = self.getParameterSpec(metadata)
+        return {x:y for x,y in params.items() if x in spec}
+        
 
     def preloadForMeta(self, metadata: dict):
         pass
@@ -113,6 +119,7 @@ class BaseAnalyzerModule(abc.ABC):
 
     def clearCache(self):
         self._cache.clear()
+
 
     @ft.cached_property
     def selfkey(self):
@@ -198,14 +205,15 @@ class AnalyzerModule(BaseAnalyzerModule):
     def __call__(self, columns, params):
         try:
             logger.debug(f"Running analyzer module {self}")
-            if self.should_run is not None and columns is not None:
+            if self.should_run is not None:
                 metadata = columns.metadata
                 should_run = self.should_run.evaluate(metadata)
                 if not should_run:
                     return columns, []
+            params = self.filterParams(columns.metadata, params)
             return self.__run(columns, params)
         except Exception as e:
-            logger.error(f"An exception occurred while running module {self}")
+            logger.exception(f"An exception occurred while running module {self}. {e}")
             raise e
 
 
@@ -228,6 +236,9 @@ class EventSourceModule(BaseAnalyzerModule):
 
     def __call__(self, params):
         try:
+            spec = self.getParameterSpec(None)
+            params = {x:y for x,y in params.items() if x in spec}
+
             logger.debug(f"Running analyzer module {self}")
             key = self.getKey(params)
             logger.debug(f"Execution key is {key}")
@@ -302,6 +313,8 @@ class PureResultModule(BaseAnalyzerModule):
             #     should_run = self.should_run.evaluate(metadata)
             #     if not should_run:
             #         return columns, []
+            spec = self.getParameterSpec(None)
+            params = {x:y for x,y in params.items() if x in spec}
             return self.__run(columns, params)
         except Exception as e:
             logger.error(f"An exception occurred while running module {self}")

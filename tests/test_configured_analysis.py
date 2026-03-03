@@ -84,6 +84,7 @@ def e2e_setup(tmp_path):
     # Create Analysis Configuration
     analysis_config = {
         "analyzer": {
+            "default_run_builder": {"strategy_name": "CompleteSysts"},
             "nominal": [
                 {"module_name": "MuonScaleSyst", "configuration": {}},
                 {"module_name": "MuonResSyst", "configuration": {}},
@@ -206,8 +207,8 @@ def testRunE2EAnalysis(e2e_setup):
     )
 
     # Scale Systematics
-    stats_up = get_stats(hist_mass, "MuonScaleSyst_variation_up")
-    stats_down = get_stats(hist_mass, "MuonScaleSyst_variation_down")
+    stats_up = get_stats(hist_mass, "testmuonscale-variation_up")
+    stats_down = get_stats(hist_mass, "testmuonscale-variation_down")
 
     assert stats_up is not None
     assert stats_down is not None
@@ -224,7 +225,7 @@ def testRunE2EAnalysis(e2e_setup):
     )
 
     # Resolution Systematics
-    stats_res = get_stats(hist_mass, "MuonResSyst_variation_up")
+    stats_res = get_stats(hist_mass, "testmuonres-variation_up")
 
     assert stats_res is not None
     print(f"Res Up: Std={stats_res['std_dev']:.2f}")
@@ -235,7 +236,7 @@ def testRunE2EAnalysis(e2e_setup):
     )
 
     # Weight Systematics
-    stats_weight = get_stats(hist_mass, "EventWeightSyst_variation_up")
+    stats_weight = get_stats(hist_mass, "testweight-variation_up")
 
     assert stats_weight is not None
     print(f"Weight Up: Yield={stats_weight['total']}")

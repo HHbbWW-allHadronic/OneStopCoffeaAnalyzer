@@ -550,7 +550,7 @@ class JetScaleCorrections(AnalyzerModule):
         metadata = columns.metadata
         jets = columns[self.input_col]
         corrections = self.getCorrection(metadata)
-        systematic = params["variation"]
+        systematic = params["jes-variation"]
         real_syst_name = re.sub(r"(up|down)_jes", "", systematic)
         logger.debug(
             f'Running JEC with systematic "{systematic}". Real name is "{real_syst_name}"'
@@ -600,7 +600,7 @@ class JetScaleCorrections(AnalyzerModule):
         ]
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "jes-variation": ParameterSpec(
                     default_value="central",
                     possible_values=possible_values,
                     tags={
@@ -682,7 +682,7 @@ class JetResolutionCorrections(AnalyzerModule):
         jet_params = metadata["era"]["jet_corrections"]
         genjet_idx_col = jet_params["jer"]["genjet_idx_col"]
         jets = columns[self.input_col]
-        systematic = params["variation"].replace("_JER", "")
+        systematic = params["jer-variation"].replace("_JER", "")
         corrections = self.getCorrection(metadata)
         res_key = JetResolutionCorrections.getKeyJer(
             "PtResolution", self.jet_type, metadata
@@ -742,7 +742,7 @@ class JetResolutionCorrections(AnalyzerModule):
         possible_values = ["nom"] + [f"{updown}_JER" for updown in systematics]
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "jer-variation": ParameterSpec(
                     default_value="nom",
                     possible_values=possible_values,
                     tags={
@@ -826,7 +826,7 @@ class PileupJetIdSF(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "puid-variation": ParameterSpec(
                     default_value="nom",
                     possible_values=["nom", "up", "down"],
                     tags={"weight_variation"},

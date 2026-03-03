@@ -6,23 +6,11 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 import abc
 import copy
 
-from analyzer.core.param_specs import PipelineParameterSpec
-
-
-def toTuples(d):
-    return {(x, y): v for x, s in d.items() for y, v in s.items()}
-
-
-def fromTuples(d):
-    ret = defaultdict(dict)
-    for (k1, k2), v in d.items():
-        ret[k1][k2] = v
-    return dict(ret)
-
+from analyzer.core.param_specs import ModuleParameterSpec, getTags, getWithValues
 
 def buildCombos(spec, tag):
     ret = []
-    tup = toTuples(spec.getTags(tag))
+    tup = getTags(spec, tag)
     central = {k: v.default_value for k, v in tup.items()}
     for k, v in tup.items():
         for p in v.possible_values:
@@ -30,10 +18,7 @@ def buildCombos(spec, tag):
                 continue
             c = copy.deepcopy(central)
             c[k] = p
-            ret.append(["_".join([*k, p]), c])
-
-    ret = [(n, fromTuples(x)) for n, x in ret]
-
+            ret.append(["_".join([k, p]), c])
     return ret
 
 
@@ -45,7 +30,7 @@ class DEFAULT_RUN_BUILDER:
 class RunBuilder(abc.ABC):
     @abc.abstractmethod
     def __call__(
-        self, spec: PipelineParameterSpec, metadata
+        self, spec: ModuleParameterSpec, metadata
     ) -> list[tuple[Any, dict]]: ...
 
     def __add__(self, other):
@@ -56,7 +41,7 @@ class RunBuilder(abc.ABC):
 class MultiRunBuilder(RunBuilder):
     components: list[RunBuilder]
 
-    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         ret = []
         for x in self.components:
             ret.extend(x(spec, metadata))
@@ -65,7 +50,7 @@ class MultiRunBuilder(RunBuilder):
 
 @define
 class CompleteSysts(RunBuilder):
-    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         weights = buildCombos(spec, "weight_variation")
         shapes = buildCombos(spec, "shape_variation")
         all_vars = [("central", {})] + weights + shapes
@@ -74,7 +59,7 @@ class CompleteSysts(RunBuilder):
 
 @define
 class WeightsOnly(RunBuilder):
-    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         weights = buildCombos(spec, "weight_variation")
         all_vars = [("central", {})] + weights
         return all_vars
@@ -82,7 +67,7 @@ class WeightsOnly(RunBuilder):
 
 @define
 class SignalOnlySysts(RunBuilder):
-    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         if "signal" in metadata["dataset_name"] or metadata["is_signal"]:
             weights = buildCombos(spec, "weight_variation")
             shapes = buildCombos(spec, "shape_variation")
@@ -94,7 +79,7 @@ class SignalOnlySysts(RunBuilder):
 
 @define
 class NoSystematics(RunBuilder):
-    def __call__(self, spec: PipelineParameterSpec, metadata) -> list[tuple[Any, dict]]:
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         return [("central", {})]
 
 

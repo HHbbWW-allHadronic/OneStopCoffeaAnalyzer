@@ -44,7 +44,7 @@ class PileupSF(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "pusf-variation": ParameterSpec(
                     default_value="nominal",
                     possible_values=["nominal", "up", "down", "disabled"],
                     tags={
@@ -55,14 +55,14 @@ class PileupSF(AnalyzerModule):
         )
 
     def run(self, columns, params):
-        if params["variation"] == "disabled":
+        if params["pusf-variation"] == "disabled":
             columns[Column(("Weights", self.weight_name))] = ak.ones_like(
                 columns["Pileup.nTrueInt"], dtype=float
             )
             return columns, []
         corr = self.getCorrection(columns.metadata)
         n_pu = columns["Pileup.nTrueInt"]
-        correction = corr.evaluate(n_pu, params["variation"])
+        correction = corr.evaluate(n_pu, params["pusf-variation"])
         columns[Column(("Weights", self.weight_name))] = correction
         return columns, []
 
@@ -113,7 +113,7 @@ class L1PrefiringSF(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "l1prefiring-variation": ParameterSpec(
                     default_value="Nom",
                     possible_values=["Nom", "Up", "Dn"],
                     tags={"weight_variation"},
@@ -122,8 +122,15 @@ class L1PrefiringSF(AnalyzerModule):
         )
 
     def run(self, columns, params):
-        variation = params["variation"]
-        columns["Weights", self.weight_name] = columns["L1PreFiringWeight"][variation]
+        variation = params["l1prefiring-variation"]
+        if "L1PreFiringWeight" in columns.fields:
+            columns["Weights", self.weight_name] = columns["L1PreFiringWeight"][
+                variation
+            ]
+        else:
+            columns["Weights", self.weight_name] = ak.ones_like(
+                columns["Pileup.nTrueInt"], dtype=float
+            )
         return columns, []
 
     def inputs(self, metadata):

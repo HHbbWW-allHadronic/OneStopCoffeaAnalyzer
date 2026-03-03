@@ -1,7 +1,6 @@
 from __future__ import annotations
 import copy
 
-
 from attrs import define, field, asdict
 
 import itertools as it
@@ -10,7 +9,6 @@ from collections import deque
 
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
-    PipelineParameterSpec,
     ModuleAddition,
     PureResultModule,
     EventSourceModule,
@@ -21,6 +19,7 @@ from analyzer.core.results import (
     ResultGroup,
     ResultBase,
 )
+from analyzer.core.param_specs import getWithValues
 from collections import ChainMap
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
@@ -33,42 +32,18 @@ logger = logging.getLogger("analyzer.core")
 
 def getPipelineSpecs(pipeline, metadata):
     ret = {}
-    for node in pipeline:
-        ret[node.node_id] = node.getModuleSpec(metadata)
-    return PipelineParameterSpec(ret)
-
-
-@define
-class Node:
-    node_id: str
-    analyzer_module: EventSourceModule | AnalyzerModule | PureResultModule
-
-    def getModuleSpec(self, metadata):
-        return self.analyzer_module.getParameterSpec(metadata)
-
-    def __eq__(self, other):
-        return (
-            self.node_id == other.node_id
-            and self.analyzer_module == other.analyzer_module
-        )
-
-    def __call__(self, columns, params):
-        params = params[self.node_id]
-        if isinstance(self.analyzer_module, EventSourceModule):
-            return self.analyzer_module(params)
-        else:
-            return self.analyzer_module(columns, params)
-
-    def __rich_repr__(self):
-        yield "node_id", self.node_id
-        yield "module_id", id(self.analyzer_module)
-        yield "analyzer_module", self.analyzer_module
+    for module in pipeline:
+        new_specs = module.getParameterSpec(metadata)
+        if set(ret) & set(new_specs):
+            raise RuntimeError(f"Duplicate module parameter names")
+        ret.update(new_specs)
+    return ret
 
 
 @define
 class Analyzer:
     all_modules: list = field(factory=list)
-    base_pipelines: dict[str, list[Node]] = field(factory=dict)
+    base_pipelines: dict[str, list[AnalyzerModule]] = field(factory=dict)
 
     default_run_builder: RunBuilder = field(factory=CompleteSysts)
 
@@ -84,22 +59,13 @@ class Analyzer:
         for m in self.all_modules:
             m.clearCache()
 
-    def getUniqueNode(self, pipeline, module):
-        base = module.name()
-        to_use, i = base, 0
-        while any(
-            x.node_id == to_use
-            for x in it.chain(pipeline, *self.base_pipelines.values())
-        ):
-            i += 1
-            to_use = base + "-" + str(i)
+    def getUniqueModule(self, module):
         found = next((x for x in self.all_modules if x == module), None)
         if found is not None:
-            return Node(to_use, found)
+            return found
         else:
-            n = Node(to_use, module)
             self.all_modules.append(module)
-            return n
+            return module
 
     def neededResources(self, metadata):
         needed_resources = []
@@ -109,18 +75,16 @@ class Analyzer:
 
     def addPipeline(self, name, pipeline):
         ret = []
-        node = Node("ENTRYPOINT", LoadColumns())
-        ret.append(node)
+        ret.append(LoadColumns())
         for module in pipeline:
-            ret.append(self.getUniqueNode(ret, module))
+            ret.append(self.getUniqueModule(module))
         self.base_pipelines[name] = ret
 
     def runPipelineWithParameters(
         self, pipeline, params, freeze_pipeline=False, result_container_name=None
     ):
-        node_ids = [n.node_id for n in pipeline]
-        params = {x: y for x, y in params.items() if x in node_ids}
-        key = hash(freeze((node_ids, params)))
+        module_keys = [x.selfkey for x in pipeline]
+        key = hash(freeze((module_keys, params)))
 
         logger.debug(f"Pipeline execution key is {key}")
         if key in self._cache:
@@ -142,13 +106,19 @@ class Analyzer:
 
         while to_add:
             head = to_add.popleft()
+            if (
+                columns is not None
+                and head.should_run is not None
+                and not head.should_run.evaluate(columns.metadata)
+            ):
+                continue
             complete_pipeline.append(head)
             if columns is not None:
                 columns = columns.copy()
                 current_spec = getPipelineSpecs(complete_pipeline, columns.metadata)
                 columns, results = head(columns, params)
             else:
-                columns, results = head(columns, params), []
+                columns, results = head(params), []
 
             if not result_container:
                 continue
@@ -162,13 +132,14 @@ class Analyzer:
                 elif isinstance(res, ModuleAddition) and not freeze_pipeline:
                     module = res.analyzer_module
                     if res.run_builder is None:
-                        logger.debug(f"Adding new module {module} to pipeline")
-                        node = self.getUniqueNode(complete_pipeline, module)
-                        complete_pipeline.append(node)
-                        logger.debug(f"New node id is {node.node_id}")
-                        params = ChainMap(
-                            params, {node.node_id: res.this_module_parameters}
-                        )
+                        raise NotImplementedError()
+                        module = self.getUniqueModule(module)
+                        if module.should_run is None or module.should_run.evaluate(
+                            columns.metadata
+                        ):
+                            logger.debug(f"Adding new module {module} to pipeline")
+                            complete_pipeline.append(module)
+                        params = ChainMap(params, res.this_module_parameters)
                     else:
                         logger.debug("Running multi-parameter pipeline")
                         if res.run_builder is DEFAULT_RUN_BUILDER:
@@ -178,7 +149,7 @@ class Analyzer:
 
                         param_dicts = run_builder(current_spec, columns.metadata)
                         to_run = [
-                            (x, current_spec.getWithValues(params, y))
+                            (x, getWithValues(current_spec, params | y))
                             for x, y in param_dicts
                         ]
                         everything = []
@@ -221,9 +192,7 @@ class Analyzer:
             if k not in pipelines:
                 continue
             spec = getPipelineSpecs(pipeline, metadata)
-            vals = spec.getWithValues(
-                {"ENTRYPOINT": {"chunk": chunk, "metadata": metadata}}
-            )
+            vals = getWithValues(spec, {"chunk": chunk, "metadata": metadata})
             _, result = self.runPipelineWithParameters(
                 pipeline,
                 vals,

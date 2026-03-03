@@ -94,7 +94,7 @@ class TriggerBNN(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "triggereff-variation": ParameterSpec(
                     default_value="central",
                     possible_values=["central", "up", "down"],
                     tags={
@@ -115,7 +115,7 @@ class TriggerBNN(AnalyzerModule):
 
     def run(self, columns, params):
         k = self.getKeyNoParams(columns)
-        systematic = params["variation"]
+        systematic = params["triggereff-variation"]
         if k in self.__bnn_res_cache:
             central, down, up = self.__bnn_res_cache[k]
         else:
@@ -177,7 +177,7 @@ class TriggerBNNCorrection(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "triggereff-variation": ParameterSpec(
                     default_value="central",
                     possible_values=["central", "up", "down"],
                     tags={
@@ -199,7 +199,7 @@ class TriggerBNNCorrection(AnalyzerModule):
         return cset
 
     def run(self, columns, params):
-        systematic = params["variation"]
+        systematic = params["triggereff-variation"]
 
         syst_map = {"central": "nominal", "up": "up", "down": "down"}
 
