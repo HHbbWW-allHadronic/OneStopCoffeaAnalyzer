@@ -63,7 +63,7 @@ common_objects: &common_objects
 
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
-    triggers: ['250HT4J2B']
+    triggers: [250HT4J2B]
 
 tight_selection: &tight_selection
   - module_name: NObjFilter
