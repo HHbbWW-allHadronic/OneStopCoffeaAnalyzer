@@ -111,7 +111,7 @@ class NNMassReco(AnalyzerModule):
 
         jets = columns[self.input_col]
         model = jetAssignmentNN(self.model_path)
-        outputs = model(jets, self.scaler_path, columns._events)[:, 0]
+        outputs = model(jets, self.scaler_path, columns.events)[:, 0]
         # m14 = jets[:, 0:4].sum().mass
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")

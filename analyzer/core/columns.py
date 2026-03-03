@@ -4,7 +4,6 @@ from attrs import define, field
 
 
 import contextlib
-import functools as ft
 import copy
 import awkward as ak
 from typing import Any, ClassVar
@@ -39,12 +38,16 @@ class Column:
     fields: tuple[str, ...] = field(converter=coerceFields)
 
     def contains(self, other):
-        if len(self) > len(other):
+        if not isinstance(other, Column):
+            other = Column(other)
+        if len(self.fields) > len(other.fields):
             return False
-        return other[: len(self)] == self
+        return other.fields[: len(self.fields)] == self.fields
 
     def extract(self, events):
-        return ft.reduce(lambda x, y: x[y], self.fields, events)
+        for f in self.fields:
+            events = events[f]
+        return events
 
     def __iter__(self):
         return iter(self.fields)
@@ -83,12 +86,14 @@ class Column:
 
 
 def setColumn(events, column, value):
-    column = Column(column)
+    if not isinstance(column, Column):
+        column = Column(column)
     if len(column) == 1:
         return ak.with_field(events, value, column.fields)
-    head, *rest = tuple(column)
+    head = column.fields[0]
+    rest = column.fields[1:]
     if head not in events.fields:
-        for c in reversed(list(rest)):
+        for c in reversed(rest):
             value = ak.zip({c: value})
         return ak.with_field(events, value, head)
     else:
@@ -103,7 +108,13 @@ class ColumnCollection:
         return iter(self.columns)
 
     def contains(self, other: Column):
-        return any(x.contains(other) for x in self.columns)
+        if not isinstance(other, Column):
+            other = Column(other)
+        f = other.fields
+        for i in range(1, len(f) + 1):
+            if Column(f[:i]) in self.columns:
+                return True
+        return False
 
     def intersect(self, other: ColumnCollection):
         ret = {
@@ -119,7 +130,7 @@ def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None) -> set[Colu
         ret = set()
         for f in fields:
             if cur_col is not None:
-                n = cur_col + f
+                n = Column(cur_col.fields + (f,))
             else:
                 n = Column(f)
             if cur_depth == max_depth:
@@ -148,37 +159,47 @@ class TrackedColumns:
     _allow_filter: bool = True
     metadata: Any | None = None
     pipeline_data: dict[str, Any] = field(factory=dict)
+    _lazy_columns: dict[Column, Any] = field(factory=dict)
+
+    @property
+    def events(self):
+        self.flush()
+        return self._events
+
+    def flush(self):
+        if not self._lazy_columns:
+            return
+        for col, val in self._lazy_columns.items():
+            self._events = setColumn(self._events, col, val)
+        self._lazy_columns.clear()
 
     @property
     def fields(self):
-        return self._events.fields
+        s = set(self._events.fields)
+        for col in self._lazy_columns:
+            if len(col.fields) > 0:
+                s.add(col.fields[0])
+        return list(s)
 
     def updatedColumns(self, old, limit=None):
-        cols_to_consider = {
-            x: y
-            for x, y in self._column_provenance.items()
-            if limit is None or limit.contains(x)
-        }
-        old_to_consider = {
-            x: y
-            for x, y in old._column_provenance.items()
-            if limit is None or limit.contains(x)
-        }
-        return [
-            x
-            for x, y in cols_to_consider.items()
-            if x not in old_to_consider or y != old_to_consider[x]
-        ]
+        ans = []
+        for x, y in self._column_provenance.items():
+            if limit is not None and not limit.contains(x):
+                continue
+            if x not in old._column_provenance or y != old._column_provenance[x]:
+                ans.append(x)
+        return ans
 
     def copy(self):
         return TrackedColumns(
             # events=copy.copy(self._events),
             events=self._events,
-            column_provenance=copy.copy(self._column_provenance),
+            column_provenance=self._column_provenance.copy(),
             current_provenance=self._current_provenance,
             metadata=copy.copy(self.metadata),
             pipeline_data=copy.deepcopy(self.pipeline_data),
             backend=self.backend,
+            lazy_columns=self._lazy_columns.copy(),
         )
 
     @staticmethod
@@ -212,17 +233,18 @@ class TrackedColumns:
         #         ret.append((col, self._column_provenance))
 
         # logger.debug(f"Relevant columns for {columns} are :\n {ret}")
-        return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
+        return hash((freeze(self.metadata), freeze(self.pipeline_data), tuple(ret)))
 
     def getKeyForAll(self):
         ret = []
         for column in self._column_provenance:
             ret.append((column, self._column_provenance[column]))
 
-        return hash((freeze(self.metadata), freeze(self.pipeline_data), freeze(ret)))
+        return hash((freeze(self.metadata), freeze(self.pipeline_data), tuple(ret)))
 
     def __setitem__(self, column, value):
-        column = Column(column)
+        if not isinstance(column, Column):
+            column = Column(column)
         if (
             self._allowed_outputs is not None
             and not TrackedColumns.INTERNAL_USE_COL.contains(column)
@@ -231,7 +253,15 @@ class TrackedColumns:
             raise RuntimeError(
                 f"Column {column} is not in the list of outputs {self._allowed_outputs}"
             )
-        self._events = setColumn(self._events, column, value)
+            
+        if any(c.contains(column) for c in self._lazy_columns if c != column):
+            self.flush()
+            
+        self._lazy_columns[column] = value
+        to_del = [k for k in self._lazy_columns if k != column and column.contains(k)]
+        for k in to_del:
+            del self._lazy_columns[k]
+            
         self._column_provenance[column] = self._current_provenance
         if hasattr(value, "layout"):
             all_columns = getAllColumns(value.layout, column)
@@ -248,13 +278,26 @@ class TrackedColumns:
             )
 
     def __getitem__(self, column):
-        column = Column(column)
+        if not isinstance(column, Column):
+            column = Column(column)
         if self._allowed_inputs is not None and not self._allowed_inputs.contains(
             column
         ):
             raise RuntimeError(
                 f"Column {column} is not in the list of inputs {self._allowed_inputs}"
             )
+            
+        if column in self._lazy_columns:
+            return self._lazy_columns[column]
+            
+        for c in column.parents():
+            if c in self._lazy_columns:
+                remainder = Column(column.fields[len(c.fields):])
+                return remainder.extract(self._lazy_columns[c])
+                
+        if any(column.contains(c) for c in self._lazy_columns):
+            self.flush()
+
         return column.extract(self._events)
 
     def addColumnsFrom(self, other, columns):
@@ -265,17 +308,13 @@ class TrackedColumns:
             #     column, other[column], other._column_provenance[column]
             # )
 
-    def _addColumnsInternal(self, other, columns):
-        for column in columns:
-            self._events = setColumn(self._events, column, other[column])
-            # self._setIndividualColumnWithProvenance(
-            #     column, other[column], other._column_provenance[column]
-            # )
 
     def filter(self, mask):
         if not self._allow_filter:
             raise RuntimeError()
         self._events = self._events[mask]
+        for c in list(self._lazy_columns.keys()):
+            self._lazy_columns[c] = self._lazy_columns[c][mask]
         for c in self._column_provenance:
             self._column_provenance[c] = self._current_provenance
         return self
@@ -305,12 +344,6 @@ class TrackedColumns:
         yield
         self._allowed_outputs = old_outputs
 
-    # @contextlib.contextmanager
-    # def allowFilter(self, allow: bool):
-    #     old_allow = self._allowed_filter
-    #     self._allow_filter = allow
-    #     yield
-    #     self._allow_filter = old_allow
 
 
 def mergeColumns(column_views):

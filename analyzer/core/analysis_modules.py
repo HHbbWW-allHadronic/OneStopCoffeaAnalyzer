@@ -154,7 +154,7 @@ class AnalyzerModule(BaseAnalyzerModule):
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
-            k = columns.getKeyForColumns(self.inputs(columns.metadata))
+            k = columns.getKeyForColumns(inp)
         ret = hash((self.selfkey, self.name(), freeze(params), k))
         return ret
 
@@ -163,7 +163,7 @@ class AnalyzerModule(BaseAnalyzerModule):
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
-            k = columns.getKeyForColumns(self.inputs(columns.metadata))
+            k = columns.getKeyForColumns(inp)
         ret = hash((self.selfkey, self.name(), k))
         return ret
 
