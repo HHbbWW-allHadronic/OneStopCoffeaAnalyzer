@@ -7,7 +7,7 @@ common_cleanup: &common_cleanup
     output_col: Jet
   - module_name: NoiseFilter
           
-dihiggs_signal_region: &dihiggs_signal_region
+withHLT_withSelection: &withHLT_withSelection
   - module_name: SimpleHLT
     triggers: [HLTQuadPF]
 
@@ -110,7 +110,7 @@ dihiggs_signal_region: &dihiggs_signal_region
         unit: GeV
   
   - module_name: SimpleHistogram
-    hist_name: nJets
+    hist_name: njets
     input_cols: [njets]
     axes:
     - name: njets
@@ -119,7 +119,7 @@ dihiggs_signal_region: &dihiggs_signal_region
       bins: 15
 
 
-dihiggs_signal_region_NoSelection: &dihiggs_signal_region_NoSelection
+noHLT_NoSelection: &noHLT_NoSelection
   - module_name: SelectOnColumns
     sel_name: pre_selection
     
@@ -137,8 +137,8 @@ dihiggs_signal_region_NoSelection: &dihiggs_signal_region_NoSelection
     output_col: GoodJet
     include_pu_id: False
     include_jet_id: False
-    min_pt: 30
-    max_abs_eta: 2.4
+    min_pt: 0
+    max_abs_eta: 5.0
 
 
   # Create Lepton Objects
@@ -190,7 +190,7 @@ dihiggs_signal_region_NoSelection: &dihiggs_signal_region_NoSelection
   - module_name: NObjFilter
     input_col: GoodJet
     selection_name: njets
-    min_count: 6
+    min_count: 0
 
   # IMPORTANT: trigger the selection. This will use all the selections defined up until this point
   - module_name: SelectOnColumns
@@ -226,7 +226,7 @@ dihiggs_signal_region_NoSelection: &dihiggs_signal_region_NoSelection
     axes:
     - name: njets
       start: 0
-      stop: 14
+      stop: 20
       bins: 15
 
 
@@ -235,10 +235,10 @@ analyzer:
     strategy_name: NoSystematics
 
   dihiggs_signal_region:
-    - *dihiggs_signal_region
+    - *withHLT_withSelection
 
   dihiggs_signal_region_NoSelection:
-    - *dihiggs_signal_region_NoSelection
+    - *noHLT_NoSelection
     
 # location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 location_priorities: [".*(T0|T1|T2).*","eos"]
@@ -247,7 +247,7 @@ event_collections:
   # Data samples
   # Signal Samples
   - dataset: "signal_ggtoHHto2b2V"
-    pipelines: [dihiggs_signal_region, dihiggs_signal_region_NoSelection]
+    pipelines: [withHLT_withSelection, noHLT_NoSelection]
   
 extra_executors:
   test:
