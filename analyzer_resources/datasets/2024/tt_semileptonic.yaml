@@ -1,0 +1,9 @@
+- name: tt_semileptonic_2024
+  title: "$t\\overline{t}$"
+  sample_type: MC
+  era: '2024'
+  samples:
+  - name: TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8
+    n_events: 493513663
+    das_path: /TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8/RunIII2024Summer24NanoAOD-140X_mcRun3_2024_realistic_v26-v2/NANOAODSIM
+    x_sec: 407800
