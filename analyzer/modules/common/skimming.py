@@ -84,7 +84,7 @@ class SaveEvents(AnalyzerModule):
         k = self.getKeyNoParams(columns)
         if k in self.__has_run:
             return columns, []
-        events = columns._events
+        events = columns.events
         file_id = (
             hashlib.md5((columns.metadata["chunk"]["file_path"]).encode())
             .hexdigest()

@@ -50,11 +50,11 @@ class AnalyzerTest(AnalyzerModule):
 
     def run(self, columns, params):
         self.run_count += 1
-        if "out" in self.output_cols:
-            if "jets.pt" in self.input_cols:
-                columns["out"] = columns["jets.pt"] * 2
+        for out in self.output_cols:
+            if len(self.input_cols) > 0:
+                columns[out] = columns[self.input_cols[0]] * 2
             else:
-                columns["out"] = ak.Array([[0], [0], [0]])
+                columns[out] = ak.Array([[0], [0], [0]])
         return columns, []
 
 
@@ -84,6 +84,76 @@ class TestAnalyzerModule:
         tracked_columns["jets.pt"] = ak.Array([[1], [1], [1]])
         key3 = module.getKey(tracked_columns, params1)
         assert key1 != key3
+
+    def testLazyColumnModuleOutputs(self, tracked_columns):
+        module = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out"])
+        params = ModuleParameterValues()
+        
+        res, _ = module(tracked_columns, params)
+        
+        # Ensure that the module output generated a lazy hook instead of flushing the dataset prematurely
+        assert Column("out") in res._lazy_columns
+        assert "out" not in res._events.fields
+        
+        # The key correctly incorporates the proxy update
+        key1 = module.getKey(res, params)
+        res._current_provenance = 2
+        res["jets.pt"] = ak.Array([[9], [9], [9]])
+        key2 = module.getKey(res, params)
+        
+        assert key1 != key2
+
+    def testLazyColumnPipelineBranching(self, tracked_columns):
+        # Simulate a root module that puts multiple columns in the lazy dictionary
+        module1 = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out_m1"])
+        params = ModuleParameterValues()
+        
+        tc_main, _ = module1(tracked_columns, params)
+        assert Column("out_m1") in tc_main._lazy_columns
+        
+        # Branch the pipeline logic
+        tc_b1 = tc_main.copy()
+        tc_b2 = tc_main.copy()
+        
+        # Branch 1 executes Module 2 and applies an event filter
+        module2 = AnalyzerTest(input_cols=["out_m1"], output_cols=["out_b1"])
+        tc_b1, _ = module2(tc_b1, params)
+        
+        # Branch 2 executes Module 3 (no filter)
+        module3 = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out_b2"])
+        tc_b2, _ = module3(tc_b2, params)
+        
+        mask = ak.Array([True, False, True]) # length 3 events inside tracked_columns -> length 2 
+        tc_b1.filter(mask)
+        
+        # Validation 1: Length Isolation (Event Counts)
+        assert len(tc_main._events) == 3
+        assert len(tc_main["out_m1"]) == 3
+        
+        assert len(tc_b1._events) == 2
+        assert len(tc_b1["out_m1"]) == 2
+        assert len(tc_b1["out_b1"]) == 2
+        
+        assert len(tc_b2._events) == 3
+        assert len(tc_b2["out_m1"]) == 3
+        assert len(tc_b2["out_b2"]) == 3
+        
+        # Validation 2: Column Isolation
+        assert "out_b2" not in tc_b1.fields
+        assert "out_b1" not in tc_b2.fields
+        assert "out_b1" not in tc_main.fields
+        assert "out_b2" not in tc_main.fields
+        
+        # Validation 3: Base Lazy-Proxy Instance Independence
+        assert Column("out_b1") in tc_b1._lazy_columns
+        assert Column("out_b2") in tc_b2._lazy_columns
+        assert tc_main._lazy_columns is not tc_b1._lazy_columns
+        assert tc_main._lazy_columns is not tc_b2._lazy_columns
+        
+        # Validation 4: Underlying Object Isolation (ensure proxies didn't bleed during the memory update)
+        assert len(tc_b1._lazy_columns[Column("out_m1")]) == 2
+        assert len(tc_b2._lazy_columns[Column("out_m1")]) == 3
+        assert len(tc_main._lazy_columns[Column("out_m1")]) == 3
 
 
 @define
