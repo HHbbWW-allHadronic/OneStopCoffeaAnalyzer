@@ -119,7 +119,7 @@ analyzer:
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'ggHHbbVV_2024*'
+  - dataset: 'ggHH2b2V6q_2024*'
     pipelines: [SignalRegion, NoSelection]
 #  - dataset: 'qcd*2018*'
 #    pipelines: [SignalRegion]
