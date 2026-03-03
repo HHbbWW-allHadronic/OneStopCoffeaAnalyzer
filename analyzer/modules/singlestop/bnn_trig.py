@@ -94,7 +94,7 @@ class TriggerBNN(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "triggereff-variation": ParameterSpec(
                     default_value="central",
                     possible_values=["central", "up", "down"],
                     tags={
@@ -115,7 +115,7 @@ class TriggerBNN(AnalyzerModule):
 
     def run(self, columns, params):
         k = self.getKeyNoParams(columns)
-        systematic = params["variation"]
+        systematic = params["triggereff-variation"]
         if k in self.__bnn_res_cache:
             central, down, up = self.__bnn_res_cache[k]
         else:
@@ -158,7 +158,7 @@ class TriggerBNNCorrection(AnalyzerModule):
 
     base_path: str
     correction_pattern: str
-    correction_name: str = "BNN_Trigger_Efficiency"
+    correction_name: str = "trigger_eff"
     weight_name: str = "trigger_eff"
 
     should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
@@ -177,7 +177,7 @@ class TriggerBNNCorrection(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "triggereff-variation": ParameterSpec(
                     default_value="central",
                     possible_values=["central", "up", "down"],
                     tags={
@@ -195,24 +195,56 @@ class TriggerBNNCorrection(AnalyzerModule):
             return self.__corrections[path]
 
         cset = correctionlib.CorrectionSet.from_file(path)
-        corr = cset[self.correction_name]
-        self.__corrections[path] = corr
-        return corr
+        self.__corrections[path] = cset
+        return cset
 
     def run(self, columns, params):
-        systematic = params["variation"]
+        systematic = params["triggereff-variation"]
 
         syst_map = {"central": "nominal", "up": "up", "down": "down"}
 
         corr_syst = syst_map.get(systematic, "nominal")
 
         ht = columns["HT"]
-        fj = columns["GoodFatJet"]
-        fjpt = fj[:, 0].pt
+        fj = ak.pad_none(columns["GoodFatJet"], 1)[:, 0]
+        fjpt = ak.fill_none(fj.pt, 0)
+        fjmsd = ak.fill_none(fj.msoftdrop, 0)
 
-        corr = self.getCorrection(columns.metadata)
 
-        w = corr.evaluate(corr_syst, ht, fjpt)
+        cset = self.getCorrection(columns.metadata)
+        corr = cset[f"{self.correction_name}_{corr_syst}"]
+
+        w = corr.evaluate(ht, fjpt)
+
 
         columns[Column(("Weights", self.weight_name))] = w
+        return columns, []
+
+
+@define
+class MSDCleanerCategory(AnalyzerModule):
+    def inputs(self, metadata):
+        return [Column("HLT"), Column("FatJet")]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Categories", "PassMSDCleaner"))]
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        trigger_names = metadata["era"]["trigger_names"]
+        ht = columns["HT"]
+        fj = ak.pad_none(columns["GoodFatJet"], 1)[:, 0]
+        fjpt = ak.fill_none(fj.pt, 0)
+        fjmsd = ak.fill_none(fj.msoftdrop, 0)
+        hlt = columns["HLT"]
+        bad = (
+            ~hlt[trigger_names["HT"]]
+            & ~hlt[trigger_names["AK8SingleJetPtNoTrim"]]
+            & hlt[trigger_names["AK8SingleJetPt"]]
+            & (fjpt > 550)
+            & (fjmsd < 70)
+        )
+
+        addCategory(columns, "PassMSDCleaner", ~bad, IntegerAxis("PassMSDCLeaner", 0, 2))
+
         return columns, []

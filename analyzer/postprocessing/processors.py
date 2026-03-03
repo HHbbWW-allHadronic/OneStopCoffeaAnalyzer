@@ -27,14 +27,14 @@ type PostprocessingGroup = (
 
 @define
 class BasePostprocessor(abc.ABC):
-    inputs: list[tuple[str, ...]]
+    inputs: list[list[tuple[str, ...]]]
     structure: GroupBuilder
     style_set: StyleSet | None = field(default=None, kw_only=True)
     plot_configuration: PlotConfiguration | None = field(default=None, kw_only=True)
 
     def run(self, data, prefix=None):
         for i in self.inputs:
-            items = globWithMeta(data, i)
+            items = [y for x in (globWithMeta(data, l) for l in i) for y in x]
             for x in self.structure.apply(items):
                 yield from self.getRunFuncs(x, prefix)
 
@@ -54,13 +54,18 @@ def configureConverter(conv):
     conv.register_structure_hook(int | float | None, lambda x, t: x)
     configure_union_passthrough(int | float | None, conv)
 
+    def convStr(x):
+        if isinstance(x, str):
+            return x.split("/")
+        return x
+
     @conv.register_structure_hook
     def _(data, t) -> BasePostprocessor:
         real_inputs = []
         for x in data["inputs"]:
-            if isinstance(x, str):
-                real_inputs.append(x.split("/"))
+            if isinstance(x, list):
+                real_inputs.append([convStr(y) for y in x])
             else:
-                real_inputs.append(x)
+                real_inputs.append([convStr(x)])
         data["inputs"] = real_inputs
         return base_hook(data, t)

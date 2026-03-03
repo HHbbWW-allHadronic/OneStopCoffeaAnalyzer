@@ -24,6 +24,7 @@ import analyzer.postprocessing.cutflows  # noqa
 import analyzer.postprocessing.combine  # noqa
 import analyzer.postprocessing.aggregate_plots  # noqa
 import analyzer.postprocessing.exporting  # noqa
+import analyzer.postprocessing.corrections  # noqa
 from .style import loadStyles
 from attrs import define, field
 from rich import print

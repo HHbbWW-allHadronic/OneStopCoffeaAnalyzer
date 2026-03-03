@@ -35,7 +35,7 @@ class BJetShapeSF(AnalyzerModule):
 
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "bjetshapesf-variation": ParameterSpec(
                     default_value="central",
                     possible_values=possible_values,
                     tags={"weight_variation"},
@@ -45,10 +45,10 @@ class BJetShapeSF(AnalyzerModule):
 
     def run(self, columns, params):
         sf_eval = self.getCorrection(columns.metadata)
-        systematic = params["variation"]
+        systematic = params["bjetshapesf-variation"]
         gj = columns[self.input_col]
         if systematic == "disabled":
-            columns[self.weight_name] = ak.ones_like(gj.pt)
+            columns["Weights", self.weight_name] = ak.ones_like(ak.firsts(gj.pt))
             return columns, []
         # bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
         if systematic == "central":

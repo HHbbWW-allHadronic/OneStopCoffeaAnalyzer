@@ -1,6 +1,8 @@
 from __future__ import annotations
+
 import copy
 import itertools as it
+from analyzer.postprocessing.style import Style
 from analyzer.core.results import Histogram
 import numpy as np
 from analyzer.utils.structure_tools import dictToDot, dotFormat
@@ -10,7 +12,7 @@ from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
 )
-from attrs import define, field
+from attrs import define, field, asdict
 from .registry import TransformHistogram
 
 
@@ -227,7 +229,7 @@ class RebinAxes(TransformHistogram):
 
 @define
 class SliceAxes(TransformHistogram):
-    slices: dict[str, tuple[int | float | None, int | float | None]]
+    slices: dict[str | int, tuple[int | float | None, int | float | None]]
 
     def __call__(self, items):
         ret = []
@@ -252,6 +254,40 @@ class SliceAxes(TransformHistogram):
 
 
 @define
+class MultiSliceAxes(TransformHistogram):
+    multi_slices: dict[str | int, tuple[float, float, int]]
+
+    def __call__(self, items):
+        ret = []
+
+        def makePairs(l):
+            return np.stack([l[:-1], l[1:]], axis=1)
+
+        for ph, meta in items:
+            h = ph.histogram
+            chopping = OrderedDict(chopping)
+            names, vals = list(chopping.keys()), list(chopping.values())
+            pairs = [makePairs(np.arange(*x)) for x in vals]
+            for ranges in it.combinations(*pairs):
+                slices = {
+                    x: slice(*(hist.loc(y) for y in z)) for x, z in zip(names, ranges)
+                }
+                hnew = h[slices]
+                meta = ChainMap(
+                    meta,
+                    {"axis_params": ChainMap(meta.get("axis_params", {}), slices)},
+                )
+                ret.append(
+                    ItemWithMeta(
+                        Histogram(name=ph.name, axes=ph.axes, histogram=hnew),
+                        metadata=meta,
+                    )
+                )
+
+        return ret
+
+
+@define
 class FormatTitle(TransformHistogram):
     title_format: str
 
@@ -262,6 +298,18 @@ class FormatTitle(TransformHistogram):
                 meta,
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
             )
+            ret.append(ItemWithMeta(ph, metadata=meta))
+        return ret
+
+
+@define
+class SetStyle(TransformHistogram):
+    style: Style
+
+    def __call__(self, histograms):
+        ret = []
+        for ph, meta in histograms:
+            meta = ChainMap(meta, {"style": asdict(self.style)})
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret
 
