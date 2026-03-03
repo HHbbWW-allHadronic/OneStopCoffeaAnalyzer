@@ -49,7 +49,7 @@ common_objects: &common_objects
   - module_name: HT
     input_col: goodJet
 
-  - module_name: Count:
+  - module_name: Count
     input_col: Jet
     output_col: AK4NJet
 
@@ -84,12 +84,12 @@ tight_selection: &tight_selection
     min_count: 6
 
   - module_name: NObjFilter
-    inputs_col: MedB
+    input_col: MedB
     selection_name: 2b
     min_count: 2
 
 loose_selection: &loose_selection
-  - module_name: NobjFilter
+  - module_name: NObjFilter
     input_col: looseElectron
     selection_name: zero_electron
     min_count: 0
@@ -107,7 +107,7 @@ loose_selection: &loose_selection
     min_count: 6
 
   - module_name: NObjFilter
-    inputs_col: MedB
+    input_col: MedB
     selection_name: 2b
     min_count: 2
     
@@ -165,6 +165,20 @@ analyzer:
       jet_combos:
         - [0,1]
 
+  withHLT_ObjDef2:
+    - *hlt_selection
+    - *common_objects
+    - *loose_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+    - module_name: JetComboHistograms
+      input_col: MedB
+      prefix: "b_dijet"
+      jet_combos:
+        - [0,1]
+
+
   withHLT_NoSelection:
     - *hlt_selection
     - *common_objects
@@ -180,11 +194,11 @@ location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
-    pipelines: [SignalRegion, NoSelection]
-#  - dataset: 'qcd*2018*'
-#    pipelines: [SignalRegion]
-#  - dataset: 'tt_to_hadronic*2018*'
-#    pipelines: [SignalRegion]
-#  - dataset: 'tt_to_semilep*2018'
+    pipelines: [withHLT_NoSelection, NoSelection]
+#  - dataset: 'qcd*2024*'
+#    pipelines: [withHLT_ObjDef1]
+#  - dataset: 'tt_hadronic*2024*'
+#    pipelines: [withHLT_ObjDef1]
+#  - dataset: 'tt_semilep*2024'
 #    pipelines: [SignalRegion]
         
