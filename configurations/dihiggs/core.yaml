@@ -146,7 +146,22 @@ common_histograms: &common_histograms
         stop: 14
         bins: 15
 
+  - module_name: JetComboHistograms
+    input_col: MedB
+    prefix: "b_dijet"
+    jet_combos:
+      - [0,1]
 
+gen_histograms: &gen_histograms
+  - module_name: SimpleHistogram
+    hist_name: GenJetpt
+    input_cols: [GenJet.pt]
+    axes: 
+      - name: r"GenJet $p_T$"
+        start: 0
+        stop: 1000
+        bins: 20
+        unit: "GeV"
 
 
 analyzer:
@@ -159,11 +174,6 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
-    - module_name: JetComboHistograms
-      input_col: MedB
-      prefix: "b_dijet"
-      jet_combos:
-        - [0,1]
 
   withHLT_ObjDef2:
     - *hlt_selection
@@ -172,11 +182,20 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
-    - module_name: JetComboHistograms
-      input_col: MedB
-      prefix: "b_dijet"
-      jet_combos:
-        - [0,1]
+
+  noHLT_ObjDef1:
+    - *common_objects
+    - *tight_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  noHLT_ObjDef2:
+    - *common_objects
+    - *loose_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
 
 
   withHLT_NoSelection:
@@ -189,6 +208,7 @@ analyzer:
   NoSelection:
     - *common_objects
     - *common_histograms
+    - *gen_histograms
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
