@@ -4,7 +4,8 @@ from analyzer.core.analysis_modules import (
     ParameterSpec,
 )
 from analyzer.core.columns import Column
-from attrs import define
+from attrs import define,field
+from typing import ClassVar
 import awkward as ak
 import numpy as np
 
@@ -14,7 +15,7 @@ class MuonScaleSyst(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "testmuonscale-variation": ParameterSpec(
                     default_value="nominal",
                     possible_values=["nominal", "up", "down"],
                     tags={"shape_variation"},
@@ -30,7 +31,7 @@ class MuonScaleSyst(AnalyzerModule):
 
     def run(self, columns, params):
         muon_pt = columns["Muon.pt"]
-        variation = params["variation"]
+        variation = params["testmuonscale-variation"]
 
         factor = 1.0
         if variation == "up":
@@ -49,7 +50,7 @@ class MuonResSyst(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "testmuonres-variation": ParameterSpec(
                     default_value="nominal",
                     possible_values=["nominal", "up"],
                     tags={"shape_variation"},
@@ -65,7 +66,7 @@ class MuonResSyst(AnalyzerModule):
 
     def run(self, columns, params):
         muon_pt = columns["Muon.pt"]
-        variation = params["variation"]
+        variation = params["testmuonres-variation"]
 
         sigma = 0.0
         if variation == "up":
@@ -88,7 +89,7 @@ class EventWeightSyst(AnalyzerModule):
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec(
             {
-                "variation": ParameterSpec(
+                "testweight-variation": ParameterSpec(
                     default_value="nominal",
                     possible_values=["nominal", "up"],
                     tags={"weight_variation"},
@@ -103,7 +104,7 @@ class EventWeightSyst(AnalyzerModule):
         return [Column("Weights")]
 
     def run(self, columns, params):
-        variation = params["variation"]
+        variation = params["testweight-variation"]
 
         factor = 1.0
         if variation == "up":
@@ -120,7 +121,7 @@ class EventWeightSyst(AnalyzerModule):
 
 @define
 class TestCachingModule(AnalyzerModule):
-    execution_counts: list = []
+    execution_counts: ClassVar[list] = []
 
     def getParameterSpec(self, metadata):
         return ModuleParameterSpec({})
@@ -135,7 +136,11 @@ class TestCachingModule(AnalyzerModule):
         # Track execution context (e.g. mean pt) to verify distinct inputs
         pt_mean = float(ak.mean(ak.flatten(columns["Muon.pt"])))
 
-        self.execution_counts.append({"params": params, "pt_mean": pt_mean})
+        TestCachingModule.execution_counts.append({"params": params, "pt_mean": pt_mean})
+
+        print(TestCachingModule.execution_counts)
+
+
 
         columns["dummy_col"] = ak.zeros_like(columns["Muon.pt"])  # Safe dummy
         return columns, []

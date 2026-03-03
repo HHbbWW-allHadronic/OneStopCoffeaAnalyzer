@@ -5,10 +5,9 @@ from analyzer.core.columns import Column
 from analyzer.modules.common.jets import (
     JetFilter,
     FilterNear,
-    Count,
-    PromoteIndex,
     HT,
 )
+from analyzer.modules.common.column_tools import Count, PromoteIndex
 from tests.modules.base_module_test import BaseModuleTest
 from tests.modules.fixtures import (
     createMockTrackedColumns,
@@ -112,6 +111,7 @@ class TestPromoteIndex(BaseModuleTest):
         assert ak.all(leading_jet.pt[mask] == input_jets[:, 0].pt[mask]), (
             "Leading jet pt does not match"
         )
+
 
 class TestHT(BaseModuleTest):
     @pytest.fixture

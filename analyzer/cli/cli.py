@@ -22,20 +22,20 @@ def jumpIn(**kwargs):
 
 
 class LogLevel(str, Enum):
-    ERROR = logging.ERROR
-    WARNING = logging.WARNING
-    INFO = logging.INFO
-    DEBUG = logging.DEBUG
+    ERROR = "ERROR"
+    WARNING = "WARNING"
+    INFO = "INFO"
+    DEBUG = "DEBUG"
 
 
 @click.group()
 @click.option(
     "--log-level",
-    default=LogLevel.WARNING,
+    default=LogLevel.INFO,
     type=click.Choice(LogLevel, case_sensitive=False),
 )
 def cli(log_level):
-    pass
+    logging.getLogger("analyzer").setLevel(log_level.value)
 
 
 @cli.command()
@@ -195,6 +195,63 @@ def postprocess(configuration, inputs, parallel, prefix):
     from analyzer.postprocessing.running import runPostprocessors
 
     runPostprocessors(configuration, inputs, parallel=parallel, prefix=prefix)
+
+
+@cli.command()
+@click.argument("inputs", type=str, nargs=-1)
+@click.option(
+    "--output", "-o", type=click.Path(file_okay=False, dir_okay=True), required=True
+)
+@click.option(
+    "--group-by",
+    type=click.Choice(["dataset", "sample", "none"], case_sensitive=False),
+    default="dataset",
+)
+def merge(inputs, output, group_by):
+    from analyzer.core.results import loadResults, ResultGroup
+    from pathlib import Path
+
+    print(f"Loading {len(inputs)} files...")
+    res = loadResults(inputs)
+    print("Merging done, saving...")
+
+    if group_by == "dataset":
+        output = Path(output)
+        output.mkdir(exist_ok=True, parents=True)
+        for dataset_name in res.keys():
+            print(f"Saving {dataset_name}...")
+            # Create a new ResultGroup with just this dataset
+            ds_res = ResultGroup(
+                name=res.name,
+                results={dataset_name: res[dataset_name]},
+                metadata=res.metadata,
+            )
+            with open(output / f"{dataset_name}.result", "wb") as f:
+                f.write(ds_res.toBytes())
+    elif group_by == "sample":
+        output = Path(output)
+        output.mkdir(exist_ok=True, parents=True)
+        for dataset_name in res.keys():
+            dataset = res[dataset_name]
+            for sample_name in dataset.keys():
+                print(f"Saving {dataset_name}__{sample_name}...")
+                # Create nested ResultGroup structure
+                sample_res = ResultGroup(
+                    name=res.name,
+                    results={
+                        dataset_name: ResultGroup(
+                            name=dataset.name,
+                            results={sample_name: dataset[sample_name]},
+                            metadata=dataset.metadata,
+                        )
+                    },
+                    metadata=res.metadata,
+                )
+                with open(output / f"{dataset_name}__{sample_name}.result", "wb") as f:
+                    f.write(sample_res.toBytes())
+    elif group_by == "none":
+        with open(output, "wb") as f:
+            f.write(res.toBytes())
 
 
 @cli.group()

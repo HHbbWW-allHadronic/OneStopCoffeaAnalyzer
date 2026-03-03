@@ -48,7 +48,7 @@ class SelectOnColumns(AnalyzerModule):
         for s in columns.pipeline_data.get("Selections", {}):
             columns.pipeline_data["Selections"][s] = True
 
-        initial = ak.num(columns._events, axis=0)
+        initial = ak.num(columns.events, axis=0)
 
         ret = columns[Column("Selection") + cuts[0]]
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}

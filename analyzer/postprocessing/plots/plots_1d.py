@@ -41,7 +41,7 @@ def plotOne(
     fig, ax = plt.subplots()
     h = None
     for item, meta in histograms:
-        title = meta["dataset_title"]
+        title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
         style = styler.getStyle(meta)
         h.plot1d(
@@ -63,7 +63,7 @@ def plotOne(
         titles = []
         for item, meta in stacked_hists:
             hists.append(item.histogram)
-            titles.append(meta["dataset_title"])
+            titles.append(meta.get("title") or meta["dataset_title"])
             style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
@@ -124,7 +124,7 @@ def plotDictAsBars(
 
     fig, ax = plt.subplots(layout="constrained")
     for item, meta in items:
-        title = meta["dataset_title"]
+        title = meta.get("title") or meta["dataset_title"]
         flow = getter(item)
         style = styler.getStyle(meta)
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
@@ -193,7 +193,7 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
 
     for item, meta in den_to_plot:
         hists.append(item.histogram)
-        titles.append(meta["dataset_title"])
+        titles.append(meta.get("title") or meta["dataset_title"])
         style = styler.getStyle(meta)
         for key, value in style.get().items():
             style_kwargs[key].append(value)
@@ -214,7 +214,9 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
 
 
 def plotUnstackedDenominators(ax, denominators, styler, *, normalize):
-    den_to_plot = sorted(denominators, key=lambda x: x.metadata["title"].lower())
+    den_to_plot = sorted(
+        denominators, key=lambda x: x.metadata.get("title", "").lower()
+    )
 
     den_styles = []
     for item, meta in den_to_plot:
@@ -222,10 +224,9 @@ def plotUnstackedDenominators(ax, denominators, styler, *, normalize):
         den_styles.append(style)
         item.histogram.plot1d(
             ax=ax,
-            label=meta["dataset_title"],
+            label=meta.get("title") or meta["dataset_title"],
             density=normalize,
             yerr=style.yerr,
-            flow="none",
             **style.get(),
         )
 
@@ -274,6 +275,7 @@ def plotSingleNumeratorMultiDen(
     numerator,
     den_to_plot,
     den_styles,
+    styler,
     normalize,
     ratio_type,
     x_values,
@@ -281,17 +283,18 @@ def plotSingleNumeratorMultiDen(
 ):
     hist = numerator.item.histogram
 
+    n_style = styler.getStyle(numerator.metadata)
     hist.plot1d(
         ax=ax,
-        label=numerator.metadata["dataset_title"],
+        label=numerator.metadata.get("title") or numerator.metadata["dataset_title"],
         density=normalize,
         yerr=True,
-        **den_styles[0].get(),
+        **n_style.get(),
     )
 
     for den, style in zip(den_to_plot, den_styles):
         n_vals = hist.values()
-        d_vals = den.histogram.values()
+        d_vals = den.item.histogram.values()
 
         ratio, unc = ratio_func(
             n_vals,
@@ -341,6 +344,7 @@ def plotRatio(
             numerators[0],
             den_to_plot,
             den_styles,
+            styler,
             normalize=normalize,
             ratio_type=ratio_type,
             x_values=x_values,
@@ -383,6 +387,7 @@ def plotRatio(
         label="Normalized Events" if normalize else None,
     )
     labelAxis(ratio_ax, "x", den_hist.axes)
+    ax.set_xlabel("")
 
     addLegend(ax, pc)
     addCMSBits(
