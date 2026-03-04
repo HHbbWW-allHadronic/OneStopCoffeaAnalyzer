@@ -28,12 +28,12 @@ common_objects: &common_objects
     min_pt: 5
     max_abs_eta: 2.4
     iso_working_pt: "loose"
-    
+  
   - module_name: HJetFilter
     input_col: Jet
     output_col: goodJet
     include_pu_id: False
-    include_jet_id: False
+    include_jet_id: True
     min_pt: 25
     max_abs_eta: 2.4
 
@@ -44,7 +44,7 @@ common_objects: &common_objects
 
   - module_name: HT
     input_col: Jet
-    output_col: AK4HT
+    output_col: HTAK4
 
   - module_name: HT
     input_col: goodJet
@@ -56,7 +56,7 @@ common_objects: &common_objects
 
   - module_name: Count
     input_col: Jet
-    output_col: AK4NJet
+    output_col: NAK4Jet
 
   - module_name: Count
     input_col: goodJet
@@ -126,6 +126,10 @@ common_histograms: &common_histograms
     input_col: goodJet
     max_idx: 6
 
+  - module_name: FourVecHistograms
+    input_col: goodJet
+    hist_name: Jet
+
   - module_name: SimpleHistogram
     hist_name: HT
     input_cols: [HT]
@@ -144,7 +148,29 @@ common_histograms: &common_histograms
         start: 0
         stop: 14
         bins: 15
-    
+
+  - module_name: SimpleHistogram
+    hist_name: JetQvG
+    input_cols: [goodJet.btagUParTAK4QvG]
+    axes:
+      - name: r"Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: Jetbtag
+    input_cols: [goodJet.btagUParTAK4B]
+    axes:
+      - name: r"Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: MedB
+    hist_name: MedB
+
   - module_name: SimpleHistogram
     hist_name: NbJet
     input_cols: [NbJet]
@@ -160,11 +186,38 @@ common_histograms: &common_histograms
     jet_combos:
       - [0,1]
 
-  - module_name: JetComboHistograms
-    input_col: goodJet
-    prefix: "composite_jet"
-    jet_combos:
-      - [0,1,2,3]
+  - module_name: FourVecHistograms
+    input_col: Jet
+    hist_name: AK4Jet
+
+  - module_name: SimpleHistogram
+    hist_name: NAK4Jet
+    input_cols: [NAK4Jet]
+    axes: 
+      - name: r"N_{AK4Jet}"
+        start: 0
+        stop: 14
+        bins: 15
+
+  - module_name: SimpleHistogram
+    hist_name: AK4JetQvG
+    input_cols: [Jet.btagUParTAK4QvG]
+    axes:
+      - name: r"AK4Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jetbtag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: r"AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20   
+  
+
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -173,10 +226,10 @@ gen_histograms: &gen_histograms
     max_idx: 6
 
   - module_name: SimpleHistogram
-    hist_name: HTGen
+    hist_name: HTGenJet
     input_cols: [HTGenJet]
     axes:
-      - name: HTGenJet
+      - name: r"GenJet H_{T}"
         start: 0
         stop: 3000
         bins: 60
@@ -191,41 +244,11 @@ gen_histograms: &gen_histograms
         stop: 14
         bins: 15
 
-  - module_name: SimpleHistogram
-    hist_name: GenJetpt
-    input_cols: [GenJet.pt]
-    axes: 
-      - name: r"GenJet $p_T$"
-        start: 0
-        stop: 1000
-        bins: 20
-        unit: "GeV"
-
-  - module_name: SimpleHistogram
-    hist_name: GenJeteta
-    input_cols: [GenJet.eta]
-    axes:
-      - name: r"GenJet eta"
-        start: -4.0
-        stop: 4.0
-        bins: 20
-        unit:
-
-  - module_name: SimpleHistogram
-    hist_name: GenJetphi
-    input_cols: [GenJet.phi]
-    axes:
-      - name: r"GenJet phi"
-        start: -4.0
-        stop: 4.0
-        bins: 20
-        unit: 
-
-  - module_name: JetComboHistograms
+  - module_name: FourVecHistograms
     input_col: GenJet
-    prefix: "composite_genjet"
-    jet_combos:
-      - [0,1,2,3]
+    hist_name: GenJet
+
+
 
 analyzer:
   default_run_builder:
