@@ -13,7 +13,7 @@ class TestSaveEvents(BaseModuleTest):
     @pytest.fixture
     def module(self):
         return SaveEvents(
-            prefix="test_prefix_", output_format="{dataset_name}_{file_id}.root"
+            prefix="test_prefix", output_format="{dataset_name}_{file_id}.root"
         )
 
     def testModuleRuns(self, module, mockColumns):
@@ -51,10 +51,10 @@ class TestSaveEvents(BaseModuleTest):
             args, _ = mock_copy.call_args
             target_path = args[1]
 
-            assert target_path.startswith("test_prefix_test_dataset_")
+            assert target_path.startswith("test_prefix/test_dataset_")
 
     def testUprootWriting(self, module, mockColumns, tmp_path):
-        module.prefix = str(tmp_path / "final_")
+        module.prefix = str(tmp_path / "final")
 
         real_Path = pathlib.Path
 
@@ -77,7 +77,7 @@ class TestSaveEvents(BaseModuleTest):
         ):
             output_columns, _ = self.runModule(module, mockColumns)
 
-            final_files = list(tmp_path.glob("final_*.root"))
+            final_files = list(tmp_path.glob("final/*.root"))
             assert len(final_files) == 1, (
                 f"Expected 1 output file, found {len(final_files)}. Files: {list(tmp_path.glob('*'))}"
             )
@@ -101,7 +101,7 @@ class TestSaveEvents(BaseModuleTest):
         assert inputs == "EVENTS"
 
         outputs = module.outputs(mockMetadata)
-        assert outputs == []
+        assert outputs == "EVENTS"
 
 
 if __name__ == "__main__":
