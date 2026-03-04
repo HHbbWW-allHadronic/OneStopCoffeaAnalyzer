@@ -73,9 +73,29 @@ class HJetFilter(AnalyzerModule):
         good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
 
         if self.include_jet_id:
-            good_jets = good_jets[
-                ((good_jets.jetId & 0b010) != 0)
-            ]
+            if 'jetId' not in good_jets.fields:
+                eta = abs(good_jets.eta)
+                jet_id_tight = ak.where(
+                    eta <= 2.6,
+                    (good_jets.neHEF < 0.99) & (good_jets.neEmEF < 0.9) & 
+                    (good_jets.chMultiplicity + good_jets.neMultiplicity > 1) & 
+                    (good_jets.chHEF > 0.01) & (good_jets.chMultiplicity > 0),
+                ak.where(
+                    (eta > 2.6) & (eta <= 2.7),
+                    (good_jets.neHEF < 0.90) & (good_jets.neEmEF < 0.99),
+                ak.where(
+                    (eta > 2.7) & (eta <= 3.0),
+                    (good_jets.neHEF < 0.99),
+                ak.where(
+                    eta > 3.0,
+                    (good_jets.neMultiplicity >= 2) & (good_jets.neEmEF < 0.4),
+                    False
+                ))))
+                good_jets = good_jets[jet_id_tight]
+            else:    
+                good_jets = good_jets[
+                    ((good_jets.jetId & 0b010) != 0)
+                ]
 
         if self.include_pu_id:
             if any(x in metadata["era"]["name"] for x in ["2016", "2017", "2018"]):
