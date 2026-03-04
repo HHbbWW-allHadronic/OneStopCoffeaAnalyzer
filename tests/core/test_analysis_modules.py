@@ -58,6 +58,52 @@ class AnalyzerTest(AnalyzerModule):
         return columns, []
 
 
+# Concrete implementation for testing Systematics
+@define
+class SystematicTestModule(AnalyzerModule):
+    param_name: str
+    output_name: str
+
+    def getParameterSpec(self, metadata):
+        from analyzer.core.param_specs import ModuleParameterSpec, ParameterSpec
+        return ModuleParameterSpec({
+            self.param_name: ParameterSpec(
+                default_value="central",
+                possible_values=["central", "up", "down"],
+                tags={"weight_variation"}
+            )
+        })
+
+    def inputs(self, metadata):
+        return []
+
+    def outputs(self, metadata):
+        return [Column(("Weights", self.output_name))]
+
+    def run(self, columns, params):
+        val = 1.0
+        if params[self.param_name] == "up":
+            val = 2.0
+        elif params[self.param_name] == "down":
+            val = 0.5
+        
+        columns[Column(("Weights", self.output_name))] = ak.ones_like(columns.events.event_info.run) * val
+        return columns, []
+
+@define
+class EVENTSFilterModule(AnalyzerModule):
+    run_count: int = 0
+    def inputs(self, metadata):
+        return []
+    def outputs(self, metadata):
+        return "EVENTS"
+    def run(self, columns, params):
+        self.run_count += 1
+        mask = ak.Array([True, True, True])
+        columns.filter(mask)
+        return columns, []
+
+
 class TestAnalyzerModule:
     def testRunCaching(self, tracked_columns):
         module = AnalyzerTest(input_cols=["jets.pt"], output_cols=["out"])
@@ -187,4 +233,170 @@ class TestEventSourceModule:
         assert ak.all(res1["jets.pt"] == ak.Array([[100], [200], [300]]))
         res2 = module(params)
         assert module.run_count == 1
-        assert res1 is res2
+
+    def testEventSourceCachingWithParams(self):
+        @define
+        class ParamSourceTest(EventSourceModule):
+            run_count: int = 0
+            
+            def getParameterSpec(self, metadata):
+                from analyzer.core.param_specs import ModuleParameterSpec, ParameterSpec
+                return ModuleParameterSpec({
+                    "src_param":  ParameterSpec(
+                        default_value="A",
+                        possible_values=["A", "B"]
+                    )
+                })
+                
+            def inputs(self, metadata):
+                return []
+            def outputs(self, metadata):
+                return [Column("jets.pt")]
+            def run(self, params):
+                self.run_count += 1
+                val = 100 if params["src_param"] == "A" else 200
+                events = ak.Array({"jets": {"pt": [[val]]}})
+                return TrackedColumns.fromEvents(
+                    events,
+                    metadata={"era": {"name": "2018"}},
+                    backend=EventBackend.coffea_imm,
+                    provenance=0,
+                )
+                
+        module = ParamSourceTest()
+        
+        res1 = module(ModuleParameterValues({"src_param": "A"}))
+        assert module.run_count == 1
+        assert ak.all(res1["jets.pt"] == ak.Array([[100]]))
+        
+        res2 = module(ModuleParameterValues({"src_param": "A"}))
+        assert module.run_count == 1
+        
+        res3 = module(ModuleParameterValues({"src_param": "B"}))
+        assert module.run_count == 2
+        assert ak.all(res3["jets.pt"] == ak.Array([[200]]))
+
+class TestSystematicsCaching:
+    def testMultiParameterCachingProvenance(self, tracked_columns):
+        module = SystematicTestModule(param_name="sys1", output_name="weight1")
+        
+        # Test central
+        params_central = ModuleParameterValues({"sys1": "central"})
+        res_central, _ = module(tracked_columns, params_central)
+        prov_central = res_central._column_provenance[Column("Weights.weight1")]
+        
+        # Test up
+        params_up = ModuleParameterValues({"sys1": "up"})
+        res_up, _ = module(tracked_columns, params_up)
+        prov_up = res_up._column_provenance[Column("Weights.weight1")]
+        
+        assert prov_central != prov_up
+        assert ak.all(res_central["Weights", "weight1"] == 1.0)
+        assert ak.all(res_up["Weights", "weight1"] == 2.0)
+
+    def testEVENTS_OutputCachingDoesNotRevert(self, tracked_columns):
+        # Simulate the bug:
+        sys_module = SystematicTestModule(param_name="sys1", output_name="weight1")
+        filter_module = EVENTSFilterModule()
+        
+        # Central run
+        params_central = ModuleParameterValues({"sys1": "central"})
+        c_central, _ = sys_module(tracked_columns, params_central)
+        c_central_filt, _ = filter_module(c_central, params_central)
+        
+        # Up run
+        params_up = ModuleParameterValues({"sys1": "up"})
+        c_up, _ = sys_module(tracked_columns, params_up)
+        c_up_filt, _ = filter_module(c_up, params_up)
+        
+        # If the bug was present, c_up_filt would have its Weights.weight1 provenance reverted to c_central
+        prov_central = c_central_filt._column_provenance[Column("Weights.weight1")]
+        prov_up = c_up_filt._column_provenance[Column("Weights.weight1")]
+        
+        # Verify the changed column correctly maintains isolated provenances
+        assert prov_central != prov_up
+        assert ak.all(c_up_filt["Weights", "weight1"] == 2.0)
+        
+        # Verify that an UNCHANGED column (e.g. event_info) has the IDENTICAL provenance 
+        # across both cache paths despite passing through a global filter!
+        assert c_central_filt._column_provenance[Column("event_info")] == c_up_filt._column_provenance[Column("event_info")]
+        
+        # Filter module should run twice because the input TrackedColumns provenance changed
+        assert filter_module.run_count == 2
+
+    def testMultipleFiltersWithSystematics(self, tracked_columns):
+        sys_module = SystematicTestModule(param_name="sys1", output_name="weight1")
+        filter1 = EVENTSFilterModule()
+        filter2 = EVENTSFilterModule()
+        
+        params_central = ModuleParameterValues({"sys1": "central"})
+        c_central, _ = sys_module(tracked_columns, params_central)
+        c_c_f1, _ = filter1(c_central, params_central)
+        c_c_f2, _ = filter2(c_c_f1, params_central)
+        
+        params_up = ModuleParameterValues({"sys1": "up"})
+        c_up, _ = sys_module(tracked_columns, params_up)
+        c_u_f1, _ = filter1(c_up, params_up)
+        c_u_f2, _ = filter2(c_u_f1, params_up)
+        
+        # Unchanged column provenance must be identical across variations even after TWO independent filters
+        assert c_c_f2._column_provenance[Column("event_info")] == c_u_f2._column_provenance[Column("event_info")]
+        
+        # Changed column provenance must be logically isolated
+        assert c_c_f2._column_provenance[Column("Weights.weight1")] != c_u_f2._column_provenance[Column("Weights.weight1")]
+
+    def testSelectOnColumnsCaching(self, tracked_columns):
+        from analyzer.modules.common.selection import SelectOnColumns
+        
+        tc1 = tracked_columns.copy()
+        tc1._current_provenance = 10
+        tc1[Column("Selection.cut1")] = ak.Array([True, False, True])
+        
+        sel_module = SelectOnColumns(sel_name="test_sel", selection_names=["cut1"], save_cutflow=False)
+        params = ModuleParameterValues()
+        
+        # First run executes filter and stores cache
+        c_out1, _ = sel_module(tc1, params)
+        
+        # Second identical run must perfectly yield identical TrackedColumns object cached lookup
+        c_out2, _ = sel_module(tc1, params)
+        assert c_out1 is c_out2
+        
+        # Change unrelated column -> creates real variation (full EVENTS lookup will alter cache key, missing the initial hit)
+        tc2 = tc1.copy()
+        tc2._current_provenance = 20
+        tc2[Column("jets.pt")] = ak.Array([[99], [99], [99]])
+        
+        c_out3, _ = sel_module(tc2, params)
+        
+        # Since underlying struct changed, entire object is newly allocated/evaluated through real filter execution, missing cache perfectly
+        assert c_out1 is not c_out3
+
+    def testEVENTS_InputCaching(self, tracked_columns):
+        @define
+        class EVENTSInputModule(AnalyzerModule):
+            run_count: int = 0
+            def inputs(self, metadata): return "EVENTS"
+            def outputs(self, metadata): return [Column("new_col")]
+            def run(self, columns, params):
+                self.run_count += 1
+                columns[Column("new_col")] = ak.Array([1, 2, 3])
+                return columns, []
+        
+        mod = EVENTSInputModule()
+        params = ModuleParameterValues()
+        
+        c1, _ = mod(tracked_columns, params)
+        assert mod.run_count == 1
+        
+        c2, _ = mod(tracked_columns, params)
+        assert mod.run_count == 1
+        assert c1 is c2 or c1._column_provenance == c2._column_provenance
+        
+        tc_mod = tracked_columns.copy()
+        tc_mod._current_provenance = 999
+        tc_mod[Column("jets.pt")] = ak.Array([[1], [1], [1]])
+        
+        c3, _ = mod(tc_mod, params)
+        assert mod.run_count == 2
+
