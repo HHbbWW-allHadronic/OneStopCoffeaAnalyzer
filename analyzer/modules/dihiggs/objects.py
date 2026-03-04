@@ -30,79 +30,95 @@ logger = logging.getLogger("analyzer.modules")
 
 
 @define
-class HJetFilter(AnalyzerModule):
+class JetID(AnalyzerModule):
     """
-    This analyzer filters an input jet collection according to transverse
-    momentum and pseudorapidity requirements, with optional jet ID and pileup
-    ID selections. The resulting filtered jet collection is written to a new
-    output column.
+    This analyzer creates a jetId column, specifically for newer
+    versions of NanoAOD which had it missing due to a bug.
 
     Parameters
     ----------
     input_col : Column
         Column containing the input jet collection to be filtered.
-    output_col : Column
-        Column where the filtered jet collection will be stored.
-    min_pt : float, optional
-        Minimum transverse momentum (pT) threshold for jets, by default 30.0.
-    max_abs_eta : float, optional
-        Maximum absolute pseudorapidity allowed for jets, by default 2.4.
-    include_pu_id : bool, optional
-        Whether to apply pileup jet ID requirements (for supported eras),
-        by default False.
-    include_jet_id : bool, optional
-        Whether to apply jet ID requirements, by default False.
-
     Notes
     -----
-    - Jet ID selection requires only the tight bit to be set (bitmask `0b010`).
-    - Pileup ID selection is only applied for 2016–2018 eras.
-      Jets with pT > 50 GeV automatically pass the PU ID requirement.
+    - V12 has different recipe than V13, V14, V15 per JME POG.
+    - Previous versions don't have this issue and are unchanged.
     """
 
     input_col: Column
     output_col: Column
-    min_pt: float = 30.0
-    max_abs_eta: float = 2.4
-    include_pu_id: bool = False
-    include_jet_id: bool = False
 
     def run(self, columns, params):
         metadata = columns.metadata
+        print(metadata)
+        nanoversion = metadata["other_data"]["nanoversion"]
+        nanoversion = "V"+nanoversion if "V" not in nanoversion else nanoversion
         jets = columns[self.input_col]
-        good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
+        if nanoversion in ["V13", "V14", "V15"]:
+            eta = abs(jets.eta)
+            jet_id_tight = ak.where(
+                eta <= 2.6,
+                (jets.neHEF < 0.99) & (jets.neEmEF < 0.9) & 
+                (jets.chMultiplicity + jets.neMultiplicity > 1) & 
+                (jets.chHEF > 0.01) & (jets.chMultiplicity > 0),
+            ak.where(
+                (eta > 2.6) & (eta <= 2.7),
+                (jets.neHEF < 0.90) & (jets.neEmEF < 0.99),
+            ak.where(
+                (eta > 2.7) & (eta <= 3.0),
+                (jets.neHEF < 0.99),
+            ak.where(
+                eta > 3.0,
+                (jets.neMultiplicity >= 2) & (jets.neEmEF < 0.4),
+                False
+            ))))
 
-        if self.include_jet_id:
-            if 'jetId' not in good_jets.fields:
-                eta = abs(good_jets.eta)
-                jet_id_tight = ak.where(
-                    eta <= 2.6,
-                    (good_jets.neHEF < 0.99) & (good_jets.neEmEF < 0.9) & 
-                    (good_jets.chMultiplicity + good_jets.neMultiplicity > 1) & 
-                    (good_jets.chHEF > 0.01) & (good_jets.chMultiplicity > 0),
-                ak.where(
-                    (eta > 2.6) & (eta <= 2.7),
-                    (good_jets.neHEF < 0.90) & (good_jets.neEmEF < 0.99),
-                ak.where(
-                    (eta > 2.7) & (eta <= 3.0),
-                    (good_jets.neHEF < 0.99),
-                ak.where(
-                    eta > 3.0,
-                    (good_jets.neMultiplicity >= 2) & (good_jets.neEmEF < 0.4),
-                    False
-                ))))
-                good_jets = good_jets[jet_id_tight]
-            else:    
-                good_jets = good_jets[
-                    ((good_jets.jetId & 0b010) != 0)
-                ]
+            jet_id_tight_lep_veto = ak.where(
+            eta <= 2.7,
+            jet_id_tight & (jets.muEF < 0.8) & (jets.chEmEF < 0.8),
+            jet_id_tight
+            )
+            
+            jet_id = ak.where(
+                jet_id_tight & jet_id_tight_lep_veto,
+                6,
+            ak.where(
+                jet_id_tight,
+                2,
+                0
+            ))
+        elif nanoversion == "V12":
+            eta = abs(jets.eta)
 
-        if self.include_pu_id:
-            if any(x in metadata["era"]["name"] for x in ["2016", "2017", "2018"]):
-                good_jets = good_jets[
-                    (good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)
-                ]
-        columns[self.output_col] = good_jets
+            jet_id_tight = ak.where(
+                eta <= 2.7,
+                (jets.jetId & (1 << 1)) > 0,
+            ak.where(
+                (eta > 2.7) & (eta <= 3.0),
+                ((jets.jetId & (1 << 1)) > 0) & (jets.neHEF < 0.99),
+            ak.where(
+                eta > 3.0,
+                ((jets.jetId & (1 << 1)) > 0) & (jets.neEmEF < 0.4),
+                False
+            )))
+
+            jet_id_tight_lep_veto = ak.where(
+                eta <= 2.7,
+                jet_id_tight & (jets.muEF < 0.8) & (jets.chEmEF < 0.8),
+                jet_id_tight
+            )
+
+            jet_id = ak.where(
+                jet_id_tight & jet_id_tight_lep_veto,
+                6,
+            ak.where(
+                jet_id_tight,
+                2,
+                0
+            ))
+        else:
+            jet_id = self.input_col.jetId
+        columns[self.output_col] = jet_id
         return columns, []
 
     def inputs(self, metadata):
@@ -212,3 +228,67 @@ class HMuonMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+@define
+class HJetFilter(AnalyzerModule):
+    """
+    This analyzer filters an input jet collection according to transverse
+    momentum and pseudorapidity requirements, with optional jet ID and pileup
+    ID selections. The resulting filtered jet collection is written to a new
+    output column.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input jet collection to be filtered.
+    output_col : Column
+        Column where the filtered jet collection will be stored.
+    min_pt : float, optional
+        Minimum transverse momentum (pT) threshold for jets, by default 30.0.
+    max_abs_eta : float, optional
+        Maximum absolute pseudorapidity allowed for jets, by default 2.4.
+    include_pu_id : bool, optional
+        Whether to apply pileup jet ID requirements (for supported eras),
+        by default False.
+    include_jet_id : bool, optional
+        Whether to apply jet ID requirements, by default False.
+
+    Notes
+    -----
+    - Jet ID selection requires only the tight bit to be set (bitmask `0b010`).
+    - Pileup ID selection is only applied for 2016–2018 eras.
+      Jets with pT > 50 GeV automatically pass the PU ID requirement.
+    """
+
+    input_col: Column
+    output_col: Column
+    min_pt: float = 30.0
+    max_abs_eta: float = 2.4
+    include_pu_id: bool = False
+    include_jet_id: bool = False
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        jets = columns[self.input_col]
+        good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
+
+        if self.include_jet_id:
+            good_jets = good_jets[
+                ((good_jets.jetId & 0b010) != 0)
+            ]
+
+        if self.include_pu_id:
+            if any(x in metadata["era"]["name"] for x in ["2016", "2017", "2018"]):
+                good_jets = good_jets[
+                    (good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)
+                ]
+        columns[self.output_col] = good_jets
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
