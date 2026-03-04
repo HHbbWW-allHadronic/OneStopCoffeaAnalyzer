@@ -1462,6 +1462,25 @@ wheels = [
 ]
 
 [[package]]
+name = "memray"
+version = "1.19.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "rich" },
+    { name = "textual" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/36/18/5df5995a7b142e12ab194f4b2fd1473efd51f4f622dfe47f3c013c3c11f7/memray-1.19.1.tar.gz", hash = "sha256:7fcf306eae2c00144920b01913f42fa7f235af7a80fa3226ab124672a5cb1d8f", size = 2395421, upload-time = "2025-10-16T02:26:51.513Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/8d/42030314a7f8721984e3df85186c8432b15f05b2b6d915ed0f322aa7eb45/memray-1.19.1-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:57b0430e4800b8cbc38e1f529ad7af959cc96386e00773c8af57c46eddb15ecd", size = 2187201, upload-time = "2025-10-16T02:25:48.744Z" },
+    { url = "https://files.pythonhosted.org/packages/fa/8c/92972176b8079a7ffb367958e118475c7a0d13c3983215fd280f4ea69c6f/memray-1.19.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:595414e753a0152282974b954827aeaf552dc02f47ed16a2743821ed461b6c51", size = 2155387, upload-time = "2025-10-16T02:25:49.802Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/ab/47e5beaa5291c2e3e2e695bcbaf8266ed61734ece75fb8bf8f24041ad660/memray-1.19.1-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:ead57c4be9ea89b78d8ce2017f8f3e28f552fc2279cf5d24bf75d70bdfe39ca7", size = 9748375, upload-time = "2025-10-16T02:25:51.107Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/15/d9331de7f2e7ff88289998d0feb5b14e97902abac1753b6238fdc0b9c395/memray-1.19.1-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:41d829191287a995eea8b832fe7c8de243cf9e5d32d53169952695c7210e3a6b", size = 10019968, upload-time = "2025-10-16T02:25:53.357Z" },
+    { url = "https://files.pythonhosted.org/packages/a6/48/07353c55b8e40d03f125e2fb750cae3845dabed6a3c4e7c78214cfd927f5/memray-1.19.1-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:5855a9c3f3cfcf8ef01151514332535756b5d7be17bdba84016b0ca57d86f7f8", size = 9397345, upload-time = "2025-10-16T02:25:54.998Z" },
+    { url = "https://files.pythonhosted.org/packages/51/05/47706972dc07c50ed7c4098d6e0d19e322dee05769952ff945d5e54dc04d/memray-1.19.1-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:216918a42abdd3c18c4771862584feda3a24bf7205db6f000a41be9ddc1c98b4", size = 12238354, upload-time = "2025-10-16T02:25:56.684Z" },
+]
+
+[[package]]
 name = "mistune"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1472,7 +1491,7 @@ wheels = [
 
 [[package]]
 name = "mplhep"
-version = "0.4.1"
+version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -1481,9 +1500,9 @@ dependencies = [
     { name = "packaging" },
     { name = "uhi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/54/6e784c4dcc7e3d37ed30dc5a65f2e7df3c466c33604bf48f055988111d2d/mplhep-0.4.1.tar.gz", hash = "sha256:86e2d99680bdb19598e847ff5b24f3bf1c63f164b99f076be98255acd738ee48", size = 1710115, upload-time = "2025-08-26T14:20:10.471Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/b5d43b8d42f3e91156d7bc1e0d6e5dfa82d36d85ae15d9ccb52f0e19881c/mplhep-1.1.2.tar.gz", hash = "sha256:d9f94248b1b0fa4a14b42876f838e91804c16331c933c5568ae4a9886c610781", size = 4186042, upload-time = "2026-02-26T22:40:07.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/2e/65c5d36ca640f0f5c8f6909f26e642d58c59d01459e3abe294700c73e169/mplhep-0.4.1-py3-none-any.whl", hash = "sha256:dd69db353b655393bbd49fc79b4b4878f9cf8aa4f4228d7448cdc124f53e675f", size = 50961, upload-time = "2025-08-26T14:20:08.61Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/10/699c0384f62dd1c4a20e628f772bfc5119865bd57c3b6674b5316f877bc8/mplhep-1.1.2-py3-none-any.whl", hash = "sha256:8afb8834631ef74ad7b7ec9d6c1a196ad879bc680cf89e8d38f669c00329c1c6", size = 96098, upload-time = "2026-02-26T22:40:03.744Z" },
 ]
 
 [[package]]
@@ -1712,6 +1731,7 @@ dependencies = [
     { name = "histoprint" },
     { name = "ipython" },
     { name = "lz4" },
+    { name = "memray" },
     { name = "mplhep" },
     { name = "numpy" },
     { name = "pyyaml" },
@@ -1765,7 +1785,8 @@ requires-dist = [
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1.1.1" },
     { name = "lpcjobqueue", marker = "extra == 'lpc'", git = "https://github.com/CoffeaTeam/lpcjobqueue.git" },
     { name = "lz4", specifier = ">=4.4.5" },
-    { name = "mplhep", specifier = ">=0.4.1" },
+    { name = "memray", specifier = ">=1.19.1" },
+    { name = "mplhep", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=2.3.4" },
     { name = "pyyaml", specifier = "~=6.0.0" },
     { name = "rich", specifier = ">=14.2.0" },
