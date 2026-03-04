@@ -28,7 +28,11 @@ common_objects: &common_objects
     min_pt: 5
     max_abs_eta: 2.4
     iso_working_pt: "loose"
-  
+ 
+  - module_name: JetID
+    input_col: Jet
+    output_col: Jet.jetId
+
   - module_name: HJetFilter
     input_col: Jet
     output_col: goodJet
