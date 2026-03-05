@@ -15,6 +15,8 @@ from analyzer.core.analysis_modules import (
 )
 from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import SimpleCache
+from analyzer.modules.common.categories import addCategory
+from analyzer.modules.common.axis import IntegerAxis
 
 
 class BNNEnsemble:
@@ -224,7 +226,7 @@ class TriggerBNNCorrection(AnalyzerModule):
 @define
 class MSDCleanerCategory(AnalyzerModule):
     def inputs(self, metadata):
-        return [Column("HLT"), Column("FatJet")]
+        return [Column("HT"), Column("HLT"), Column("FatJet")]
 
     def outputs(self, metadata):
         return [Column(fields=("Categories", "PassMSDCleaner"))]
@@ -233,7 +235,7 @@ class MSDCleanerCategory(AnalyzerModule):
         metadata = columns.metadata
         trigger_names = metadata["era"]["trigger_names"]
         ht = columns["HT"]
-        fj = ak.pad_none(columns["GoodFatJet"], 1)[:, 0]
+        fj = ak.pad_none(columns["FatJet"], 1)[:, 0]
         fjpt = ak.fill_none(fj.pt, 0)
         fjmsd = ak.fill_none(fj.msoftdrop, 0)
         hlt = columns["HLT"]
