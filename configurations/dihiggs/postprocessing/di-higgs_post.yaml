@@ -5,7 +5,7 @@ Postprocessing:
         - "*/*/*/*"
       scale: log
       normalize: False
-      show_int: True
+      show_info: True
       structure:
         select: {dataset_name: "*", name: "!selection"}
         group: {pipeline: "*", era.name: "*", name: "*"}
