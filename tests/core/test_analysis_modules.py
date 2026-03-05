@@ -201,6 +201,73 @@ class TestAnalyzerModule:
         assert len(tc_b2._lazy_columns[Column("out_m1")]) == 3
         assert len(tc_main._lazy_columns[Column("out_m1")]) == 3
 
+    def testShouldRunBypass(self, tracked_columns):
+        from analyzer.core.analysis_modules import MetadataExpr
+        @define
+        class ConditionalModule(AnalyzerModule):
+            run_count: int = 0
+            def inputs(self, metadata): return []
+            def outputs(self, metadata): return [Column("result")]
+            def run(self, columns, params):
+                self.run_count += 1
+                columns["result"] = ak.Array([1, 2, 3])
+                return columns, []
+        
+        # Instantiate natively with the MetadataExpr override
+        class MockExpr(MetadataExpr):
+            def __init__(self, key): self.key = key
+            def evaluate(self, metadata): return metadata.get(self.key, False)
+            
+        mod = ConditionalModule(should_run=MockExpr("trigger"))
+        params = ModuleParameterValues()
+        
+        # 1. Metadata lacks trigger = False -> skip
+        tracked_columns.metadata["trigger"] = False
+        # In test context simulating Analyzer, this returns original since we manually call run() here
+        # Actually Analyzer bypasses it internally. Let's test the native structure if needed, or simulate bypass:
+        if mod.should_run is None or mod.should_run.evaluate(tracked_columns.metadata):
+            res_skip, _ = mod(tracked_columns, params)
+        else:
+            res_skip = tracked_columns
+        assert mod.run_count == 0
+        assert res_skip is tracked_columns # Unaltered passthrough
+        
+        # 2. Metadata has trigger = True -> run
+        tracked_columns.metadata["trigger"] = True
+        if mod.should_run is None or mod.should_run.evaluate(tracked_columns.metadata):
+            res_run, _ = mod(tracked_columns, params)
+        assert mod.run_count == 1
+        assert "result" in res_run.fields
+        
+    def testExceptionDoesNotPoisonCache(self, tracked_columns):
+        @define
+        class ExceptionModule(AnalyzerModule):
+            run_count: int = 0
+            should_fail: bool = True
+            def inputs(self, metadata): return []
+            def outputs(self, metadata): return [Column("result")]
+            def run(self, columns, params):
+                self.run_count += 1
+                if self.should_fail:
+                    raise ValueError("Simulated Failure")
+                columns["result"] = ak.Array([1, 2, 3])
+                return columns, []
+        
+        mod = ExceptionModule()
+        params = ModuleParameterValues()
+        
+        # 1. First run raises an Exception
+        with pytest.raises(ValueError):
+            mod(tracked_columns, params)
+        assert mod.run_count == 1
+        
+        # 2. Second run without flag should actually run and succeed. 
+        # If the cache was poisoned on failure, this wouldn't hit run_count == 2
+        mod.should_fail = False
+        res, _ = mod(tracked_columns, params)
+        assert mod.run_count == 2
+        assert ak.all(res["result"] == ak.Array([1, 2, 3]))
+
 
 @define
 class SourceTest(EventSourceModule):

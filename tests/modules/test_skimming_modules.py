@@ -64,6 +64,7 @@ class TestSaveEvents(BaseModuleTest):
             return real_Path(*args, **kwargs)
 
         def copy_side_effect(src, dst):
+            real_Path(dst).parent.mkdir(exist_ok=True, parents=True)
             shutil.copy(src, dst)
 
         with (
