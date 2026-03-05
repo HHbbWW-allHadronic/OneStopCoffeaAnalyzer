@@ -191,6 +191,7 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
     titles = []
     style_kwargs = defaultdict(list)
 
+
     for item, meta in den_to_plot:
         hists.append(item.histogram)
         titles.append(meta.get("title") or meta["dataset_title"])
@@ -200,6 +201,7 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
 
+    print(hists)
     mplhep.histplot(
         hists,
         ax=ax,
@@ -268,7 +270,7 @@ def plotMultiNumerators(
 
         hist.plot1d(
             ax=ax,
-            label=meta["dataset_title"],
+            label=meta.get("title") or meta["dataset_title"],
             density=normalize,
             yerr=True,
             **style.get(),
