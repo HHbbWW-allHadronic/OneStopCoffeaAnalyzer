@@ -402,7 +402,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_eta_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"$\\eta_{{T, {i + 1}}}$"),
+                    RegularAxis(20, -4, 4, f"$\\eta_{{{i + 1}}}$"),
                     padded[:, i].eta,
                     description=f"$\\eta$ of jet {i + 1} ",
                     mask=mask,
@@ -412,7 +412,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_phi_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"$\\phi_{{T, {i + 1}}}$"),
+                    RegularAxis(20, -4, 4, f"$\\phi_{{{i + 1}}}$"),
                     padded[:, i].phi,
                     description=f"$\\phi$ of jet {i + 1} ",
                     mask=mask,
@@ -489,7 +489,7 @@ class JetComboHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_{i + 1}{j + 1}_pt",
                     columns,
-                    RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
+                    RegularAxis(50, 0, 3000, f"$p_{{T, {i + 1}{j + 1}}}$", unit="GeV"),
                     summed.pt,
                     mask=mask,
                 )
