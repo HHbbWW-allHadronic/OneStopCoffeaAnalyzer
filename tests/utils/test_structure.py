@@ -38,12 +38,12 @@ def testFlatten():
 def testFreeze():
     d = {"a": [1, 2], "b": {"c": 3}}
     frozen = freeze(d)
-    assert isinstance(frozen, frozenset)
+    assert isinstance(frozen, tuple)
     assert hash(frozen)
 
     l = [1, 2]
-    assert freeze(l) == frozenset({1, 2})
-    assert freeze([1, 2]) == frozenset({1, 2})
+    assert freeze(l) == (1, 2)
+    assert freeze([1, 2]) == (1, 2)
 
 
 def testMergeUpdate():
