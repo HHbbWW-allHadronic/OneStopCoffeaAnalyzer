@@ -117,4 +117,4 @@ class SaveEvents(AnalyzerModule):
         return "EVENTS"
 
     def outputs(self, metadata):
-        return []
+        return "EVENTS"

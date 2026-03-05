@@ -49,11 +49,18 @@ class Analyzer:
 
     _cache: SimpleCache = field(factory=SimpleCache)
 
+
+    def __rich_repr__(self):
+        modules_ids = [(id(x),x) for x in self.all_modules]
+        pipelines_ids = {k:[(id(z),z) for z in x] for k,x in self.base_pipelines.items()}
+        yield "modules", modules_ids
+        yield "pipelines", pipelines_ids
+
     def initModules(self, metadata):
         pass
         # for m in self.all_modules:
         #     m.preloadForMeta(metadata)
-
+        
     def clearCaches(self):
         self._cache.clear()
         for m in self.all_modules:
@@ -75,7 +82,7 @@ class Analyzer:
 
     def addPipeline(self, name, pipeline):
         ret = []
-        ret.append(LoadColumns())
+        ret.append(self.getUniqueModule(LoadColumns()))
         for module in pipeline:
             ret.append(self.getUniqueModule(module))
         self.base_pipelines[name] = ret
