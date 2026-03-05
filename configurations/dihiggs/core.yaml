@@ -5,6 +5,12 @@ common_objects: &common_objects
     working_point: "tight"
     min_pt: 15
     max_abs_eta: 2.5
+    max_abs_dxy:
+      barrel: 0.05 
+      endcap: 0.1
+    max_abs_dz:
+      barrel: 0.1
+      endcap: 0.2
 
   - module_name: HElectronMaker
     input_col: Electron
