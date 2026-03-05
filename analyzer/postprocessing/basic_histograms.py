@@ -66,6 +66,7 @@ class RatioPlot(BasePostprocessor):
         "poisson"
     )
     no_stack: bool = False
+    show_den_unc: bool = True
 
     def getRunFuncs(self, group, prefix=None):
         numerator = group["numerator"]
@@ -88,6 +89,7 @@ class RatioPlot(BasePostprocessor):
             ratio_hlines=self.ratio_hlines,
             ratio_height=self.ratio_height,
             no_stack=self.no_stack,
+            show_den_unc=self.show_den_unc,
             plot_configuration=pc,
         )
 

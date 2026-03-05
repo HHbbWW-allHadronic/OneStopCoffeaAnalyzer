@@ -214,7 +214,7 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
     ratio_ax.errorbar(x_values, ratio, yerr=unc, **opts)
 
 
-def plotStackedDenominators(ax, denominators, styler, normalize=False):
+def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
     den_to_plot = sorted(denominators, key=lambda x: x.item.histogram.sum().value)
 
     hists = []
@@ -231,7 +231,6 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
 
-    print(hists)
     mplhep.histplot(
         hists,
         ax=ax,
@@ -240,14 +239,15 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
         label=titles,
         **style_kwargs,
     )
-
+    
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
-    mplhep.histplot(
-        den_total,
-        ax=ax,
-        label="Den. Stat. Unc.",
-        histtype="band",
-    )
+    if show_den_unc:
+        mplhep.histplot(
+            den_total,
+            ax=ax,
+            label="Den. Stat. Unc.",
+            histtype="band",
+        )
     return den_total
 
 
@@ -377,6 +377,7 @@ def plotRatio(
     no_stack=False,
     ratio_hlines=(1.0,),
     ratio_height=0.3,
+    show_den_unc=True
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -414,6 +415,7 @@ def plotRatio(
             denominator,
             styler,
             normalize=normalize,
+            show_den_unc=show_den_unc
         )
         plotMultiNumerators(
             ax,
@@ -425,6 +427,7 @@ def plotRatio(
             ratio_type=ratio_type,
             x_values=x_values,
             ratio_func=ratio_func,
+            show_den_unc=show_den_unc
         )
 
     for y in ratio_hlines:
