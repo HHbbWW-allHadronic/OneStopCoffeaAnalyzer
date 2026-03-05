@@ -210,6 +210,12 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
     )
 
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
+    mplhep.histplot(
+        den_total,
+        ax=ax,
+        label="Den. Stat. Unc.",
+        histtype="band",
+    )
     return den_total
 
 
@@ -243,7 +249,9 @@ def plotMultiNumerators(
     ratio_type,
     x_values,
     ratio_func=computeRatio,
+    show_den_unc=True,
 ):
+
     for item, meta in numerators:
         hist = item.histogram
         style = styler.getStyle(meta)
@@ -267,6 +275,24 @@ def plotMultiNumerators(
         )
 
         plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style)
+
+    if show_den_unc:
+        with np.errstate(divide="ignore", invalid="ignore"):
+            den_scaled_uncertainties = np.where(
+                den_total.values() != 0,
+                np.sqrt(den_total.variances()) / den_total.values(),
+                np.nan,
+            )
+            ratio_ax.bar(
+                x=den_total.axes[0].centers,
+                bottom=np.nan_to_num(1 - den_scaled_uncertainties, nan=0),
+                height=np.nan_to_num(2 * den_scaled_uncertainties, nan=0),
+                width=np.diff(den_total.axes[0].edges),
+                edgecolor="dimgrey",
+                hatch="////",
+                fill=False,
+                lw=0,
+            )
 
 
 def plotSingleNumeratorMultiDen(
