@@ -20,6 +20,7 @@ Postprocessing:
         - "*/*/*/JetHT"
         - "*/*/*/MedBN"
       ratio_type: "efficiency"
+      show_den_unc: False
       scale: log
       structure:
         select: {dataset_name: "ggHH2b2V6q*"}
