@@ -4,25 +4,11 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       scale: log
-      show_int: True
-      normalize: False 
-      structure:
-        select: {dataset_name: "*", name: "!selection"}
-        group: {pipeline: "withHLT_NoSelection", era.name: "*", name: "*"}
-        transforms:
-          - name: SplitAxes
-            split_axis_names: {"variation": "central"}
-      output_name: "plots/{era.name}/{pipeline}/{name}"
-    
-    - name: Histogram1D
-      inputs:
-        - "*/*/*/*"
-      scale: log
       normalize: False
       show_int: True
       structure:
-        select: {dataset_name: "*"}
-        group: {pipeline: "NoSelection", era.name: "*", name: "*"}
+        select: {dataset_name: "*", name: "!selection"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
