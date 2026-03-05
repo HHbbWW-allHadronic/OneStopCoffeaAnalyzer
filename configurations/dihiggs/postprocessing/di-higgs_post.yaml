@@ -19,6 +19,7 @@ Postprocessing:
         - "*/*/*/jet_pt_1"
         - "*/*/*/JetHT"
         - "*/*/*/MedBN"
+        - "*/*/*/JetN"
       ratio_type: "efficiency"
       show_den_unc: False
       scale: log
