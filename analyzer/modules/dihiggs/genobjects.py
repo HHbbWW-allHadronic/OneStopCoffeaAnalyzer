@@ -57,7 +57,7 @@ class GenPartFilter(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         genpart = columns[self.input_col]
-        pass_pdgId = genpart.pdgId == self.pdgId
+        pass_pdgId = abs(genpart.pdgId) == self.pdgId
         pass_status_flag = (genpart.statusFlags>>status_code)&1 == 1
         columns[self.output_col] = genpart[pass_pdgId & pass_status_flag]
         return columns, []
