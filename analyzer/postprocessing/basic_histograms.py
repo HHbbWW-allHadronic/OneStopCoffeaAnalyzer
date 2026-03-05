@@ -25,6 +25,7 @@ class Histogram1D(BasePostprocessor):
     style_set: str | StyleSet = field(factory=StyleSet)
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
+    show_int: bool = False
 
     def getRunFuncs(self, group, prefix=None):
         if isinstance(group, dict):
@@ -47,6 +48,7 @@ class Histogram1D(BasePostprocessor):
             scale=self.scale,
             style_set=self.style_set,
             normalize=self.normalize,
+            show_int=self.show_int,
             plot_configuration=pc,
         )
 
