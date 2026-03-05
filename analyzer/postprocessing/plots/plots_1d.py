@@ -74,12 +74,17 @@ def plotOne(
             hists.append(item.histogram)
             title = meta.get("title") or meta["dataset_title"]
             if show_int:
+<<<<<<< HEAD
                 integral = item.histogram.sum().value
                 counts = item.histogram.values()
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
                 std = np.sqrt(np.average((centers - mean)**2, weights=counts))
                 title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
+=======
+                integral = round(item.histogram.sum().value, 1)
+                title = f"{title}, Int={integral}"
+>>>>>>> 1c8ba266 (Add integral to plots, add efficiencies)
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get(plottype="fill").items():
