@@ -139,6 +139,11 @@ common_histograms: &common_histograms
   - module_name: FourVecHistograms
     input_col: goodJet
     hist_name: Jet
+    mass_axis:
+      name: "Jet $m$"
+      start: 0
+      stop: 500
+      bins: 50
 
   - module_name: SimpleHistogram
     hist_name: JetHT
@@ -195,10 +200,21 @@ common_histograms: &common_histograms
     prefix: "b_dijet"
     jet_combos:
       - [0,1]
+    mass_axis:
+      name: "$m_{1,2}$"
+      start: 0
+      stop: 500
+      bins: 50
 
   - module_name: FourVecHistograms
     input_col: Jet
     hist_name: AK4Jet
+    mass_axis:
+      name: "AK4Jet"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
 
   - module_name: SimpleHistogram
     hist_name: AK4NJet
@@ -275,6 +291,11 @@ gen_histograms: &gen_histograms
   - module_name: FourVecHistograms
     input_col: GenJet
     hist_name: GenJet
+    mass_axis:
+      name: "GenJet"
+      start: 0
+      stop: 500
+      bins: 50
 
 
 
