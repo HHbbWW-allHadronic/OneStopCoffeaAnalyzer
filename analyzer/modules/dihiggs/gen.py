@@ -44,11 +44,7 @@ class GenPartMinDRMaker(AnalyzerModule):
         pairs = ak.combinations(gen_parts, 2, axis=1)
         qi, qj = ak.unzip(pairs)
 
-        deta = qi.eta - qj.eta
-        dphi = qi.phi - qj.phi
-        dphi = ak.where(dphi > np.pi, dphi - 2 * np.pi, dphi)
-        dphi = ak.where(dphi < -np.pi, dphi + 2 * np.pi, dphi)
-        dr_all = np.sqrt(deta**2 + dphi**2)
+        dr_all = qi.delta_r(qj)
 
         columns[self.output_col] = ak.min(dr_all, axis=1)
         return columns, []

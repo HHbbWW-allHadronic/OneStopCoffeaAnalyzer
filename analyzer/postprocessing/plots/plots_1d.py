@@ -42,6 +42,25 @@ def plotOne(
     styler = Styler(style_set)
     fig, ax = plt.subplots()
     h = None
+    for item, meta in histograms:
+        title = meta.get("title") or meta["dataset_title"]
+        h = item.histogram
+        if show_int:
+            integral = round(h.sum().value)
+            mean = np.mean(h.values())
+            std = np.std(h.values())
+            title = f"{title}, N={integral}\nmean={mean:.3f}, std={std:.3f}"
+        style = styler.getStyle(meta)
+        h.plot1d(
+            ax=ax,
+            label=title,
+            density=normalize,
+            yerr=style.yerr,
+            flow="none",
+            **style.get(),
+        )
+    if h is None:
+        h = stacked_hists[0]
     if stacked_hists:
         stacked_hists = sorted(
             stacked_hists, key=lambda x: x.item.histogram.sum().value
@@ -54,7 +73,9 @@ def plotOne(
             title = meta.get("title") or meta["dataset_title"]
             if show_int:
                 integral = item.histogram.sum().value
-                title = f"{title}, N={integral}"
+                mean = np.mean(item.histogram.values())
+                std = np.std(item.histogram.values())
+                title = f"{title}, N={integral}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get(plottype="fill").items():
@@ -77,25 +98,6 @@ def plotOne(
                 label="Stacked Unc.",
                 histtype="band",
             )
-
-    for item, meta in histograms:
-        title = meta.get("title") or meta["dataset_title"]
-        h = item.histogram
-        if show_int:
-            integral = round(h.sum().value)
-            title = f"{title}, N={integral}"
-        style = styler.getStyle(meta)
-        h.plot1d(
-            ax=ax,
-            label=title,
-            density=normalize,
-            yerr=style.yerr,
-            flow="none",
-            **style.get(),
-        )
-
-    if h is None:
-        h = stacked_hists[0]
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)

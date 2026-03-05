@@ -81,9 +81,9 @@ common_objects: &common_objects
     output_col: NMedB
 
   - module_name: GenPartDecayWalker
-    input_col: GenPart,
-    output_col: GenPart_2b4q,
-    sample_type: HHSampleType.SIGNAL
+    input_col: GenPart
+    output_col: GenPart_2b4q
+    sample_type: signal
 
   - module_name: GenPartMinDRMaker
     input_col: GenPart_2b4q
@@ -289,7 +289,7 @@ gen_histograms: &gen_histograms
     hist_name: min_dr_GenPart
     input_cols: [min_dr_GenPart]
     axes:
-      - name: "minDR_{GenPart}"
+      - name: "minDR_{{GenPart}}"
         start: 0.0
         stop: 3.0
         bins: 60
