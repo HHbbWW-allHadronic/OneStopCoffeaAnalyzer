@@ -1,4 +1,3 @@
-import coffea.lumi_tools as ltools
 import functools as ft
 from analyzer.core.columns import addSelection
 import operator as op
@@ -189,6 +188,7 @@ class GoldenLumi(AnalyzerModule):
         return [Column(("Selection", self.selection_name))]
 
     def run(self, columns, params):
+        import coffea.lumi_tools as ltools
         metadata = columns.metadata
         lumi_json = metadata["era"]["golden_json"]
         lmask = ltools.LumiMask(lumi_json)

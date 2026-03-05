@@ -58,10 +58,13 @@ class SelectOnColumns(AnalyzerModule):
             cutflow[name] = ak.count_nonzero(ret, axis=0)
 
         columns.filter(ret)
+
         if self.save_cutflow:
             return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
         else:
             return columns, []
+
+        
 
     def inputs(self, metadata):
         if self.selection_names is None:

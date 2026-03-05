@@ -98,7 +98,7 @@ class EventWeightSyst(AnalyzerModule):
         )
 
     def inputs(self, metadata):
-        return []
+        return [Column("Muon")]
 
     def outputs(self, metadata):
         return [Column("Weights")]

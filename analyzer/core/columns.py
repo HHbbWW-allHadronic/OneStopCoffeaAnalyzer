@@ -316,7 +316,7 @@ class TrackedColumns:
         for c in list(self._lazy_columns.keys()):
             self._lazy_columns[c] = self._lazy_columns[c][mask]
         for c in self._column_provenance:
-            self._column_provenance[c] = self._current_provenance
+            self._column_provenance[c] = hash((self._column_provenance[c], self._current_provenance))
         return self
 
     @contextlib.contextmanager
