@@ -4,6 +4,7 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       scale: log
+      show_int: True
       normalize: False 
       structure:
         select: {dataset_name: "*", name: "!selection"}
@@ -18,6 +19,7 @@ Postprocessing:
         - "*/*/*/*"
       scale: log
       normalize: False
+      show_int: True
       structure:
         select: {dataset_name: "*"}
         group: {pipeline: "NoSelection", era.name: "*", name: "*"}
@@ -31,4 +33,5 @@ Postprocessing:
     image_type: ".png"
     cms_text_color: Black
     legend_num_cols: 1
+    show_int: True
 
