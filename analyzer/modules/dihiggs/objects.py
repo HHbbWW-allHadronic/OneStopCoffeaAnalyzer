@@ -148,6 +148,10 @@ class HElectronMaker(AnalyzerModule):
         Minimum transverse momentum in GeV, by default 10.
     max_abs_eta : float, optional
         Maximum absolute pseudorapidity, by default 2.4.
+    max_abs_dxy: dict, optional
+        Dictionary with keys "barrel", "endcap" for dxy selection.
+    max_abs_dz: dict, optional
+        Dictionary with keys "barrel", "endcap" for dz selection.
 
     """
 
@@ -156,6 +160,8 @@ class HElectronMaker(AnalyzerModule):
     working_point: CutBasedWPs
     min_pt: float = 10
     max_abs_eta: float = 2.4
+    max_abs_dxy: dict = None
+    max_abs_dz: dict = None
 
     __corrections: dict = field(factory=dict)
 
@@ -164,7 +170,24 @@ class HElectronMaker(AnalyzerModule):
         pass_pt = electrons.pt > self.min_pt
         pass_eta = abs(electrons.eta) < self.max_abs_eta
         pass_wp = electrons.cutBased >= electron_cut_mapping[self.working_point]
-        columns[self.output_col] = electrons[pass_pt & pass_eta & pass_wp]
+        if self.max_abs_dxy:
+            pass_dxy = abs(electrons.dxy) < ak.where(
+                            abs(electrons.eta) < 1.479,
+                            self.max_abs_dxy["barrel"],
+                            self.max_abs_dxy["endcap"]
+                            )
+        else:
+            pass_dxy = True
+        if self.max_abs_dz: 
+            pass_dz = abs(electrons.dxy) < ak.where(
+                           abs(electrons.eta) < 1.479,
+                            self.max_abs_dxy["barrel"],
+                            self.max_abs_dxy["endcap"]
+                            )
+        else:
+            pass_dz = True
+
+        columns[self.output_col] = electrons[pass_pt & pass_eta & pass_wp & pass_dxy & pass_dz]
         return columns, []
 
     def inputs(self, metadata):
