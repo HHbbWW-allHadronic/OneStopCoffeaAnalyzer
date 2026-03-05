@@ -43,8 +43,8 @@ class GenPartFilter(AnalyzerModule):
         Column where promoted items will be stored.
     pdgId: int
         pdgId of target particle.
-    status_code: int
-        Generator status_code for filtering.
+    status_flag: int
+        Generator status_flag for filtering.
     Notes
     -----
     """
@@ -52,13 +52,13 @@ class GenPartFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     pdgId: int
-    status_code: int
+    status_flag: int
 
     def run(self, columns, params):
         metadata = columns.metadata
         genpart = columns[self.input_col]
         pass_pdgId = abs(genpart.pdgId) == self.pdgId
-        pass_status_flag = (genpart.statusFlags>>status_code)&1 == 1
+        pass_status_flag = (genpart.statusFlags>>self.status_flag)&1 == 1
         columns[self.output_col] = genpart[pass_pdgId & pass_status_flag]
         return columns, []
 
