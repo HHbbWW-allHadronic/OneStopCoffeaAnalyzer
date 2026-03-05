@@ -201,7 +201,6 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
 
-    print(hists)
     mplhep.histplot(
         hists,
         ax=ax,
