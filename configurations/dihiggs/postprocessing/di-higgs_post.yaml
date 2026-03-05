@@ -2,41 +2,29 @@ Postprocessing:
   processors:
     - name: Histogram1D
       inputs:
-        - "*/*/*/HT"
-        - "*/*/*/jet_pt_1"
-        - "*/*/*/jet_eta_1"
-        - "*/*/*/jet_phi_1"
-        - "*/*/*/two_b_reco_12_m"
-        - "*/*/*/two_b_reco_12_pt"
-        - "*/*/*/njets"
+        - "*/*/*/*"
       scale: log
       normalize: False 
       structure:
-        select: {dataset_name: "*"}
-        group: {pipeline: "dihiggs_signal_region", era.name: "*", name: "*"}
+        select: {dataset_name: "*", name: "!selection"}
+        group: {pipeline: "withHLT_NoSelection", era.name: "*", name: "*"}
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "/uscms/home/gvetters/nobackup/OneStopCoffeaAnalyzer/plots/{era.name}/{pipeline}/{name}"
+      output_name: "plots/{era.name}/{pipeline}/{name}"
     
     - name: Histogram1D
       inputs:
-        - "*/*/*/HT"
-        - "*/*/*/jet_pt_1"
-        - "*/*/*/jet_eta_1"
-        - "*/*/*/jet_phi_1"
-        - "*/*/*/two_b_reco_12_m"
-        - "*/*/*/two_b_reco_12_pt"
-        - "*/*/*/njets"
+        - "*/*/*/*"
       scale: log
       normalize: False
       structure:
         select: {dataset_name: "*"}
-        group: {pipeline: "dihiggs_signal_region_NoSelection", era.name: "*", name: "*"}
+        group: {pipeline: "NoSelection", era.name: "*", name: "*"}
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "/uscms/home/gvetters/nobackup/OneStopCoffeaAnalyzer/plots/{era.name}/{pipeline}/{name}"
+      output_name: "plots/{era.name}/{pipeline}/{name}"
 
   default_plot_config:
     cms_text: "Preliminary"
