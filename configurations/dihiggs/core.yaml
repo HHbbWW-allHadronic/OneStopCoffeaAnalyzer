@@ -154,16 +154,16 @@ common_histograms: &common_histograms
     hist_name: JetN
     input_cols: [NJet]
     axes:
-      - name: r"N_{jets}"
-        start: 0
-        stop: 14
-        bins: 15
+      - name: "$N_{jets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: SimpleHistogram
     hist_name: JetQvG
     input_cols: [goodJet.btagUParTAK4QvG]
     axes:
-      - name: r"Jet UParTQvG Score"
+      - name: "Jet UParTQvG Score"
         start: 0
         stop: 1
         bins: 20
@@ -172,7 +172,7 @@ common_histograms: &common_histograms
     hist_name: Jetbtag
     input_cols: [goodJet.btagUParTAK4B]
     axes:
-      - name: r"Jet UParTB Score"
+      - name: "Jet UParTB Score"
         start: 0
         stop: 1
         bins: 20
@@ -185,10 +185,10 @@ common_histograms: &common_histograms
     hist_name: MedBN
     input_cols: [NMedB]
     axes:
-      - name: r"N_{b-jets}"
-        start: 0
-        stop: 14
-        bins: 15
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: JetComboHistograms
     input_col: MedB
@@ -204,16 +204,16 @@ common_histograms: &common_histograms
     hist_name: AK4NJet
     input_cols: [NAK4Jet]
     axes: 
-      - name: r"N_{AK4Jets}"
-        start: 0
-        stop: 14
-        bins: 15
+      - name: "$N_{AK4Jets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: SimpleHistogram
     hist_name: AK4JetQvG
     input_cols: [Jet.btagUParTAK4QvG]
     axes:
-      - name: r"AK4Jet UParTQvG Score"
+      - name: "AK4Jet UParTQvG Score"
         start: 0
         stop: 1
         bins: 20
@@ -222,7 +222,7 @@ common_histograms: &common_histograms
     hist_name: AK4Jetbtag
     input_cols: [Jet.btagUParTAK4B]
     axes:
-      - name: r"AK4Jet UParTB Score"
+      - name: "AK4Jet UParTB Score"
         start: 0
         stop: 1
         bins: 20  
@@ -231,16 +231,16 @@ common_histograms: &common_histograms
     hist_name: AK4JetID
     input_cols: [Jet.jetId]
     axes:
-      - name: r"AK4Jet JetID"
-        start: 0
-        stop: 7
-        bins: 8 
+      - name: "AK4Jet JetID"
+        start: -0.5
+        stop: 6.5
+        bins: 7
   
   - module_name: SimpleHistogram
     hist_name: AK4HT  
     input_cols: [AK4HT]
     axes:
-      - name: r"AK4Jet H_{T}"
+      - name: "AK4Jet $H_{T}$"
         start: 0
         stop: 3000
         bins: 60
@@ -257,7 +257,7 @@ gen_histograms: &gen_histograms
     hist_name: GenJetHT
     input_cols: [GenJetHT]
     axes:
-      - name: r"GenJet H_{T}"
+      - name: "GenJet $H_{T}$"
         start: 0
         stop: 3000
         bins: 60
@@ -267,10 +267,10 @@ gen_histograms: &gen_histograms
     hist_name: GenNJet
     input_cols: [NGenJet]
     axes:
-      - name: r"N_{GenJets}"
-        start: 0
-        stop: 14
-        bins: 15
+      - name: "$N_{GenJets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: FourVecHistograms
     input_col: GenJet
