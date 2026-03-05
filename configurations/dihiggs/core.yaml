@@ -308,14 +308,25 @@ gen_histograms: &gen_histograms
       stop: 500
       bins: 50
 
-  - module_name: SimpleHistogram
-    hist_name: min_dr_GenPart
-    input_cols: [min_dr_GenPart]
-    axes:
-      - name: "minDR_{{GenPart}}"
-        start: 0.0
-        stop: 3.0
-        bins: 60
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenHiggs
+    pdgId: 25
+    status_flag: 13
+
+  - module_name: FourVecHistograms
+    input_col: GenHiggs
+    hist_name: GenHiggs
+    mass_axis:
+      name: "GenHiggs"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+
+
+
 
 analyzer:
   default_run_builder:
