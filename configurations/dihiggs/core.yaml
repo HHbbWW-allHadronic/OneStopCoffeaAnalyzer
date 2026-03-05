@@ -297,6 +297,24 @@ gen_histograms: &gen_histograms
       stop: 500
       bins: 50
 
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenHiggs
+    pdgId: 25
+    status_flag: 13
+
+  - module_name: FourVecHistograms
+    input_col: GenHiggs
+    hist_name: GenHiggs
+    mass_axis:
+      name: "GenHiggs"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+
+
 
 
 analyzer:
