@@ -46,7 +46,9 @@ def plotOne(
         h = item.histogram
         if show_int:
             integral = round(h.sum().value)
-            title = f"{title}, N={integral}"
+            mean = np.mean(h.values())
+            std = np.std(h.values())
+            title = f"{title}, N={integral}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
@@ -70,7 +72,9 @@ def plotOne(
             title = meta.get("title") or meta["dataset_title"]
             if show_int:
                 integral = item.histogram.sum().value
-                title = f"{title}, N={integral}"
+                mean = np.mean(item.histogram.values())
+                std = np.std(item.histogram.values())
+                title = f"{title}, N={integral}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get().items():
