@@ -48,7 +48,7 @@ common_objects: &common_objects
 
   - module_name: HT
     input_col: Jet
-    output_col: HTAK4
+    output_col: AK4HT
 
   - module_name: HT
     input_col: goodJet
@@ -56,7 +56,7 @@ common_objects: &common_objects
 
   - module_name: HT
     input_col: GenJet
-    output_col: HTGenJet
+    output_col: GenJetHT
 
   - module_name: Count
     input_col: Jet
@@ -72,7 +72,7 @@ common_objects: &common_objects
 
   - module_name: Count
     input_col: MedB
-    output_col: NbJet 
+    output_col: NMedB 
 
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
@@ -135,7 +135,7 @@ common_histograms: &common_histograms
     hist_name: Jet
 
   - module_name: SimpleHistogram
-    hist_name: HT
+    hist_name: JetHT
     input_cols: [HT]
     axes:
       - name: HT
@@ -145,7 +145,7 @@ common_histograms: &common_histograms
         unit: GeV
     
   - module_name: SimpleHistogram
-    hist_name: NJet
+    hist_name: JetN
     input_cols: [NJet]
     axes:
       - name: r"N_{jets}"
@@ -176,8 +176,8 @@ common_histograms: &common_histograms
     hist_name: MedB
 
   - module_name: SimpleHistogram
-    hist_name: NbJet
-    input_cols: [NbJet]
+    hist_name: MedBN
+    input_cols: [NMedB]
     axes:
       - name: r"N_{b-jets}"
         start: 0
@@ -195,10 +195,10 @@ common_histograms: &common_histograms
     hist_name: AK4Jet
 
   - module_name: SimpleHistogram
-    hist_name: NAK4Jet
+    hist_name: AK4NJet
     input_cols: [NAK4Jet]
     axes: 
-      - name: r"N_{AK4Jet}"
+      - name: r"N_{AK4Jets}"
         start: 0
         stop: 14
         bins: 15
@@ -219,8 +219,26 @@ common_histograms: &common_histograms
       - name: r"AK4Jet UParTB Score"
         start: 0
         stop: 1
-        bins: 20   
+        bins: 20  
+
+  - module_name: SimpleHistogram
+    hist_name: AK4JetID
+    input_cols: [Jet.jetId]
+    axes:
+      - name: r"AK4Jet JetID"
+        start: 0
+        stop: 7
+        bins: 8 
   
+  - module_name: SimpleHistogram
+    hist_name: AK4HT  
+    input_cols: [AK4HT]
+    axes:
+      - name: r"AK4Jet H_{T}"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: "GeV"
 
 
 gen_histograms: &gen_histograms
@@ -230,8 +248,8 @@ gen_histograms: &gen_histograms
     max_idx: 6
 
   - module_name: SimpleHistogram
-    hist_name: HTGenJet
-    input_cols: [HTGenJet]
+    hist_name: GenJetHT
+    input_cols: [GenJetHT]
     axes:
       - name: r"GenJet H_{T}"
         start: 0
@@ -240,10 +258,10 @@ gen_histograms: &gen_histograms
         unit: GeV
 
   - module_name: SimpleHistogram
-    hist_name: NGenJet
+    hist_name: GenNJet
     input_cols: [NGenJet]
     axes:
-      - name: r"N_{genjets}"
+      - name: r"N_{GenJets}"
         start: 0
         stop: 14
         bins: 15
