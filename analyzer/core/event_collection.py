@@ -10,11 +10,8 @@ import uproot
 import math
 
 from attrs import define
-from coffea.nanoevents import NanoAODSchema
-
 
 import abc
-from coffea.nanoevents import NanoEventsFactory
 from analyzer.core.caching import cache
 import logging
 
@@ -466,6 +463,7 @@ class FileChunk:
         return self.event_stop - self.event_start
 
     def loadEvents(self, backend="coffea-virtual", view_kwargs=None):
+        from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
         start = self.event_start
