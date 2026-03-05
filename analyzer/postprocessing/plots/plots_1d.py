@@ -33,6 +33,7 @@ def plotOne(
     style_set,
     scale="linear",
     normalize=False,
+    show_int=False,
     plot_configuration=None,
 ):
     stacked_hists = stacked_hists or []
@@ -43,6 +44,9 @@ def plotOne(
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
+        if show_int:
+            integral = round(h.sum().value)
+            title = f"{title}, N={integral}"
         style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
@@ -63,7 +67,11 @@ def plotOne(
         titles = []
         for item, meta in stacked_hists:
             hists.append(item.histogram)
-            titles.append(meta.get("title") or meta["dataset_title"])
+            title = meta.get("title") or meta["dataset_title"]
+            if show_int:
+                integral = item.histogram.sum().value
+                title = f"{title}, N={integral}"
+            titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get().items():
                 style_kwargs[k].append(v)
