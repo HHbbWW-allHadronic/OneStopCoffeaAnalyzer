@@ -50,7 +50,6 @@ class JetID(AnalyzerModule):
 
     def run(self, columns, params):
         metadata = columns.metadata
-        print(metadata)
         nanoversion = metadata["other_data"]["nanoversion"]
         nanoversion = "V"+nanoversion if "V" not in nanoversion else nanoversion
         jets = columns[self.input_col]
