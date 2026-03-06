@@ -34,7 +34,7 @@ class FourVecHistograms(AnalyzerModule):
     def run(self, columns, params):
         jets = columns[self.input_col]
         ret = []
-        mass_axis = evolve(self.mass_axis, name=f"{self.hist_name} $m$")
+        mass_axis = evolve(self.mass_axis, name=f"{self.hist_name} $mass$")
         ret.append(
             makeHistogram(
                 f"{self.hist_name}_pt",
@@ -48,7 +48,7 @@ class FourVecHistograms(AnalyzerModule):
             makeHistogram(
                 f"{self.hist_name}_eta",
                 columns,
-                RegularAxis(20, -4, 4, f"{self.hist_name} $\\eta_{{T}}$"),
+                RegularAxis(20, -4, 4, f"{self.hist_name} $\\eta$"),
                 jets.eta,
                 description=f"$\\eta$ of {self.hist_name}",
             )
@@ -57,14 +57,14 @@ class FourVecHistograms(AnalyzerModule):
             makeHistogram(
                 f"{self.hist_name}_phi",
                 columns,
-                RegularAxis(20, -4, 4, f"{self.hist_name} $\\phi_{{T}}$"),
+                RegularAxis(20, -4, 4, f"{self.hist_name} $\\phi$"),
                 jets.phi,
                 description=f"$\\phi$ of {self.hist_name}",
             )
         )
         ret.append(
             makeHistogram(
-                f"{self.hist_name}_m",
+                f"{self.hist_name}_mass",
                 columns,
                 mass_axis,
                 jets.mass,
