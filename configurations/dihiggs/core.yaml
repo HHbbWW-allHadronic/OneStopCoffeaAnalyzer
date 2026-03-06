@@ -143,6 +143,7 @@ common_histograms: &common_histograms
   - module_name: TopVecHistograms
     prefix: "jet"
     input_col: goodJet
+    hist_name: Jet
     max_idx: 6
 
   - module_name: FourVecHistograms
@@ -260,6 +261,7 @@ gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
     prefix: "genjet"
     input_col: GenJet
+    hist_name: GenJet
     max_idx: 6
 
   - module_name: SimpleHistogram
