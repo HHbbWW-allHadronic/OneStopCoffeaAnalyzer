@@ -38,11 +38,15 @@ class JetID(AnalyzerModule):
     Parameters
     ----------
     input_col : Column
-        Column containing the input jet collection to be filtered.
+        Column containing the input jet collection to be processed.
+    output_col: Column
+        Column containing the output jetIds.
     Notes
     -----
     - V12 has different recipe than V13, V14, V15 per JME POG.
     - Previous versions don't have this issue and are unchanged.
+    - Input collections must be expected to have a jetId column
+      in nanoAOD V11 and below to be used as default.
     """
 
     input_col: Column
