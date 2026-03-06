@@ -361,7 +361,6 @@ analyzer:
       sel_name: selection
     - *common_histograms
 
-
   withHLT_NoSelection:
     - *hlt_selection
     - *common_objects
@@ -379,7 +378,13 @@ location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
-    pipelines: [withHLT_NoSelection, NoSelection]
+    pipelines: 
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - noHLT_ObjDef2
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
 #  - dataset: 'tt_hadronic*2024*'
