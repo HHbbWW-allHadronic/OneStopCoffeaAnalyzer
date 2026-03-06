@@ -12,7 +12,7 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots/{era.name}/{pipeline}/{name}"
+      output_name: "plots_LOG/{era.name}/{pipeline}/{name}"
 
   default_plot_config:
     cms_text: "Preliminary"
