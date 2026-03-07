@@ -247,6 +247,6 @@ class MSDCleanerCategory(AnalyzerModule):
             & (fjmsd < 70)
         )
 
-        addCategory(columns, "PassMSDCleaner", ~bad, IntegerAxis("PassMSDCLeaner", 0, 2))
+        addCategory(columns, "PassMSDCleaner", ~bad, IntegerAxis("PassMSDCleaner", 0, 2))
 
         return columns, []
