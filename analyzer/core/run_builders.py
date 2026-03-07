@@ -65,7 +65,7 @@ class LimitSysts(RunBuilder):
         shapes = buildCombos(spec, "shape_variation")
         all_vars = [("central", {})] + weights + shapes
         all_vars = [x for x in all_vars if self.systs.match(x[0])]
-        print(all_vars)
+        all_vars  = [("central", {})] + all_vars
         return all_vars
 
 @define
