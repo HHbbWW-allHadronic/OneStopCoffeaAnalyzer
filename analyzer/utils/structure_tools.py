@@ -3,7 +3,7 @@ from __future__ import annotations
 import fnmatch
 import copy
 from collections import ChainMap, OrderedDict, namedtuple
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import Any
 
 
@@ -22,7 +22,7 @@ def dotFormat(s, **kwargs):
 
 def dictToDot(dictionary):
     for field, value in dictionary.items():
-        if isinstance(value, dict):
+        if isinstance(value, Mapping):
             for key, val in dictToDot(value):
                 yield f"{field}.{key}", val
         else:
