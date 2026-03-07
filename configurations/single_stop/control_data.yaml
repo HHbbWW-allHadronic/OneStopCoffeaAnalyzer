@@ -294,9 +294,9 @@ Postprocessing:
       diagnostic_output_name: "{prefix}/plots/{era.name}/test.png"
       
       structure:
-        select: {type: SavedColumns, pipeline: "Prescaled"}
+        select: {type: SavedColumns, pipeline: "Prescaled", sample_type: "Data"}
 
-        group: {era.name: "*", dataset_name: "*"}
+        group: {era.name: "*"}
         transforms:
           - name: MaskData
             mask: "~(~PassHT & ~PassAK8 & PassAK8SD & (PTFat>550) & (MSDFat<70))"
@@ -309,11 +309,11 @@ Postprocessing:
                 histogram_name: test
                 column_axis_mapping:
                   HT:
-                    edges: [[600,1500,25]]
+                    edges: [400,500,[600,1300,25],1500, 2000]
                     name: HT
                     unit: GeV
                   PTFat:
-                    edges: [[250,700,15]]
+                    edges: [200, 250,  [350,600,15], 700 , 1000]
                     name: PT
                     unit: GeV
               - name: FormatTitle
@@ -326,11 +326,11 @@ Postprocessing:
                 histogram_name: test
                 column_axis_mapping:
                   HT:
-                    edges: [[600,1500,25]]
+                    edges: [400,500,[600,1300,25],1500, 2000]
                     name: HT
                     unit: GeV
                   PTFat:
-                    edges: [[250,700,15]]
+                    edges: [200, 250,  [350,600,15], 700 , 1000]
                     name: PT
                     unit: GeV
               - name: FormatTitle
