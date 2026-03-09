@@ -33,7 +33,7 @@ def plotOne(
     style_set,
     scale="linear",
     normalize=False,
-    show_int=False,
+    show_info=False,
     plot_configuration=None,
 ):
     stacked_hists = stacked_hists or []
@@ -44,9 +44,13 @@ def plotOne(
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
-        if show_int:
-            integral = round(h.sum().value)
-            title = f"{title}, N={integral}"
+        if show_info:
+            integral = h.sum().value
+            counts = h.values()
+            centers = h.axes[0].centers
+            mean = np.average(centers, weights=counts)
+            std = np.sqrt(np.average((centers - mean)**2, weights=counts))
+            title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
@@ -68,9 +72,13 @@ def plotOne(
         for item, meta in stacked_hists:
             hists.append(item.histogram)
             title = meta.get("title") or meta["dataset_title"]
-            if show_int:
+            if show_info:
                 integral = item.histogram.sum().value
-                title = f"{title}, N={integral}"
+                counts = item.histogram.values()
+                centers = item.histogram.axes[0].centers
+                mean = np.average(centers, weights=counts)
+                std = np.sqrt(np.average((centers - mean)**2, weights=counts))
+                title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get().items():
@@ -192,7 +200,7 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
     ratio_ax.errorbar(x_values, ratio, yerr=unc, **opts)
 
 
-def plotStackedDenominators(ax, denominators, styler, normalize=False):
+def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
     den_to_plot = sorted(denominators, key=lambda x: x.item.histogram.sum().value)
 
     hists = []
@@ -217,14 +225,15 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False):
         label=titles,
         **style_kwargs,
     )
-
+    
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
-    mplhep.histplot(
-        den_total,
-        ax=ax,
-        label="Den. Stat. Unc.",
-        histtype="band",
-    )
+    if show_den_unc:
+        mplhep.histplot(
+            den_total,
+            ax=ax,
+            label="Den. Stat. Unc.",
+            histtype="band",
+        )
     return den_total
 
 
@@ -354,6 +363,7 @@ def plotRatio(
     no_stack=False,
     ratio_hlines=(1.0,),
     ratio_height=0.3,
+    show_den_unc=True
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -391,6 +401,7 @@ def plotRatio(
             denominator,
             styler,
             normalize=normalize,
+            show_den_unc=show_den_unc
         )
         plotMultiNumerators(
             ax,
@@ -402,6 +413,7 @@ def plotRatio(
             ratio_type=ratio_type,
             x_values=x_values,
             ratio_func=ratio_func,
+            show_den_unc=show_den_unc
         )
 
     for y in ratio_hlines:
