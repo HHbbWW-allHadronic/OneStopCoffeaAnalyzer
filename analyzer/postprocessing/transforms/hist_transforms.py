@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import itertools as it
+import functools as ft
+import operator as op
 from analyzer.postprocessing.style import Style
 from analyzer.core.results import Histogram
 import numpy as np
@@ -108,6 +110,30 @@ class SplitAxes(TransformHistogram):
 
         return ret
 
+@define
+class SumHistograms(TransformHistogram):
+    sum_match_pattern: BasePattern
+
+    def __call__(self, items):
+        to_sum = []
+        ret = []
+        for ph, meta in items:
+            h = ph.histogram
+            if self.sum_match_pattern.match(meta):
+                to_sum.append(ph)
+            else:
+                ret.append(ph)
+
+        total_hist = ft.reduce(op.add, [x.histogram for x in to_sum])
+        new_meta = commonDict(to_sum)
+        
+        ret.append(
+            ItemWithMeta(
+                Histogram(name=new_meta["name"], axes=to_sum[0].axes, histogram=total_hist), new_meta
+            )
+        )
+
+        return ret
 
 @define
 class NormalizeSystematicByProjection(TransformHistogram):
