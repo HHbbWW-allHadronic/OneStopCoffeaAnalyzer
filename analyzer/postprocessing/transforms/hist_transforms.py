@@ -14,11 +14,12 @@ from analyzer.utils.structure_tools import (
 )
 from attrs import define, field, asdict
 from .registry import TransformHistogram
+from rich import print
 
 
 @define
 class SelectAxesValues(TransformHistogram):
-    select_axes_values: dict[str, list[str] | list[int] | list[float]]
+    select_axes_values: dict[str, list[int] | list[str] | list[float]]
 
     def __call__(self, items: list[ItemWithMeta]):
         ret = []
@@ -29,7 +30,12 @@ class SelectAxesValues(TransformHistogram):
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]
             for p in it.product(*vals):
                 u = dict(zip(keys, p))
-                new_meta = ChainMap(meta, u)
+                new_meta = ChainMap(
+                    meta,
+                    {"axis_params": ChainMap(meta.get("axis_params", {}), u)},
+                )
+                u = dict(zip(keys, [hist.loc(x) for x in p]))
+
                 ret.append(
                     ItemWithMeta(
                         Histogram(name=item.name, axes=[], histogram=h[u]), new_meta
@@ -105,60 +111,56 @@ class SplitAxes(TransformHistogram):
 
 @define
 class NormalizeSystematicByProjection(TransformHistogram):
-    projection_axes: list[str]
-    unweighted_name: str
-    other_name: str
-    target_name: str
+    normalize_within: list[str]
+    pre_sf_name: str
+    post_sf_name: str
     variation_axis: str = "variation"
-
-    # @field_validator("projection_axes", mode="before")
-    # @classmethod
-    # def makeList(cls, data):
-    #     if isinstance(data, str):
-    #         return [data]
-    #     return data
 
     def __call__(self, items):
         import hist
 
         ret = []
         for ph, meta in items:
-            hold = ph.histogram
             h = ph.histogram.copy(deep=True)
+            v_idx = h.axes.name.index(self.variation_axis)
+            pre_idx = h.axes[self.variation_axis].index(self.pre_sf_name)
+            post_idx = h.axes[self.variation_axis].index(self.post_sf_name)
 
-            proj_axes = [h.axes[x] for x in self.projection_axes]
-            for idxs in it.product(
-                *((hist.underflow, *range(len(x)), hist.overflow) for x in proj_axes)
-            ):
-                # print(i, pa.bin(i))
-                d = dict(zip((x.name for x in proj_axes), idxs))
-                hu = (
-                    hold[
-                        {
-                            **d,
-                            self.variation_axis: self.unweighted_name,
-                        }
-                    ]
-                    .sum()
-                    .value
-                )
-                hv = hold[{**d, self.variation_axis: self.other_name}].sum().value
+            view = h.view(flow=True)
+            
+            slices_pre, slices_post = [slice(None)] * view.ndim, [slice(None)] * view.ndim
+            slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
+            
+            pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
+            axes_to_sum = tuple(
+                i for i, a in enumerate(a for a in h.axes if a.name != self.variation_axis)
+                if a.name not in self.normalize_within
+            )
 
-                if hv == 0:
+            if axes_to_sum:
+                pre_sum = pre_view["value"].sum(axis=axes_to_sum)
+                post_sum = post_view["value"].sum(axis=axes_to_sum)
+            else:
+                pre_sum = pre_view["value"]
+                post_sum = post_view["value"]
+
+            scale = np.divide(pre_sum, post_sum, out=np.zeros_like(pre_sum, dtype=float), where=post_sum != 0)
+            broadcast_shape = []
+            scale_idx = 0
+            for a in h.axes:
+                if a.name == self.variation_axis:
                     continue
+                if a.name in self.normalize_within:
+                    broadcast_shape.append(scale.shape[scale_idx])
+                    scale_idx += 1
+                else:
+                    broadcast_shape.append(1)
 
-                scale = hu / hv
-                vals = scale * h[{**d, self.variation_axis: self.target_name}].values()
-                weights = (
-                    scale**2
-                    * h[{**d, self.variation_axis: self.target_name}].variances()
-                )
+            scale = scale.reshape(broadcast_shape)
 
-                h[{**d, self.variation_axis: self.target_name}] = np.stack(
-                    [vals, weights], axis=-1
-                )
+            post_view["value"] *= scale
+            post_view["variance"] *= scale**2
 
-            copy.deepcopy(ph.provenance)
             ret.append(
                 ItemWithMeta(
                     Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
