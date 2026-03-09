@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import copy
 import itertools as it
+import functools as ft
+import operator as op
 from analyzer.postprocessing.style import Style
 from analyzer.core.results import Histogram
 import numpy as np
@@ -11,6 +13,7 @@ from collections import ChainMap, OrderedDict
 from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
+    commonDict
 )
 from attrs import define, field, asdict
 from .registry import TransformHistogram
@@ -108,6 +111,30 @@ class SplitAxes(TransformHistogram):
 
         return ret
 
+@define
+class SumHistograms(TransformHistogram):
+    sum_match_pattern: BasePattern
+    new_meta_fields: dict = field(factory=dict)
+
+    def __call__(self, items):
+        to_sum = []
+        ret = []
+        for itemmeta in items:
+            if self.sum_match_pattern.match(itemmeta.metadata):
+                to_sum.append(itemmeta)
+            else:
+                ret.append(itemmeta)
+        if to_sum:
+            total_hist = ft.reduce(op.add, [x.item.histogram for x in to_sum])
+            new_meta = commonDict(to_sum)
+            new_meta = ChainMap(new_meta, self.new_meta_fields)
+            ret.append(
+                ItemWithMeta(
+                    Histogram(name=new_meta["name"], axes=to_sum[0].item.axes, histogram=total_hist), new_meta
+                )
+            )
+
+        return ret
 
 @define
 class NormalizeSystematicByProjection(TransformHistogram):
