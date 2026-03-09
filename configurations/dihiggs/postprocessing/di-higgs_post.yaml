@@ -5,7 +5,7 @@ Postprocessing:
         - "*/*/*/*"
       scale: log
       normalize: False
-      show_int: True
+      show_info: True
       structure:
         select: {dataset_name: "*", name: "!selection"}
         group: {pipeline: "*", era.name: "*", name: "*"}
@@ -14,10 +14,39 @@ Postprocessing:
             split_axis_names: {"variation": "central"}
       output_name: "plots_LOG/{era.name}/{pipeline}/{name}"
 
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/jet_pt_1"
+        - "*/*/*/JetHT"
+        - "*/*/*/MedBN"
+        - "*/*/*/JetN"
+      ratio_type: "efficiency"
+      show_den_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: NoSelection}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_NoSelection}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,700]}
+      output_name: "plots/{era.name}/trigger_eff_{name}.png"
+
   default_plot_config:
     cms_text: "Preliminary"
     image_type: ".png"
     cms_text_color: Black
     legend_num_cols: 1
-    show_int: True
 

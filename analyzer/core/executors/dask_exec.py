@@ -32,6 +32,8 @@ from .executor import CompletedTask, Executor
 from .finalizers import basicFinalizer
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
 
+logger = logging.getLogger("analyzer")
+
 
 class RateColumn(ProgressColumn):
     def render(self, task: Task) -> Text:
@@ -142,9 +144,6 @@ def reduceResults(
 
         layer += 1
     return futures
-
-
-logger = logging.getLogger("analyzer")
 
 
 def runWithFinalize(analyzer, *args, **kwargs):
@@ -440,8 +439,8 @@ class LPCCondorDask(Executor):
     schedd_address: str | None = "localhost:12358"
     adapt: bool = True
     chunk_size: int | None = 100000
-    reduction_factor: int = 2
-    timeout: int = 180
+    reduction_factor: int = 5
+    timeout: int = 360
     cluster: Any = None
     client: Any = None
     target_final_count: int = 1
@@ -492,12 +491,12 @@ class LPCCondorDask(Executor):
         }
         kwargs["python"] = f"{str(self.venv_path)}/bin/python"
         # prologue = dask.config.get("jobqueue.lpccondor.job-script-prologue")
-        # prologue.append(
-        #     "export DASK_INTERNAL_INHERIT_CONFIG="
-        #     + dask.config.serialize(dask.config.global_config)
-        # )
 
         prologue = ["export DASK_DISTRIBUTED__WORKER__DAEMON=0", "source setup.sh"]
+        prologue.append(
+            "export DASK_INTERNAL_INHERIT_CONFIG="
+            + dask.config.serialize(dask.config.global_config)
+        )
 
         self.cluster = LPCCondorCluster(
             ship_env=False,
