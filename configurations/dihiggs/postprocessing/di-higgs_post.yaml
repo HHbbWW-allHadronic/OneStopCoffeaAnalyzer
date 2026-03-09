@@ -9,10 +9,13 @@ Postprocessing:
       structure:
         select: {dataset_name: "*", name: "!selection"}
         group: {pipeline: "*", era.name: "*", name: "*"}
+        subgroups:
+          unstacked: {dataset_name: "ggHH2b2V6q*"}
+          stacked: {dataset_name: "tt*", dataset_name: "qcd*"}
         transforms:
-          - name: SplitAxes
-            split_axis_names: {"variation": "central"}
-      output_name: "plots_LOG/{era.name}/{pipeline}/{name}"
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
       inputs:
