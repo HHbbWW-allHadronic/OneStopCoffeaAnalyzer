@@ -20,6 +20,13 @@ Postprocessing:
             new_meta_fields:
               dataset_name: "tt"
               title: "$t\\overline{t}$"
+        styles:
+          - pattern: {dataset_name: "!gg*"}
+            style:
+              fill: true
+          - pattern: {dataset_name: "gg*"}
+            style:
+              fill: false
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
