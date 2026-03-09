@@ -352,7 +352,6 @@ class FormatTitle(TransformHistogram):
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
                 meta,
             )
-            print(meta["title"])
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret
 
