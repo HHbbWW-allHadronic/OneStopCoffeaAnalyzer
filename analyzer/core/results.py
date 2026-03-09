@@ -543,13 +543,45 @@ def configureConverter(conv):
 configureConverter(converter)
 
 
-def loadResults(paths, peek_only=False):
+def iFilterResultGroup(rg, keep_patterns, current_path=None):
+    from fnmatch import fnmatch
+    if current_path is None:
+        current_path = ()
+    new_results = {}
+    for k, v in rg.results.items():
+        sub_path = current_path + (k,)
+        if k.startswith("_"):
+            new_results[k] = v
+            continue
+            
+        if isinstance(v, ResultGroup):
+            filtered_v = iFilterResultGroup(v, keep_patterns, sub_path)
+            if filtered_v.results:
+                new_results[k] = filtered_v
+        else:
+            keep = False
+            for pattern in keep_patterns:
+                if len(sub_path) == len(pattern) and all(fnmatch(sp, p) for sp, p in zip(sub_path, pattern)):
+                    keep = True
+                    break
+            if keep:
+                new_results[k] = v
+                
+    rg.results = new_results
+    return rg
+
+
+def loadResults(paths, peek_only=False, keep_patterns=None):
     all_paths = paths
     ret = None
     func = ResultGroup.peekBytes if peek_only else ResultGroup.fromBytes
     for p in progbar(iterPaths(all_paths)):
         with open(p, "rb") as f:
             result = func(f.read())
+        
+        if keep_patterns is not None:
+            iFilterResultGroup(result, keep_patterns)
+
         if ret is None:
             ret = result
         else:

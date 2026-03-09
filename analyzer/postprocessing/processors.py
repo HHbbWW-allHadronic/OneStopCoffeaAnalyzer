@@ -47,12 +47,7 @@ def configureConverter(conv):
     union_strategy = ft.partial(configure_tagged_union, tag_name="name")
     include_subclasses(BasePostprocessor, conv, union_strategy=union_strategy)
 
-    union_strategy = ft.partial(configure_tagged_union, tag_name="name")
-    include_subclasses(Transform, conv, union_strategy=union_strategy)
-
     base_hook = conv.get_structure_hook(BasePostprocessor)
-    conv.register_structure_hook(int | float | None, lambda x, t: x)
-    configure_union_passthrough(int | float | None, conv)
 
     def convStr(x):
         if isinstance(x, str):
