@@ -211,7 +211,7 @@ common_histograms: &common_histograms
     jet_combos:
       - [0,1]
     mass_axis:
-      name: "$b_dijet"
+      name: "b_dijet"
       start: 0
       stop: 500
       bins: 50

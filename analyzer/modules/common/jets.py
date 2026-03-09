@@ -1,9 +1,8 @@
+from analyzer.core.analysis_modules import AnalyzerModule
 import re
 
-from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
-from analyzer.core.datasets import SampleType
 from analyzer.utils.structure_tools import flatten
 from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
@@ -381,7 +380,6 @@ class TopVecHistograms(AnalyzerModule):
 
     prefix: str
     input_col: Column
-    hist_name: str
     max_idx: int
 
     def run(self, columns, params):
@@ -394,7 +392,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_pt_{i + 1}",
                     columns,
-                    RegularAxis(20, 0, 1000, f"{self.hist_name} $p_{{T, {i + 1}}}$", unit="GeV"),
+                    RegularAxis(20, 0, 1000, f"{self.prefix} $p_{{T, {i + 1}}}$", unit="GeV"),
                     padded[:, i].pt,
                     description=f"$p_T$ of jet {i + 1} ",
                     mask=mask,
@@ -404,7 +402,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_eta_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"{self.hist_name} $\\eta_{{{i + 1}}}$"),
+                    RegularAxis(20, -4, 4, f"{self.prefix} $\\eta_{{{i + 1}}}$"),
                     padded[:, i].eta,
                     description=f"$\\eta$ of jet {i + 1} ",
                     mask=mask,
@@ -414,130 +412,79 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_phi_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"{self.hist_name} $\\phi_{{{i + 1}}}$"),
-                padded[:, i].phi,
-                description=f"$\\phi$ of jet {i + 1} ",
-                mask=mask,
+                    RegularAxis(20, -4, 4, f"{self.prefix} $\\phi_{{{i + 1}}}$"),
+                    padded[:, i].phi,
+                    description=f"$\\phi$ of jet {i + 1} ",
+                    mask=mask,
+                )
             )
-        )
 
-    return columns, ret
+        return columns, ret
 
-def outputs(self, metadata):
-    return []
+    def outputs(self, metadata):
+        return []
 
-def inputs(self, metadata):
-    return [self.input_col]
-
-
-@define
-class JetCombos(AnalyzerModule):
-r"""
-Compute invariant masses for specified combinations of jets.
-
-This analyzer calculates the invariant mass for each group of jets
-defined by their indices in the input collection. The results are
-stored in new columns named using the prefix and the (min, max)
-indices of the jets in the combination.
-
-Parameters
-----------
-prefix : str
-    Prefix used for naming the generated mass columns.
-input_col : Column
-    Column containing the jet collection.
-jet_combos : list of list of int
-    List of jet index combinations. Each inner list specifies the
-    indices of jets to be combined (e.g. ``[0, 1]`` for the leading
-    two jets).
-
-"""
-
-prefix: str
-input_col: Column
-jet_combos: list[list[int]]
-
-def getNames(self):
-    return [
-        f"{self.prefix}_{min(combo) + 1}{max(combo) + 1}_m"
-        for combo in self.jet_combos
-    ]
-
-def run(self, columns, params):
-    jets = columns[self.input_col]
-    max_idx = max(flatten(self.jet_combos))
-    padded = ak.pad_none(jets, max_idx + 1, axis=1)
-    for combo in self.jet_combos:
-        i, j = min(combo), max(combo)
-        summed = padded[:, combo].sum()
-        columns[f"{self.prefix}_{i + 1}{j + 1}_m"] = summed.mass
-
-    return columns, []
-
-def outputs(self, metadata):
-    return [Column(name) for name in self.getNames()]
-
-def inputs(self, metadata):
-    return [self.input_col]
+    def inputs(self, metadata):
+        return [self.input_col]
 
 
 @define
 class JetComboHistograms(AnalyzerModule):
-"""
-Build composite objects from specified combinations
-of jets (by index) and produces histograms of their invariant mass
-and transverse momentum. Each combination is treated independently,
-and histograms are filled only for events where all required jets
-are present.
+    """
+    Build composite objects from specified combinations
+    of jets (by index) and produces histograms of their invariant mass
+    and transverse momentum. Each combination is treated independently,
+    and histograms are filled only for events where all required jets
+    are present.
 
-Parameters
-----------
-prefix : str
-    Prefix used for naming the generated histograms.
-input_col : Column
-    Column containing the jet collection.
-jet_combos : list of list of int
-    List of jet index combinations. Each inner list specifies the
-    indices of jets to be combined (e.g. ``[0, 1]`` for the leading
-    two jets).
-"""
+    Parameters
+    ----------
+    prefix : str
+        Prefix used for naming the generated histograms.
+    input_col : Column
+        Column containing the jet collection.
+    jet_combos : list of list of int
+        List of jet index combinations. Each inner list specifies the
+        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
+        two jets).
+    """
 
-prefix: str
-input_col: Column
-jet_combos: list[list[int]]
-mass_axis: RegularAxis = field(
-    factory=lambda: RegularAxis(50, 0, 3000, "", unit="GeV")
-)
+    prefix: str
+    input_col: Column
+    jet_combos: list[list[int]]
+    mass_axis: RegularAxis = field(
+        factory=lambda: RegularAxis(50, 0, 3000, "", unit="GeV")
+    )
 
-def run(self, columns, params):
-    jets = columns[self.input_col]
-    ret = []
-    max_idx = max(flatten(self.jet_combos))
-    padded = ak.pad_none(jets, max_idx + 1, axis=1)
-    for combo in self.jet_combos:
-        i, j = min(combo), max(combo)
-        mask = ak.num(jets, axis=1) > max(combo)
-        summed = padded[:, combo].sum()
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+        ret = []
+        max_idx = max(flatten(self.jet_combos))
+        padded = ak.pad_none(jets, max_idx + 1, axis=1)
+        for combo in self.jet_combos:
+            i, j = min(combo), max(combo)
+            mask = ak.num(jets, axis=1) > max(combo)
+            summed = padded[:, combo].sum()
 
-        axis = self.mass_axis
-        name_suffix = f"$m_{{{i + 1}{j + 1}}}$"
+            axis = self.mass_axis
+            name_suffix = f"$m_{{{i + 1}{j + 1}}}$"
 
-        if axis.name:
-            new_name = f"{axis.name} {name_suffix}"
-        else:
-            new_name = name_suffix
+            if axis.name:
+                new_name = f"{axis.name} {name_suffix}"
+            else:
+                new_name = name_suffix
 
-        axis = evolve(axis, name=new_name)
+            axis = evolve(axis, name=new_name)
 
-        ret.append(
-            makeHistogram(
-                f"{self.prefix}_{i + 1}{j + 1}_m",
-                columns,
-                axis,
-                summed.mass,
-                mask=mask,
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_{i + 1}{j + 1}_m",
+                    columns,
+                    axis,
+                    summed.mass,
+                    mask=mask,
+                )
             )
-        )
             ret.append(
                 makeHistogram(
                     f"{self.prefix}_{i + 1}{j + 1}_pt",
@@ -592,7 +539,7 @@ class JetScaleCorrections(AnalyzerModule):
     def getKeyJec(name, jet_type, metadata):
         jec_params = metadata["era"]["jet_corrections"]
         jet_type = jec_params["jet_names"][jet_type]
-        data_mc = "MC" if metadata["sample_type"] == SampleType.MC else "DATA"
+        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
         campaign = jec_params["jec"]["campaign"]
         version = jec_params["jec"]["version"]
         ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
@@ -723,7 +670,7 @@ class JetResolutionCorrections(AnalyzerModule):
     def getKeyJer(name, jet_type, metadata):
         jet_params = metadata["era"]["jet_corrections"]
         jet_type = jet_params["jet_names"][jet_type]
-        data_mc = "MC" if metadata["sample_type"] == SampleType.MC else "DATA"
+        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
         campaign = jet_params["jer"]["campaign"]
         version = jet_params["jer"]["version"]
         ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
