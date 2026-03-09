@@ -26,6 +26,7 @@ class Histogram1D(BasePostprocessor):
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
     show_info: bool = False
+    show_stacked_unc: bool = True
 
     def getRunFuncs(self, group, prefix=None):
         if isinstance(group, dict):
@@ -50,6 +51,7 @@ class Histogram1D(BasePostprocessor):
             normalize=self.normalize,
             show_info=self.show_info,
             plot_configuration=pc,
+            show_stacked_unc=self.show_stacked_unc
         )
 
 
