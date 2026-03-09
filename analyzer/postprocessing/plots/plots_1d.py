@@ -40,6 +40,30 @@ def plotOne(
     styler = Styler(style_set)
     fig, ax = plt.subplots()
     h = None
+    if stacked_hists:
+        stacked_hists = sorted(
+            stacked_hists, key=lambda x: x.item.histogram.sum().value
+        )
+        style_kwargs = defaultdict(list)
+        hists = []
+        titles = []
+        for item, meta in stacked_hists:
+            hists.append(item.histogram)
+            titles.append(meta.get("title") or meta["dataset_title"])
+            style = styler.getStyle(meta)
+            for k, v in style.get(plottype="fill").items():
+                style_kwargs[k].append(v)
+
+        style_kwargs["histtype"] = style_kwargs["histtype"][0]
+
+        mplhep.histplot(
+            hists,
+            ax=ax,
+            stack=True,
+            **style_kwargs,
+            label=titles,  # sort="yield"
+        )
+
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
@@ -52,31 +76,9 @@ def plotOne(
             flow="none",
             **style.get(),
         )
+
     if h is None:
         h = stacked_hists[0]
-    if stacked_hists:
-        stacked_hists = sorted(
-            stacked_hists, key=lambda x: x.item.histogram.sum().value
-        )
-        style_kwargs = defaultdict(list)
-        hists = []
-        titles = []
-        for item, meta in stacked_hists:
-            hists.append(item.histogram)
-            titles.append(meta.get("title") or meta["dataset_title"])
-            style = styler.getStyle(meta)
-            for k, v in style.get().items():
-                style_kwargs[k].append(v)
-
-        style_kwargs["histtype"] = style_kwargs["histtype"][0]
-
-        mplhep.histplot(
-            hists,
-            ax=ax,
-            stack=True,
-            **style_kwargs,
-            label=titles,  # sort="yield"
-        )
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
