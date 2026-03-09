@@ -44,13 +44,13 @@ def plotOne(
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
-        if show_info:
-            integral = round(h.sum().value, 1)
+        if show_int:
+            integral = round(h.sum().value)
             counts = h.values()
             centers = h.axes[0].centers
             mean = np.average(centers, weights=counts)
             std = np.sqrt(np.average((centers - mean)**2, weights=counts))
-            title = f"{title}, Int.={integral}\nmean={mean:.3f}, std={std:.3f}"
+            title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
         h.plot1d(
             ax=ax,
@@ -72,13 +72,13 @@ def plotOne(
         for item, meta in stacked_hists:
             hists.append(item.histogram)
             title = meta.get("title") or meta["dataset_title"]
-            if show_info:
-                integral = round(item.histogram.sum().value, 1)
+            if show_int:
+                integral = item.histogram.sum().value
                 counts = item.histogram.values()
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
                 std = np.sqrt(np.average((centers - mean)**2, weights=counts))
-                title = f"{title}, Int.={integral}\nmean={mean:.3f}, std={std:.3f}"
+                title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get().items():

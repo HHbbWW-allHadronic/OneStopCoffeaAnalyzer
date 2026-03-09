@@ -34,7 +34,7 @@ class FourVecHistograms(AnalyzerModule):
     def run(self, columns, params):
         jets = columns[self.input_col]
         ret = []
-        mass_axis = evolve(self.mass_axis, name=f"{self.hist_name} $m$")
+        mass_axis = evolve(self.mass_axis, name=f"{self.hist_name} $mass$")
         ret.append(
             makeHistogram(
                 f"{self.hist_name}_pt",
@@ -64,7 +64,7 @@ class FourVecHistograms(AnalyzerModule):
         )
         ret.append(
             makeHistogram(
-                f"{self.hist_name}_m",
+                f"{self.hist_name}_mass",
                 columns,
                 mass_axis,
                 jets.mass,

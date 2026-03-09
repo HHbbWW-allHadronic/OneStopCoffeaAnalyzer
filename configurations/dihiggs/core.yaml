@@ -78,7 +78,16 @@ common_objects: &common_objects
 
   - module_name: Count
     input_col: MedB
-    output_col: NMedB 
+    output_col: NMedB
+
+  - module_name: GenPartDecayWalker
+    input_col: GenPart
+    output_col: GenPart_2b4q
+    sample_type: signal
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b4q
+    output_col: min_dr_GenPart 
 
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
@@ -134,6 +143,7 @@ common_histograms: &common_histograms
   - module_name: TopVecHistograms
     prefix: "jet"
     input_col: goodJet
+    hist_name: Jet
     max_idx: 6
 
   - module_name: FourVecHistograms
@@ -267,6 +277,7 @@ gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
     prefix: "genjet"
     input_col: GenJet
+    hist_name: GenJet
     max_idx: 6
 
   - module_name: SimpleHistogram
@@ -315,7 +326,14 @@ gen_histograms: &gen_histograms
 
 
 
-
+  - module_name: SimpleHistogram
+    hist_name: min_dr_GenPart
+    input_cols: [min_dr_GenPart]
+    axes:
+      - name: "minDR_{{GenPart}}"
+        start: 0.0
+        stop: 3.0
+        bins: 60
 
 analyzer:
   default_run_builder:
