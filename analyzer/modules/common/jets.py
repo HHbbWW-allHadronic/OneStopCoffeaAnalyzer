@@ -380,6 +380,7 @@ class TopVecHistograms(AnalyzerModule):
 
     prefix: str
     input_col: Column
+    hist_name: str
     max_idx: int
 
     def run(self, columns, params):
@@ -392,7 +393,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_pt_{i + 1}",
                     columns,
-                    RegularAxis(20, 0, 1000, f"{self.prefix} $p_{{T, {i + 1}}}$", unit="GeV"),
+                    RegularAxis(20, 0, 1000, f"{self.hist_name} $p_{{T, {i + 1}}}$", unit="GeV"),
                     padded[:, i].pt,
                     description=f"$p_T$ of jet {i + 1} ",
                     mask=mask,
@@ -402,7 +403,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_eta_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"{self.prefix} $\\eta_{{{i + 1}}}$"),
+                    RegularAxis(20, -4, 4, f"{self.hist_name} $\\eta_{{{i + 1}}}$"),
                     padded[:, i].eta,
                     description=f"$\\eta$ of jet {i + 1} ",
                     mask=mask,
@@ -412,7 +413,7 @@ class TopVecHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_phi_{i + 1}",
                     columns,
-                    RegularAxis(20, -4, 4, f"{self.prefix} $\\phi_{{{i + 1}}}$"),
+                    RegularAxis(20, -4, 4, f"{self.hist_name} $\\phi_{{{i + 1}}}$"),
                     padded[:, i].phi,
                     description=f"$\\phi$ of jet {i + 1} ",
                     mask=mask,
