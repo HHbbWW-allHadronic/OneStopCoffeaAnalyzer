@@ -25,6 +25,7 @@ class Histogram1D(BasePostprocessor):
     style_set: str | StyleSet = field(factory=StyleSet)
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
+    show_stacked_unc: bool = True
 
     def getRunFuncs(self, group, prefix=None):
         if isinstance(group, dict):
@@ -48,6 +49,7 @@ class Histogram1D(BasePostprocessor):
             style_set=self.style_set,
             normalize=self.normalize,
             plot_configuration=pc,
+            show_stacked_unc=self.show_stacked_unc
         )
 
 

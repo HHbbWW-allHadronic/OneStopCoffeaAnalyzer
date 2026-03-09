@@ -34,6 +34,7 @@ def plotOne(
     scale="linear",
     normalize=False,
     plot_configuration=None,
+    show_stacked_unc=True
 ):
     stacked_hists = stacked_hists or []
     pc = plot_configuration or PlotConfiguration()
@@ -63,6 +64,14 @@ def plotOne(
             **style_kwargs,
             label=titles,  # sort="yield"
         )
+        if show_stacked_unc:
+            stacked_total = ft.reduce(op.add, [x.item.histogram for x in stacked_hists])
+            mplhep.histplot(
+                stacked_total,
+                ax=ax,
+                label ="Stacked Unc.",
+                histtype="band",
+                )
 
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
