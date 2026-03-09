@@ -80,15 +80,6 @@ common_objects: &common_objects
     input_col: MedB
     output_col: NMedB
 
-  - module_name: GenPartDecayWalker
-    input_col: GenPart
-    output_col: GenPart_2b4q
-    sample_type: signal
-
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_2b4q
-    output_col: min_dr_GenPart 
-
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
@@ -322,7 +313,14 @@ gen_histograms: &gen_histograms
       bins: 50
       unit: "GeV"
 
+  - module_name: GenPartDecayWalker
+    input_col: GenPart
+    output_col: GenPart_2b4q
+    sample_type: signal
 
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b4q
+    output_col: min_dr_GenPart 
 
   - module_name: SimpleHistogram
     hist_name: min_dr_GenPart
