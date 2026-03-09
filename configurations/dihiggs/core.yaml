@@ -388,10 +388,10 @@ event_collections:
       - noHLT_ObjDef1
       - withHLT_ObjDef2
       - noHLT_ObjDef2
-#  - dataset: 'qcd*2024*'
-#    pipelines: [withHLT_ObjDef1]
-#  - dataset: 'tt_hadronic*2024*'
-#    pipelines: [withHLT_ObjDef1]
-#  - dataset: 'tt_semilep*2024'
-#    pipelines: [SignalRegion]
+  - dataset: 'qcd*2024*'
+    pipelines: [withHLT_ObjDef1]
+  - dataset: 'tt_hadronic*2024*'
+    pipelines: [withHLT_ObjDef1]
+  - dataset: 'tt_semilep*2024'
+    pipelines: [withHLT_ObjDef1]
         
