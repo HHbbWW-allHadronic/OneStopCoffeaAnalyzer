@@ -163,7 +163,7 @@ class NNMassPlots(AnalyzerModule):
             makeHistogram(
                 f"{self.prefix}_mChi",
                 columns,
-                RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
+                RegularAxis(60, 0, 3000, r"$m_{\chi}$", unit="GeV"),
                 chi_m,
             )
         )

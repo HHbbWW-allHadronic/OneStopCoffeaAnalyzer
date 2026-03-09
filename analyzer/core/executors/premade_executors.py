@@ -69,4 +69,27 @@ def getPremadeExcutors() -> dict[str, Executor]:
             worker_memory="8GB",
             container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12",
         ),
+        "lpc-dask-condor-4G-100000-2": LPCCondorDask(
+            chunk_size=100000,
+            min_workers=5,
+            max_workers=250,
+            worker_memory="4GB",
+            reduction_factor=2,
+            container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12",
+        ),
+        "lpc-dask-condor-4G-400000-2": LPCCondorDask(
+            chunk_size=400000,
+            min_workers=5,
+            max_workers=400,
+            worker_memory="4GB",
+            reduction_factor=2,
+            container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12",
+        ),
+        "local-dask-4G-100000-2": LocalDaskExecutor(
+            chunk_size=100000,
+            min_workers=4,
+            max_workers=4,
+            worker_memory="4GB",
+            reduction_factor=2,
+        ),
     }
