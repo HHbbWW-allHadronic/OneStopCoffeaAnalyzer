@@ -46,7 +46,7 @@ def plotOne(
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
         if show_info:
-            integral = round(h.sum().value, 1)
+            integral = h.sum().value
             counts = h.values()
             centers = h.axes[0].centers
             mean = np.average(centers, weights=counts)
