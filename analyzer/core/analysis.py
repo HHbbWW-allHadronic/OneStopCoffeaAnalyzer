@@ -6,6 +6,7 @@ from analyzer.core.analyzer import Analyzer
 from analyzer.core.executors import Executor
 from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
+from analyzer.utils.yamlload import loadTemplateYaml
 
 try:
     from yaml import CLoader as Loader
@@ -40,8 +41,7 @@ class Analysis:
 
 
 def loadAnalysis(path):
-    with open(path, "r") as f:
-        data = yaml.load(f, Loader=Loader)
+    data = loadTemplateYaml(path)
 
     for path in data.get("extra_module_paths", []):
         from pathlib import Path
