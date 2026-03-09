@@ -16,15 +16,12 @@ Postprocessing:
 
     - name: RatioPlot
       inputs:
-        - "*/*/*/jet_pt_1"
-        - "*/*/*/JetHT"
-        - "*/*/*/MedBN"
-        - "*/*/*/JetN"
+        - "*/*/*/*"
       ratio_type: "efficiency"
       show_den_unc: False
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -41,7 +38,7 @@ Postprocessing:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
           - name: SliceAxes
-            slices: {0: [0,700]}
+            slices: {0: [0,1200]}
       output_name: "plots/{era.name}/trigger_eff_{name}.png"
 
   default_plot_config:

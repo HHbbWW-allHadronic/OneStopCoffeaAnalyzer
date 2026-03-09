@@ -44,7 +44,7 @@ def plotOne(
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
         h = item.histogram
-        if show_int:
+        if show_info:
             integral = h.sum().value
             counts = h.values()
             centers = h.axes[0].centers
@@ -72,7 +72,7 @@ def plotOne(
         for item, meta in stacked_hists:
             hists.append(item.histogram)
             title = meta.get("title") or meta["dataset_title"]
-            if show_int:
+            if show_info:
                 integral = item.histogram.sum().value
                 counts = item.histogram.values()
                 centers = item.histogram.axes[0].centers
