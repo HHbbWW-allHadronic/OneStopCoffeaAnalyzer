@@ -10,11 +10,16 @@ Postprocessing:
         select: {dataset_name: "*", name: "!selection"}
         group: {pipeline: "*", era.name: "*", name: "*"}
         subgroups:
-          unstacked: {dataset_name: "ggHH2b2V6q*"}
-          stacked: {dataset_name: "tt*", dataset_name: "qcd*"}
+          unstacked: {select: {dataset_name: "ggHH2b2V6q*"}}
+          stacked: {select: {dataset_name: "!ggHH2b2V6q*"}}
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
