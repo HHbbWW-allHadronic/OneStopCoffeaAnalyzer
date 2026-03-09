@@ -203,6 +203,27 @@ class TestTrackedColumns:
             tc["new_col"] = ak.Array([1, 2, 3])
             with pytest.raises(RuntimeError):
                 tc["forbidden_col"] = ak.Array([1, 2, 3])
+                
+            # INTERNAL_USE_COL is universally allowed to bypass output lock
+            tc[TrackedColumns.INTERNAL_USE_COL + "internal_data"] = ak.Array([9, 9, 9])
+            assert ak.all(tc["INTERNAL_USE.internal_data"] == ak.Array([9, 9, 9]))
+
+    def testAddColumnsFrom(self, sample_events):
+        from analyzer.core.columns import TrackedColumns, EventBackend, Column
+        tc1 = TrackedColumns.fromEvents(sample_events, {}, EventBackend.coffea_imm, 0)
+        tc2 = TrackedColumns.fromEvents(sample_events, {}, EventBackend.coffea_imm, 0)
+
+        tc2._current_provenance = 99
+        tc2["test_port"] = ak.Array([100, 200, 300])
+        tc2["test_port2"] = ak.Array([400, 500, 600])
+        
+        # tc1 pulls test_port from tc2, simulating a cached restore
+        tc1.addColumnsFrom(tc2, [Column("test_port")])
+        
+        assert ak.all(tc1["test_port"] == ak.Array([100, 200, 300]))
+        assert tc1._column_provenance[Column("test_port")] == 99
+        # Ensure it didn't port unspecified columns
+        assert "test_port2" not in tc1._events.fields and Column("test_port2") not in tc1._lazy_columns
 
     def testParentColumnProvenanceHashes(self, sample_events):
         from analyzer.core.columns import TrackedColumns, EventBackend, Column

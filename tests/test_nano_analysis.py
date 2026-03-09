@@ -36,7 +36,7 @@ def testRunSimpleAnalysis():
     # 4. Define a simple AnalyzerModule
     class MuonPtAnalyzer(AnalyzerModule):
         def inputs(self, metadata):
-            return [Column("Muon.pt")]
+            return [Column("Muon")]
 
         def outputs(self, metadata):
             return [Column("MuonPtSum")]

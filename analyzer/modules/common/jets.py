@@ -490,7 +490,7 @@ class JetComboHistograms(AnalyzerModule):
                 makeHistogram(
                     f"{self.prefix}_{i + 1}{j + 1}_pt",
                     columns,
-                    RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
+                    RegularAxis(50, 0, 3000, f"$p_{{T, {i + 1}{j + 1}}}$", unit="GeV"),
                     summed.pt,
                     mask=mask,
                 )

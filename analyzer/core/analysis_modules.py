@@ -150,6 +150,7 @@ class AnalyzerModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns, params):
+        logger.debug(f"Params are {params}")
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
@@ -170,13 +171,19 @@ class AnalyzerModule(BaseAnalyzerModule):
     def __run(self, columns, params):
         orig_columns = columns
         columns = columns.copy()
-        key = self.getKey(columns, params)
-        logger.debug(f"Execution key is {key}")
+        input_key = self.getKey(columns, params)
+        outputs = self.outputs(columns.metadata)
+        
+        if outputs == "EVENTS":
+            cache_key = hash((input_key, columns.getKeyForAll()))
+        else:
+            cache_key = input_key
+            
+        logger.debug(f"Input key is {input_key}, Cache key is {cache_key}")
         logger.debug(f"Cached keys are {list(self._cache)}")
-        if key in self._cache:
+        if cache_key in self._cache:
             logger.debug("Found key, using cached result")
-            cached_cols, r, internal = self._cache[key]
-            outputs = self.outputs(columns.metadata)
+            cached_cols, r, internal = self._cache[cache_key]
             if outputs == "EVENTS":
                 return cached_cols, r
             outputs += internal
@@ -187,23 +194,23 @@ class AnalyzerModule(BaseAnalyzerModule):
         outputs = self.outputs(columns.metadata)
         inputs = self.inputs(columns.metadata)
         if outputs == "EVENTS":
-            output_cx = columns.allowedOutputs(outputs)
-        else:
             output_cx = contextlib.nullcontext()
+        else:
+            output_cx = columns.allowedOutputs(outputs)
 
         if inputs == "EVENTS":
-            inputs_cx = columns.allowedInputs(outputs)
-        else:
             inputs_cx = contextlib.nullcontext()
+        else:
+            inputs_cx = columns.allowedInputs(inputs)
 
         with (
-            columns.useKey(key),
+            columns.useKey(input_key),
             inputs_cx,
             output_cx,
         ):
             _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
-        self._cache[key] = (columns, res, internal)
+        self._cache[cache_key] = (columns, res, internal)
         return columns, res
 
     def __call__(self, columns, params):

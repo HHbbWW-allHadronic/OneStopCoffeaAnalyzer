@@ -149,6 +149,11 @@ common_histograms: &common_histograms
   - module_name: FourVecHistograms
     input_col: goodJet
     hist_name: Jet
+    mass_axis:
+      name: "Jet $m$"
+      start: 0
+      stop: 500
+      bins: 50
 
   - module_name: SimpleHistogram
     hist_name: JetHT
@@ -205,10 +210,21 @@ common_histograms: &common_histograms
     prefix: "b_dijet"
     jet_combos:
       - [0,1]
+    mass_axis:
+      name: "b_dijet"
+      start: 0
+      stop: 500
+      bins: 50
 
   - module_name: FourVecHistograms
     input_col: Jet
     hist_name: AK4Jet
+    mass_axis:
+      name: "AK4Jet"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
 
   - module_name: SimpleHistogram
     hist_name: AK4NJet
@@ -286,6 +302,29 @@ gen_histograms: &gen_histograms
   - module_name: FourVecHistograms
     input_col: GenJet
     hist_name: GenJet
+    mass_axis:
+      name: "GenJet"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenHiggs
+    pdgId: 25
+    status_flag: 13
+
+  - module_name: FourVecHistograms
+    input_col: GenHiggs
+    hist_name: GenHiggs
+    mass_axis:
+      name: "GenHiggs"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+
 
   - module_name: SimpleHistogram
     hist_name: min_dr_GenPart
@@ -329,7 +368,6 @@ analyzer:
       sel_name: selection
     - *common_histograms
 
-
   withHLT_NoSelection:
     - *hlt_selection
     - *common_objects
@@ -347,7 +385,13 @@ location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
-    pipelines: [withHLT_NoSelection, NoSelection]
+    pipelines: 
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - noHLT_ObjDef2
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
 #  - dataset: 'tt_hadronic*2024*'

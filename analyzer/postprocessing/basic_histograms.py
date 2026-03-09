@@ -25,7 +25,7 @@ class Histogram1D(BasePostprocessor):
     style_set: str | StyleSet = field(factory=StyleSet)
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
-    show_int: bool = False
+    show_info: bool = False
 
     def getRunFuncs(self, group, prefix=None):
         if isinstance(group, dict):
@@ -48,7 +48,7 @@ class Histogram1D(BasePostprocessor):
             scale=self.scale,
             style_set=self.style_set,
             normalize=self.normalize,
-            show_int=self.show_int,
+            show_info=self.show_info,
             plot_configuration=pc,
         )
 
@@ -65,6 +65,7 @@ class RatioPlot(BasePostprocessor):
         "poisson"
     )
     no_stack: bool = False
+    show_den_unc: bool = True
 
     def getRunFuncs(self, group, prefix=None):
         numerator = group["numerator"]
@@ -87,6 +88,7 @@ class RatioPlot(BasePostprocessor):
             ratio_hlines=self.ratio_hlines,
             ratio_height=self.ratio_height,
             no_stack=self.no_stack,
+            show_den_unc=self.show_den_unc,
             plot_configuration=pc,
         )
 

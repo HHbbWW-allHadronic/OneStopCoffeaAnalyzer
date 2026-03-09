@@ -39,7 +39,7 @@ class FourVecHistograms(AnalyzerModule):
             makeHistogram(
                 f"{self.hist_name}_pt",
                 columns,
-                RegularAxis(20, 0, 1000, f"${self.hist_name} p_{{T}}$", unit="GeV"),
+                RegularAxis(20, 0, 1000, f"{self.hist_name} $p_{{T}}$", unit="GeV"),
                 jets.pt,
                 description=f"$p_T$ of {self.hist_name}",
             )
