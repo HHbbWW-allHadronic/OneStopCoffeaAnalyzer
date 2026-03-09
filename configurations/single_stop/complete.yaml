@@ -1,189 +1,4 @@
-common_cleanup: &common_cleanup
-  - module_name: GoldenLumi
-  - module_name: VetoMap
-    input_col: Jet
-  - module_name: VetoMapFilter
-    input_col: Jet
-    output_col: Jet
-  - module_name: NoiseFilter
-  
-  #- module_name: NObjFilter
-  #  input_col: GoodFatJet
-  #  selection_name: least_one_fatjet
-  #  min_count: 1
-
-
-common_presel_objects: &common_presel_objects
-  - module_name: JetFilter
-    input_col: FatJet
-    output_col: GoodFatJet
-    min_pt: 200
-    max_abs_eta: 2.4
-
-common_corrections: &common_corrections
-  - module_name: JetScaleCorrections
-    input_col: Jet
-    output_col: Jet
-  - module_name: JetResolutionCorrections
-    input_col: Jet
-    genjet_col: GenJet
-    output_col: Jet
-
-common_pre_sel_weights: &common_pre_sel_weights
-  - module_name: BJetShapeSF
-    input_col: GoodJet
-  - module_name: PileupSF
-  - module_name: L1PrefiringSF
-  - module_name: PosNegGenWeight
-  - module_name: PileupJetIdSF
-    input_col: GoodJet
-    working_point: M
-
-common_categories: &common_categories
-  - module_name: MSDCleanerCategory
-    should_run:
-      sample_type: MC
-
-  - module_name: SimpleCategory
-    input_col: HT
-    cat_name: HT_Cat
-    start: 500
-    stop: 2500
-    bins: 30
-    should_run:
-      sample_type: MC
-
-  # - module_name: SimpleCategory
-  #   input_col: NJet
-  #   cat_name: NJet_Category
-  #   start: 4
-  #   stop: 7
-  #   bins: 3
-
-
-
-common_objects: &common_objects
-  - module_name: ElectronMaker
-    input_col: Electron
-    output_col: GoodElectron
-    working_point: "loose"
-    min_pt: 10
-    max_abs_eta: 2.4
-    max_mini_iso: 0.1
-
-  - module_name: MuonMaker
-    input_col: Muon
-    output_col: GoodMuon
-    id_working_point: "looseId"
-    min_pt: 30
-    max_abs_eta: 2.4
-    max_mini_iso: 0.1
-
-  - module_name: JetFilter
-    input_col: Jet
-    output_col: GoodJet
-    include_pu_id: True
-    include_jet_id: True
-    min_pt: 30
-    max_abs_eta: 2.4
-
-  - module_name: BQuarkMaker
-    input_col: GoodJet
-    output_col: MedB
-    working_point: M
-
-  - module_name: BQuarkMaker
-    input_col: GoodJet
-    output_col: LooseB
-    working_point: L
-
-  - module_name: BQuarkMaker
-    input_col: GoodJet
-    output_col: TightB
-    working_point: T
-
-  - module_name: HT
-    input_col: GoodJet
-
-  - module_name: Count
-    input_col: GoodJet
-    output_col: NJet 
-
-common_selection: &common_selection
-  - module_name: NObjFilter
-    input_col: GoodElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: GoodMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: GoodJet
-    selection_name: njets
-    min_count: 4
-    max_count: 6
-
-  - module_name: VecPt
-    input_col: GoodJet
-    selection_name: jetpt
-    min_pt: 300
-
-common_histograms: &common_histograms
-  - module_name: NNMassReco
-    input_col: GoodJet
-    m3_output: mChi_uncomp
-    m4_output: mStop_uncomp
-    model_path: "nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt"
-    scaler_path: "nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl"
-  
-  - module_name: NNMassReco
-    input_col: GoodJet
-    m3_output: mChi_comp
-    m4_output: mStop_comp
-    model_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt"
-    scaler_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl"
-  
-  
-  - module_name: NNMassPlots
-    m3_input: mChi_comp
-    m4_input: mStop_comp
-    prefix: comp
-  
-  - module_name: NNMassPlots
-    m3_input: mChi_uncomp
-    m4_input: mStop_uncomp
-    prefix: uncomp
-
-  - module_name: HT
-    input_col: GoodJet
-
-  - module_name: JetComboHistograms
-    input_col: GoodJet
-    prefix: "composite"
-    jet_combos:
-      - [0,1,2,3]
-      - [0,1,2]
-      - [1,2,3]
-
-  - module_name: TopVecHistograms
-    prefix: "fatjet"
-    input_col: GoodFatJet
-    max_idx: 1
-
-  - module_name: SimpleHistogram
-    hist_name: HT
-    input_cols: [HT]
-    axes:
-      - name: HT
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
+{% import 'singlestop_base.yaml' as base %}
 
 analyzer:
   default_run_builder:
@@ -194,91 +9,82 @@ analyzer:
         - "trigger*"
 
   Signal312:
-    - *common_presel_objects
-    - *common_cleanup
+    {{ base.event_level_cleanup() | indent(4) }}
     - module_name: SelectOnColumns
       sel_name: pre_selection
-    - *common_corrections
-    - *common_objects
-    - *common_pre_sel_weights
-
+    {{ base.jec_jer_corrections() | indent(4) }}
+    {{ base.singlestop_objects() | indent(4) }}
+    {{ base.weights() | indent(4) }}
     - module_name: TriggerBNNCorrection
-      base_path: postprocessing/trigger_effs/
+      base_path: postprocessing/newtriggereffs/
       correction_pattern: "{era}.json.gz"
-
     - module_name: NObjFilter
       input_col: MedB
       selection_name: 2bjet
       min_count: 2
-    - module_name: VecDRSelection
-      input_col: MedB
-      selection_name: b_dr
-      min_dr: 1.0
-    - *common_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - *common_categories
-    - *common_histograms
-
-  Signal313:
-    - *common_presel_objects
-    - *common_cleanup
-    - module_name: SelectOnColumns
-      sel_name: pre_selection
-    - *common_corrections
-    - *common_objects
-    - *common_pre_sel_weights
-
-    - module_name: TriggerBNNCorrection
-      base_path: postprocessing/trigger_effs/
-      correction_pattern: "{era}.json.gz"
-
-
-    - module_name: NObjFilter
-      input_col: MedB
-      selection_name: 3bjet
-      min_count: 3
     - module_name: NObjFilter
       input_col: TightB
-      selection_name: 1tbjet
+      selection_name: 1tightbjet
       min_count: 1
     - module_name: VecDRSelection
       input_col: MedB
       selection_name: b_dr
       min_dr: 1.0
-    - *common_selection
+    {{ base.singlestop_common_selection() | indent(4) }}
     - module_name: SelectOnColumns
       sel_name: selection
-    - *common_categories
-    - *common_histograms
+    {{ base.ht_cat() | indent(4) }}
+    {{ base.singlestop_common_histograms() | indent(4) }}
 
-
-
-
-        
+  Signal313:
+    {{ base.event_level_cleanup() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    {{ base.jec_jer_corrections() | indent(4) }}
+    {{ base.singlestop_objects() | indent(4) }}
+    {{ base.weights() | indent(4) }}
+    - module_name: TriggerBNNCorrection
+      base_path: postprocessing/newtriggereffs/
+      correction_pattern: "{era}.json.gz"
+    - module_name: NObjFilter
+      input_col: TightB
+      selection_name: 3tightbjet
+      min_count: 3
+    - module_name: VecDRSelection
+      input_col: MedB
+      selection_name: b_dr
+      min_dr: 1.0
+    {{ base.singlestop_common_selection() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: selection
+    {{ base.ht_cat() | indent(4) }}
+    {{ base.singlestop_common_histograms() | indent(4) }}
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-#location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
+  # DO NOT UNCOMMENT!!!!!!!
+  # - dataset: 'data_JetHT_*'
+  #   pipelines: [Signal312, Signal313]
+
   # Data samples
-  - dataset: 'signal_2018_312_*0'
+  - dataset: 'signal_2018_312_*_official'
     pipelines: [Signal312]
-  - dataset: 'signal_2018_313_*0'
+  - dataset: 'signal_2018_313_*_official'
     pipelines: [Signal313]
   
   # Background MC Samples
   - dataset: 'qcd*2018*'
     pipelines: [Signal312, Signal313]
-  - dataset: 'diboson*2018*'
+  - dataset: 'diboson*'
     pipelines: [Signal312, Signal313]
-  - dataset: 'tt_to_hadronic*2018*'
+  - dataset: 'tt_to_hadronic*'
     pipelines: [Signal312, Signal313]
-  - dataset: 'zjets_to_qq*2018*'
+  - dataset: 'zjets_to_qq*'
     pipelines: [Signal312, Signal313]
-  - dataset: 'wjets_to_qq*2018*'
+  - dataset: 'wjets_to_qq*'
     pipelines: [Signal312, Signal313]
-  - dataset: 'single_top*2018*hadronic*'
+  - dataset: 'single_top*hadronic*'
     pipelines: [Signal312, Signal313]
 
   
