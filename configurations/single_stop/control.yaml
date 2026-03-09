@@ -30,8 +30,8 @@ common_corrections: &common_corrections
     output_col: Jet
 
 common_pre_sel_weights: &common_pre_sel_weights
-  # - module_name: BJetShapeSF
-  #   input_col: GoodJet
+  - module_name: BJetShapeSF
+    input_col: GoodJet
   - module_name: PileupSF
   - module_name: L1PrefiringSF
   - module_name: PosNegGenWeight
@@ -41,6 +41,8 @@ common_pre_sel_weights: &common_pre_sel_weights
 
 common_categories: &common_categories
   - module_name: MSDCleanerCategory
+    should_run:
+      sample_type: MC
 
   - module_name: SimpleCategory
     input_col: HT
@@ -48,6 +50,8 @@ common_categories: &common_categories
     start: 500
     stop: 2500
     bins: 30
+    should_run:
+      sample_type: MC
 
   # - module_name: SimpleCategory
   #   input_col: NJet
@@ -169,10 +173,10 @@ common_histograms: &common_histograms
       - [0,1,2]
       - [1,2,3]
 
-  - module_name: TopVecHistograms
-    prefix: "jet"
-    input_col: GoodJet
-    max_idx: 4
+  # - module_name: TopVecHistograms
+  #   prefix: "jet"
+  #   input_col: GoodJet
+  #   max_idx: 4
 
   - module_name: TopVecHistograms
     prefix: "fatjet"
@@ -191,16 +195,20 @@ common_histograms: &common_histograms
 
 analyzer:
   default_run_builder:
-    strategy_name: WeightsOnly
+    strategy_name: LimitSysts
+    systs:
+      or_exprs:
+        - "bjetshapesf*disabled"
+        - "trigger*"
 
   Control:
     - module_name: SimpleHLT
-      triggers: [HT,AK8SingleJetPtNoTrim]
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
       sel_name: pre_selection
-    #- *common_corrections
+    - *common_corrections
     - *common_objects
     - *common_pre_sel_weights
     - module_name: NObjFilter
@@ -210,19 +218,19 @@ analyzer:
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
-    #- *common_categories
+    - *common_categories
     - *common_histograms
 
   ControlBNN:
     - module_name: SimpleHLT
-      triggers: [HT,AK8SingleJetPtNoTrim]
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
       should_run:
         sample_type: Data
     - *common_presel_objects
     - *common_cleanup
     - module_name: SelectOnColumns
       sel_name: pre_selection
-    #- *common_corrections
+    - *common_corrections
     - *common_objects
     - *common_pre_sel_weights
 
@@ -238,17 +246,29 @@ analyzer:
       input_col: LooseB
       selection_name: 0bjet
       max_count: 0
+
     - *common_selection
     - module_name: SelectOnColumns
       sel_name: selection
-    #- *common_categories
+    - *common_categories
     - *common_histograms
 
 
         
 
-#location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
-location_priorities: [".*(T0|T1|T2).*","eos"]
+post_common_mc_transforms: &post_common_mc_transforms
+  - name: NormalizeSystematicByProjection
+    normalize_within: ["HT_Cat"]
+    pre_sf_name: "bjetshapesf-variation_disabled"
+    post_sf_name: "central"
+    variation_axis: "variation"
+  - name: SelectAxesValues
+    select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+  - name: MergeAxes
+    merge_axis_names: ["HT_Cat"]
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+# location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # Data samples
@@ -276,7 +296,10 @@ Postprocessing:
       inputs:
         - "*/*/*/composite_13_m"
         - "*/*/*/composite_14_m"
-        - "*/*/*/composite_24_m"
+        - "*/*/*/comp_mChi"
+        - "*/*/*/comp_mStop"
+        - "*/*/*/uncomp_mChi"
+        - "*/*/*/uncomp_mStop"
         - "*/*/*/HT"
       scale: log
       normalize: False
@@ -286,35 +309,165 @@ Postprocessing:
         subgroups:
           denominator:
             select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - *post_common_mc_transforms
+              - name: SliceAxes
+                slices: {0: [600,2500]}
           numerator:
             select: {sample_type: Data, pipeline: Control}
-        transforms:
-          - name: SelectAxesValues
-            select_axes_values: {"variation": "central"}
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central"}
+              - name: SliceAxes
+                slices: {0: [600,2500]}
       output_name: "{prefix}/control/{era.name}/ratio_{era.name}_{name}.png"
-    
+
     - name: RatioPlot
       inputs:
-        - "*/*/*/composite_13_m"
-        - "*/*/*/composite_14_m"
         - "*/*/*/composite_24_m"
+        - "*/*/*/uncomp_mChi"
+      scale: log
+      normalize: False
+      structure:
+        select: {dataset_name: "!Signal*"}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - *post_common_mc_transforms
+              - name: SliceAxes
+                slices: {0: [200,2500]}
+          numerator:
+            select: {sample_type: Data, pipeline: Control}
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central"}
+              - name: SliceAxes
+                slices: {0: [200,2500]}
+      output_name: "{prefix}/control/{era.name}/ratio_{era.name}_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/fatjet_pt_1"
+      scale: log
+      normalize: False
+      structure:
+        select: {dataset_name: "!Signal*"}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - *post_common_mc_transforms
+              - name: SliceAxes
+                slices: {0: [300,1500]}
+          numerator:
+            select: {sample_type: Data, pipeline: Control}
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central"}
+              - name: SliceAxes
+                slices: {0: [300,1000]}
+      output_name: "{prefix}/control/{era.name}/ratio_{era.name}_{name}.png"
+
+
+    - name: RatioPlot
+      inputs:
         - "*/*/*/HT"
       scale: log
       normalize: False
       structure:
-        select: {sample_type: MC, dataset_name: "!Signal*"}
-        group: {era.name: "*", dataset_name: "*"}
+        select: {dataset_name: "qcd*"}
+        group: {era.name: "*"}
         subgroups:
           denominator:
-            select: {pipeline: ControlBNN}
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "bjetshapesf-variation_disabled", "PassMSDCLeaner": [1]}
           numerator:
-            select: {pipeline: Control}
-        transforms:
-          - name: SelectAxesValues
-            select_axes_values: {"variation": "central"}
-      output_name: "{prefix}/control/{era.name}/bnn_comp_{dataset_name}_{era.name}_{name}.png"
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+      output_name: "{prefix}/control/{era.name}/compare_bsf_{era.name}_{name}.png"
 
-  
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/fatjet_pt_1"
+        - "*/*/*/HT"
+      scale: log
+      normalize: False
+      structure:
+        select: {dataset_name: "qcd*"}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "bjetshapesf-variation_disabled", "PassMSDCLeaner": [1]}
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+          numerator:
+            select: {sample_type: MC, pipeline: ControlBNN}
+            transforms:
+              - name: NormalizeSystematicByProjection
+                normalize_within: ["HT_Cat"]
+                pre_sf_name: "bjetshapesf-variation_disabled"
+                post_sf_name: "central"
+                variation_axis: "variation"
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+
+              - name: FormatTitle
+                title_format: "With BSF Reweighting"
+      output_name: "{prefix}/control/{era.name}/normalized_bsf_{era.name}_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/HT"
+        - "*/*/*/fatjet_pt_1"
+      scale: log
+      normalize: False
+      structure:
+        select: {dataset_name: "qcd*", sample_type: MC, pipeline: ControlBNN}
+        group: {era.name: "*"}
+        subgroups:
+          denominator:
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+              - name: SetStyle
+                style: {color: black, plottype: errorbar, marker: o, linestyle: null}
+              - name: FormatTitle
+                title_format: "{dataset_name} Nominal"
+          numerator:
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"variation": ["triggereff-variation_up", "triggereff-variation_down"], "PassMSDCLeaner": [1]}
+              - name: MergeAxes
+                merge_axis_names: ["HT_Cat"]
+              - name: SetStyle
+                style: {plottype: step, linewidth: 2}
+              - name: FormatTitle
+                title_format: "{axis_params.variation}"
+      output_name: "{prefix}/control/{era.name}/triggereff_sys_{era.name}_{name}.png"
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
 
   default_plot_config:
     cms_text: "Preliminary"

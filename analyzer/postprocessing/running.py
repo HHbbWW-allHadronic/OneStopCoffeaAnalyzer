@@ -2,8 +2,11 @@ from cattrs import Converter
 from analyzer.postprocessing.plots.common import PlotConfiguration
 import concurrent.futures as cf
 from analyzer.core.results import loadResults, mergeAndScale
-from .processors import configureConverter
+
+from .processors import configureConverter as procConfConv
 from .grouping import configureConverter as groupingConfConv
+from .transforms.registry import configureConverter as transConfConv
+
 from .style import StyleSet
 from analyzer.core.serialization import setupConverter
 import matplotlib as mpl
@@ -55,11 +58,14 @@ class LoadStyles(WorkerPlugin):
 def runPostprocessors(
     path, input_files, parallel=None, prefix=None, loaded_results=None
 ):
-    converter = Converter()
 
+    converter = Converter()
     setupConverter(converter)
+
+    transConfConv(converter)
     groupingConfConv(converter)
-    configureConverter(converter)
+    procConfConv(converter)
+
 
     loadStyles()
 
@@ -77,12 +83,20 @@ def runPostprocessors(
         if processor.plot_configuration is None:
             processor.plot_configuration = postprocessor.default_plot_config
 
+    keep_patterns = []
+    for processor in postprocessor.processors:
+        if hasattr(processor, "inputs"):
+            keep_patterns.extend(
+                tuple(("*", *inp)) for inp_list in processor.inputs for inp in inp_list
+            )
+    keep_patterns = keep_patterns or None
+
     if loaded_results is not None:
         import copy
 
         results = copy.deepcopy(loaded_results)
     else:
-        results = loadResults(input_files)
+        results = loadResults(input_files, keep_patterns=keep_patterns)
 
     results = mergeAndScale(
         results, drop_sample_pattern=postprocessor.drop_sample_pattern

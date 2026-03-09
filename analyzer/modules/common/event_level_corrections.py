@@ -128,12 +128,12 @@ class L1PrefiringSF(AnalyzerModule):
             ]
         else:
             columns["Weights", self.weight_name] = ak.ones_like(
-                columns["Pileup.nTrueInt"], dtype=float
+                columns["run"], dtype=float
             )
         return columns, []
 
     def inputs(self, metadata):
-        return [Column("L1PreFiringWeight")]
+        return [Column("L1PreFiringWeight"), Column("run")]
 
     def outputs(self, metadata):
         return [Column(fields=("Weights", self.weight_name))]
