@@ -137,6 +137,31 @@ class SumHistograms(TransformHistogram):
         return ret
 
 @define
+class StatMaker(TransformHistogram):
+    def __call__(self, items: list[ItemWithMeta]):
+        import scipy.stats
+        ret = []
+        for item, meta in items:
+            h = item.histogram
+            distribution = scipy.stats.rv_histogram(h.to_numpy())
+            stats = {
+                "integral": h.sum().value,
+                "integral_flow": h.sum(flow=True).value,
+                "mean": distribution.mean(),
+                "median": distribution.median(),
+                "std": distribution.std(),
+                "var": distribution.var(),
+            }
+            stats = {x: f"{y:.2g}" for x,y in stats.items() }
+            new_meta = ChainMap(
+                meta,
+                {"stats": stats}
+            )
+            ret.append(ItemWithMeta( item, new_meta))
+        return ret
+
+
+@define
 class NormalizeSystematicByProjection(TransformHistogram):
     normalize_within: list[str]
     pre_sf_name: str
@@ -324,9 +349,10 @@ class FormatTitle(TransformHistogram):
         ret = []
         for ph, meta in histograms:
             meta = ChainMap(
-                meta,
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
+                meta,
             )
+            print(meta["title"])
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret
 
