@@ -79,7 +79,7 @@ class WeightsOnly(RunBuilder):
 @define
 class SignalOnlySysts(RunBuilder):
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
-        if "signal" in metadata["dataset_name"] or metadata["is_signal"]:
+        if "signal" in metadata["dataset_name"] or metadata.get("is_signal"):
             weights = buildCombos(spec, "weight_variation")
             shapes = buildCombos(spec, "shape_variation")
             all_vars = [("central", {})] + weights + shapes
