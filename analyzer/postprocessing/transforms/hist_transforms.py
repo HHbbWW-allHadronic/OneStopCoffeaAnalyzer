@@ -13,7 +13,8 @@ from collections import ChainMap, OrderedDict
 from analyzer.utils.querying import BasePattern
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
-    commonDict
+    commonDict,
+    addChain
 )
 from attrs import define, field, asdict
 from .registry import TransformHistogram
@@ -33,9 +34,9 @@ class SelectAxesValues(TransformHistogram):
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]
             for p in it.product(*vals):
                 u = dict(zip(keys, p))
-                new_meta = ChainMap(
+                new_meta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), u)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), u)},
                 )
                 u = dict(zip(keys, [hist.loc(x) for x in p]))
 
@@ -99,13 +100,13 @@ class SplitAxes(TransformHistogram):
             }
             for values, split_hist in all_hists.items():
                 axis_values = dict(zip(labels, values))
-                meta = ChainMap(
+                newmeta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), axis_values)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), axis_values)},
                 )
                 ret.append(
                     ItemWithMeta(
-                        Histogram(name=ph.name, axes=None, histogram=split_hist), meta
+                        Histogram(name=ph.name, axes=None, histogram=split_hist), newmeta
                     )
                 )
 
@@ -127,7 +128,7 @@ class SumHistograms(TransformHistogram):
         if to_sum:
             total_hist = ft.reduce(op.add, [x.item.histogram for x in to_sum])
             new_meta = commonDict(to_sum)
-            new_meta = ChainMap(new_meta, self.new_meta_fields)
+            new_meta = addChain(new_meta, self.new_meta_fields)
             ret.append(
                 ItemWithMeta(
                     Histogram(name=new_meta["name"], axes=to_sum[0].item.axes, histogram=total_hist), new_meta
@@ -153,7 +154,7 @@ class StatMaker(TransformHistogram):
                 "var": distribution.var(),
             }
             stats = {x: f"{y:.2g}" for x,y in stats.items() }
-            new_meta = ChainMap(
+            new_meta = addChain(
                 meta,
                 {"stats": stats}
             )
@@ -240,13 +241,13 @@ class OrBinaryAxes(TransformHistogram):
 
             h = sum(to_add)
             axis_values = {x: "OR" for x in self.or_axis_names}
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), axis_values)},
+                {"axis_params": addChain(meta.get("axis_params", {}), axis_values)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -268,13 +269,13 @@ class RebinAxes(TransformHistogram):
             h = h[rebins]
             provenance = copy.deepcopy(ph.provenance)
             provenance.axis_params.update(rebins)
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), rebins)},
+                {"axis_params": addChain(meta.get("axis_params", {}), rebins)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -294,13 +295,13 @@ class SliceAxes(TransformHistogram):
                 for x, z in self.slices.items()
             }
             h = h[slices]
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), slices)},
+                {"axis_params": addChain(meta.get("axis_params", {}), slices)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -327,14 +328,14 @@ class MultiSliceAxes(TransformHistogram):
                     x: slice(*(hist.loc(y) for y in z)) for x, z in zip(names, ranges)
                 }
                 hnew = h[slices]
-                meta = ChainMap(
+                newmeta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), slices)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), slices)},
                 )
                 ret.append(
                     ItemWithMeta(
                         Histogram(name=ph.name, axes=ph.axes, histogram=hnew),
-                        metadata=meta,
+                        metadata=newmeta,
                     )
                 )
 
@@ -348,11 +349,11 @@ class FormatTitle(TransformHistogram):
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
-            meta = ChainMap(
+            newmeta = addChain(
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
                 meta,
             )
-            ret.append(ItemWithMeta(ph, metadata=meta))
+            ret.append(ItemWithMeta(ph, metadata=newmeta))
         return ret
 
 
@@ -363,7 +364,7 @@ class SetStyle(TransformHistogram):
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
-            meta = ChainMap(meta, {"style": asdict(self.style)})
+            meta = addChain(meta, {"style": asdict(self.style)})
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret
 
