@@ -1,14 +1,20 @@
 {% import 'singlestop_base.yaml' as base %}
+{% import 'postprocessors/visualize_variations.yaml' as post %}
 
 analyzer:
   default_run_builder:
-    strategy_name: LimitSysts
-    systs:
-      or_exprs:
-        - "bjetshapesf*disabled"
-        - "trigger*"
+    # strategy_name: LimitSysts
+    # systs:
+    #   or_exprs:
+    #     - "bjetshapesf*disabled"
+    #     - "trigger*"
+    strategy_name: SignalOnlySysts
 
   Signal312:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
+      should_run:
+        sample_type: Data
     {{ base.event_level_cleanup() | indent(4) }}
     - module_name: SelectOnColumns
       sel_name: pre_selection
@@ -37,6 +43,10 @@ analyzer:
     {{ base.singlestop_common_histograms() | indent(4) }}
 
   Signal313:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
+      should_run:
+        sample_type: Data
     {{ base.event_level_cleanup() | indent(4) }}
     - module_name: SelectOnColumns
       sel_name: pre_selection
@@ -68,9 +78,9 @@ event_collections:
   #   pipelines: [Signal312, Signal313]
 
   # Data samples
-  - dataset: 'signal_2018_312_*_official'
+  - dataset: 'signal_*_312_*_official'
     pipelines: [Signal312]
-  - dataset: 'signal_2018_313_*_official'
+  - dataset: 'signal_*_313_*_official'
     pipelines: [Signal313]
   
   # Background MC Samples
@@ -109,3 +119,17 @@ extra_executors:
     max_workers: 200
     worker_memory: 4GB
     reduction_factor: 5
+
+
+Postprocessing:
+  processors:
+    {{ post.ratio_variation("bsf",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["b*hf*"]) | indent(4) }}
+    {{ post.ratio_variation("jesrel",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jes*Rel*"]) | indent(4) }}
+    {{ post.ratio_variation("jer",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jer*"]) | indent(4) }}
+    {{ post.ratio_variation("trigger",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["trigger*"]) | indent(4) }}
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
