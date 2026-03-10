@@ -84,7 +84,7 @@ event_collections:
     pipelines: [Signal313]
   
   # Background MC Samples
-  - dataset: 'qcd*2018*'
+  - dataset: 'qcd*'
     pipelines: [Signal312, Signal313]
   - dataset: 'diboson*'
     pipelines: [Signal312, Signal313]

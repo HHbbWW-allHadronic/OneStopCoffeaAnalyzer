@@ -297,9 +297,9 @@ Postprocessing:
         select: {type: SavedColumns, pipeline: "Prescaled", sample_type: "Data"}
 
         group: {era.name: "*"}
-        transforms:
-          - name: MaskData
-            mask: "~(~PassHT & ~PassAK8 & PassAK8SD & (PTFat>550) & (MSDFat<70))"
+        transforms: []
+          # - name: MaskData
+          #   mask: "~(~PassHT & ~PassAK8 & PassAK8SD & (PTFat>550) & (MSDFat<70))"
         subgroups:
           numerator:
             transforms:
