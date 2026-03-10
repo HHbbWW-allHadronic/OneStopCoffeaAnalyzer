@@ -20,6 +20,7 @@ from rich.progress import Progress, track
 from distributed import (
     WorkerPlugin,
 )
+from analyzer.utils.yamlload import loadTemplateYaml
 from analyzer.utils.querying import BasePattern
 import analyzer.utils.querying
 import analyzer.postprocessing.basic_histograms  # noqa
@@ -69,8 +70,7 @@ def runPostprocessors(
 
     loadStyles()
 
-    with open(path, "r") as f:
-        data = yaml.load(f, Loader=Loader)
+    data = loadTemplateYaml(path)
 
     if "Postprocessing" in data:
         data = data["Postprocessing"]
