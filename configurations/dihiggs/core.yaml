@@ -80,6 +80,84 @@ common_objects: &common_objects
     input_col: MedB
     output_col: NMedB
 
+common_objs_NO_JETID: &common_objs_NO_JETID
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: tightElectron
+    working_point: "tight"
+    min_pt: 15
+    max_abs_eta: 2.5
+    max_abs_dxy:
+      barrel: 0.05
+      endcap: 0.1
+    max_abs_dz:
+      barrel: 0.1
+      endcap: 0.2
+
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: looseElectron
+    working_point: "loose"
+    min_pt: 7
+    max_abs_eta: 2.5
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: tightMuon
+    id_working_point: "tightId"
+    min_pt: 15
+    max_abs_eta: 2.4
+    iso_working_pt: "tight"
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: looseMuon
+    id_working_point: "looseId"
+    min_pt: 5
+    max_abs_eta: 2.4
+    iso_working_pt: "loose"
+
+  - module_name: HJetFilter
+    input_col: Jet
+    output_col: goodJet
+    include_pu_id: False
+    include_jet_id: True
+    min_pt: 25
+    max_abs_eta: 2.4
+
+  - module_name: BQuarkMaker
+    input_col: goodJet
+    output_col: MedB
+    working_point: M
+
+  - module_name: HT
+    input_col: Jet
+    output_col: AK4HT
+
+  - module_name: HT
+    input_col: goodJet
+    output_col: HT
+
+  - module_name: HT
+    input_col: GenJet
+    output_col: GenJetHT
+
+  - module_name: Count
+    input_col: Jet
+    output_col: NAK4Jet
+
+  - module_name: Count
+    input_col: goodJet
+    output_col: NJet
+
+  - module_name: Count
+    input_col: GenJet
+    output_col: NGenJet
+
+  - module_name: Count
+    input_col: MedB
+    output_col: NMedB
+
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
@@ -326,7 +404,7 @@ gen_histograms: &gen_histograms
     hist_name: min_dr_GenPart
     input_cols: [min_dr_GenPart]
     axes:
-      - name: "minDR_{{GenPart}}"
+      - name: "min_dr_GenPart"
         start: 0.0
         stop: 3.0
         bins: 60
@@ -377,6 +455,10 @@ analyzer:
     - *common_histograms
     - *gen_histograms
 
+  NoSelection_run2:
+    - *common_objs_NO_JETID
+    - *gen_histograms
+
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
@@ -388,6 +470,11 @@ event_collections:
       - noHLT_ObjDef1
       - withHLT_ObjDef2
       - noHLT_ObjDef2
+
+  - dataset: 'ggHHbbVV_2018'
+    pipelines:
+      - NoSelection_run2
+
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
 #  - dataset: 'tt_hadronic*2024*'
