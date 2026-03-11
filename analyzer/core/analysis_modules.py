@@ -3,6 +3,7 @@ from typing import Literal
 from analyzer.core.param_specs import (
     ModuleParameterSpec,
     ModuleParameterValues,
+    ParameterSpec,  # noqa
 )
 from analyzer.utils.structure_tools import freeze
 import functools as ft
