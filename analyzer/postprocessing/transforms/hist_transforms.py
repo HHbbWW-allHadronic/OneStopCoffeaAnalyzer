@@ -9,16 +9,11 @@ from analyzer.core.results import Histogram
 import numpy as np
 from analyzer.utils.structure_tools import dictToDot, dotFormat
 import hist
-from collections import ChainMap, OrderedDict
+from collections import OrderedDict
 from analyzer.utils.querying import BasePattern
-from analyzer.utils.structure_tools import (
-    ItemWithMeta,
-    commonDict,
-    addChain
-)
+from analyzer.utils.structure_tools import ItemWithMeta, commonDict, addChain
 from attrs import define, field, asdict
 from .registry import TransformHistogram
-from rich import print
 
 
 @define
@@ -106,11 +101,13 @@ class SplitAxes(TransformHistogram):
                 )
                 ret.append(
                     ItemWithMeta(
-                        Histogram(name=ph.name, axes=None, histogram=split_hist), newmeta
+                        Histogram(name=ph.name, axes=None, histogram=split_hist),
+                        newmeta,
                     )
                 )
 
         return ret
+
 
 @define
 class SumHistograms(TransformHistogram):
@@ -131,16 +128,23 @@ class SumHistograms(TransformHistogram):
             new_meta = addChain(new_meta, self.new_meta_fields)
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=new_meta["name"], axes=to_sum[0].item.axes, histogram=total_hist), new_meta
+                    Histogram(
+                        name=new_meta["name"],
+                        axes=to_sum[0].item.axes,
+                        histogram=total_hist,
+                    ),
+                    new_meta,
                 )
             )
 
         return ret
 
+
 @define
 class StatMaker(TransformHistogram):
     def __call__(self, items: list[ItemWithMeta]):
         import scipy.stats
+
         ret = []
         for item, meta in items:
             h = item.histogram
@@ -153,12 +157,9 @@ class StatMaker(TransformHistogram):
                 "std": distribution.std(),
                 "var": distribution.var(),
             }
-            stats = {x: f"{y:.2g}" for x,y in stats.items() }
-            new_meta = addChain(
-                meta,
-                {"stats": stats}
-            )
-            ret.append(ItemWithMeta( item, new_meta))
+            stats = {x: f"{y:.2g}" for x, y in stats.items()}
+            new_meta = addChain(meta, {"stats": stats})
+            ret.append(ItemWithMeta(item, new_meta))
         return ret
 
 
@@ -166,11 +167,10 @@ class StatMaker(TransformHistogram):
 class NormalizeSystematicByProjection(TransformHistogram):
     normalize_within: list[str]
     pre_sf_name: str
-    #post_sf_name: str
+    # post_sf_name: str
     variation_axis: str = "variation"
 
     def __call__(self, items):
-        import hist
 
         ret = []
         for ph, meta in items:
@@ -182,13 +182,19 @@ class NormalizeSystematicByProjection(TransformHistogram):
                 post_idx = h.axes[self.variation_axis].index(post_sf_name)
 
                 view = h.view(flow=True)
-                
-                slices_pre, slices_post = [slice(None)] * view.ndim, [slice(None)] * view.ndim
+
+                slices_pre, slices_post = (
+                    [slice(None)] * view.ndim,
+                    [slice(None)] * view.ndim,
+                )
                 slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
-                
+
                 pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
                 axes_to_sum = tuple(
-                    i for i, a in enumerate(a for a in h.axes if a.name != self.variation_axis)
+                    i
+                    for i, a in enumerate(
+                        a for a in h.axes if a.name != self.variation_axis
+                    )
                     if a.name not in self.normalize_within
                 )
 
@@ -199,7 +205,12 @@ class NormalizeSystematicByProjection(TransformHistogram):
                     pre_sum = pre_view["value"]
                     post_sum = post_view["value"]
 
-                scale = np.divide(pre_sum, post_sum, out=np.zeros_like(pre_sum, dtype=float), where=post_sum != 0)
+                scale = np.divide(
+                    pre_sum,
+                    post_sum,
+                    out=np.zeros_like(pre_sum, dtype=float),
+                    where=post_sum != 0,
+                )
                 broadcast_shape = []
                 scale_idx = 0
                 for a in h.axes:
@@ -317,12 +328,12 @@ class MultiSliceAxes(TransformHistogram):
     def __call__(self, items):
         ret = []
 
-        def makePairs(l):
-            return np.stack([l[:-1], l[1:]], axis=1)
+        def makePairs(pair):
+            return np.stack([pair[:-1], pair[1:]], axis=1)
 
         for ph, meta in items:
             h = ph.histogram
-            chopping = OrderedDict(chopping)
+            chopping = OrderedDict(self.multi_slices)
             names, vals = list(chopping.keys()), list(chopping.values())
             pairs = [makePairs(np.arange(*x)) for x in vals]
             for ranges in it.combinations(*pairs):
