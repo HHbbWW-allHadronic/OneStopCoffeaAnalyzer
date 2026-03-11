@@ -17,6 +17,7 @@ from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import SimpleCache
 from analyzer.modules.common.categories import addCategory
 from analyzer.modules.common.axis import IntegerAxis
+from analyzer.core.columns import addSelection
 
 
 class BNNEnsemble:
@@ -181,7 +182,7 @@ class TriggerBNNCorrection(AnalyzerModule):
             {
                 "triggereff-variation": ParameterSpec(
                     default_value="central",
-                    possible_values=["central", "up", "down"],
+                    possible_values=["central", "up", "down", "disabled"],
                     tags={
                         "weight_variation",
                     },
@@ -202,6 +203,9 @@ class TriggerBNNCorrection(AnalyzerModule):
 
     def run(self, columns, params):
         systematic = params["triggereff-variation"]
+        if systematic == "disabled":
+            columns["Weights", self.weight_name] = ak.ones_like(columns["HT"])
+            return columns, []
 
         syst_map = {"central": "nominal", "up": "up", "down": "down"}
 
@@ -239,14 +243,43 @@ class MSDCleanerCategory(AnalyzerModule):
         fjpt = ak.fill_none(fj.pt, 0)
         fjmsd = ak.fill_none(fj.msoftdrop, 0)
         hlt = columns["HLT"]
+        # bad = (
+        #     ~hlt[trigger_names["HT"]]
+        #     & ~hlt[trigger_names["AK8SingleJetPtNoTrim"]]
+        #     & hlt[trigger_names["AK8SingleJetPt"]]
+        #     & (fjpt > 550)
+        #     & (fjmsd < 70)
+        # )
         bad = (
-            ~hlt[trigger_names["HT"]]
-            & ~hlt[trigger_names["AK8SingleJetPtNoTrim"]]
-            & hlt[trigger_names["AK8SingleJetPt"]]
-            & (fjpt > 550)
+            ~(ht > 1200)
+            & ~(fjpt > 700)
             & (fjmsd < 70)
         )
 
         addCategory(columns, "PassMSDCleaner", ~bad, IntegerAxis("PassMSDCleaner", 0, 2))
 
+        return columns, []
+
+@define
+class MSDCleanerSelection(AnalyzerModule):
+    selection_name: str = "PassMSDCleaner"
+    def inputs(self, metadata):
+        return [Column("HT"), Column("HLT"), Column("FatJet")]
+
+    def outputs(self, metadata):
+        return [Column(fields=("Selection", self.selection_name))]
+
+    def run(self, columns, params):
+        metadata = columns.metadata
+        ht = columns["HT"]
+        fj = ak.pad_none(columns["FatJet"], 1)[:, 0]
+        fjpt = ak.fill_none(fj.pt, 0)
+        fjmsd = ak.fill_none(fj.msoftdrop, 0)
+        hlt = columns["HLT"]
+        # Require events be on the softdrop plateau
+        bad = (
+            ~((ht > 1050) | (fjpt > 550)) # probably didn't pass the other triggers
+            & ((fjmsd < 60) & (fjpt > 450))
+        )
+        addSelection(columns, self.selection_name, ~bad)
         return columns, []

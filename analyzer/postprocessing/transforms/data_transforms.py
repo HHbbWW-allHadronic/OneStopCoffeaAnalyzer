@@ -1,18 +1,12 @@
 from __future__ import annotations
 import copy
-import itertools as it
 from analyzer.core.results import Histogram, SavedColumns
-import numpy as np
-from analyzer.utils.structure_tools import dictToDot, dotFormat
 import hist
-import numpy as np
-from rich import print
-from collections import ChainMap, OrderedDict
-from analyzer.utils.querying import BasePattern
+from collections import OrderedDict
 from analyzer.utils.structure_tools import (
     ItemWithMeta,
 )
-from attrs import define, field
+from attrs import define
 from .registry import TransformSavedColumns
 from analyzer.modules.common.axis import Axis
 

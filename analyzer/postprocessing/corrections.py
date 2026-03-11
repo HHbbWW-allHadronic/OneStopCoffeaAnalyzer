@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import functools as ft
-import itertools as it
-import copy
 from analyzer.utils.structure_tools import (
     dotFormat,
     dictToDot,
@@ -13,9 +11,7 @@ from .processors import BasePostprocessor
 from .style import StyleSet
 from .plots.common import PlotConfiguration
 from attrs import define, field
-import pickle as pkl
 from pathlib import Path
-import lz4.frame
 import numpy as np
 from typing import Literal
 
@@ -41,8 +37,8 @@ def exportEfficiencyToCorrectionLib(
 ):
     from .plots.plots_1d import getRatioAndUnc
 
-    num_hist, num_meta = num.item.histogram, num.metadata
-    den_hist, den_meta = den.item.histogram, den.metadata
+    num_hist, _ = num.item.histogram, num.metadata
+    den_hist, _ = den.item.histogram, den.metadata
 
     if num_hist.axes != den_hist.axes:
         raise ValueError("Numerator and denominator axes do not match")
@@ -92,20 +88,17 @@ def exportEfficiencyToCorrectionLib(
             corr=corr,
             plot_configuration=plot_configuration,
             style_set=style_set,
-            ratio_unc=(ratio,*unc),
+            ratio_unc=(ratio, *unc),
         )
 
-def generateDiagnosticPlots(
-    num,
-        *args,**kwargs
-):
-    num_hist, num_meta = num.item.histogram, num.metadata
-    generateDiagnosticPlots1D(num,*args,**kwargs)
+
+def generateDiagnosticPlots(num, *args, **kwargs):
+    num_hist, _ = num.item.histogram, num.metadata
+    generateDiagnosticPlots1D(num, *args, **kwargs)
 
     if len(num_hist.axes) == 2:
-        generateDiagnosticPlots2D(num,*args,**kwargs)
+        generateDiagnosticPlots2D(num, *args, **kwargs)
 
-        
 
 def generateDiagnosticPlots1D(
     num,
@@ -116,19 +109,13 @@ def generateDiagnosticPlots1D(
     corr=None,
     plot_configuration=None,
     style_set=None,
-        ratio_unc=None,
+    ratio_unc=None,
 ):
-    import matplotlib.pyplot as plt
-    from .plots.utils import saveFig
-    from .plots.annotations import labelAxis, addCMSBits
-    from .plots.common import PlotConfiguration
     from analyzer.core.results import Histogram
-    from .style import Styler
     from .plots.plots_1d import plotRatio
-    import numpy as np
 
-    num_hist, num_meta = num.item.histogram, num.metadata
-    den_hist, den_meta = den.item.histogram, den.metadata
+    num_hist, _ = num.item.histogram, num.metadata
+    den_hist, _ = den.item.histogram, den.metadata
 
     pc = plot_configuration or PlotConfiguration()
     base_output_path = str(base_output_path)
@@ -164,6 +151,7 @@ def generateDiagnosticPlots1D(
             plot_configuration=plot_configuration,
         )
 
+
 def generateDiagnosticPlots2D(
     num,
     den,
@@ -173,17 +161,11 @@ def generateDiagnosticPlots2D(
     corr=None,
     plot_configuration=None,
     style_set=None,
-        ratio_unc=None,
+    ratio_unc=None,
 ):
     import matplotlib.pyplot as plt
     from .plots.utils import saveFig
     from .plots.annotations import labelAxis, addCMSBits
-    from .plots.common import PlotConfiguration
-    from analyzer.core.results import Histogram
-    from .style import Styler
-    from .plots.plots_1d import plotRatio
-    import numpy as np
-
 
     pc = plot_configuration or PlotConfiguration()
     base_output_path = str(base_output_path)
@@ -193,7 +175,6 @@ def generateDiagnosticPlots2D(
     else:
         ext_dot = f".{ext}"
 
-
     ratio = num.item.histogram.copy(deep=True)
     up = num.item.histogram.copy(deep=True)
     down = num.item.histogram.copy(deep=True)
@@ -201,8 +182,7 @@ def generateDiagnosticPlots2D(
     up[...] = ratio_unc[1]
     down[...] = ratio_unc[2]
 
-    for h,name in [(ratio,"eff"), (up,"up"), (down, "down")]:
-        styler = Styler(style_set)
+    for h, name in [(ratio, "eff"), (up, "up"), (down, "down")]:
         fig, ax = plt.subplots(layout="constrained")
         h.plot2d(ax=ax)
         labelAxis(ax, "y", h.axes)
@@ -215,12 +195,9 @@ def generateDiagnosticPlots2D(
             text_color="black",
             plot_configuration=pc,
         )
-        this_output_path = base_output_path.replace(
-            ext_dot, f"2d_{name}{ext_dot}"
-        )
+        this_output_path = base_output_path.replace(ext_dot, f"2d_{name}{ext_dot}")
         saveFig(fig, this_output_path, extension=pc.image_type)
         plt.close(fig)
-
 
 
 @define
