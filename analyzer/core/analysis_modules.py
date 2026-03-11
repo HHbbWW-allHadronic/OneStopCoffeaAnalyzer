@@ -1,18 +1,16 @@
 from __future__ import annotations
 from typing import Literal
-from rich import print
 from analyzer.core.param_specs import (
     ModuleParameterSpec,
     ModuleParameterValues,
-    ParameterSpec,
 )
 from analyzer.utils.structure_tools import freeze
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.run_builders import RunBuilder, DEFAULT_RUN_BUILDER
-from attrs import define, field, make_class, asdict, filters
+from attrs import define, field, make_class, asdict
 from analyzer.core.results import ResultBase
-from analyzer.utils.structure_tools import freeze, SimpleCache
+from analyzer.utils.structure_tools import SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import contextlib
 import abc
@@ -80,9 +78,9 @@ class MetadataNot(MetadataExpr):
 MultiColumns = list[tuple[Any, TrackedColumns]]
 
 
-
 def moduleExcludeFilter(attribute, value):
-    return attribute.name not in ("should_run",) and  not attribute.name.startswith("_")
+    return attribute.name not in ("should_run",) and not attribute.name.startswith("_")
+
 
 @define
 class BaseAnalyzerModule(abc.ABC):
@@ -100,13 +98,12 @@ class BaseAnalyzerModule(abc.ABC):
         self, metadata
     ) -> ColumnCollection | list[Column] | Literal["EVENTS"]: ...
 
-    def getParameterSpec(self, metadata: dict) -> MultiParameterSpec:
+    def getParameterSpec(self, metadata: dict) -> ModuleParameterSpec:
         return {}
 
     def filterParams(self, metadata, params):
         spec = self.getParameterSpec(metadata)
-        return {x:y for x,y in params.items() if x in spec}
-        
+        return {x: y for x, y in params.items() if x in spec}
 
     def preloadForMeta(self, metadata: dict):
         pass
@@ -124,12 +121,9 @@ class BaseAnalyzerModule(abc.ABC):
     def clearCache(self):
         self._cache.clear()
 
-
     @ft.cached_property
     def selfkey(self):
-        return hash(
-            freeze(asdict(self, filter=moduleExcludeFilter))
-        )
+        return hash(freeze(asdict(self, filter=moduleExcludeFilter)))
 
 
 @define
@@ -173,12 +167,12 @@ class AnalyzerModule(BaseAnalyzerModule):
         columns = columns.copy()
         input_key = self.getKey(columns, params)
         outputs = self.outputs(columns.metadata)
-        
+
         if outputs == "EVENTS":
             cache_key = hash((input_key, columns.getKeyForAll()))
         else:
             cache_key = input_key
-            
+
         logger.debug(f"Input key is {input_key}, Cache key is {cache_key}")
         logger.debug(f"Cached keys are {list(self._cache)}")
         if cache_key in self._cache:
@@ -248,7 +242,7 @@ class EventSourceModule(BaseAnalyzerModule):
     def __call__(self, params):
         try:
             spec = self.getParameterSpec(None)
-            params = {x:y for x,y in params.items() if x in spec}
+            params = {x: y for x, y in params.items() if x in spec}
 
             logger.debug(f"Running analyzer module {self}")
             key = self.getKey(params)
@@ -325,7 +319,7 @@ class PureResultModule(BaseAnalyzerModule):
             #     if not should_run:
             #         return columns, []
             spec = self.getParameterSpec(None)
-            params = {x:y for x,y in params.items() if x in spec}
+            params = {x: y for x, y in params.items() if x in spec}
             return self.__run(columns, params)
         except Exception as e:
             logger.error(f"An exception occurred while running module {self}")

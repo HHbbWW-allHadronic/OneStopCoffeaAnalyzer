@@ -1,4 +1,3 @@
-from collections import defaultdict
 import functools as ft
 from attrs import define
 from typing import Any
@@ -6,8 +5,8 @@ from cattrs.strategies import include_subclasses, configure_tagged_union
 import abc
 from analyzer.utils.querying import BasePattern
 import copy
-from rich import print
-from analyzer.core.param_specs import ModuleParameterSpec, getTags, getWithValues
+from analyzer.core.param_specs import ModuleParameterSpec, getTags
+
 
 def buildCombos(spec, tag):
     ret = []
@@ -57,16 +56,19 @@ class CompleteSysts(RunBuilder):
         all_vars = [("central", {})] + weights + shapes
         return all_vars
 
+
 @define
 class LimitSysts(RunBuilder):
     systs: BasePattern
+
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         weights = buildCombos(spec, "weight_variation")
         shapes = buildCombos(spec, "shape_variation")
         all_vars = [("central", {})] + weights + shapes
         all_vars = [x for x in all_vars if self.systs.match(x[0])]
-        all_vars  = [("central", {})] + all_vars
+        all_vars = [("central", {})] + all_vars
         return all_vars
+
 
 @define
 class WeightsOnly(RunBuilder):

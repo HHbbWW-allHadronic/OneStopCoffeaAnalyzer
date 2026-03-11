@@ -8,14 +8,6 @@ from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
 from analyzer.utils.yamlload import loadTemplateYaml
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-import yaml
-
-# Get a logger instance
-
 
 @define
 class DatasetDescription:
