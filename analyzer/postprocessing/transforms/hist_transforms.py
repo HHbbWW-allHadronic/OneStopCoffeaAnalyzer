@@ -108,6 +108,7 @@ class SplitAxes(TransformHistogram):
 
         return ret
 
+
 @define
 class SumHistograms(TransformHistogram):
     sum_match_pattern: BasePattern
