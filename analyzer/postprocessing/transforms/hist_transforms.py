@@ -9,15 +9,11 @@ from analyzer.core.results import Histogram
 import numpy as np
 from analyzer.utils.structure_tools import dictToDot, dotFormat
 import hist
-from collections import ChainMap, OrderedDict
+from collections import OrderedDict
 from analyzer.utils.querying import BasePattern
-from analyzer.utils.structure_tools import (
-    ItemWithMeta,
-    commonDict
-)
+from analyzer.utils.structure_tools import ItemWithMeta, commonDict, addChain
 from attrs import define, field, asdict
 from .registry import TransformHistogram
-from rich import print
 
 
 @define
@@ -33,9 +29,9 @@ class SelectAxesValues(TransformHistogram):
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]
             for p in it.product(*vals):
                 u = dict(zip(keys, p))
-                new_meta = ChainMap(
+                new_meta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), u)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), u)},
                 )
                 u = dict(zip(keys, [hist.loc(x) for x in p]))
 
@@ -99,17 +95,19 @@ class SplitAxes(TransformHistogram):
             }
             for values, split_hist in all_hists.items():
                 axis_values = dict(zip(labels, values))
-                meta = ChainMap(
+                newmeta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), axis_values)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), axis_values)},
                 )
                 ret.append(
                     ItemWithMeta(
-                        Histogram(name=ph.name, axes=None, histogram=split_hist), meta
+                        Histogram(name=ph.name, axes=None, histogram=split_hist),
+                        newmeta,
                     )
                 )
 
         return ret
+
 
 @define
 class SumHistograms(TransformHistogram):
@@ -127,66 +125,107 @@ class SumHistograms(TransformHistogram):
         if to_sum:
             total_hist = ft.reduce(op.add, [x.item.histogram for x in to_sum])
             new_meta = commonDict(to_sum)
-            new_meta = ChainMap(new_meta, self.new_meta_fields)
+            new_meta = addChain(new_meta, self.new_meta_fields)
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=new_meta["name"], axes=to_sum[0].item.axes, histogram=total_hist), new_meta
+                    Histogram(
+                        name=new_meta["name"],
+                        axes=to_sum[0].item.axes,
+                        histogram=total_hist,
+                    ),
+                    new_meta,
                 )
             )
 
         return ret
 
+
+@define
+class StatMaker(TransformHistogram):
+    def __call__(self, items: list[ItemWithMeta]):
+        import scipy.stats
+
+        ret = []
+        for item, meta in items:
+            h = item.histogram
+            distribution = scipy.stats.rv_histogram(h.to_numpy())
+            stats = {
+                "integral": h.sum().value,
+                "integral_flow": h.sum(flow=True).value,
+                "mean": distribution.mean(),
+                "median": distribution.median(),
+                "std": distribution.std(),
+                "var": distribution.var(),
+            }
+            stats = {x: f"{y:.2g}" for x, y in stats.items()}
+            new_meta = addChain(meta, {"stats": stats})
+            ret.append(ItemWithMeta(item, new_meta))
+        return ret
+
+
 @define
 class NormalizeSystematicByProjection(TransformHistogram):
     normalize_within: list[str]
     pre_sf_name: str
-    post_sf_name: str
+    # post_sf_name: str
     variation_axis: str = "variation"
 
     def __call__(self, items):
-        import hist
 
         ret = []
         for ph, meta in items:
             h = ph.histogram.copy(deep=True)
             v_idx = h.axes.name.index(self.variation_axis)
-            pre_idx = h.axes[self.variation_axis].index(self.pre_sf_name)
-            post_idx = h.axes[self.variation_axis].index(self.post_sf_name)
+            names = [x for x in h.axes[self.variation_axis] if x != self.pre_sf_name]
+            for post_sf_name in names:
+                pre_idx = h.axes[self.variation_axis].index(self.pre_sf_name)
+                post_idx = h.axes[self.variation_axis].index(post_sf_name)
 
-            view = h.view(flow=True)
-            
-            slices_pre, slices_post = [slice(None)] * view.ndim, [slice(None)] * view.ndim
-            slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
-            
-            pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
-            axes_to_sum = tuple(
-                i for i, a in enumerate(a for a in h.axes if a.name != self.variation_axis)
-                if a.name not in self.normalize_within
-            )
+                view = h.view(flow=True)
 
-            if axes_to_sum:
-                pre_sum = pre_view["value"].sum(axis=axes_to_sum)
-                post_sum = post_view["value"].sum(axis=axes_to_sum)
-            else:
-                pre_sum = pre_view["value"]
-                post_sum = post_view["value"]
+                slices_pre, slices_post = (
+                    [slice(None)] * view.ndim,
+                    [slice(None)] * view.ndim,
+                )
+                slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
 
-            scale = np.divide(pre_sum, post_sum, out=np.zeros_like(pre_sum, dtype=float), where=post_sum != 0)
-            broadcast_shape = []
-            scale_idx = 0
-            for a in h.axes:
-                if a.name == self.variation_axis:
-                    continue
-                if a.name in self.normalize_within:
-                    broadcast_shape.append(scale.shape[scale_idx])
-                    scale_idx += 1
+                pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
+                axes_to_sum = tuple(
+                    i
+                    for i, a in enumerate(
+                        a for a in h.axes if a.name != self.variation_axis
+                    )
+                    if a.name not in self.normalize_within
+                )
+
+                if axes_to_sum:
+                    pre_sum = pre_view["value"].sum(axis=axes_to_sum)
+                    post_sum = post_view["value"].sum(axis=axes_to_sum)
                 else:
-                    broadcast_shape.append(1)
+                    pre_sum = pre_view["value"]
+                    post_sum = post_view["value"]
 
-            scale = scale.reshape(broadcast_shape)
+                scale = np.divide(
+                    pre_sum,
+                    post_sum,
+                    out=np.zeros_like(pre_sum, dtype=float),
+                    where=post_sum != 0,
+                )
+                broadcast_shape = []
+                scale_idx = 0
+                for a in h.axes:
+                    if a.name == self.variation_axis:
+                        continue
+                    if a.name in self.normalize_within:
+                        broadcast_shape.append(scale.shape[scale_idx])
+                        scale_idx += 1
+                    else:
+                        broadcast_shape.append(1)
 
-            post_view["value"] *= scale
-            post_view["variance"] *= scale**2
+                scale = scale.reshape(broadcast_shape)
+
+                post_view["value"] *= scale
+                post_view["variance"] *= scale**2
 
             ret.append(
                 ItemWithMeta(
@@ -215,13 +254,13 @@ class OrBinaryAxes(TransformHistogram):
 
             h = sum(to_add)
             axis_values = {x: "OR" for x in self.or_axis_names}
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), axis_values)},
+                {"axis_params": addChain(meta.get("axis_params", {}), axis_values)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -243,13 +282,13 @@ class RebinAxes(TransformHistogram):
             h = h[rebins]
             provenance = copy.deepcopy(ph.provenance)
             provenance.axis_params.update(rebins)
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), rebins)},
+                {"axis_params": addChain(meta.get("axis_params", {}), rebins)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -269,13 +308,13 @@ class SliceAxes(TransformHistogram):
                 for x, z in self.slices.items()
             }
             h = h[slices]
-            meta = ChainMap(
+            newmeta = addChain(
                 meta,
-                {"axis_params": ChainMap(meta.get("axis_params", {}), slices)},
+                {"axis_params": addChain(meta.get("axis_params", {}), slices)},
             )
             ret.append(
                 ItemWithMeta(
-                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=newmeta
                 )
             )
 
@@ -289,12 +328,12 @@ class MultiSliceAxes(TransformHistogram):
     def __call__(self, items):
         ret = []
 
-        def makePairs(l):
-            return np.stack([l[:-1], l[1:]], axis=1)
+        def makePairs(pair):
+            return np.stack([pair[:-1], pair[1:]], axis=1)
 
         for ph, meta in items:
             h = ph.histogram
-            chopping = OrderedDict(chopping)
+            chopping = OrderedDict(self.multi_slices)
             names, vals = list(chopping.keys()), list(chopping.values())
             pairs = [makePairs(np.arange(*x)) for x in vals]
             for ranges in it.combinations(*pairs):
@@ -302,14 +341,14 @@ class MultiSliceAxes(TransformHistogram):
                     x: slice(*(hist.loc(y) for y in z)) for x, z in zip(names, ranges)
                 }
                 hnew = h[slices]
-                meta = ChainMap(
+                newmeta = addChain(
                     meta,
-                    {"axis_params": ChainMap(meta.get("axis_params", {}), slices)},
+                    {"axis_params": addChain(meta.get("axis_params", {}), slices)},
                 )
                 ret.append(
                     ItemWithMeta(
                         Histogram(name=ph.name, axes=ph.axes, histogram=hnew),
-                        metadata=meta,
+                        metadata=newmeta,
                     )
                 )
 
@@ -323,11 +362,11 @@ class FormatTitle(TransformHistogram):
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
-            meta = ChainMap(
-                meta,
+            newmeta = addChain(
                 {"title": dotFormat(self.title_format, **dict(dictToDot(meta)))},
+                meta,
             )
-            ret.append(ItemWithMeta(ph, metadata=meta))
+            ret.append(ItemWithMeta(ph, metadata=newmeta))
         return ret
 
 
@@ -338,7 +377,7 @@ class SetStyle(TransformHistogram):
     def __call__(self, histograms):
         ret = []
         for ph, meta in histograms:
-            meta = ChainMap(meta, {"style": asdict(self.style)})
+            meta = addChain(meta, {"style": asdict(self.style)})
             ret.append(ItemWithMeta(ph, metadata=meta))
         return ret
 

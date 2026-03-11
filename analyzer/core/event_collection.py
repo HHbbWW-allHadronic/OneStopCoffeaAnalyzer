@@ -464,6 +464,7 @@ class FileChunk:
 
     def loadEvents(self, backend="coffea-virtual", view_kwargs=None):
         from coffea.nanoevents import NanoEventsFactory, NanoAODSchema
+
         view_kwargs = view_kwargs or {}
         view_kwargs["backend"] = backend
         start = self.event_start

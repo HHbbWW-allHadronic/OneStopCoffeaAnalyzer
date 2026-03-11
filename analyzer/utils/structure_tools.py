@@ -167,3 +167,9 @@ def commonDict(items, key=lambda x: x.metadata):
             if k in ret and not ret[k] == data[k]:
                 del ret[k]
     return ret
+
+def addChain(d, new):
+    if not isinstance(d,ChainMap):
+        d = ChainMap(d)
+    d = d.new_child(new)
+    return d

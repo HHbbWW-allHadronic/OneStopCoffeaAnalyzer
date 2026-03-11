@@ -8,7 +8,6 @@ from analyzer.utils.structure_tools import (
     dictToDot,
     dotFormat,
 )
-from rich import print
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotDictAsBars
 from attrs import define, field

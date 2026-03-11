@@ -8,7 +8,6 @@ import uproot
 import os
 import operator as op
 import jinja2
-from analyzer.utils.querying import BasePattern
 
 from analyzer.utils.structure_tools import (
     commonDict,

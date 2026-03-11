@@ -6,14 +6,7 @@ from analyzer.core.analyzer import Analyzer
 from analyzer.core.executors import Executor
 from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
-
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-import yaml
-
-# Get a logger instance
+from analyzer.utils.yamlload import loadTemplateYaml
 
 
 @define
@@ -40,8 +33,7 @@ class Analysis:
 
 
 def loadAnalysis(path):
-    with open(path, "r") as f:
-        data = yaml.load(f, Loader=Loader)
+    data = loadTemplateYaml(path)
 
     for path in data.get("extra_module_paths", []):
         from pathlib import Path

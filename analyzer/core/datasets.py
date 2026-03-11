@@ -16,7 +16,6 @@ except ImportError:
     from yaml import Loader
 
 
-
 def getDatasets(query, client):
     from coffea.dataset_tools import rucio_utils
 

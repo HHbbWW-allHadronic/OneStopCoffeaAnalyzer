@@ -3,17 +3,14 @@ from __future__ import annotations
 import functools as ft
 from typing import Literal
 import itertools as it
-from .style import StyleSet, Style
+from .style import Style
 from analyzer.utils.structure_tools import (
-    ItemWithMeta,
     commonDict,
     dictToDot,
     dotFormat,
 )
 from .processors import BasePostprocessor
-from .plots.plots_1d import plotOne, plotRatio
-from .plots.plots_2d import plot2D
-from analyzer.utils.querying import BasePattern, deepLookup
+from analyzer.utils.querying import deepLookup
 from attrs import define, field
 import numpy as np
 import enum
@@ -73,7 +70,7 @@ def makeSignificance2D(
     **kwargs,
 ):
     import matplotlib.pyplot as plt
-    from .plots.annotations import addCMSBits, labelAxis
+    from .plots.annotations import addCMSBits
     from .plots.common import PlotConfiguration
     from .plots.utils import saveFig
 
