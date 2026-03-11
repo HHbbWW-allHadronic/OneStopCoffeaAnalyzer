@@ -3,6 +3,7 @@ from pathlib import Path
 from attrs import define, field
 
 import yaml
+
 try:
     from yaml import CLoader as Loader
 except ImportError:
