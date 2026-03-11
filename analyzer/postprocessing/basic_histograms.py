@@ -14,7 +14,6 @@ from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios
 from .plots.plots_2d import plot2D
 from attrs import define, field
-from rich import print
 
 ResultSet = list[list[ItemWithMeta]]
 
@@ -49,7 +48,7 @@ class Histogram1D(BasePostprocessor):
             style_set=self.style_set,
             normalize=self.normalize,
             plot_configuration=pc,
-            show_stacked_unc=self.show_stacked_unc
+            show_stacked_unc=self.show_stacked_unc,
         )
 
 
@@ -175,6 +174,7 @@ class Histogram2D(BasePostprocessor):
     normalize: bool = False
 
     def getRunFuncs(self, group, prefix=None):
+        # print(group)
         if len(group) != 1:
             raise RuntimeError()
         hist = group[0]

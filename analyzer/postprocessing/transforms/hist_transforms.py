@@ -166,7 +166,7 @@ class StatMaker(TransformHistogram):
 class NormalizeSystematicByProjection(TransformHistogram):
     normalize_within: list[str]
     pre_sf_name: str
-    post_sf_name: str
+    #post_sf_name: str
     variation_axis: str = "variation"
 
     def __call__(self, items):
@@ -176,43 +176,45 @@ class NormalizeSystematicByProjection(TransformHistogram):
         for ph, meta in items:
             h = ph.histogram.copy(deep=True)
             v_idx = h.axes.name.index(self.variation_axis)
-            pre_idx = h.axes[self.variation_axis].index(self.pre_sf_name)
-            post_idx = h.axes[self.variation_axis].index(self.post_sf_name)
+            names = [x for x in h.axes[self.variation_axis] if x != self.pre_sf_name]
+            for post_sf_name in names:
+                pre_idx = h.axes[self.variation_axis].index(self.pre_sf_name)
+                post_idx = h.axes[self.variation_axis].index(post_sf_name)
 
-            view = h.view(flow=True)
-            
-            slices_pre, slices_post = [slice(None)] * view.ndim, [slice(None)] * view.ndim
-            slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
-            
-            pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
-            axes_to_sum = tuple(
-                i for i, a in enumerate(a for a in h.axes if a.name != self.variation_axis)
-                if a.name not in self.normalize_within
-            )
+                view = h.view(flow=True)
+                
+                slices_pre, slices_post = [slice(None)] * view.ndim, [slice(None)] * view.ndim
+                slices_pre[v_idx], slices_post[v_idx] = pre_idx, post_idx
+                
+                pre_view, post_view = view[tuple(slices_pre)], view[tuple(slices_post)]
+                axes_to_sum = tuple(
+                    i for i, a in enumerate(a for a in h.axes if a.name != self.variation_axis)
+                    if a.name not in self.normalize_within
+                )
 
-            if axes_to_sum:
-                pre_sum = pre_view["value"].sum(axis=axes_to_sum)
-                post_sum = post_view["value"].sum(axis=axes_to_sum)
-            else:
-                pre_sum = pre_view["value"]
-                post_sum = post_view["value"]
-
-            scale = np.divide(pre_sum, post_sum, out=np.zeros_like(pre_sum, dtype=float), where=post_sum != 0)
-            broadcast_shape = []
-            scale_idx = 0
-            for a in h.axes:
-                if a.name == self.variation_axis:
-                    continue
-                if a.name in self.normalize_within:
-                    broadcast_shape.append(scale.shape[scale_idx])
-                    scale_idx += 1
+                if axes_to_sum:
+                    pre_sum = pre_view["value"].sum(axis=axes_to_sum)
+                    post_sum = post_view["value"].sum(axis=axes_to_sum)
                 else:
-                    broadcast_shape.append(1)
+                    pre_sum = pre_view["value"]
+                    post_sum = post_view["value"]
 
-            scale = scale.reshape(broadcast_shape)
+                scale = np.divide(pre_sum, post_sum, out=np.zeros_like(pre_sum, dtype=float), where=post_sum != 0)
+                broadcast_shape = []
+                scale_idx = 0
+                for a in h.axes:
+                    if a.name == self.variation_axis:
+                        continue
+                    if a.name in self.normalize_within:
+                        broadcast_shape.append(scale.shape[scale_idx])
+                        scale_idx += 1
+                    else:
+                        broadcast_shape.append(1)
 
-            post_view["value"] *= scale
-            post_view["variance"] *= scale**2
+                scale = scale.reshape(broadcast_shape)
+
+                post_view["value"] *= scale
+                post_view["variance"] *= scale**2
 
             ret.append(
                 ItemWithMeta(

@@ -13,7 +13,7 @@ latex_jinja_env = jinja2.Environment(
     line_comment_prefix="%#",
     trim_blocks=True,
     autoescape=False,
-    loader=jinja2.FileSystemLoader(CONFIG.TEMPLATE_PATH),
+    loader=jinja2.FileSystemLoader(CONFIG.post.static_resource_path),
 )
 
 

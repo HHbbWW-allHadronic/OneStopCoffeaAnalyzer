@@ -4,9 +4,7 @@ import abc
 from cattrs.strategies import (
     include_subclasses,
     configure_tagged_union,
-    configure_union_passthrough,
 )
-from .transforms.registry import Transform
 
 import functools as ft
 from .plots.common import PlotConfiguration

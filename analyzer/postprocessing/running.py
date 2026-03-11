@@ -11,11 +11,6 @@ from .style import StyleSet
 from analyzer.core.serialization import setupConverter
 import matplotlib as mpl
 
-try:
-    from yaml import CLoader as Loader
-except ImportError:
-    from yaml import Loader
-import yaml
 from rich.progress import Progress, track
 from distributed import (
     WorkerPlugin,
@@ -67,10 +62,10 @@ def runPostprocessors(
     groupingConfConv(converter)
     procConfConv(converter)
 
-
     loadStyles()
 
     data = loadTemplateYaml(path)
+    print(data)
 
     if "Postprocessing" in data:
         data = data["Postprocessing"]

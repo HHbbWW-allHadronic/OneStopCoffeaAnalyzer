@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TypeVar
-from rich import print
 from analyzer.utils.querying import BasePattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import flatten
 from analyzer.utils.structure_tools import (
@@ -33,6 +32,7 @@ class GroupBuilder:
         transforms (list[Transform] | None): A list of transformation functions
             to apply to each formed group.
     """
+
     group: BasePattern | None = None
     select: BasePattern | None = None
     subgroups: list[GroupBuilder] | dict[str, GroupBuilder] | None = None
@@ -58,15 +58,15 @@ class GroupBuilder:
         """
         transforms = self.transforms or []
         transforms = flatten(transforms)
-        
+
         # 1. Filter items: Only keep items whose metadata matches
         if self.select is not None:
             items = [x for x in items if self.select.match(x.metadata)]
-            
+
         if self.group:
             # Take remaining items and form groups based on the capture pattern
             gathered = gatherByCapture(self.group, items)
-            
+
             groups: ResultSet = [g.items for g in gathered if g.capture is not NO_MATCH]
             # Groups are now a list[list[ItemWithMeta]]
 
@@ -75,7 +75,7 @@ class GroupBuilder:
         else:
             # No grouping specified: Treat all filtered items as one large single group
             groups = items
-            
+
             # Apply transformations sequentially to the entire single group
             for transform in transforms:
                 groups = transform(groups)
@@ -105,7 +105,6 @@ class GroupBuilder:
 
 def configureConverter(conv):
 
-
     base_transform_hook = conv.get_structure_hook(Transform)
     base_list_transform_hook = conv.get_structure_hook(list[Transform])
 
@@ -117,7 +116,7 @@ def configureConverter(conv):
             return base_transform_hook(data, Transform)
 
     @conv.register_structure_hook
-    def _(data, t) -> list[GroupBuilder] | dict[str, GroupBuilder] | None :
+    def _(data, t) -> list[GroupBuilder] | dict[str, GroupBuilder] | None:
         if data is None:
             return None
         if isinstance(data, list):
@@ -126,5 +125,3 @@ def configureConverter(conv):
             return {k: conv.structure(v, GroupBuilder) for k, v in data.items()}
         else:
             raise RuntimeError()
-
-
