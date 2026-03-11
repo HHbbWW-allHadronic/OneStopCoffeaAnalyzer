@@ -35,7 +35,7 @@ def plotOne(
     normalize=False,
     show_info=False,
     plot_configuration=None,
-    show_stacked_unc=True
+    show_stacked_unc=True,
 ):
     stacked_hists = stacked_hists or []
     pc = plot_configuration or PlotConfiguration()
@@ -78,9 +78,9 @@ def plotOne(
             mplhep.histplot(
                 stacked_total,
                 ax=ax,
-                label ="Stacked Unc.",
+                label="Stacked Unc.",
                 histtype="band",
-                )
+            )
 
     for item, meta in histograms:
         title = meta.get("title") or meta["dataset_title"]
@@ -217,7 +217,6 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
     hists = []
     titles = []
     style_kwargs = defaultdict(list)
-
 
     for item, meta in den_to_plot:
         hists.append(item.histogram)

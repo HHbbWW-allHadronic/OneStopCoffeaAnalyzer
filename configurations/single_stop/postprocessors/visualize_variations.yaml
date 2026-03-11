@@ -1,0 +1,26 @@
+{% macro  ratio_variation(name, inputs, systematics) -%}
+- name: RatioPlot
+  inputs: {{ inputs | tojson }}
+  normalize: False
+  structure:
+    select: {dataset_name: "*"}
+    group: {era.name: "*", pipeline: "*"}
+    transforms:
+      - name: MergeAxes
+        merge_axis_names: [HT_Cat]
+      - name: SplitAxes
+        split_axis_names: ["variation"]
+      - name: FormatTitle
+        title_format: "{axis_params.variation}"
+
+    subgroups:
+      denominator:
+        select: {"axis_params" : { "variation" : "central" }}
+      transforms:
+        - name: FormatTitle
+          title_format: "{dataset_title}"
+      numerator:
+        select: {"axis_params" : { "variation" : {{ (["!central"] + systematics) | tojson }} } }
+  output_name: "{prefix}/control/{era.name}/{{ name }}_{era.name}_{name}.png"
+
+{%- endmacro %}

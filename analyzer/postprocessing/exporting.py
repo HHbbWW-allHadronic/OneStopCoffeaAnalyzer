@@ -37,7 +37,9 @@ class Dump(BasePostprocessor):
         if len(group) != 1:
             raise RuntimeError()
         item, meta = group[0]
-        output_path = dotFormat(self.output_name, **dict(meta), prefix=prefix)
+        output_path = dotFormat(
+            self.output_name, **dict(dictToDot(meta)), prefix=prefix
+        )
         yield ft.partial(
             exportItem,
             item.histogram,

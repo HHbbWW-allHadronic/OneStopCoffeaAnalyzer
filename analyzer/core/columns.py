@@ -253,15 +253,15 @@ class TrackedColumns:
             raise RuntimeError(
                 f"Column {column} is not in the list of outputs {self._allowed_outputs}"
             )
-            
+
         if any(c.contains(column) for c in self._lazy_columns if c != column):
             self.flush()
-            
+
         self._lazy_columns[column] = value
         to_del = [k for k in self._lazy_columns if k != column and column.contains(k)]
         for k in to_del:
             del self._lazy_columns[k]
-            
+
         self._column_provenance[column] = self._current_provenance
         if hasattr(value, "layout"):
             all_columns = getAllColumns(value.layout, column)
@@ -286,15 +286,15 @@ class TrackedColumns:
             raise RuntimeError(
                 f"Column {column} is not in the list of inputs {self._allowed_inputs}"
             )
-            
+
         if column in self._lazy_columns:
             return self._lazy_columns[column]
-            
+
         for c in column.parents():
             if c in self._lazy_columns:
-                remainder = Column(column.fields[len(c.fields):])
+                remainder = Column(column.fields[len(c.fields) :])
                 return remainder.extract(self._lazy_columns[c])
-                
+
         if any(column.contains(c) for c in self._lazy_columns):
             self.flush()
 
@@ -308,7 +308,6 @@ class TrackedColumns:
             #     column, other[column], other._column_provenance[column]
             # )
 
-
     def filter(self, mask):
         if not self._allow_filter:
             raise RuntimeError()
@@ -316,7 +315,9 @@ class TrackedColumns:
         for c in list(self._lazy_columns.keys()):
             self._lazy_columns[c] = self._lazy_columns[c][mask]
         for c in self._column_provenance:
-            self._column_provenance[c] = hash((self._column_provenance[c], self._current_provenance))
+            self._column_provenance[c] = hash(
+                (self._column_provenance[c], self._current_provenance)
+            )
         return self
 
     @contextlib.contextmanager
@@ -343,7 +344,6 @@ class TrackedColumns:
         self._allowed_outputs = columns
         yield
         self._allowed_outputs = old_outputs
-
 
 
 def mergeColumns(column_views):

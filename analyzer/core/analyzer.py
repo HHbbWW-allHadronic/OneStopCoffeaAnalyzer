@@ -3,15 +3,12 @@ import copy
 
 from attrs import define, field, asdict
 
-import itertools as it
 
 from collections import deque
 
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
     ModuleAddition,
-    PureResultModule,
-    EventSourceModule,
 )
 from analyzer.core.run_builders import DEFAULT_RUN_BUILDER, CompleteSysts, RunBuilder
 from analyzer.core.results import (
@@ -35,7 +32,7 @@ def getPipelineSpecs(pipeline, metadata):
     for module in pipeline:
         new_specs = module.getParameterSpec(metadata)
         if set(ret) & set(new_specs):
-            raise RuntimeError(f"Duplicate module parameter names")
+            raise RuntimeError("Duplicate module parameter names")
         ret.update(new_specs)
     return ret
 
@@ -49,10 +46,11 @@ class Analyzer:
 
     _cache: SimpleCache = field(factory=SimpleCache)
 
-
     def __rich_repr__(self):
-        modules_ids = [(id(x),x) for x in self.all_modules]
-        pipelines_ids = {k:[(id(z),z) for z in x] for k,x in self.base_pipelines.items()}
+        modules_ids = [(id(x), x) for x in self.all_modules]
+        pipelines_ids = {
+            k: [(id(z), z) for z in x] for k, x in self.base_pipelines.items()
+        }
         yield "modules", modules_ids
         yield "pipelines", pipelines_ids
 
@@ -60,7 +58,7 @@ class Analyzer:
         pass
         # for m in self.all_modules:
         #     m.preloadForMeta(metadata)
-        
+
     def clearCaches(self):
         self._cache.clear()
         for m in self.all_modules:

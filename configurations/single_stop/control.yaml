@@ -40,10 +40,6 @@ common_pre_sel_weights: &common_pre_sel_weights
     working_point: M
 
 common_categories: &common_categories
-  - module_name: MSDCleanerCategory
-    should_run:
-      sample_type: MC
-
   - module_name: SimpleCategory
     input_col: HT
     cat_name: HT_Cat
@@ -211,6 +207,7 @@ analyzer:
     - *common_corrections
     - *common_objects
     - *common_pre_sel_weights
+    # - module_name: MSDCleanerSelection
     - module_name: NObjFilter
       input_col: LooseB
       selection_name: 0bjet
@@ -233,13 +230,12 @@ analyzer:
     - *common_corrections
     - *common_objects
     - *common_pre_sel_weights
+    # - module_name: MSDCleanerSelection
 
-    # - module_name: TriggerBNNCorrection
-    #   base_path: trained_bnns/prescaled_cut/
-    #   correction_pattern: "bnn_correction_{era}.json.gz"
+
 
     - module_name: TriggerBNNCorrection
-      base_path: postprocessing/trigger_effs/
+      base_path: postprocessing/newtriggereffs/
       correction_pattern: "{era}.json.gz"
 
     - module_name: NObjFilter
@@ -263,7 +259,7 @@ post_common_mc_transforms: &post_common_mc_transforms
     post_sf_name: "central"
     variation_axis: "variation"
   - name: SelectAxesValues
-    select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+    select_axes_values: {"variation": "central"}
   - name: MergeAxes
     merge_axis_names: ["HT_Cat"]
 
@@ -387,14 +383,14 @@ Postprocessing:
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
               - name: SelectAxesValues
-                select_axes_values: {"variation": "bjetshapesf-variation_disabled", "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": "bjetshapesf-variation_disabled"}
           numerator:
             select: {sample_type: MC, pipeline: ControlBNN}
             transforms:
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
               - name: SelectAxesValues
-                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": "central"}
       output_name: "{prefix}/control/{era.name}/compare_bsf_{era.name}_{name}.png"
 
 
@@ -412,7 +408,7 @@ Postprocessing:
             select: {sample_type: MC, pipeline: ControlBNN}
             transforms:
               - name: SelectAxesValues
-                select_axes_values: {"variation": "bjetshapesf-variation_disabled", "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": "bjetshapesf-variation_disabled"}
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
           numerator:
@@ -424,7 +420,7 @@ Postprocessing:
                 post_sf_name: "central"
                 variation_axis: "variation"
               - name: SelectAxesValues
-                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": "central"}
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
 
@@ -445,7 +441,7 @@ Postprocessing:
           denominator:
             transforms:
               - name: SelectAxesValues
-                select_axes_values: {"variation": "central", "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": "central"}
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
               - name: SetStyle
@@ -455,7 +451,7 @@ Postprocessing:
           numerator:
             transforms:
               - name: SelectAxesValues
-                select_axes_values: {"variation": ["triggereff-variation_up", "triggereff-variation_down"], "PassMSDCLeaner": [1]}
+                select_axes_values: {"variation": ["triggereff-variation_up", "triggereff-variation_down"]}
               - name: MergeAxes
                 merge_axis_names: ["HT_Cat"]
               - name: SetStyle

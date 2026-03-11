@@ -21,11 +21,9 @@ def plot2D(
 ):
     pc = plot_configuration or PlotConfiguration()
 
-    styler = Styler(style_set)
     fig, ax = plt.subplots(layout="constrained")
-    item,meta = histogram
+    item, meta = histogram
     h = item.histogram
-    style = styler.getStyle(meta)
 
     if normalize:
         h = h / np.sum(h.values())
