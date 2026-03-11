@@ -100,7 +100,48 @@ common_objects: &common_objects
     output_col: NtightElectron
 {%- endmacro %}
 
+<<<<<<< HEAD
 {% macro regions() -%}
+=======
+not-trigger_selection: &not-trigger_selection
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedB
+    selection_name: 2b
+    min_count: 2
+
+  - module_name: ScalarCut
+    input_col: HT
+    selection_name: min_ht_cut
+    min_val: 400
+
+  - module_name: SimpleHistogram
+    hist_name: HT
+    input_cols: [HT]
+    axes:
+      - name: "$H_{T}$ after 400 GeV cut"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+>>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
@@ -150,6 +191,28 @@ loose_selection: &loose_selection
     input_col: MedB
     selection_name: 2b
     min_count: 2
+<<<<<<< HEAD
+=======
+    
+lepton_veto: &lepton_veto
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+common_histograms: &common_histograms
+  - module_name: TopVecHistograms
+    prefix: "Jet"
+    input_col: goodJet
+    max_idx: 6
+>>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)
 
 withHLT_ObjDef1: &withHLT_ObjDef1
   - *hlt_selection
@@ -183,6 +246,249 @@ withHLT_NoSelection: &withHLT_NoSelection
   - module_name: SelectOnColumns
     sel_name: selection
 
+<<<<<<< HEAD
 NoSelection: &NoSelection
   - *common_objects
 {%- endmacro %}
+=======
+  - module_name: SimpleHistogram
+    hist_name: MedBN
+    input_cols: [NMedB]
+    axes:
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: JetComboHistograms
+    input_col: MedB
+    prefix: "b_dijet"
+    jet_combos:
+      - [0,1]
+    mass_axis:
+      name: "b_dijet"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: FourVecHistograms
+    input_col: Jet
+    hist_name: AK4Jet
+    mass_axis:
+      name: "AK4Jet"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: SimpleHistogram
+    hist_name: AK4NJet
+    input_cols: [NAK4Jet]
+    axes: 
+      - name: "$N_{AK4Jets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: SimpleHistogram
+    hist_name: AK4JetQvG
+    input_cols: [Jet.btagUParTAK4QvG]
+    axes:
+      - name: "AK4Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jetbtag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: "AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20  
+
+  - module_name: SimpleHistogram
+    hist_name: AK4JetID
+    input_cols: [Jet.jetId]
+    axes:
+      - name: "AK4Jet JetID"
+        start: -0.5
+        stop: 6.5
+        bins: 7
+  
+  - module_name: SimpleHistogram
+    hist_name: AK4HT  
+    input_cols: [AK4HT]
+    axes:
+      - name: "AK4Jet $H_{T}$"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: "GeV"
+
+
+gen_histograms: &gen_histograms
+  - module_name: TopVecHistograms
+    prefix: "GenJet"
+    input_col: GenJet
+    max_idx: 6
+
+  - module_name: SimpleHistogram
+    hist_name: GenJetHT
+    input_cols: [GenJetHT]
+    axes:
+      - name: "GenJet $H_{T}$"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: GenNJet
+    input_cols: [NGenJet]
+    axes:
+      - name: "$N_{GenJets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: FourVecHistograms
+    input_col: GenJet
+    hist_name: GenJet
+    mass_axis:
+      name: "GenJet"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenHiggs
+    pdgId: 25
+    status_flag: 13
+
+  - module_name: FourVecHistograms
+    input_col: GenHiggs
+    hist_name: GenHiggs
+    mass_axis:
+      name: "GenHiggs"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: GenPartDecayWalker
+    input_col: GenPart
+    output_col: GenPart_2b4q
+    sample_type: signal
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b4q
+    output_col: min_dr_GenPart 
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_GenPart
+    input_cols: [min_dr_GenPart]
+    axes:
+      - name: "min_dr_GenPart"
+        start: 0.0
+        stop: 3.0
+        bins: 60
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+  withHLT_ObjDef1:
+    - *hlt_selection
+    - *common_objects
+    - *tight_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  withHLT_ObjDef2:
+    - *hlt_selection
+    - *common_objects
+    - *loose_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  noHLT_ObjDef1:
+    - *common_objects
+    - *tight_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  noHLT_ObjDef2:
+    - *common_objects
+    - *loose_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+
+  withHLT_NoSelection:
+    - *hlt_selection
+    - *common_objects
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+    - *gen_histograms
+
+  withHLT_NoSelection_nolep:
+    - *hlt_selection
+    - *common_objects
+    - *lepton_veto
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+    - *gen_histograms
+
+  NoSelection:
+    - *common_objects
+    - *common_histograms
+    - *gen_histograms
+
+  NoSelection_run2:
+    - *common_objs_NO_JETID
+    - *gen_histograms
+
+  withHLT_NoSelection_run2:
+    - *common_objs_NO_JETID
+    - *not-trigger_selection
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *gen_histograms
+
+location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+      - withHLT_NoSelection
+      - NoSelection
+      #- withHLT_ObjDef1
+      #- noHLT_ObjDef1
+      #- withHLT_ObjDef2
+      #- noHLT_ObjDef2
+
+  #- dataset: 'ggHHbbVV_2024_INCLUSIVE'
+  #  pipelines:
+  #    - withHLT_NoSelection_nolep
+  #    - NoSelection
+
+  - dataset: 'ggHHbbVV_2018'
+    pipelines:
+      - withHLT_NoSelection_run2
+      - NoSelection_run2
+
+#  - dataset: 'qcd*2024*'
+#    pipelines: [withHLT_ObjDef1]
+#  - dataset: 'tt_hadronic*2024*'
+#    pipelines: [withHLT_ObjDef1]
+#  - dataset: 'tt_semilep*2024'
+#    pipelines: [SignalRegion]
+        
+>>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)

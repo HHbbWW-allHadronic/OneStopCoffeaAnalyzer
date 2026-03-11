@@ -80,191 +80,193 @@ class GenPartDecayWalker(AnalyzerModule):
     input_col: Column
     output_col: Column
     sample_type: HHSampleType
-
-    def _has_ancestor_with(self, idx, mother_idxs, pids, target_pid, target_status=None):
-        """
-        Walk up the decay tree from idx to check if any ancestor matches
-        target_pid and optionally target_status.
-        mother_idxs and pids are flat numpy arrays for a single event.
-        """
-        visited = set()
-        current = idx
-        while current >= 0 and current not in visited:
-            visited.add(current)
-            if abs(pids[current]) == target_pid:
-                if target_status is None:
-                    return True
-                # status check would need to be passed in — see note below
-                return True
-            current = mother_idxs[current]
-        return False
+    
+    def _is_bit_set(self, value, bit):
+        return (value >> bit) & 1 == 1
 
     def _walk_signal(self, gen_parts):
         """
-        For signal HH->bbWW->bbqqqq:
-        Find status 23 quarks whose ancestry includes a status 62 Higgs (PID 25).
+        Signal HH->bbWW->bbqqqq:
+        Find isFirstCopy (bit 12) + isHardProcess (bit 7) quarks
+        with a isLastCopy (bit 13) Higgs ancestor.
+        Expected: 6 quarks (2b + 4 light)
         """
-        import numpy as np
-
         result_mask_events = []
 
-        # Work event by event since we need to walk the tree
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
+        # Pre-filter candidates in awkward before any Python loop
+        abs_pid = abs(gen_parts.pdgId)
+        is_first_copy = (gen_parts.statusFlags >> 12) & 1 == 1
+        is_hard_process = (gen_parts.statusFlags >> 7) & 1 == 1
+        is_quark = (abs_pid >= 1) & (abs_pid <= 5)
+        candidates = is_first_copy & is_hard_process & is_quark
 
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
+        for ev in range(len(gen_parts)):
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_candidates = ak.to_numpy(candidates[ev])
 
             selected = []
-            for i in range(n):
-                # Must be status 23 and a quark we care about
-                if ev_status[i] != 23:
-                    continue
-                if abs(ev_pid[i]) not in {5, 1, 2, 3, 4}:
+            for i in range(len(ev_pid)):
+                if not ev_candidates[i]:
                     continue
 
-                # Walk up to find a status 62 Higgs ancestor
                 visited = set()
-                current = ev_mother[i]
+                current = int(ev_mother[i])
                 found_higgs = False
                 while current >= 0 and current not in visited:
                     visited.add(current)
-                    if abs(ev_pid[current]) == 25 and ev_status[current] == 62:
+                    if abs(int(ev_pid[current])) == 25 and self._is_bit_set(int(ev_status[current]), 13):
                         found_higgs = True
                         break
-                    current = ev_mother[current]
+                    current = int(ev_mother[current])
 
                 if found_higgs:
                     selected.append(i)
 
             if len(selected) != 6:
+                logger.warning(f"Signal event {ev}: expected 6 quarks, found {len(selected)}.")
+                for i in selected:
+                    mother_pid = int(ev_pid[ev_mother[i]]) if ev_mother[i] >= 0 else None
+                    logger.warning(
+                        f"  idx={i}, pid={int(ev_pid[i])}, "
+                        f"statusFlags={int(ev_status[i])}, "
+                        f"mother_idx={int(ev_mother[i])}, "
+                        f"mother_pid={mother_pid}"
+                    )
                 raise ValueError(
                     f"Signal event {ev}: expected 6 quarks, found {len(selected)}. "
                     f"Check decay chain integrity."
                 )
             result_mask_events.append(selected)
-
         return result_mask_events
 
     def _walk_ttbar_hadronic(self, gen_parts):
         """
-        For TTbar hadronic tt->bbWW->bbqqqq:
-        Find status 23 quarks whose ancestry includes a PID ±24 W
-        which itself comes from a PID ±6 top.
+        TTbar hadronic tt->bbWW->bbqqqq:
+        Find isFirstCopy (bit 12) + isHardProcess (bit 7) quarks
+        with a top quark (PID 6) ancestor.
+        Expected: 6 quarks (2b + 4 light)
         """
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
-
         result_mask_events = []
 
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
+        abs_pid = abs(gen_parts.pdgId)
+        is_first_copy = (gen_parts.statusFlags >> 12) & 1 == 1
+        is_hard_process = (gen_parts.statusFlags >> 7) & 1 == 1
+        is_quark = (abs_pid >= 1) & (abs_pid <= 5)
+        candidates = is_first_copy & is_hard_process & is_quark
+
+        for ev in range(len(gen_parts)):
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_candidates = ak.to_numpy(candidates[ev])
 
             selected = []
-            for i in range(n):
-                if ev_status[i] != 23:
-                    continue
-                if abs(ev_pid[i]) not in {5, 1, 2, 3, 4}:
+            for i in range(len(ev_pid)):
+                if not ev_candidates[i]:
                     continue
 
-                # Walk up — for b quarks, expect direct top ancestor
-                # For light quarks, expect W ancestor whose mother is a top
                 visited = set()
-                current = ev_mother[i]
-                found_top_ancestry = False
-
+                current = int(ev_mother[i])
+                found_top = False
                 while current >= 0 and current not in visited:
                     visited.add(current)
-                    if abs(ev_pid[current]) == 6:
-                        found_top_ancestry = True
+                    if abs(int(ev_pid[current])) == 6:
+                        found_top = True
                         break
-                    current = ev_mother[current]
+                    current = int(ev_mother[current])
 
-                if found_top_ancestry:
+                if found_top:
                     selected.append(i)
 
             if len(selected) != 6:
+                logger.warning(f"TTbar hadronic event {ev}: expected 6 quarks, found {len(selected)}.")
+                for i in selected:
+                    mother_pid = int(ev_pid[ev_mother[i]]) if ev_mother[i] >= 0 else None
+                    logger.warning(
+                        f"  idx={i}, pid={int(ev_pid[i])}, "
+                        f"statusFlags={int(ev_status[i])}, "
+                        f"mother_idx={int(ev_mother[i])}, "
+                        f"mother_pid={mother_pid}"
+                    )
                 raise ValueError(
                     f"TTbar hadronic event {ev}: expected 6 quarks, found {len(selected)}. "
                     f"Check decay chain integrity."
                 )
             result_mask_events.append(selected)
-
         return result_mask_events
 
     def _walk_ttbar_semileptonic(self, gen_parts):
         """
-        For TTbar semileptonic:
-        Collect b quarks from both tops, but only light quarks from the
-        hadronic W. Skip the leptonic W daughters entirely.
-        Expected result: 4 quarks (2b + 2 light)
+        TTbar semileptonic:
+        Collect b quarks from both tops, light quarks only from hadronic W.
+        Expected: 4 quarks (2b + 2 light)
         """
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
-
         result_mask_events = []
 
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
+        abs_pid = abs(gen_parts.pdgId)
+        is_first_copy = (gen_parts.statusFlags >> 12) & 1 == 1
+        is_hard_process = (gen_parts.statusFlags >> 7) & 1 == 1
+        is_quark = (abs_pid >= 1) & (abs_pid <= 5)
+        candidates = is_first_copy & is_hard_process & is_quark
+
+        for ev in range(len(gen_parts)):
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_candidates = ak.to_numpy(candidates[ev])
 
             selected = []
-            for i in range(n):
-                if ev_status[i] != 23:
+            for i in range(len(ev_pid)):
+                if not ev_candidates[i]:
                     continue
 
-                pid = abs(ev_pid[i])
+                pid = abs(int(ev_pid[i]))
 
-                # Collect b quarks with top ancestry
                 if pid == 5:
                     visited = set()
-                    current = ev_mother[i]
+                    current = int(ev_mother[i])
                     found_top = False
                     while current >= 0 and current not in visited:
                         visited.add(current)
-                        if abs(ev_pid[current]) == 6:
+                        if abs(int(ev_pid[current])) == 6:
                             found_top = True
                             break
-                        current = ev_mother[current]
+                        current = int(ev_mother[current])
                     if found_top:
                         selected.append(i)
 
-                # Collect light quarks only from hadronic W
-                # (leptonic W daughters will be leptons/neutrinos, not in 1-4)
                 elif pid in {1, 2, 3, 4}:
                     visited = set()
-                    current = ev_mother[i]
-                    found_w_from_top = False
+                    current = int(ev_mother[i])
+                    found_hadronic_w = False
                     while current >= 0 and current not in visited:
                         visited.add(current)
-                        if abs(ev_pid[current]) == 24:
-                            # Check this W comes from a top
-                            w_mother = ev_mother[current]
-                            if w_mother >= 0 and abs(ev_pid[w_mother]) == 6:
-                                found_w_from_top = True
+                        if abs(int(ev_pid[current])) == 24:
+                            w_mother = int(ev_mother[current])
+                            if w_mother >= 0 and abs(int(ev_pid[w_mother])) == 6:
+                                found_hadronic_w = True
                             break
-                        current = ev_mother[current]
-                    if found_w_from_top:
+                        current = int(ev_mother[current])
+                    if found_hadronic_w:
                         selected.append(i)
 
             if len(selected) != 4:
+                logger.warning(f"TTbar semileptonic event {ev}: expected 4 quarks, found {len(selected)}.")
+                for i in selected:
+                    mother_pid = int(ev_pid[ev_mother[i]]) if ev_mother[i] >= 0 else None
+                    logger.warning(
+                        f"  idx={i}, pid={int(ev_pid[i])}, "
+                        f"statusFlags={int(ev_status[i])}, "
+                        f"mother_idx={int(ev_mother[i])}, "
+                        f"mother_pid={mother_pid}"
+                    )
                 raise ValueError(
                     f"TTbar semileptonic event {ev}: expected 4 quarks, found {len(selected)}. "
                     f"Check decay chain integrity."
                 )
             result_mask_events.append(selected)
-
         return result_mask_events
 
     def run(self, columns, params):
@@ -279,7 +281,6 @@ class GenPartDecayWalker(AnalyzerModule):
         else:
             raise ValueError(f"Unknown sample type: {self.sample_type}")
 
-        # Convert selected indices back to an awkward array mask
         selected_ak = ak.Array(selected_indices)
         columns[self.output_col] = gen_parts[selected_ak]
         return columns, []
@@ -288,4 +289,4 @@ class GenPartDecayWalker(AnalyzerModule):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]
+        return [self.output_col]    
