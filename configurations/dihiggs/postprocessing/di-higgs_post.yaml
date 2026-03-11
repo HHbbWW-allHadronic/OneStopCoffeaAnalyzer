@@ -3,7 +3,7 @@ Postprocessing:
     - name: Histogram1D
       inputs:
         - "*/*/*/*"
-      scale: log
+      scale: linear
       normalize: False
       show_info: True
       structure:
@@ -12,14 +12,14 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots_LOG/{era.name}/{pipeline}/{name}"
+      output_name: "plots_LINEAR/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
       show_den_unc: False
-      scale: log
+      scale: linear
       structure:
         select: {dataset_name: "ggHH2b2V6q*", name: "!selection"}
         group: {era.name: "*", name: "*"}
@@ -39,7 +39,7 @@ Postprocessing:
             select_axes_values: {"variation": "central"}
           - name: SliceAxes
             slices: {0: [0,1200]}
-      output_name: "plots/{era.name}/trigger_eff_{name}.png"
+      output_name: "plots_LINEAR/{era.name}/trigger_eff_{name}.png"
 
   default_plot_config:
     cms_text: "Preliminary"

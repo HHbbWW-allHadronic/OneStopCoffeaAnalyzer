@@ -292,6 +292,44 @@ class HT(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+@define
+class ScalarCut(AnalyzerModule):
+    """
+    Apply a minimum and/or maximum cut to any precomputed scalar column.
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the precomputed scalar values.
+    selection_name : str
+        Name of the event-level selection to be added.
+    min_val : float, optional
+        Minimum value cut. If None, no lower bound is applied.
+    max_val : float, optional
+        Maximum value cut. If None, no upper bound is applied.
+    """
+    input_col: Column
+    selection_name: str
+    min_val: float = None
+    max_val: float = None
+
+    def run(self, columns, params):
+        values = columns[self.input_col]
+        passes = ak.ones_like(values, dtype=bool)
+        if self.min_val is not None:
+            passes = passes & (values > self.min_val)
+        if self.max_val is not None:
+            passes = passes & (values < self.max_val)
+        n_before = len(values)
+        n_after = ak.sum(passes)
+        
+        addSelection(columns, self.selection_name, passes)
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [Column(("Selection", self.selection_name))]
 
 @define
 class JetFilter(AnalyzerModule):
