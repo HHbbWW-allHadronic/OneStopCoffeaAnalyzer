@@ -1,26 +1,69 @@
-{% macro  ratio_variation(name, inputs, systematics) -%}
-- name: RatioPlot
+# {% macro  ratio_variation(name, inputs, systematics) -%}
+# - name: RatioPlot
+#   inputs: {{ inputs | tojson }}
+#   normalize: False
+#   structure:
+#     select: {dataset_name: "*"}
+#     group: {era.name: "*", pipeline: "*"}
+#     transforms:
+#       - name: NormalizeSystematicByProjection
+#         normalize_within: ["HT_Cat"]
+#         pre_sf_name: "bjetshapesf-variation_disabled"
+#         #post_sf_name: "central"
+#         variation_axis: "variation"
+#       - name: MergeAxes
+#         merge_axis_names: ["HT_Cat"]
+#       - name: SplitAxes
+#         split_axis_names: ["variation"]
+#       - name: FormatTitle
+#         title_format: "{axis_params.variation}"
+
+#     subgroups:
+#       denominator:
+#         select: {"axis_params" : { "variation" : "central" }}
+#       transforms:
+#         - name: FormatTitle
+#           title_format: "{dataset_title}"
+#       numerator:
+#         select: 
+#           axis_params: 
+#             variation: {{ ( ["!central"] + systematics ) | tojson }} 
+#   output_name: "{prefix}/control/{era.name}/{dataset_name}/{{ name }}_{era.name}_{name}.png"
+
+# {%- endmacro %}
+
+{% macro  handle2D(inputs) %}
+- name: Histogram2D
   inputs: {{ inputs | tojson }}
-  normalize: False
   structure:
     select: {dataset_name: "*"}
     group: {era.name: "*", pipeline: "*"}
     transforms:
+      - name: NormalizeSystematicByProjection
+        normalize_within: ["HT_Cat"]
+        pre_sf_name: "bjetshapesf-variation_disabled"
+        variation_axis: "variation"
       - name: MergeAxes
-        merge_axis_names: [HT_Cat]
-      - name: SplitAxes
-        split_axis_names: ["variation"]
-      - name: FormatTitle
-        title_format: "{axis_params.variation}"
+        merge_axis_names: ["HT_Cat"]
+      - name: SelectAxesValues
+        select_axes_values: 
+          variation: ["central"]
+  output_name: "{prefix}/control/{era.name}/{dataset_name}/{era.name}_{name}.png"
 
-    subgroups:
-      denominator:
-        select: {"axis_params" : { "variation" : "central" }}
-      transforms:
-        - name: FormatTitle
-          title_format: "{dataset_title}"
-      numerator:
-        select: {"axis_params" : { "variation" : {{ (["!central"] + systematics) | tojson }} } }
-  output_name: "{prefix}/control/{era.name}/{{ name }}_{era.name}_{name}.png"
-
-{%- endmacro %}
+- name: Dump
+  inputs: {{ inputs | tojson }}
+  structure:
+    select: {dataset_name: "*"}
+    group: {era.name: "*", pipeline: "*"}
+    transforms:
+      - name: NormalizeSystematicByProjection
+        normalize_within: ["HT_Cat"]
+        pre_sf_name: "bjetshapesf-variation_disabled"
+        variation_axis: "variation"
+      - name: MergeAxes
+        merge_axis_names: ["HT_Cat"]
+      - name: SelectAxesValues
+        select_axes_values: 
+          variation: ["central"]
+  output_name: "{prefix}/control/{era.name}/{dataset_name}/{era.name}_{name}.pklz4"
+{% endmacro %}

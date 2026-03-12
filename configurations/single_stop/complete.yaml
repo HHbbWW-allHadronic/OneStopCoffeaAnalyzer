@@ -123,10 +123,11 @@ extra_executors:
 
 Postprocessing:
   processors:
-    {{ post.ratio_variation("bsf",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["b*hf*"]) | indent(4) }}
-    {{ post.ratio_variation("jesrel",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jes*Rel*"]) | indent(4) }}
-    {{ post.ratio_variation("jer",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jer*"]) | indent(4) }}
-    {{ post.ratio_variation("trigger",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["trigger*"]) | indent(4) }}
+    {{ post.handle2D([ "*/*/*/uncomp_mStop_vs_mChi",  "*/*/*/uncomp_mStop_vs_mChiRatio"]) | indent(4) }}
+    # {{ post.ratio_variation("bsf",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["b*hf*"]) | indent(4) }}
+    # {{ post.ratio_variation("jesrel",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jes*Rel*"]) | indent(4) }}
+    # {{ post.ratio_variation("jer",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jer*"]) | indent(4) }}
+    # {{ post.ratio_variation("trigger",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["trigger*"]) | indent(4) }}
 
   default_plot_config:
     cms_text: "Preliminary"
