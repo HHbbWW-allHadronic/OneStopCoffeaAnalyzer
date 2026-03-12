@@ -1,7 +1,7 @@
-- name: ggHHbbVV_2024_INCLUSIVE
+- name: ggHHbbVV_2023_INCLUSIVE
   title: ggHHbbVV
   sample_type: MC
-  era: '2024'
+  era: '2023_preBPix'
   other_data:
     nanoversion: "V13"
   samples:
