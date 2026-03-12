@@ -36,7 +36,7 @@ Postprocessing:
       show_den_unc: False
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "!selection"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*NoSelection"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -54,7 +54,61 @@ Postprocessing:
             select_axes_values: {"variation": "central"}
           - name: SliceAxes
             slices: {0: [0,1200]}
-      output_name: "plots/{era.name}/trigger_eff_{name}.png"
+      output_name: "plots/{era.name}/withHLT_NoSelection/trigger_eff_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      show_stacked_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef2"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: noHLT_ObjDef2}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_ObjDef2}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_ObjDef2/trigger_eff_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      show_stacked_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef1"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: noHLT_ObjDef1}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_ObjDef1}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
 
   default_plot_config:
     cms_text: "Preliminary"
