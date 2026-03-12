@@ -1,6 +1,6 @@
 from analyzer.core.analysis_modules import AnalyzerModule
 import re
-
+import numba
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import flatten
@@ -43,10 +43,10 @@ class GenPartMinDRMaker(AnalyzerModule):
         gen_parts = columns[self.input_col]
         pairs = ak.combinations(gen_parts, 2, axis=1)
         qi, qj = ak.unzip(pairs)
-
         dr_all = qi.delta_r(qj)
-
-        columns[self.output_col] = ak.min(dr_all, axis=1)
+        min_dr = ak.min(dr_all, axis=1)
+        # Replace None (from empty events) with -1 so histogram can handle it
+        columns[self.output_col] = ak.fill_none(min_dr, -1.0)
         return columns, []
 
     def inputs(self, metadata):
@@ -60,13 +60,121 @@ class HHSampleType(enum.Enum):
     TTBAR_HADRONIC = "ttbar_hadronic"
     TTBAR_SEMILEPTONIC = "ttbar_semileptonic"
 
+@numba.njit
+def _walk_signal_event(ev_mother, ev_pid, ev_status, ev_candidates):
+    n = len(ev_pid)
+    selected = np.zeros(n, dtype=np.int64)
+    count = 0
+    visited = np.zeros(n, dtype=numba.boolean)
+
+    for i in range(n):
+        if not ev_candidates[i]:
+            continue
+
+        visited[:] = False
+        current = int(ev_mother[i])
+        found_higgs = False
+
+        while current >= 0 and current < n and not visited[current]:
+            visited[current] = True
+            if abs(ev_pid[current]) == 25 and (ev_status[current] >> 13) & 1 == 1:
+                found_higgs = True
+                break
+            current = int(ev_mother[current])
+
+        if found_higgs:
+            selected[count] = i
+            count += 1
+
+    return selected[:count]
+
+
+@numba.njit
+def _walk_ttbar_hadronic_event(ev_mother, ev_pid, ev_status, ev_candidates):
+    n = len(ev_pid)
+    selected = np.zeros(n, dtype=np.int64)
+    count = 0
+    visited = np.zeros(n, dtype=numba.boolean)
+
+    for i in range(n):
+        if not ev_candidates[i]:
+            continue
+
+        visited[:] = False
+        current = int(ev_mother[i])
+        found_top = False
+
+        while current >= 0 and current < n and not visited[current]:
+            visited[current] = True
+            if abs(ev_pid[current]) == 6:
+                found_top = True
+                break
+            current = int(ev_mother[current])
+
+        if found_top:
+            selected[count] = i
+            count += 1
+
+    return selected[:count]
+
+
+@numba.njit
+def _walk_ttbar_semileptonic_event(ev_mother, ev_pid, ev_status, ev_candidates):
+    n = len(ev_pid)
+    selected = np.zeros(n, dtype=np.int64)
+    count = 0
+    visited = np.zeros(n, dtype=numba.boolean)
+
+    for i in range(n):
+        if not ev_candidates[i]:
+            continue
+
+        pid = abs(ev_pid[i])
+
+        # b quarks — need top ancestry
+        if pid == 5:
+            visited[:] = False
+            current = int(ev_mother[i])
+            found_top = False
+
+            while current >= 0 and current < n and not visited[current]:
+                visited[current] = True
+                if abs(ev_pid[current]) == 6:
+                    found_top = True
+                    break
+                current = int(ev_mother[current])
+
+            if found_top:
+                selected[count] = i
+                count += 1
+
+        # light quarks — need hadronic W ancestry
+        elif pid == 1 or pid == 2 or pid == 3 or pid == 4:
+            visited[:] = False
+            current = int(ev_mother[i])
+            found_hadronic_w = False
+
+            while current >= 0 and current < n and not visited[current]:
+                visited[current] = True
+                if abs(ev_pid[current]) == 24:
+                    w_mother = int(ev_mother[current])
+                    if w_mother >= 0 and abs(ev_pid[w_mother]) == 6:
+                        found_hadronic_w = True
+                    break
+                current = int(ev_mother[current])
+
+            if found_hadronic_w:
+                selected[count] = i
+                count += 1
+
+    return selected[:count]
+
 
 @define
 class GenPartDecayWalker(AnalyzerModule):
     """
     Walk the GenPart decay tree to find the 6 (or 4 for ttbar semileptonic)
     first-copy quarks from HH->bbWW->bbqqqq or tt->bbWW->bbqqqq decays.
-
     Parameters
     ----------
     input_col : Column
@@ -80,20 +188,13 @@ class GenPartDecayWalker(AnalyzerModule):
     input_col: Column
     output_col: Column
     sample_type: HHSampleType
-    
+
     def _is_bit_set(self, value, bit):
         return (value >> bit) & 1 == 1
 
     def _walk_signal(self, gen_parts):
-        """
-        Signal HH->bbWW->bbqqqq:
-        Find isFirstCopy (bit 12) + isHardProcess (bit 7) quarks
-        with a isLastCopy (bit 13) Higgs ancestor.
-        Expected: 6 quarks (2b + 4 light)
-        """
         result_mask_events = []
 
-        # Pre-filter candidates in awkward before any Python loop
         abs_pid = abs(gen_parts.pdgId)
         is_first_copy = (gen_parts.statusFlags >> 12) & 1 == 1
         is_hard_process = (gen_parts.statusFlags >> 7) & 1 == 1
@@ -101,53 +202,25 @@ class GenPartDecayWalker(AnalyzerModule):
         candidates = is_first_copy & is_hard_process & is_quark
 
         for ev in range(len(gen_parts)):
-            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
-            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
-            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother).astype(np.int64)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId).astype(np.int64)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags).astype(np.int64)
             ev_candidates = ak.to_numpy(candidates[ev])
 
-            selected = []
-            for i in range(len(ev_pid)):
-                if not ev_candidates[i]:
-                    continue
-
-                visited = set()
-                current = int(ev_mother[i])
-                found_higgs = False
-                while current >= 0 and current not in visited:
-                    visited.add(current)
-                    if abs(int(ev_pid[current])) == 25 and self._is_bit_set(int(ev_status[current]), 13):
-                        found_higgs = True
-                        break
-                    current = int(ev_mother[current])
-
-                if found_higgs:
-                    selected.append(i)
+            selected = _walk_signal_event(ev_mother, ev_pid, ev_status, ev_candidates)
 
             if len(selected) != 6:
-                logger.warning(f"Signal event {ev}: expected 6 quarks, found {len(selected)}.")
-                for i in selected:
-                    mother_pid = int(ev_pid[ev_mother[i]]) if ev_mother[i] >= 0 else None
-                    logger.warning(
-                        f"  idx={i}, pid={int(ev_pid[i])}, "
-                        f"statusFlags={int(ev_status[i])}, "
-                        f"mother_idx={int(ev_mother[i])}, "
-                        f"mother_pid={mother_pid}"
-                    )
-                raise ValueError(
-                    f"Signal event {ev}: expected 6 quarks, found {len(selected)}. "
-                    f"Check decay chain integrity."
-                )
+                #logger.warning(
+                #    f"Signal event {ev}: expected 6 quarks, found {len(selected)}, "
+                #    f"skipping (likely semi-leptonic decay)."
+                #)
+                result_mask_events.append([])
+                continue
+
             result_mask_events.append(selected)
         return result_mask_events
 
     def _walk_ttbar_hadronic(self, gen_parts):
-        """
-        TTbar hadronic tt->bbWW->bbqqqq:
-        Find isFirstCopy (bit 12) + isHardProcess (bit 7) quarks
-        with a top quark (PID 6) ancestor.
-        Expected: 6 quarks (2b + 4 light)
-        """
         result_mask_events = []
 
         abs_pid = abs(gen_parts.pdgId)
@@ -157,28 +230,12 @@ class GenPartDecayWalker(AnalyzerModule):
         candidates = is_first_copy & is_hard_process & is_quark
 
         for ev in range(len(gen_parts)):
-            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
-            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
-            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother).astype(np.int64)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId).astype(np.int64)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags).astype(np.int64)
             ev_candidates = ak.to_numpy(candidates[ev])
 
-            selected = []
-            for i in range(len(ev_pid)):
-                if not ev_candidates[i]:
-                    continue
-
-                visited = set()
-                current = int(ev_mother[i])
-                found_top = False
-                while current >= 0 and current not in visited:
-                    visited.add(current)
-                    if abs(int(ev_pid[current])) == 6:
-                        found_top = True
-                        break
-                    current = int(ev_mother[current])
-
-                if found_top:
-                    selected.append(i)
+            selected = _walk_ttbar_hadronic_event(ev_mother, ev_pid, ev_status, ev_candidates)
 
             if len(selected) != 6:
                 logger.warning(f"TTbar hadronic event {ev}: expected 6 quarks, found {len(selected)}.")
@@ -198,11 +255,6 @@ class GenPartDecayWalker(AnalyzerModule):
         return result_mask_events
 
     def _walk_ttbar_semileptonic(self, gen_parts):
-        """
-        TTbar semileptonic:
-        Collect b quarks from both tops, light quarks only from hadronic W.
-        Expected: 4 quarks (2b + 2 light)
-        """
         result_mask_events = []
 
         abs_pid = abs(gen_parts.pdgId)
@@ -212,45 +264,12 @@ class GenPartDecayWalker(AnalyzerModule):
         candidates = is_first_copy & is_hard_process & is_quark
 
         for ev in range(len(gen_parts)):
-            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother)
-            ev_pid = ak.to_numpy(gen_parts[ev].pdgId)
-            ev_status = ak.to_numpy(gen_parts[ev].statusFlags)
+            ev_mother = ak.to_numpy(gen_parts[ev].genPartIdxMother).astype(np.int64)
+            ev_pid = ak.to_numpy(gen_parts[ev].pdgId).astype(np.int64)
+            ev_status = ak.to_numpy(gen_parts[ev].statusFlags).astype(np.int64)
             ev_candidates = ak.to_numpy(candidates[ev])
 
-            selected = []
-            for i in range(len(ev_pid)):
-                if not ev_candidates[i]:
-                    continue
-
-                pid = abs(int(ev_pid[i]))
-
-                if pid == 5:
-                    visited = set()
-                    current = int(ev_mother[i])
-                    found_top = False
-                    while current >= 0 and current not in visited:
-                        visited.add(current)
-                        if abs(int(ev_pid[current])) == 6:
-                            found_top = True
-                            break
-                        current = int(ev_mother[current])
-                    if found_top:
-                        selected.append(i)
-
-                elif pid in {1, 2, 3, 4}:
-                    visited = set()
-                    current = int(ev_mother[i])
-                    found_hadronic_w = False
-                    while current >= 0 and current not in visited:
-                        visited.add(current)
-                        if abs(int(ev_pid[current])) == 24:
-                            w_mother = int(ev_mother[current])
-                            if w_mother >= 0 and abs(int(ev_pid[w_mother])) == 6:
-                                found_hadronic_w = True
-                            break
-                        current = int(ev_mother[current])
-                    if found_hadronic_w:
-                        selected.append(i)
+            selected = _walk_ttbar_semileptonic_event(ev_mother, ev_pid, ev_status, ev_candidates)
 
             if len(selected) != 4:
                 logger.warning(f"TTbar semileptonic event {ev}: expected 4 quarks, found {len(selected)}.")
@@ -289,4 +308,4 @@ class GenPartDecayWalker(AnalyzerModule):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]    
+        return [self.output_col]

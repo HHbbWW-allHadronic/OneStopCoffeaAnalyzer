@@ -28,7 +28,9 @@
     IsoMuon: IsoMu24
     EleWPTight: Ele30_WPTight_Gsf
     EleCaloIdVT: Ele115_CaloIdVT_GsfTrkIdT
-
+    
+    280HT4J: PFHT280_QuadPFJet30
+    280HT4J2B: PFHT280_QuadPFJet30_PNet2BTagMean0p55
 
     HT350: PFHT350
     HT450: PFHT430

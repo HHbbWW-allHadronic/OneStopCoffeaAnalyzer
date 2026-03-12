@@ -5,7 +5,7 @@ import correctionlib
 
 
 @define
-class UParTBQuarkMaker(AnalyzerModule):
+class HBQuarkMaker(AnalyzerModule):
     """
     Select b-tagged jets from a jet collection based on UParTAK4 working points.
 
@@ -36,16 +36,28 @@ class UParTBQuarkMaker(AnalyzerModule):
     def run(self, columns, params):
         wps = self.getWPs(columns.metadata)
         jets = columns[self.input_col]
-        bjets = jets[jets.btagUParTAK4B > wps[self.working_point]]
+        btag_field = self._get_btag_field(columns.metadata)
+        bjets = jets[getattr(jets, btag_field) > wps[self.working_point]]
         columns[self.output_col] = bjets
         return columns, []
+
+    def _get_btag_field(self, metadata):
+        era = metadata["era"]["name"]
+        if "2023_preBPix" in era:
+            return "btagRobustParTAK4B"
+        return "btagUParTAK4B"
 
     def getWPs(self, metadata):
         file_path = metadata["era"]["btag_scale_factors"]["file"]
         if file_path in self.__corrections:
             return self.__corrections[file_path]
         cset = correctionlib.CorrectionSet.from_file(file_path)
-        ret = {p: cset["UParTAK4_wp_values"].evaluate(p) for p in ("L", "M", "T")}
+        era = metadata["era"]["name"]
+        if "2023_preBPix" in era:
+            key = "robustParticleTransformer_wp_values"
+        else:
+            key = "UParTAK4_wp_values"
+        ret = {p: cset[key].evaluate(p) for p in ("L", "M", "T")}
         self.__corrections[file_path] = ret
         return ret
 

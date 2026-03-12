@@ -47,7 +47,7 @@ common_objects: &common_objects
     min_pt: 25
     max_abs_eta: 2.4
 
-  - module_name: UParTBQuarkMaker
+  - module_name: HBQuarkMaker
     input_col: goodJet
     output_col: MedB
     working_point: M
@@ -186,19 +186,13 @@ not-trigger_selection: &not-trigger_selection
     selection_name: min_ht_cut
     min_val: 400
 
-  - module_name: SimpleHistogram
-    hist_name: HT
-    input_cols: [HT]
-    axes:
-      - name: "$H_{T}$ after 400 GeV cut"
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
-
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
+
+hlt_selection_2023: &hlt_selection_2023
+  - module_name: SimpleHLT
+    triggers: [280HT4J2B]
 
 tight_selection: &tight_selection
   - module_name: NObjFilter
@@ -293,24 +287,6 @@ common_histograms: &common_histograms
         stop: 13.5
         bins: 14
 
-  - module_name: SimpleHistogram
-    hist_name: JetQvG
-    input_cols: [goodJet.btagUParTAK4QvG]
-    axes:
-      - name: "Jet UParTQvG Score"
-        start: 0
-        stop: 1
-        bins: 20
-
-  - module_name: SimpleHistogram
-    hist_name: Jetbtag
-    input_cols: [goodJet.btagUParTAK4B]
-    axes:
-      - name: "Jet UParTB Score"
-        start: 0
-        stop: 1
-        bins: 20
-
   - module_name: FourVecHistograms
     input_col: MedB
     hist_name: MedB
@@ -355,24 +331,6 @@ common_histograms: &common_histograms
         bins: 14
 
   - module_name: SimpleHistogram
-    hist_name: AK4JetQvG
-    input_cols: [Jet.btagUParTAK4QvG]
-    axes:
-      - name: "AK4Jet UParTQvG Score"
-        start: 0
-        stop: 1
-        bins: 20
-
-  - module_name: SimpleHistogram
-    hist_name: AK4Jetbtag
-    input_cols: [Jet.btagUParTAK4B]
-    axes:
-      - name: "AK4Jet UParTB Score"
-        start: 0
-        stop: 1
-        bins: 20  
-
-  - module_name: SimpleHistogram
     hist_name: AK4JetID
     input_cols: [Jet.jetId]
     axes:
@@ -391,6 +349,24 @@ common_histograms: &common_histograms
         bins: 60
         unit: "GeV"
 
+2024_plots: &2024_plots
+  - module_name: SimpleHistogram
+    hist_name: AK4JetQvG
+    input_cols: [Jet.btagUParTAK4QvG]
+    axes:
+      - name: "AK4Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jetbtag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: "AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -428,37 +404,135 @@ gen_histograms: &gen_histograms
 
   - module_name: GenPartFilter
     input_col: GenPart
-    output_col: GenHiggs
+    output_col: Gen_Higgs
     pdgId: 25
     status_flag: 13
-
-  - module_name: FourVecHistograms
-    input_col: GenHiggs
-    hist_name: GenHiggs
-    mass_axis:
-      name: "GenHiggs"
-      start: 0
-      stop: 500
-      bins: 50
-      unit: "GeV"
 
   - module_name: GenPartDecayWalker
     input_col: GenPart
     output_col: GenPart_2b4q
     sample_type: signal
+  
+  - module_name: GenPartFilter
+    input_col: GenPart_2b4q
+    output_col: GenPart_2b
+    pdgId: 5
+    status_flag: 12
+    exclude_pdgId: false
+  
+  - module_name: GenPartFilter
+    input_col: GenPart_2b4q
+    output_col: GenPart_4q
+    pdgId: 5
+    status_flag: 12
+    exclude_pdgId: true
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hbb
+    daughter_pids: [5]
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hww
+    daughter_pids: [1, 2, 3, 4]
 
   - module_name: GenPartMinDRMaker
     input_col: GenPart_2b4q
-    output_col: min_dr_GenPart 
+    output_col: min_dr_GenPart
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b
+    output_col: min_dr_gen_hbb
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_4q
+    output_col: min_dr_gen_hww
+
+# Match GenJets to b quarks
+  - module_name: GenBJetMatcher
+    genpart_col: GenPart_2b
+    genjet_col: GenJet
+    output_col: GenBJet
+    dr_threshold: 0.4
+
+  - module_name: FourVecHistograms
+    input_col: Gen_Higgs
+    hist_name: Gen_Higgs
+    mass_axis:
+      name: "Gen_Higgs"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: Gen_hbb
+    hist_name: Gen_hbb
+    mass_axis:
+      name: "Gen_hbb"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: Gen_hww
+    hist_name: Gen_hww
+    mass_axis:
+      name: "Gen_hww"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: GenBJet
+    hist_name: GenBJet
+    mass_axis:
+      name: 'Gen b Jet'
+      start: 0
+      stop: 500
+      bins: 50
+      unit: GeV
 
   - module_name: SimpleHistogram
     hist_name: min_dr_GenPart
     input_cols: [min_dr_GenPart]
     axes:
-      - name: "min_dr_GenPart"
+      - name: 'genpart min $\Delta R$ HH(2b4q)'
         start: 0.0
         stop: 3.0
         bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_gen_hbb
+    input_cols: [min_dr_gen_hbb]
+    axes:
+      - name: 'genpart min $\Delta R$ H(bb)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_gen_hww
+    input_cols: [min_dr_gen_hww]
+    axes:
+      - name: 'genpart min $\Delta R$ H(WW)'
+        start: 0.0
+        stop: 3.0
+        bins: 60
+
+cut_histograms: &cut_histograms
+  - module_name: SimpleHistogram
+    hist_name: HT
+    input_cols: [HT]
+    axes:
+      - name: '$H_{T}$ after 400 GeV cut'
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
 
 analyzer:
   default_run_builder:
@@ -470,6 +544,8 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
+    - *gen_histograms
 
   withHLT_ObjDef2:
     - *hlt_selection
@@ -478,6 +554,8 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
+    - *gen_histograms
 
   noHLT_ObjDef1:
     - *common_objects
@@ -485,6 +563,8 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
+    - *gen_histograms
 
   noHLT_ObjDef2:
     - *common_objects
@@ -492,6 +572,8 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
+    - *gen_histograms
 
   withHLT_NoSelection:
     - *hlt_selection
@@ -499,10 +581,11 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
     - *gen_histograms
 
   withHLT_NoSelection_nolep:
-    - *hlt_selection
+    - *hlt_selection_2023
     - *common_objects
     - *lepton_veto
     - module_name: SelectOnColumns
@@ -510,20 +593,27 @@ analyzer:
     - *common_histograms
     - *gen_histograms
 
-  NoSelection:
-    - *common_objects
-    - *common_histograms
-    - *gen_histograms
-
-  NoSelection_run2:
-    - *common_objs_NO_JETID
-    - *gen_histograms
-
   withHLT_NoSelection_run2:
     - *common_objs_NO_JETID
     - *not-trigger_selection
     - module_name: SelectOnColumns
       sel_name: selection
+    - *cut_histograms
+    - *gen_histograms
+
+  NoSelection:
+    - *common_objects
+    - *common_histograms
+    - *2024_plots
+    - *gen_histograms
+
+  NoSelection_2023:
+    - *common_objects
+    - *common_histograms
+    - *gen_histograms  
+
+  NoSelection_run2:
+    - *common_objs_NO_JETID
     - *gen_histograms
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
@@ -538,15 +628,15 @@ event_collections:
       #- withHLT_ObjDef2
       #- noHLT_ObjDef2
 
-  #- dataset: 'ggHHbbVV_2024_INCLUSIVE'
-  #  pipelines:
-  #    - withHLT_NoSelection_nolep
-  #    - NoSelection
-
-  - dataset: 'ggHHbbVV_2018'
+  - dataset: 'ggHHbbVV_2023_INCLUSIVE'
     pipelines:
-      - withHLT_NoSelection_run2
-      - NoSelection_run2
+      - withHLT_NoSelection_nolep
+      - NoSelection_2023
+
+  #- dataset: 'ggHHbbVV_2018'
+  #  pipelines:
+  #    - withHLT_NoSelection_run2
+  #    - NoSelection_run2
 
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
