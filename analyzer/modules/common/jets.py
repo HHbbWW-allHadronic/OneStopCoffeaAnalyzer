@@ -1,8 +1,9 @@
-from analyzer.core.analysis_modules import AnalyzerModule
 import re
 
+from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
+from analyzer.core.datasets import SampleType
 from analyzer.utils.structure_tools import flatten
 from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
@@ -485,15 +486,15 @@ class JetComboHistograms(AnalyzerModule):
                     mask=mask,
                 )
             )
-            ret.append(
-                makeHistogram(
-                    f"{self.prefix}_{i + 1}{j + 1}_pt",
-                    columns,
-                    RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
-                    summed.pt,
-                    mask=mask,
-                )
-            )
+            # ret.append(
+            #     makeHistogram(
+            #         f"{self.prefix}_{i + 1}{j + 1}_pt",
+            #         columns,
+            #         RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
+            #         summed.pt,
+            #         mask=mask,
+            #     )
+            # )
 
         return columns, ret
 
@@ -539,7 +540,7 @@ class JetScaleCorrections(AnalyzerModule):
     def getKeyJec(name, jet_type, metadata):
         jec_params = metadata["era"]["jet_corrections"]
         jet_type = jec_params["jet_names"][jet_type]
-        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
+        data_mc = "MC" if metadata["sample_type"] == SampleType.MC else "DATA"
         campaign = jec_params["jec"]["campaign"]
         version = jec_params["jec"]["version"]
         ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"
@@ -670,7 +671,7 @@ class JetResolutionCorrections(AnalyzerModule):
     def getKeyJer(name, jet_type, metadata):
         jet_params = metadata["era"]["jet_corrections"]
         jet_type = jet_params["jet_names"][jet_type]
-        data_mc = "MC" if metadata["sample_type"] == "MC" else "DATA"
+        data_mc = "MC" if metadata["sample_type"] == SampleType.MC else "DATA"
         campaign = jet_params["jer"]["campaign"]
         version = jet_params["jer"]["version"]
         ret = f"{campaign}_{version}_{data_mc}_{name}_{jet_type}"

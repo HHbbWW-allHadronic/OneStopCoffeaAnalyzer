@@ -9,6 +9,7 @@ from analyzer.utils.structure_tools import freeze
 import functools as ft
 from cattrs.strategies import include_subclasses, configure_tagged_union
 from analyzer.core.run_builders import RunBuilder, DEFAULT_RUN_BUILDER
+from analyzer.core.datasets import SampleType
 from attrs import define, field, make_class, asdict
 from analyzer.core.results import ResultBase
 from analyzer.utils.structure_tools import SimpleCache
@@ -37,7 +38,7 @@ class IsYear(MetadataExpr):
 
 @define
 class IsSampleType(MetadataExpr):
-    sample_type: str
+    sample_type: SampleType = field(converter=SampleType)
 
     def evaluate(self, metadata):
         return metadata["sample_type"] == self.sample_type
