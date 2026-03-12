@@ -120,3 +120,32 @@ class NObjFilter(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Column(("Selection", self.selection_name))]
+
+@define
+class SelectAllTriggers(AnalyzerModule):
+    """
+    Selection trigger by trigger for each dataset. Takes advantage of the selection flow to get the yield.
+    Parameters
+    ----------
+    sel_name : str
+        Name of the selection to be saved in the cutflow summary, eg
+        ``selection`` or ``preselection``.
+    """
+
+    sel_name: str
+
+    def run(self, columns, params):
+        all_triggers = columns["HLT"].fields
+        initial = ak.num(columns._events, axis=0)
+        
+        cutflow = {"initial": initial}
+        for trigger_name in all_triggers:
+            ret = columns["HLT"][trigger_name]
+            cutflow[trigger_name] = ak.count_nonzero(ret, axis=0)
+        return columns, [SelectionFlow(self.sel_name, cuts=all_triggers, cutflow=cutflow)]
+
+    def inputs(self, metadata):
+        return [Column(("HLT"))]
+
+    def outputs(self, metadata):
+        return "EVENTS"
