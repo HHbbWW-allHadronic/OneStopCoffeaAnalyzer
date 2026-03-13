@@ -214,7 +214,7 @@ class GenPartDecayWalker(AnalyzerModule):
                 #    f"Signal event {ev}: expected 6 quarks, found {len(selected)}, "
                 #    f"skipping (likely semi-leptonic decay)."
                 #)
-                result_mask_events.append([])
+                result_mask_events.append(np.array([], dtype=np.int64))
                 continue
 
             result_mask_events.append(selected)
@@ -290,7 +290,6 @@ class GenPartDecayWalker(AnalyzerModule):
 
     def run(self, columns, params):
         gen_parts = columns[self.input_col]
-
         if self.sample_type == HHSampleType.SIGNAL:
             selected_indices = self._walk_signal(gen_parts)
         elif self.sample_type == HHSampleType.TTBAR_HADRONIC:
@@ -300,12 +299,21 @@ class GenPartDecayWalker(AnalyzerModule):
         else:
             raise ValueError(f"Unknown sample type: {self.sample_type}")
 
-        selected_ak = ak.Array(selected_indices)
+        selected_lists = [arr.tolist() for arr in selected_indices]
+        selected_ak = ak.Array(selected_lists)
+
+        is_fully_hadronic = ak.num(selected_ak, axis=1) == 6
+        
         columns[self.output_col] = gen_parts[selected_ak]
+        addSelection(columns, "is_fully_hadronic", is_fully_hadronic)
+        
         return columns, []
 
     def inputs(self, metadata):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]
+        return [
+            self.output_col,
+            Column(("Selection", "is_fully_hadronic")),
+    ]
