@@ -13,6 +13,7 @@ from ..common.histogram_builder import makeHistogram
 from ..common.electrons import CutBasedWPs, cut_mapping as electron_cut_mapping
 from ..common.muons import IdWps, IsoWps, cut_mapping as muon_cut_mapping
 import enum
+import numpy as np
 
 import vector
 
@@ -41,10 +42,12 @@ class GenPartFilter(AnalyzerModule):
         Column where GenPart objects are located, to be filtered.
     output_col: Column
         Column where promoted items will be stored.
-    pdgId: int
-        pdgId of target particle.
-    status_flag: int
-        Generator status_flag for filtering.
+    pdgId: int or list of int
+        pdgId(s) of target particle(s). Can be a single int or a list
+        of ints to select multiple particle types simultaneously.
+    status_flag: int or list of int
+        Generator status flag bit(s) for filtering. Can be a single int
+        or a list of ints. All flags must be set (AND logic).
     exclude_pdgId: bool, optional
         If True, exclude particles with the given pdgId instead of selecting them.
         By default False.
@@ -53,18 +56,28 @@ class GenPartFilter(AnalyzerModule):
     """
     input_col: Column
     output_col: Column
-    pdgId: int
-    status_flag: int
+    pdgId: int | list
+    status_flag: int | list
     exclude_pdgId: bool = False
 
     def run(self, columns, params):
-        metadata = columns.metadata
         genpart = columns[self.input_col]
+
+        # Build pdgId mask
+        pdgIds = [self.pdgId] if isinstance(self.pdgId, int) else self.pdgId
+        pass_pdgId = ak.zeros_like(genpart.pdgId, dtype=bool)
+        for pid in pdgIds:
+            pass_pdgId = pass_pdgId | (abs(genpart.pdgId) == pid)
+
         if self.exclude_pdgId:
-            pass_pdgId = abs(genpart.pdgId) != self.pdgId
-        else:
-            pass_pdgId = abs(genpart.pdgId) == self.pdgId
-        pass_status_flag = (genpart.statusFlags >> self.status_flag) & 1 == 1
+            pass_pdgId = ~pass_pdgId
+
+        # Build status flag mask - all flags must be set (AND logic)
+        status_flags = [self.status_flag] if isinstance(self.status_flag, int) else self.status_flag
+        pass_status_flag = ak.ones_like(genpart.pdgId, dtype=bool)
+        for flag in status_flags:
+            pass_status_flag = pass_status_flag & ((genpart.statusFlags >> flag) & 1 == 1)
+
         columns[self.output_col] = genpart[pass_pdgId & pass_status_flag]
         return columns, []
 
@@ -131,8 +144,9 @@ class GenDiparticleReconstructor(AnalyzerModule):
 class GenBJetMatcher(AnalyzerModule):
     """
     Match GenJets to GenPart b quarks using delta R matching.
-    For each b quark, find the nearest GenJet. If the minimum delta R
-    is below the threshold, the GenJet is considered b-matched.
+    For each GenJet, find the minimum delta R to any b quark.
+    If that minimum delta R is below the threshold, the GenJet
+    is considered b-matched.
 
     Parameters
     ----------
@@ -156,29 +170,22 @@ class GenBJetMatcher(AnalyzerModule):
         b_quarks = columns[self.genpart_col]
         gen_jets = columns[self.genjet_col]
 
-        # For each b quark, compute dR to all GenJets
-        # Use ak.cartesian to get all (quark, jet) pairs per event
-        pairs = ak.cartesian({"quark": b_quarks, "jet": gen_jets}, axis=1)
-        quarks, jets = ak.unzip(pairs)
+        # Broadcast jets and quarks against each other without cartesian
+        # jets[:, :, np.newaxis] gives shape (events, jets, 1)
+        # b_quarks[:, np.newaxis, :] gives shape (events, 1, quarks)
+        # delta_r broadcasts to shape (events, jets, quarks)
+        dr = gen_jets[:, :, np.newaxis].delta_r(b_quarks[:, np.newaxis, :])
 
-        # Compute dR for all pairs
-        dr = quarks.delta_r(jets)
+        # For each jet, find minimum dR to any b quark
+        min_dr_per_jet = ak.min(dr, axis=2)
 
-        # For each b quark, find the index of the nearest GenJet
-        nearest_jet_idx = ak.argmin(dr, axis=1)
-        min_dr = ak.min(dr, axis=1)
+        # Fill None for empty events
+        min_dr_per_jet = ak.fill_none(min_dr_per_jet, self.dr_threshold + 1.0)
 
-        # Keep only matches within the threshold
-        pass_dr = min_dr < self.dr_threshold
+        # Boolean mask applied directly — preserves event structure
+        pass_match = min_dr_per_jet < self.dr_threshold
 
-        # Get the matched GenJet indices that pass the threshold
-        matched_idx = nearest_jet_idx[pass_dr]
-
-        # Collect unique matched GenJet indices per event
-        # (avoid duplicate jets if multiple quarks match the same jet)
-        matched_jets = gen_jets[matched_idx]
-
-        columns[self.output_col] = matched_jets
+        columns[self.output_col] = gen_jets[pass_match]
         return columns, []
 
     def inputs(self, metadata):
