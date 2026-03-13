@@ -46,6 +46,7 @@ class MultiRunBuilder(RunBuilder):
         ret = []
         for x in self.components:
             ret.extend(x(spec, metadata))
+        print(ret)
         return ret
 
 
@@ -96,6 +97,12 @@ class SignalOnlySysts(RunBuilder):
 class NoSystematics(RunBuilder):
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         return [("central", {})]
+
+
+@define
+class UnscaledOnly(RunBuilder):
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        return [("UNSCALED", {})]
 
 
 def configureConverter(conv):
