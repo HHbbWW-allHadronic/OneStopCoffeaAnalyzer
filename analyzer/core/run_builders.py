@@ -46,6 +46,7 @@ class MultiRunBuilder(RunBuilder):
         ret = []
         for x in self.components:
             ret.extend(x(spec, metadata))
+        print(ret)
         return ret
 
 
