@@ -1,0 +1,50 @@
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  Signal:
+    - module_name: SelectAllTriggers
+      sel_name: all_triggers
+
+
+# location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  # Signal Samples
+  - dataset: 'signal_2018_312_1000_100'
+    pipelines: [Signal]
+  
+extra_executors:
+  imm:
+    executor_name: ImmediateExecutor
+    chunk_size: 10000
+
+  dask_local:
+    executor_name: LocalDaskExecutor
+    chunk_size: 100000
+    min_workers: 1
+    max_workers: 3
+    reduction_factor: 2
+  
+  dask_condor:
+    executor_name: LPCCondorDask
+    container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
+    venv_path: .venv
+    chunk_size: 80000
+    min_workers: 40
+    max_workers: 200
+    worker_memory: 4GB
+    reduction_factor: 5
+
+
+Postprocessing:
+  processors:
+    - name: CutflowTable
+      output_name: signal_yield
+      inputs:
+        - "*/*/*/*"
+      structure:
+        select: {dataset_name: "*", pipeline: "*"}
+        group: {era.name: "*", name: "*"}
+      output_name: "signal_yields_check_minimal.csv"
