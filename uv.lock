@@ -819,11 +819,11 @@ wheels = [
 
 [[package]]
 name = "htcondor"
-version = "24.0.15"
+version = "24.0.18"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/ba/1a81f035e9dd904ba7692f34132dddd3cbadeaf140475eb30fa174764864/htcondor-24.0.15-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:17a33ba91b408c24f5a9362758a95d6dbd7870ab5866284ebb0bfd929c5b5478", size = 59162395, upload-time = "2025-12-15T16:01:27.161Z" },
-    { url = "https://files.pythonhosted.org/packages/49/65/e37dbed3f39827308f0e154044b171fa9876ed8b3f45224e8c0425566602/htcondor-24.0.15-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:a061a4768ec8a1253b3a36a770123c0a4ab594ce34d03d4426be214f97f3d051", size = 60661319, upload-time = "2025-12-15T16:01:30.545Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/89/7dd306e481d7bdf471908aee5d242c5b7e69181e007e2a678b6e57de82df/htcondor-24.0.18-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:b63c32523f5d55d236a807f12acb219d5e3a35533dd338eab462750b925cb115", size = 59170171, upload-time = "2026-03-12T15:39:45.737Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/b3/1294983b04139cae11ef5404fb48855472dea2731bedcfdc408b81c56e17/htcondor-24.0.18-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:ab5c8373b07b2e4495c20105bf54e02dc933875833b9b20958ffc6f7fa3b61df", size = 60677616, upload-time = "2026-03-12T15:39:50.081Z" },
 ]
 
 [[package]]
@@ -1462,6 +1462,25 @@ wheels = [
 ]
 
 [[package]]
+name = "memray"
+version = "1.19.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "jinja2" },
+    { name = "rich" },
+    { name = "textual" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e9/db/56ff21f47be261ab781105b233d1851d3f2fcdd4f08ebf689f6d6fd84f0d/memray-1.19.2.tar.gz", hash = "sha256:680cb90ac4564d140673ac9d8b7a7e07a8405bd1fb8f933da22616f93124ca84", size = 2410256, upload-time = "2026-03-13T15:22:31.825Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/13/4e/8685c202ddd76860cd8fc5f7f552115ea6f317e9f5f16219a56f336e351e/memray-1.19.2-cp312-cp312-macosx_10_14_x86_64.whl", hash = "sha256:22d4482f559ffa91a9727693e7e338856bee5e316f922839bf8b96e0f9b8a4de", size = 2183484, upload-time = "2026-03-13T15:20:56.696Z" },
+    { url = "https://files.pythonhosted.org/packages/89/79/602f55d5466f1f587cdddf0324f82752bd0319ea814bc7cca2efb8593bc8/memray-1.19.2-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:4fd1476868177ee8d9f7f85e5a085a20cc3c3a8228a23ced72749265885d55ca", size = 2162900, upload-time = "2026-03-13T15:20:58.174Z" },
+    { url = "https://files.pythonhosted.org/packages/02/1b/402207971653b9861bbbe449cbed7d82e7bb9b953dd6ac93dd4d78e76fa2/memray-1.19.2-cp312-cp312-manylinux2014_i686.manylinux_2_17_i686.whl", hash = "sha256:23375d50faa199e1c1bc2e89f08691f6812478fddb49a1b82bebe6ef5a56df2c", size = 9731991, upload-time = "2026-03-13T15:21:00.299Z" },
+    { url = "https://files.pythonhosted.org/packages/3f/7d/895ce73fcf9ab0a2b675ed49bbc91cbca14bda187e2b4df86ccefeb1c9bc/memray-1.19.2-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:8ef3d8e4fba0b26280b550278a0660554283135cbccc34e2d49ba82a1945eb61", size = 9997104, upload-time = "2026-03-13T15:21:02.959Z" },
+    { url = "https://files.pythonhosted.org/packages/a0/b9/586bf51a1321cde736d886ca8ac3d4b1f910e4f3f813d7c8eb22498ee16f/memray-1.19.2-cp312-cp312-manylinux_2_26_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:a4d6cf9597ae5d60f7893a0b7b6b9af9c349121446b3c1e7b9ac1d8b5d45a505", size = 9373508, upload-time = "2026-03-13T15:21:05.945Z" },
+    { url = "https://files.pythonhosted.org/packages/5d/f1/7cb51edeeceaaee770d4222e833369fbc927227d27e0a917b5ad6f4b2f85/memray-1.19.2-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:716a0a0e9048d21da98f9107fa030a76138eb694a16a81ad15eace54fddef4cd", size = 12222756, upload-time = "2026-03-13T15:21:08.9Z" },
+]
+
+[[package]]
 name = "mistune"
 version = "3.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1472,7 +1491,7 @@ wheels = [
 
 [[package]]
 name = "mplhep"
-version = "0.4.1"
+version = "1.1.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "matplotlib" },
@@ -1481,9 +1500,9 @@ dependencies = [
     { name = "packaging" },
     { name = "uhi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/81/54/6e784c4dcc7e3d37ed30dc5a65f2e7df3c466c33604bf48f055988111d2d/mplhep-0.4.1.tar.gz", hash = "sha256:86e2d99680bdb19598e847ff5b24f3bf1c63f164b99f076be98255acd738ee48", size = 1710115, upload-time = "2025-08-26T14:20:10.471Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0d/1c/b5d43b8d42f3e91156d7bc1e0d6e5dfa82d36d85ae15d9ccb52f0e19881c/mplhep-1.1.2.tar.gz", hash = "sha256:d9f94248b1b0fa4a14b42876f838e91804c16331c933c5568ae4a9886c610781", size = 4186042, upload-time = "2026-02-26T22:40:07.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/56/2e/65c5d36ca640f0f5c8f6909f26e642d58c59d01459e3abe294700c73e169/mplhep-0.4.1-py3-none-any.whl", hash = "sha256:dd69db353b655393bbd49fc79b4b4878f9cf8aa4f4228d7448cdc124f53e675f", size = 50961, upload-time = "2025-08-26T14:20:08.61Z" },
+    { url = "https://files.pythonhosted.org/packages/a5/10/699c0384f62dd1c4a20e628f772bfc5119865bd57c3b6674b5316f877bc8/mplhep-1.1.2-py3-none-any.whl", hash = "sha256:8afb8834631ef74ad7b7ec9d6c1a196ad879bc680cf89e8d38f669c00329c1c6", size = 96098, upload-time = "2026-02-26T22:40:03.744Z" },
 ]
 
 [[package]]
@@ -1712,6 +1731,7 @@ dependencies = [
     { name = "histoprint" },
     { name = "ipython" },
     { name = "lz4" },
+    { name = "memray" },
     { name = "mplhep" },
     { name = "numpy" },
     { name = "pyyaml" },
@@ -1765,7 +1785,8 @@ requires-dist = [
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = ">=1.1.1" },
     { name = "lpcjobqueue", marker = "extra == 'lpc'", git = "https://github.com/CoffeaTeam/lpcjobqueue.git" },
     { name = "lz4", specifier = ">=4.4.5" },
-    { name = "mplhep", specifier = ">=0.4.1" },
+    { name = "memray", specifier = ">=1.19.1" },
+    { name = "mplhep", specifier = ">=1.0" },
     { name = "numpy", specifier = ">=2.3.4" },
     { name = "pyyaml", specifier = "~=6.0.0" },
     { name = "rich", specifier = ">=14.2.0" },
