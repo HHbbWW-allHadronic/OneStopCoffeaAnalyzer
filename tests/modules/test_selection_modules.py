@@ -5,6 +5,7 @@ from analyzer.modules.common.selection import SelectOnColumns, NObjFilter, Selec
 from analyzer.modules.common.hlt_selection import SimpleHLT
 from tests.modules.base_module_test import BaseModuleTest
 from tests.modules.fixtures import assertColumnExists
+from analyzer.core.results import SelectionFlow
 
 
 class TestSelectOnColumns(BaseModuleTest):
@@ -109,23 +110,24 @@ class TestSimpleHLT(BaseModuleTest):
 class TestSelectAllTriggers(BaseModuleTest):
     @pytest.fixture
     def module(self):
-        return SelectAllTriggers(selection_name="AllTriggerYields")
+        return SelectAllTriggers(sel_name="AllTriggerYields")
 
     def testModuleRuns(self, module, mockColumns):
-        # Add trigger bit
-        n_events = len(mockColumns["event"])
-        mockColumns["HLT", "Trigger1", "Trigger2", "Trigger3"] = ak.Array([True, False, True] * n_events)
         self.assertModuleRunsWithoutError(module, mockColumns)
 
-    def testInputsOutputs(self, module, mockMetadata):
-        # We need mock metadata to have the trigger name mapping
-        # createMockMetadata provides "HT": "PFHT1050"
-        self.assertInputsCorrect(module, mockMetadata)
+    def testSelectionLogic(self, module, mockColumns):
+        n_events = len(mockColumns["event"]) 
+        output_columns, results = self.runModule(module, mockColumns)
+        cutflow = results[0]
+        # Check cutflow result
+        assert type(results) == list
+        assert len(results) == 1
+        cutflow = results[0]
+        assert type(cutflow) == SelectionFlow
+        assert len(cutflow.cuts) == len(mockColumns["HLT"].fields)
+        assert cutflow.name == "AllTriggerYields"
+        assert cutflow.cutflow["initial"] == n_events 
 
-        outputs = module.outputs(mockMetadata)
-        # Fix: Column creation with fields
-        target = Column(("Selection", "AllTriggerYields"))
-        assert target in outputs
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
