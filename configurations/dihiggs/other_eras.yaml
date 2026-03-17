@@ -79,10 +79,120 @@ common_objects: &common_objects
   - module_name: Count
     input_col: MedB
     output_col: NMedB
-    
+
+common_objs_NO_JETID: &common_objs_NO_JETID
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: tightElectron
+    working_point: "tight"
+    min_pt: 15
+    max_abs_eta: 2.5
+    max_abs_dxy:
+      barrel: 0.05
+      endcap: 0.1
+    max_abs_dz:
+      barrel: 0.1
+      endcap: 0.2
+
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: looseElectron
+    working_point: "loose"
+    min_pt: 7
+    max_abs_eta: 2.5
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: tightMuon
+    id_working_point: "tightId"
+    min_pt: 15
+    max_abs_eta: 2.4
+    iso_working_pt: "tight"
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: looseMuon
+    id_working_point: "looseId"
+    min_pt: 5
+    max_abs_eta: 2.4
+    iso_working_pt: "loose"
+
+  - module_name: HJetFilter
+    input_col: Jet
+    output_col: goodJet
+    include_pu_id: False
+    include_jet_id: True
+    min_pt: 25
+    max_abs_eta: 2.4
+
+  - module_name: BQuarkMaker
+    input_col: goodJet
+    output_col: MedB
+    working_point: M
+
+  - module_name: HT
+    input_col: Jet
+    output_col: AK4HT
+
+  - module_name: HT
+    input_col: goodJet
+    output_col: HT
+
+  - module_name: HT
+    input_col: GenJet
+    output_col: GenJetHT
+
+  - module_name: Count
+    input_col: Jet
+    output_col: NAK4Jet
+
+  - module_name: Count
+    input_col: goodJet
+    output_col: NJet
+
+  - module_name: Count
+    input_col: GenJet
+    output_col: NGenJet
+
+  - module_name: Count
+    input_col: MedB
+    output_col: NMedB
+
+not-trigger_selection: &not-trigger_selection
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedB
+    selection_name: 2b
+    min_count: 2
+
+  - module_name: ScalarCut
+    input_col: HT
+    selection_name: min_ht_cut
+    min_val: 400
+
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
+
+hlt_selection_2023: &hlt_selection_2023
+  - module_name: SimpleHLT
+    triggers: [280HT4J2B]
 
 tight_selection: &tight_selection
   - module_name: NObjFilter
@@ -129,6 +239,19 @@ loose_selection: &loose_selection
     input_col: MedB
     selection_name: 2b
     min_count: 2
+    
+lepton_veto: &lepton_veto
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
 
 common_histograms: &common_histograms
   - module_name: TopVecHistograms
@@ -167,24 +290,6 @@ common_histograms: &common_histograms
   - module_name: FourVecHistograms
     input_col: MedB
     hist_name: MedB
-
-  - module_name: SimpleHistogram
-    hist_name: AK4JetQvG
-    input_cols: [Jet.btagUParTAK4QvG]
-    axes:
-      - name: "AK4Jet UParTQvG Score"
-        start: 0
-        stop: 1
-        bins: 20
-
-  - module_name: SimpleHistogram
-    hist_name: AK4Jetbtag
-    input_cols: [Jet.btagUParTAK4B]
-    axes:
-      - name: "AK4Jet UParTB Score"
-        start: 0
-        stop: 1
-        bins: 20
 
   - module_name: SimpleHistogram
     hist_name: MedBN
@@ -243,6 +348,25 @@ common_histograms: &common_histograms
         stop: 3000
         bins: 60
         unit: "GeV"
+
+2024_plots: &2024_plots
+  - module_name: SimpleHistogram
+    hist_name: AK4JetQvG
+    input_cols: [Jet.btagUParTAK4QvG]
+    axes:
+      - name: "AK4Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jetbtag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: "AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
 
 gen_vars: &gen_vars
   - module_name: GenPartFilter
@@ -504,6 +628,17 @@ gen_histograms: &gen_histograms
         stop: 3.0
         bins: 60
 
+cut_histograms: &cut_histograms
+  - module_name: SimpleHistogram
+    hist_name: HT
+    input_cols: [HT]
+    axes:
+      - name: '$H_{T}$ after 400 GeV cut'
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
 analyzer:
   default_run_builder:
     strategy_name: NoSystematics
@@ -514,6 +649,7 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
     - *gen_histograms
 
   withHLT_ObjDef2:
@@ -523,6 +659,7 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
     - *gen_histograms
 
   noHLT_ObjDef1:
@@ -531,6 +668,7 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
     - *gen_histograms
 
   noHLT_ObjDef2:
@@ -539,19 +677,61 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *2024_plots
     - *gen_histograms
 
   withHLT_NoSelection:
     - *hlt_selection
     - *common_objects
+    - *lepton_veto
+    - *gen_vars
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+    - *2024_plots
+    - *gen_histograms
+
+  withHLT_NoSelection_nolep:
+    - *hlt_selection_2023
+    - *common_objects
+    - *lepton_veto
     - *gen_vars
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
     - *gen_histograms
 
+  withHLT_NoSelection_run2:
+    - *common_objs_NO_JETID
+    - *not-trigger_selection
+    - *lepton_veto
+    - *gen_vars
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *cut_histograms
+    - *common_histograms
+    - *gen_histograms
+
   NoSelection:
     - *common_objects
+    - *lepton_veto
+    - *gen_vars
+    - *common_histograms
+    - *2024_plots
+    - *gen_histograms
+
+  NoSelection_2023:
+    - *common_objects
+    - *lepton_veto
+    - *gen_vars
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - *common_histograms
+    - *gen_histograms  
+
+  NoSelection_run2_2018:
+    - *common_objs_NO_JETID
+    - *lepton_veto
     - *gen_vars
     - *common_histograms
     - *gen_histograms
@@ -568,6 +748,16 @@ event_collections:
       #- withHLT_ObjDef2
       #- noHLT_ObjDef2
   
+  #- dataset: 'ggHHbbVV_2023_INCLUSIVE'
+  #  pipelines:
+  #    - withHLT_NoSelection_nolep
+  #    - NoSelection_2023
+  
+  #- dataset: 'ggHHbbVV_2018'
+  #  pipelines:
+  #    - withHLT_NoSelection_run2
+  #    - NoSelection_run2_2018
+
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
 #  - dataset: 'tt_hadronic*2024*'
