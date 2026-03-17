@@ -6,7 +6,7 @@
     - name: WJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8
       n_events: 14494966
       das_path: /WJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
-      x_sec: 2546000.0
+      x_sec: 2549000.0
     - name: WJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8
       n_events: 9335298
       das_path: /WJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL18NanoAODv9-106X_upgrade2018_realistic_v16_L1v1-v2/NANOAODSIM
