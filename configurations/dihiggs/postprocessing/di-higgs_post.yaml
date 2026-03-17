@@ -12,7 +12,7 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots_LINEAR1/{era.name}/{pipeline}/{name}"
+      output_name: "plots_LINEAR-2024/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
       inputs:
@@ -39,7 +39,7 @@ Postprocessing:
             select_axes_values: {"variation": "central"}
           - name: SliceAxes
             slices: {0: [0,1200]}
-      output_name: "plots_LINEAR1/{era.name}/trigger_eff_{name}.png"
+      output_name: "plots_LINEAR-2024/{era.name}/trigger_eff_{name}.png"
 
   default_plot_config:
     cms_text: "Preliminary"

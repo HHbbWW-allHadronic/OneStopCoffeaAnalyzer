@@ -193,3 +193,42 @@ class GenBJetMatcher(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+@define
+class GenWOrganizer(AnalyzerModule):
+    """
+    Organizes the two gen-level W bosons per event into on-shell and off-shell
+    collections based on proximity to the W pole mass.
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the GenPart W boson collection (pdgId=24).
+    onshell_col : Column
+        Column where the on-shell W boson will be stored.
+    offshell_col : Column
+        Column where the off-shell W boson will be stored.
+    w_mass : float, optional
+        W pole mass in GeV. Default is 80.4.
+    """
+    input_col: Column
+    onshell_col: Column
+    offshell_col: Column
+    w_mass: float = 80.4
+
+    def run(self, columns, params):
+        ws = columns[self.input_col]
+
+        # Per event, find which W is closer to the pole mass
+        delta_mass = abs(ws.mass - self.w_mass)
+        onshell_idx = ak.argmin(delta_mass, axis=1, keepdims=True)
+        offshell_idx = ak.argmax(delta_mass, axis=1, keepdims=True)
+
+        columns[self.onshell_col] = ws[onshell_idx]
+        columns[self.offshell_col] = ws[offshell_idx]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.onshell_col, self.offshell_col]
