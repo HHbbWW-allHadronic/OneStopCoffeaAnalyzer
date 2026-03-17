@@ -1,8 +1,10 @@
 {% import 'singlestop_base.yaml' as base %}
 {% import 'postprocessors/visualize_variations.yaml' as post %}
+{% import 'postprocessors/simple_1d.yaml' as post1d %}
 
 analyzer:
   default_run_builder:
+    # strategy_name: CompleteSysts
     # strategy_name: LimitSysts
     # systs:
     #   or_exprs:
@@ -124,6 +126,10 @@ extra_executors:
 Postprocessing:
   processors:
     {{ post.handle2D([ "*/*/*/uncomp_mStop_vs_mChi",  "*/*/*/uncomp_mStop_vs_mChiRatio"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/uncomp_mStop",  "*/*/*/uncomp_mChi"]) | indent(4) }}
+    {{ post.handle2D([ "*/*/*/comp_mStop_vs_mChi",  "*/*/*/comp_mStop_vs_mChiRatio"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/comp_mStop",  "*/*/*/comp_mChi"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/composite_13_m",  "*/*/*/composite_14_m", "*/*/*/composite_24_m"]) | indent(4) }}
     # {{ post.ratio_variation("bsf",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["b*hf*"]) | indent(4) }}
     # {{ post.ratio_variation("jesrel",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jes*Rel*"]) | indent(4) }}
     # {{ post.ratio_variation("jer",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jer*"]) | indent(4) }}

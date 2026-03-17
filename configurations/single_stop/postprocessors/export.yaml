@@ -1,12 +1,12 @@
 processors:
   - name: Dump
     inputs:
-      - "*/*/*/comp_mChi" 
-      - "*/*/*/comp_mStop" 
-      - "*/*/*/uncomp_mStop" 
-      - "*/*/*/uncomp_mChi" 
+      # - "*/*/*/comp_mChi" 
+      # - "*/*/*/comp_mStop" 
+      # - "*/*/*/uncomp_mStop" 
+      # - "*/*/*/uncomp_mChi" 
       - "*/*/*/uncomp_mStop_vs_mChiRatio" 
-      - "*/*/*/uncomp_mChi_vs_mStopRatio" 
+      - "*/*/*/comp_mStop_vs_mChiRatio" 
     structure:
       group: {dataset_name: "*", era.name: "*", pipeline: "*"}
       transforms: 

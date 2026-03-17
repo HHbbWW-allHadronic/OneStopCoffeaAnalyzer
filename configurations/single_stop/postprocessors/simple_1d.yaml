@@ -1,0 +1,19 @@
+{% macro  handle1D(inputs) %}
+- name: Histogram1D
+  inputs: {{ inputs | tojson }}
+  structure:
+    group: {era.name: "*",dataset_name: "*", pipeline: "*"}
+    transforms:
+      - name: NormalizeSystematicByProjection
+        normalize_within: ["HT_Cat"]
+        pre_sf_name: "bjetshapesf-variation_disabled"
+        variation_axis: "variation"
+        should_run:
+          dataset_name: "signal*"
+      - name: MergeAxes
+        merge_axis_names: ["HT_Cat"]
+      - name: SelectAxesValues
+        select_axes_values: 
+          variation: ["central"]
+  output_name: "{prefix}/{era.name}/{pipeline}/{dataset_name}/{era.name}_{name}.png"
+{% endmacro %}
