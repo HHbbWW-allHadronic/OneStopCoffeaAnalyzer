@@ -232,3 +232,137 @@ class GenWOrganizer(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.onshell_col, self.offshell_col]
+
+@define
+class GenWQuarkMatcher(AnalyzerModule):
+    """
+    For each W boson, find the two nearest light quarks and compute
+    their pairwise delta R.
+    Parameters
+    ----------
+    w_col : Column
+        Column containing a single W boson per event (on-shell or off-shell).
+    quark_col : Column
+        Column containing the 4 light quarks (GenPart_4q).
+    output_col : Column
+        Column where the pairwise delta R between matched quarks will be stored.
+    """
+    w_col: Column
+    quark_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        ws = columns[self.w_col]
+        quarks = columns[self.quark_col]
+
+        # dR between W and all quarks, shape (events, quarks)
+        dr = ws[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+
+        # Get indices of 2 nearest quarks to this W
+        # dr has shape (events, 1, quarks), squeeze the W axis
+        dr = dr[:, 0, :]
+        nearest_two = ak.argsort(dr, axis=1)[:, :2]
+        matched_quarks = quarks[nearest_two]
+
+        # Compute pairwise dR between the two matched quarks
+        dr_qq = matched_quarks[:, 0].delta_r(matched_quarks[:, 1])
+        columns[self.output_col] = dr_qq
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.w_col, self.quark_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+@define
+class GenQuarkPairDRTable(AnalyzerModule):
+    """
+    Computes delta R for all 15 unique pairs of the 6 gen quarks
+    (2 b quarks + 2 on-shell W quarks + 2 off-shell W quarks) and
+    counts which pair gives the minimum delta R most frequently across
+    all events. Quarks are pT-ordered within each category.
+
+    Parameters
+    ----------
+    b_col : Column
+        Column containing the 2 b quarks (GenPart_2b).
+    q_col : Column
+        Column containing the 4 light quarks (GenPart_4q).
+    w_onshell_col : Column
+        Column containing the on-shell W boson (Gen_W_onshell).
+    w_offshell_col : Column
+        Column containing the off-shell W boson (Gen_W_offshell).
+    output_col : Column
+        Column where the per-event minimum pair index will be stored.
+    """
+    b_col: Column
+    q_col: Column
+    w_onshell_col: Column
+    w_offshell_col: Column
+    output_col: Column
+
+    PAIR_LABELS = [
+        "b1-b2",
+        "b1-q1", "b1-q2", "b1-q3", "b1-q4",
+        "b2-q1", "b2-q2", "b2-q3", "b2-q4",
+        "q1-q2",
+        "q1-q3", "q1-q4",
+        "q2-q3", "q2-q4",
+        "q3-q4",
+    ]
+
+    def run(self, columns, params):
+        b_quarks = columns[self.b_col]
+        quarks = columns[self.q_col]
+        w_onshell = columns[self.w_onshell_col]
+        w_offshell = columns[self.w_offshell_col]
+
+        # pT-order b quarks: b1=leading, b2=subleading
+        b_sorted = b_quarks[ak.argsort(b_quarks.pt, axis=1, ascending=False)]
+        b1 = b_sorted[:, 0]
+        b2 = b_sorted[:, 1]
+
+        # Assign light quarks to on-shell W using dR, then pT-order
+        dr_onshell = w_onshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+        dr_onshell = dr_onshell[:, 0, :]
+        nearest_onshell = ak.argsort(dr_onshell, axis=1)[:, :2]
+        onshell_quarks = quarks[nearest_onshell]
+        onshell_sorted = onshell_quarks[ak.argsort(onshell_quarks.pt, axis=1, ascending=False)]
+        q1 = onshell_sorted[:, 0]
+        q2 = onshell_sorted[:, 1]
+
+        # Assign remaining 2 quarks to off-shell W, then pT-order
+        dr_offshell = w_offshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+        dr_offshell = dr_offshell[:, 0, :]
+        nearest_offshell = ak.argsort(dr_offshell, axis=1)[:, :2]
+        offshell_quarks = quarks[nearest_offshell]
+        offshell_sorted = offshell_quarks[ak.argsort(offshell_quarks.pt, axis=1, ascending=False)]
+        q3 = offshell_sorted[:, 0]
+        q4 = offshell_sorted[:, 1]
+
+        # Compute dR for all 15 pairs and stack into (events, 15)
+        pairs = [
+            (b1, b2),
+            (b1, q1), (b1, q2), (b1, q3), (b1, q4),
+            (b2, q1), (b2, q2), (b2, q3), (b2, q4),
+            (q1, q2),
+            (q1, q3), (q1, q4),
+            (q2, q3), (q2, q4),
+            (q3, q4),
+        ]
+        dr_stack = ak.concatenate(
+            [p[0].delta_r(p[1])[:, np.newaxis] for p in pairs],
+            axis=1
+        )
+
+        # Per event, find which pair gives minimum dR
+        min_pair_idx = ak.argmin(dr_stack, axis=1)
+        columns[self.output_col] = min_pair_idx
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.b_col, self.q_col, self.w_onshell_col, self.w_offshell_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]

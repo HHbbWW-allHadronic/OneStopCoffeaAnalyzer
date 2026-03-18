@@ -337,6 +337,23 @@ gen_vars: &gen_vars
     input_col: GenBJet
     output_col: n_GenBJet
 
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_onshell
+    quark_col: GenPart_4q
+    output_col: dr_qq_onshell
+
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_offshell
+    quark_col: GenPart_4q
+    output_col: dr_qq_offshell
+
+  - module_name: GenQuarkPairDRTable
+    b_col: GenPart_2b
+    q_col: GenPart_4q
+    w_onshell_col: Gen_W_onshell
+    w_offshell_col: Gen_W_offshell
+    output_col: min_dr_pair_idx
+
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
     prefix: "GenJet"
@@ -481,7 +498,7 @@ gen_histograms: &gen_histograms
     hist_name: min_dr_gen_hbb
     input_cols: [min_dr_gen_hbb]
     axes:
-      - name: 'genpart min $\Delta R$ H(2b)'
+      - name: 'genpart $\Delta R$ H(2b)'
         start: 0.0
         stop: 6.0
         bins: 60
@@ -499,9 +516,27 @@ gen_histograms: &gen_histograms
     hist_name: min_dr_Gen_Ws
     input_cols: [min_dr_Gen_Ws]
     axes:
-      - name: 'genpart min $\Delta R$ H(2W)'
+      - name: 'genpart $\Delta R$ H(2W)'
         start: 0.0
-        stop: 3.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_onshell
+    input_cols: [dr_qq_onshell]
+    axes:
+      - name: 'genpart $\Delta R$ onshell W(2q)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_offshell
+    input_cols: [dr_qq_offshell]
+    axes:
+      - name: 'genpart $\Delta R$ offshell W(2q)'
+        start: 0.0
+        stop: 6.0
         bins: 60
 
 analyzer:
