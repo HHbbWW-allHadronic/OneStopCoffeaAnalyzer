@@ -538,6 +538,15 @@ gen_histograms: &gen_histograms
         start: 0.0
         stop: 6.0
         bins: 60
+  
+  - module_name: SimpleHistogram
+    hist_name: min_dr_pair_idx
+    input_cols: [min_dr_pair_idx]
+    axes:
+      - name: 'Genpart quark pairs that gave the min $\Delta R$'
+        start: 0
+        stop: 15
+        bins: 15
 
 analyzer:
   default_run_builder:

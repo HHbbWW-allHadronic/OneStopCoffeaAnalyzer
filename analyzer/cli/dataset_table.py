@@ -63,7 +63,7 @@ def createDatasetTable(manager, pattern=None, as_csv=False):
             writer.writerow(r)
         return output.getvalue()
 
-def createPairDRTable(min_pair_idx, as_csv=False):
+def createPairDRTable(counts, as_csv=False):
     pair_labels = [
         "b1-b2",
         "b1-q1", "b1-q2", "b1-q3", "b1-q4",
@@ -74,8 +74,7 @@ def createPairDRTable(min_pair_idx, as_csv=False):
         "q3-q4",
     ]
 
-    counts = np.bincount(ak.to_numpy(min_pair_idx), minlength=15)
-    total = len(min_pair_idx)
+    total = sum(counts)
     sorted_pairs = sorted(
         zip(pair_labels, counts),
         key=lambda x: -x[1]
@@ -91,7 +90,7 @@ def createPairDRTable(min_pair_idx, as_csv=False):
         table.add_row(
             str(rank),
             label,
-            str(count),
+            f"{count:.1f}",
             f"{100 * count / total:.1f}%",
         )
 
@@ -106,4 +105,4 @@ def createPairDRTable(min_pair_idx, as_csv=False):
         writer.writerow(headers)
         for r in vals:
             writer.writerow(r)
-        return output.getvalue()
+        return output.getvalue() 

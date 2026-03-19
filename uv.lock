@@ -819,11 +819,11 @@ wheels = [
 
 [[package]]
 name = "htcondor"
-version = "24.0.15"
+version = "24.0.18"
 source = { registry = "https://pypi.org/simple" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/10/ba/1a81f035e9dd904ba7692f34132dddd3cbadeaf140475eb30fa174764864/htcondor-24.0.15-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:17a33ba91b408c24f5a9362758a95d6dbd7870ab5866284ebb0bfd929c5b5478", size = 59162395, upload-time = "2025-12-15T16:01:27.161Z" },
-    { url = "https://files.pythonhosted.org/packages/49/65/e37dbed3f39827308f0e154044b171fa9876ed8b3f45224e8c0425566602/htcondor-24.0.15-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:a061a4768ec8a1253b3a36a770123c0a4ab594ce34d03d4426be214f97f3d051", size = 60661319, upload-time = "2025-12-15T16:01:30.545Z" },
+    { url = "https://files.pythonhosted.org/packages/ca/89/7dd306e481d7bdf471908aee5d242c5b7e69181e007e2a678b6e57de82df/htcondor-24.0.18-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:b63c32523f5d55d236a807f12acb219d5e3a35533dd338eab462750b925cb115", size = 59170171, upload-time = "2026-03-12T15:39:45.737Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/b3/1294983b04139cae11ef5404fb48855472dea2731bedcfdc408b81c56e17/htcondor-24.0.18-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:ab5c8373b07b2e4495c20105bf54e02dc933875833b9b20958ffc6f7fa3b61df", size = 60677616, upload-time = "2026-03-12T15:39:50.081Z" },
 ]
 
 [[package]]
@@ -1739,6 +1739,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "textual" },
     { name = "textual-plotext" },
+    { name = "xrootd" },
 ]
 
 [package.optional-dependencies]
@@ -1793,6 +1794,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "textual", specifier = ">=6.7.1" },
     { name = "textual-plotext", specifier = ">=1.0.1" },
+    { name = "xrootd", specifier = ">=5.9.1" },
 ]
 provides-extras = ["condor", "lpc", "notebooks"]
 
@@ -2894,6 +2896,12 @@ sdist = { url = "https://files.pythonhosted.org/packages/bd/f4/c67440c7fb409a71b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/0e/fa3b193432cfc60c93b42f3be03365f5f909d2b3ea410295cf36df739e31/widgetsnbextension-4.0.15-py3-none-any.whl", hash = "sha256:8156704e4346a571d9ce73b84bee86a29906c9abfd7223b7228a28899ccf3366", size = 2196503, upload-time = "2025-11-01T21:15:53.565Z" },
 ]
+
+[[package]]
+name = "xrootd"
+version = "5.9.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/15/03/8ef34e9b735829230245b07ec6177b2fd0385d93ba5563e66af18517ceb9/xrootd-5.9.1.tar.gz", hash = "sha256:99ded4a168ce4b435cb9f7683acbe414c49ebc6486266ed9099a7c448ddc5b13", size = 6954286, upload-time = "2025-11-17T15:38:09.45Z" }
 
 [[package]]
 name = "xxhash"
