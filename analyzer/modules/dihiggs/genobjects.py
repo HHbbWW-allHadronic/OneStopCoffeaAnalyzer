@@ -255,18 +255,13 @@ class GenWQuarkMatcher(AnalyzerModule):
         ws = columns[self.w_col]
         quarks = columns[self.quark_col]
 
-        # dR between W and all quarks, shape (events, quarks)
         dr = ws[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-
-        # Get indices of 2 nearest quarks to this W
-        # dr has shape (events, 1, quarks), squeeze the W axis
         dr = dr[:, 0, :]
         nearest_two = ak.argsort(dr, axis=1)[:, :2]
         matched_quarks = quarks[nearest_two]
 
-        # Compute pairwise dR between the two matched quarks
         dr_qq = matched_quarks[:, 0].delta_r(matched_quarks[:, 1])
-        columns[self.output_col] = dr_qq
+        columns[self.output_col] = ak.fill_none(dr_qq, -1.0)
         return columns, []
 
     def inputs(self, metadata):
@@ -275,6 +270,7 @@ class GenWQuarkMatcher(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+
 @define
 class GenQuarkPairDRTable(AnalyzerModule):
     """
@@ -282,7 +278,6 @@ class GenQuarkPairDRTable(AnalyzerModule):
     (2 b quarks + 2 on-shell W quarks + 2 off-shell W quarks) and
     counts which pair gives the minimum delta R most frequently across
     all events. Quarks are pT-ordered within each category.
-
     Parameters
     ----------
     b_col : Column
@@ -356,9 +351,9 @@ class GenQuarkPairDRTable(AnalyzerModule):
             axis=1
         )
 
-        # Per event, find which pair gives minimum dR
+        # Per event find which pair gives minimum dR
         min_pair_idx = ak.argmin(dr_stack, axis=1)
-        columns[self.output_col] = min_pair_idx
+        columns[self.output_col] = ak.fill_none(min_pair_idx, -1)
         return columns, []
 
     def inputs(self, metadata):

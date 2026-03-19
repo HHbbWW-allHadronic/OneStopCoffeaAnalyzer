@@ -194,6 +194,10 @@ hlt_selection_2023: &hlt_selection_2023
   - module_name: SimpleHLT
     triggers: [280HT4J2B]
 
+hlt_selection_2018: &hlt_selection_2018
+  - module_name: SimpleHLT
+    triggers: [HT400_6jet]
+
 tight_selection: &tight_selection
   - module_name: NObjFilter
     input_col: tightElectron
@@ -461,6 +465,23 @@ gen_vars: &gen_vars
     input_col: GenBJet
     output_col: n_GenBJet
 
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_onshell
+    quark_col: GenPart_4q
+    output_col: dr_qq_onshell
+
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_offshell
+    quark_col: GenPart_4q
+    output_col: dr_qq_offshell
+
+  - module_name: GenQuarkPairDRTable
+    b_col: GenPart_2b
+    q_col: GenPart_4q
+    w_onshell_col: Gen_W_onshell
+    w_offshell_col: Gen_W_offshell
+    output_col: min_dr_pair_idx
+
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
     prefix: "GenJet"
@@ -623,10 +644,37 @@ gen_histograms: &gen_histograms
     hist_name: min_dr_Gen_Ws
     input_cols: [min_dr_Gen_Ws]
     axes:
-      - name: 'genpart min $\Delta R$ H(2W)'
+      - name: 'genpart $\Delta R$ H(2W)'
         start: 0.0
         stop: 3.0
         bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_onshell
+    input_cols: [dr_qq_onshell]
+    axes:
+      - name: 'genpart $\Delta R$ onshell W(2q)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_offshell
+    input_cols: [dr_qq_offshell]
+    axes:
+      - name: 'genpart $\Delta R$ offshell W(2q)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_pair_idx
+    input_cols: [min_dr_pair_idx]
+    axes:
+      - name: 'Genpart quark pairs that gave the min $\Delta R$'
+        start: 0
+        stop: 15
+        bins: 15
 
 cut_histograms: &cut_histograms
   - module_name: SimpleHistogram
@@ -712,6 +760,7 @@ analyzer:
     - *common_histograms
     - *gen_histograms
 
+
   NoSelection:
     - *common_objects
     - *lepton_veto
@@ -736,6 +785,7 @@ analyzer:
     - *common_histograms
     - *gen_histograms
 
+
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
@@ -748,15 +798,15 @@ event_collections:
       #- withHLT_ObjDef2
       #- noHLT_ObjDef2
   
-  #- dataset: 'ggHHbbVV_2023_INCLUSIVE'
-  #  pipelines:
-  #    - withHLT_NoSelection_nolep
-  #    - NoSelection_2023
+  - dataset: 'ggHHbbVV_2023_INCLUSIVE'
+    pipelines:
+      - withHLT_NoSelection_nolep
+      - NoSelection_2023
   
-  #- dataset: 'ggHHbbVV_2018'
-  #  pipelines:
-  #    - withHLT_NoSelection_run2
-  #    - NoSelection_run2_2018
+  - dataset: 'ggHHbbVV_2018'
+    pipelines:
+      - withHLT_NoSelection_run2
+      - NoSelection_run2_2018
 
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
