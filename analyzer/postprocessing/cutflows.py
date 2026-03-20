@@ -16,6 +16,12 @@ from attrs import define, field
 def _getCutflow(x):
     return getattr(x, "cutflow")
 
+def _getOneCut(x):
+    return getattr(x, "one_cut")
+
+def _getNMinusOne(x):
+    return getattr(x, "n_minus_one")
+
 
 @define
 class PlotSelectionFlow(BasePostprocessor):
@@ -30,17 +36,26 @@ class PlotSelectionFlow(BasePostprocessor):
             self.output_name, **dict(dictToDot(common_meta)), prefix=prefix
         )
         pc = self.plot_configuration.makeFormatted(common_meta)
+        getters = {
+                'Cutflow': _getCutflow,
+                'OneCut': _getOneCut,
+                'N-1': _getNMinusOne,
+                }
 
-        yield ft.partial(
-            plotDictAsBars,
-            group,
-            common_meta,
-            output_path,
-            getter=_getCutflow,
-            style_set=self.style_set,
-            normalize=self.normalize,
-            plot_configuration=pc,
-        )
+        for ax_name, getter in getters.items():
+            path = output_path.replace(".", f"_{ax_name}.")
+            yield ft.partial(
+                plotDictAsBars,
+                group,
+                common_meta,
+                path,
+                getter=getter,
+                normalize=self.normalize,
+                scale=self.scale,
+                style_set=self.style_set,
+                plot_configuration=pc,
+                ax_name=ax_name
+            )
 
 
 @define
