@@ -13,6 +13,9 @@ from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig, scaleYAxis, addLegend
 
+def hist_sum(h):
+    s = h.sum()
+    return s.value if hasattr(s, 'value') else s
 
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
     import hist.intervals as hinter
@@ -42,30 +45,9 @@ def plotOne(
     styler = Styler(style_set)
     fig, ax = plt.subplots()
     h = None
-    for item, meta in histograms:
-        title = meta.get("title") or meta["dataset_title"]
-        h = item.histogram
-        if show_info:
-            integral = h.sum().value
-            counts = h.values()
-            centers = h.axes[0].centers
-            mean = np.average(centers, weights=counts)
-            std = np.sqrt(np.average((centers - mean)**2, weights=counts))
-            title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
-        style = styler.getStyle(meta)
-        h.plot1d(
-            ax=ax,
-            label=title,
-            density=normalize,
-            yerr=style.yerr,
-            flow="none",
-            **style.get(),
-        )
-    if h is None:
-        h = stacked_hists[0]
     if stacked_hists:
         stacked_hists = sorted(
-            stacked_hists, key=lambda x: x.item.histogram.sum().value
+            stacked_hists, key=lambda x: hist_sum(x.item.histogram)
         )
         style_kwargs = defaultdict(list)
         hists = []
@@ -74,7 +56,7 @@ def plotOne(
             hists.append(item.histogram)
             title = meta.get("title") or meta["dataset_title"]
             if show_info:
-                integral = item.histogram.sum().value
+                integral = hist_sum(item.histogram)
                 counts = item.histogram.values()
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
@@ -102,6 +84,29 @@ def plotOne(
                 label="Stacked Unc.",
                 histtype="band",
             )
+
+    for item, meta in histograms:
+        title = meta.get("title") or meta["dataset_title"]
+        h = item.histogram
+        if show_info:
+            integral = hist_sum(h)
+            counts = h.values()
+            centers = h.axes[0].centers
+            mean = np.average(centers, weights=counts)
+            std = np.sqrt(np.average((centers - mean)**2, weights=counts))
+            title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
+        style = styler.getStyle(meta)
+        h.plot1d(
+            ax=ax,
+            label=title,
+            density=normalize,
+            yerr=style.yerr,
+            flow="none",
+            **style.get(),
+        )
+
+    if h is None:
+        h = stacked_hists[0]
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
@@ -153,10 +158,11 @@ def plotDictAsBars(
         flow = getter(item)
         style = styler.getStyle(meta)
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
+        if normalize: 
+            h *= (1 / h[0])
         h.plot1d(
             ax=ax,
             label=title,
-            density=normalize,
             **style.get(),
         )
     ax.legend()
@@ -210,7 +216,7 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
 
 
 def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
-    den_to_plot = sorted(denominators, key=lambda x: x.item.histogram.sum().value)
+    den_to_plot = sorted(denominators, key=lambda x: hist_sum(x.item.histogram))
 
     hists = []
     titles = []
