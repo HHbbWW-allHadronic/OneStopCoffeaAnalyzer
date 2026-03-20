@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import TypeVar
 from analyzer.utils.querying import BasePattern, gatherByCapture, NO_MATCH
 from analyzer.utils.structure_tools import flatten
@@ -11,6 +12,20 @@ from .transforms.registry import Transform
 ResultSet = list[list[ItemWithMeta]]
 
 T = TypeVar("T")
+
+
+def applyTransform(transform, items):
+    ret = []
+    to_transform = []
+    for item in items:
+        if transform.should_run is not None and not transform.should_run.match(
+            item.metadata
+        ):
+            ret.append(item)
+        else:
+            to_transform.append(item)
+    ret.extend(transform(to_transform))
+    return ret
 
 
 @define
@@ -71,14 +86,14 @@ class GroupBuilder:
             # Groups are now a list[list[ItemWithMeta]]
 
             for transform in transforms:
-                groups = [transform(g) for g in groups]
+                groups = [applyTransform(transform, g) for g in groups]
         else:
             # No grouping specified: Treat all filtered items as one large single group
             groups = items
 
             # Apply transformations sequentially to the entire single group
             for transform in transforms:
-                groups = transform(groups)
+                groups = applyTransform(transform, groups)
 
         # If no subgroup operations are defined, we are done
         if self.subgroups is None:
@@ -104,7 +119,6 @@ class GroupBuilder:
 
 
 def configureConverter(conv):
-
     base_transform_hook = conv.get_structure_hook(Transform)
     base_list_transform_hook = conv.get_structure_hook(list[Transform])
 

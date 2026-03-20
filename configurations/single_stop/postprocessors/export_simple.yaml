@@ -1,0 +1,19 @@
+processors:
+  - name: Dump
+    inputs:
+      - "*/*/*/comp_mChi" 
+      - "*/*/*/comp_mStop" 
+      - "*/*/*/uncomp_mStop" 
+      - "*/*/*/uncomp_mChi" 
+      - "*/*/*/uncomp_mStop_vs_mChiRatio" 
+      - "*/*/*/uncomp_mChi_vs_mStopRatio" 
+    structure:
+      group: {dataset_name: "*", era.name: "*", pipeline: "*"}
+      transforms: []
+        # - name: NormalizeSystematicByProjection
+        #   normalize_within: ["HT_Cat"]
+        #   pre_sf_name: "bjetshapesf-variation_disabled"
+        #   variation_axis: "variation"
+        # - name: MergeAxes
+        #   merge_axis_names: ["HT_Cat"]
+    output_name: "{prefix}/{era.name}/{pipeline}/{dataset_name}/{name}.pklz4"

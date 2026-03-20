@@ -47,7 +47,7 @@ def getReplicas(dataset, client):
     return ret
 
 
-class SampleType(str, enum.Enum):
+class SampleType(enum.Enum):
     MC = "MC"
     Data = "Data"
 

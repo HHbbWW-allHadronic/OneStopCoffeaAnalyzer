@@ -66,6 +66,18 @@ def run(
 
 
 @cli.command()
+@click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
+def glancelz4(input):
+    import lz4.frame
+    from rich import print
+    import pickle as pkl
+
+    with lz4.frame.open(input, "rb") as f:
+        data = pkl.loads(f.read())
+    print(data)
+
+
+@cli.command()
 @click.argument("config-path", type=str)
 @click.argument("dataset-name", type=str)
 @click.argument("sample-name", type=str)
