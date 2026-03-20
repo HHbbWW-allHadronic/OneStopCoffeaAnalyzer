@@ -1,0 +1,118 @@
+Postprocessing:
+  processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: log
+      normalize: False
+      show_info: True
+      structure:
+        select: {dataset_name: "*", name: "!selection"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        subgroups:
+          unstacked: {select: {dataset_name: "ggHH2b2V6q*"}}
+          stacked: {select: {dataset_name: "!ggHH2b2V6q*"}}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
+        styles:
+          - pattern: {dataset_name: "!gg*"}
+            style:
+              fill: true
+          - pattern: {dataset_name: "gg*"}
+            style:
+              fill: false
+      output_name: "plots/{era.name}/{pipeline}/{name}"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      show_den_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*NoSelection"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: NoSelection}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_NoSelection}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_NoSelection/trigger_eff_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      show_stacked_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef2"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: noHLT_ObjDef2}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_ObjDef2}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_ObjDef2/trigger_eff_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      show_stacked_unc: False
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef1"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: noHLT_ObjDef1}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_ObjDef1}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
+

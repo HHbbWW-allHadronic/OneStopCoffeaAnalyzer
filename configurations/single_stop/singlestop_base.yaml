@@ -156,6 +156,9 @@
   m4_input: mStop_uncomp
   prefix: uncomp
 
+{%- endmacro %}
+
+{% macro singlestop_extra_histograms() -%}
 - module_name: JetComboHistograms
   input_col: GoodJet
   prefix: "composite"
