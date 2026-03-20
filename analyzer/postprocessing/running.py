@@ -54,7 +54,6 @@ class LoadStyles(WorkerPlugin):
 def runPostprocessors(
     path, input_files, parallel=None, prefix=None, loaded_results=None
 ):
-
     converter = Converter()
     setupConverter(converter)
 
@@ -65,7 +64,6 @@ def runPostprocessors(
     loadStyles()
 
     data = loadTemplateYaml(path)
-    print(data)
 
     if "Postprocessing" in data:
         data = data["Postprocessing"]

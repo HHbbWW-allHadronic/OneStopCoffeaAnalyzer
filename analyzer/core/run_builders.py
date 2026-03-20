@@ -1,6 +1,7 @@
 import functools as ft
 from attrs import define
 from typing import Any
+from rich import print
 from cattrs.strategies import include_subclasses, configure_tagged_union
 import abc
 from analyzer.utils.querying import BasePattern
@@ -64,9 +65,10 @@ class LimitSysts(RunBuilder):
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         weights = buildCombos(spec, "weight_variation")
         shapes = buildCombos(spec, "shape_variation")
-        all_vars = [("central", {})] + weights + shapes
+        all_vars = weights + shapes
         all_vars = [x for x in all_vars if self.systs.match(x[0])]
-        all_vars = [("central", {})] + all_vars
+        if not any(x[0] == "central" for x in all_vars):
+            all_vars = [("central", {})] + all_vars
         return all_vars
 
 
@@ -94,6 +96,12 @@ class SignalOnlySysts(RunBuilder):
 class NoSystematics(RunBuilder):
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
         return [("central", {})]
+
+
+@define
+class UnscaledOnly(RunBuilder):
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        return [("UNSCALED", {})]
 
 
 def configureConverter(conv):

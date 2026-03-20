@@ -121,6 +121,14 @@
   input_col: GoodJet
   selection_name: jetpt
   min_pt: 300
+
+- module_name: JetEtaPhiVeto
+  input_col: GoodJet
+  eta_range: [-3.2,-1.2]
+  phi_range: [-1.77,-0.87]
+  should_run:
+    year: "2018"
+
 {%- endmacro %}
 
 {% macro singlestop_common_histograms() -%}
@@ -147,6 +155,14 @@
   m3_input: mChi_uncomp
   m4_input: mStop_uncomp
   prefix: uncomp
+
+- module_name: JetComboHistograms
+  input_col: GoodJet
+  prefix: "composite"
+  jet_combos:
+    - [0,1,2,3]
+    - [0,1,2]
+    - [1,2,3]
 
 {%- endmacro %}
 

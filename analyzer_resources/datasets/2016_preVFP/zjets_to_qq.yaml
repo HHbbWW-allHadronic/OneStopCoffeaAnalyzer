@@ -1,0 +1,21 @@
+- name: zjets_to_qq_2016_preVFP
+  title: ZJetsQQ
+  sample_type: MC
+  era: '2016_preVFP'
+  samples:
+  - name: ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 8750744
+    das_path: /ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM 
+    x_sec: 1012000.0
+  - name: ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 7709128
+    das_path: /ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
+    x_sec: 114200.0
+  - name: ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 6093849
+    das_path: /ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
+    x_sec: 25340.0
+  - name: ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 3726992
+    das_path: /ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL16NanoAODAPVv9-106X_mcRun2_asymptotic_preVFP_v11-v2/NANOAODSIM
+    x_sec: 12990.0

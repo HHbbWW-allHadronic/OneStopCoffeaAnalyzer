@@ -5,6 +5,7 @@ import correctionlib.convert
 from analyzer.core.columns import Column
 from attrs import define, field
 import correctionlib
+from analyzer.core.datasets import SampleType
 from analyzer.core.analysis_modules import (
     AnalyzerModule,
     MetadataExpr,
@@ -19,7 +20,7 @@ class BJetShapeSF(AnalyzerModule):
     input_col: Column
     weight_name: str = "b_tag_disc_shape"
 
-    should_run: MetadataExpr = field(factory=lambda: IsSampleType("MC"))
+    should_run: MetadataExpr = field(factory=lambda: IsSampleType(SampleType.MC))
 
     __corrections: dict = field(factory=dict)
 

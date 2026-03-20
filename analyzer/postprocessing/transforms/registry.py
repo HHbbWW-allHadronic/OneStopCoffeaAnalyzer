@@ -1,5 +1,6 @@
+from analyzer.utils.querying import BasePattern
 from typing import TypeVar
-from attrs import define
+from attrs import define, field
 import functools as ft
 from cattrs.strategies import (
     include_subclasses,
@@ -10,7 +11,12 @@ T = TypeVar("T")
 
 
 @define
-class Transform: ...
+class Transform:
+    should_run: BasePattern | None = field(default=None, kw_only=True)
+
+
+@define
+class TransformGroup(Transform): ...
 
 
 @define
