@@ -274,21 +274,45 @@ class Histogram(ResultBase):
     def finalize(self, finalizer):
         return self
 
-    def widget(self, *args, **kwargs):
-        from textual_plotext import PlotextPlot
+@define
+class UnscaledHistogram(ResultBase):
+    @define
+    class Summary(ResultBase):
+        axes: Any
 
-        return None
+        def __iadd__(self, other):
+            return self
 
-        widget = PlotextPlot()
-        plt = widget.plt
-        h = self.histogram
-        axes = h.axes
-        h = h[{"variation": "central"}]
-        if len(h.axes) == 1:
-            plt.bar(h.axes[0].centers, h.values())
-            return widget
-        plt.set_xlabel = axes[0].name
-        return None
+        def iscale(self, value):
+            return self
+
+        def approxSize(self):
+            return 0
+
+        def finalize(self, finalizer):
+            return self
+
+    axes: Any
+    histogram: hist.Hist
+
+    def summary(self):
+        return UnscaledHistogram.Summary(name=self.name, axes=self.axes)
+
+    def approxSize(self):
+        from dask.sizeof import sizeof
+
+        return sizeof(self.histogram.view(flow=True))
+
+    def __iadd__(self, other):
+        self.histogram += other.histogram
+        return self
+
+    def iscale(self, value):
+        return self
+
+    def finalize(self, finalizer):
+        return self
+
 
 
 Array = ak.Array | dak.Array | np.ndarray

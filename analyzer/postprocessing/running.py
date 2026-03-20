@@ -54,7 +54,6 @@ class LoadStyles(WorkerPlugin):
 def runPostprocessors(
     path, input_files, parallel=None, prefix=None, loaded_results=None
 ):
-
     converter = Converter()
     setupConverter(converter)
 

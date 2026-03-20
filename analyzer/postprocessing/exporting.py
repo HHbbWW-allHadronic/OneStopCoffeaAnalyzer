@@ -8,6 +8,7 @@ import pickle as pkl
 from pathlib import Path
 import lz4.frame
 import numpy as np
+from analyzer.core.serialization import converter
 
 
 def exportItem(
@@ -17,6 +18,7 @@ def exportItem(
     compressed=True,
 ):
     ret = {"metadata": meta, "item": item}
+    ret = converter.unstructure(ret)
     output_path = Path(output_path)
     output_path.parent.mkdir(exist_ok=True, parents=True)
 

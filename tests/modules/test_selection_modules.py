@@ -1,10 +1,11 @@
 import pytest
 import awkward as ak
 from analyzer.core.columns import Column
-from analyzer.modules.common.selection import SelectOnColumns, NObjFilter
+from analyzer.modules.common.selection import SelectOnColumns, NObjFilter, SelectAllTriggers
 from analyzer.modules.common.hlt_selection import SimpleHLT
 from tests.modules.base_module_test import BaseModuleTest
 from tests.modules.fixtures import assertColumnExists
+from analyzer.core.results import SelectionFlow
 
 
 class TestSelectOnColumns(BaseModuleTest):
@@ -105,6 +106,27 @@ class TestSimpleHLT(BaseModuleTest):
         # Fix: Column creation with fields
         target = Column(("Selection", "PassTrigger"))
         assert target in outputs
+
+class TestSelectAllTriggers(BaseModuleTest):
+    @pytest.fixture
+    def module(self):
+        return SelectAllTriggers(sel_name="AllTriggerYields")
+
+    def testModuleRuns(self, module, mockColumns):
+        self.assertModuleRunsWithoutError(module, mockColumns)
+
+    def testSelectionLogic(self, module, mockColumns):
+        n_events = len(mockColumns["event"]) 
+        output_columns, results = self.runModule(module, mockColumns)
+        cutflow = results[0]
+        # Check cutflow result
+        assert type(results) == list
+        assert len(results) == 1
+        cutflow = results[0]
+        assert type(cutflow) == SelectionFlow
+        assert len(cutflow.cuts) == len(mockColumns["HLT"].fields)
+        assert cutflow.name == "AllTriggerYields"
+        assert cutflow.cutflow["initial"] == n_events 
 
 
 if __name__ == "__main__":
