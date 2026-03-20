@@ -3,7 +3,7 @@ from attrs import define
 from analyzer.core.columns import Column, TrackedColumns, EventBackend
 import numpy as np
 import awkward as ak
-from analyzer.core.results import Histogram
+from analyzer.core.results import Histogram, UnscaledHistogram
 import functools as ft
 import operator as op
 from analyzer.core.analysis_modules import (
@@ -107,8 +107,8 @@ class HistogramBuilder(PureResultModule):
         logger.debug(
             f"Creating histogram {self.product_name} with the following variations:\n{[x[0] for x in column_sets]}"
         )
-        for cset in column_sets:
-            name, columns = cset
+        to_run = [(x, y) for x, y in column_sets if x != "UNSCALED"]
+        for name, columns in to_run:
             mask = None
             if self.mask_col is not None:
                 mask = columns[self.mask_col]
@@ -147,7 +147,42 @@ class HistogramBuilder(PureResultModule):
                 variation=name,
             )
 
-        return [Histogram(name=self.product_name, histogram=histogram, axes=self.axes)]
+        ret = [Histogram(name=self.product_name, histogram=histogram, axes=self.axes)]
+
+        if to_run := next((x for x in column_sets if x[0] == "UNSCALED"), None):
+            _, columns = to_run
+            mask = None
+            unscaled_histogram = HistogramBuilder.create(
+                backend, categories, self.axes, "double"
+            )
+            if self.mask_col is not None:
+                mask = columns[self.mask_col]
+            data_to_fill = [columns[x] for x in self.columns]
+            if self.mask_col is not None:
+                data_to_fill = [col[mask] for col in data_to_fill]
+            representative = data_to_fill[0]
+
+            cat_to_fill = [
+                HistogramBuilder.transformToFill(
+                    representative, columns[x.column], mask
+                )
+                for x in categories
+            ]
+            HistogramBuilder.fillHistogram(
+                unscaled_histogram,
+                cat_to_fill,
+                data_to_fill,
+                weight=None,
+            )
+            ret.append(
+                UnscaledHistogram(
+                    name=self.product_name + "_unscaled",
+                    histogram=unscaled_histogram,
+                    axes=self.axes,
+                )
+            )
+
+        return ret
 
     def inputs(self, metadata):
         if self.mask_col is not None:

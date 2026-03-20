@@ -1,0 +1,21 @@
+- name: zjets_to_qq_2017
+  title: ZJetsQQ
+  sample_type: MC
+  era: '2017'
+  samples:
+  - name: ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 15256299
+    das_path: /ZJetsToQQ_HT-200to400_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
+    x_sec: 1012000.0
+  - name: ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 14884962
+    das_path: /ZJetsToQQ_HT-400to600_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
+    x_sec: 114200.0
+  - name: ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 11702567
+    das_path: /ZJetsToQQ_HT-600to800_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
+    x_sec: 25340.0
+  - name: ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8
+    n_events: 9400574 
+    das_path: /ZJetsToQQ_HT-800toInf_TuneCP5_13TeV-madgraphMLM-pythia8/RunIISummer20UL17NanoAODv9-106X_mc2017_realistic_v9-v2/NANOAODSIM
+    x_sec: 12990.0
