@@ -31,7 +31,7 @@ class SelectOnColumns(AnalyzerModule):
 
     sel_name: str
     selection_names: list[str] | None = None
-    save_cutflow: bool = True
+    save_flows: bool = True
 
     def run(self, columns, params):
         if self.selection_names is not None:
@@ -53,14 +53,44 @@ class SelectOnColumns(AnalyzerModule):
         ret = columns[Column("Selection") + cuts[0]]
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}
 
+        single = columns[Column("Selection") + cuts[0]] 
+        one_cut = {"initial": initial, cuts[0]: ak.count_nonzero(single, axis=0)}
+        
         for name in cuts[1:]:
             ret = ret & columns[Column("Selection") + name]
             cutflow[name] = ak.count_nonzero(ret, axis=0)
+        
+            single = columns[Column("Selection") + name]
+            one_cut[name] = ak.count_nonzero(single, axis=0)
+        
+        n_minus_one = {'initial': initial}
+        for skip_cut in cuts:
+            mask = None
+            for cut_name in cuts:
+                if cut_name != skip_cut:
+                    if mask is None:
+                        mask = columns[Column("Selection") + cut_name]
+                    else:
+                        mask = mask & columns[Column("Selection") + cut_name]
+            if mask is not None:
+                n_minus_one[skip_cut] = ak.count_nonzero(mask, axis=0)
+            else:
+                n_minus_one[skip_cut] = initial
+
+        final = ak.count_nonzero(ret, axis=0)
+        one_cut['final'] = final
+        n_minus_one['final'] = final
 
         columns.filter(ret)
 
-        if self.save_cutflow:
-            return columns, [SelectionFlow(self.sel_name, cuts=cuts, cutflow=cutflow)]
+        if self.save_flows:
+            return columns, [SelectionFlow(
+                self.sel_name, 
+                cuts=cuts, 
+                cutflow=cutflow, 
+                one_cut=one_cut, 
+                n_minus_one=n_minus_one
+                )]
         else:
             return columns, []
 
@@ -142,7 +172,7 @@ class SelectAllTriggers(AnalyzerModule):
         for trigger_name in all_triggers:
             ret = columns["HLT"][trigger_name]
             cutflow[trigger_name] = ak.count_nonzero(ret, axis=0)
-        return columns, [SelectionFlow(self.sel_name, cuts=all_triggers, cutflow=cutflow)]
+        return columns, [SelectionFlow(self.sel_name, cuts=all_triggers, cutflow=cutflow, one_cut={}, n_minus_one={})]
 
     def inputs(self, metadata):
         return [Column(("HLT"))]
