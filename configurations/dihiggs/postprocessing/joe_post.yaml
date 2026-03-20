@@ -1,5 +1,16 @@
 Postprocessing:
   processors:
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/selection"
+      scale: linear
+      normalize: True
+      structure:
+        select: {type: SelectionFlow}
+        group: {era.name: "*", pipeline: "*"}
+      output_name: "plots/{era.name}/{pipeline}/cutflow.png"
+
     - name: Histogram1D
       inputs:
         - "*/*/*/*"
@@ -7,7 +18,7 @@ Postprocessing:
       normalize: False
       show_info: True
       structure:
-        select: {dataset_name: "*", name: "!selection"}
+        select: {dataset_name: "*", name: "re:^(?!selection$|all_triggers$).*"}
         group: {pipeline: "*", era.name: "*", name: "*"}
         subgroups:
           unstacked: {select: {dataset_name: "ggHH2b2V6q*"}}
@@ -36,7 +47,7 @@ Postprocessing:
       show_den_unc: False
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*NoSelection"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*NoSelection"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -60,10 +71,10 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
-      show_stacked_unc: False
+      show_den_unc: False
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef2"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef2"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -87,10 +98,10 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
-      show_stacked_unc: False
+      show_den_unc: False
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "!selection", pipeline: "*ObjDef1"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef1"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -109,6 +120,15 @@ Postprocessing:
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
+
+    - name: CutflowTable
+      output_name: signal_yield
+      inputs:
+        - "*/*/SignalOnly/all_triggers"
+      structure:
+        select: {dataset_name: "*", pipeline: "*"}
+        group: {era.name: "*", name: "*"}
+      output_name: "signal_yields.csv"
 
   default_plot_config:
     cms_text: "Preliminary"

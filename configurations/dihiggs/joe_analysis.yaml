@@ -38,7 +38,7 @@ common_histograms: &common_histograms
     hist_name: JetQvG
     input_cols: [goodJet.btagUParTAK4QvG]
     axes:
-      - name: "Jet UParTQvG Score"
+      - name: "Jet PNetQvG Score"
         start: 0
         stop: 1
         bins: 20
@@ -97,9 +97,9 @@ common_histograms: &common_histograms
 
   - module_name: SimpleHistogram
     hist_name: AK4JetQvG
-    input_cols: [Jet.btagUParTAK4QvG]
+    input_cols: [Jet.btagPNetQvG]
     axes:
-      - name: "AK4Jet UParTQvG Score"
+      - name: "AK4Jet PNetQvG Score"
         start: 0
         stop: 1
         bins: 20
@@ -131,7 +131,6 @@ common_histograms: &common_histograms
         stop: 3000
         bins: 60
         unit: "GeV"
-
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -204,33 +203,30 @@ gen_histograms: &gen_histograms
 {{ core.objects() }}
 {{ core.regions() }}
 
-withHLT_NoSelection:
-  - *withHLT_NoSelection
-  - *common_histograms
+mc_pipelines: &mc_pipelines
+  - withHLT_NoSelection
+  - NoSelection
+  - withHLT_ObjDef1
+  - noHLT_ObjDef1
+  - withHLT_ObjDef2
+  - noHLT_ObjDef2
 
-NoSelection:
-  - *NoSelection
-  - *common_histograms
-
-withHLT_ObjDef1:
-  - *withHLT_ObjDef1
-  - *common_histograms
-
-noHLT_ObjDef1:
-  - *noHLT_ObjDef1
-  - *common_histograms
-
-withHLT_ObjDef2:
-  - *withHLT_ObjDef2
-  - *common_histograms
-
-noHLT_ObjDef2:
-  - *noHLT_ObjDef2
-  - *common_histograms
+signalmc_pipelines: &signalmc_pipelines
+  - withHLT_NoSelection
+  - NoSelection
+  - withHLT_ObjDef1
+  - noHLT_ObjDef1
+  - withHLT_ObjDef2
+  - noHLT_ObjDef2
+  - SignalOnly
 
 analyzer:
   default_run_builder:
-    strategy_name: NoSystematics
+    strategy_name: MultiRunBuilder
+    components:
+      - strategy_name: NoSystematics
+      - strategy_name: UnscaledOnly
+
   withHLT_NoSelection:
     - *withHLT_NoSelection
     - *common_histograms
@@ -255,6 +251,10 @@ analyzer:
     - *noHLT_ObjDef2
     - *common_histograms
 
+  SignalOnly:
+    - module_name: SelectAllTriggers
+      sel_name: all_triggers
+
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
@@ -266,10 +266,11 @@ event_collections:
       - noHLT_ObjDef1
       - withHLT_ObjDef2
       - noHLT_ObjDef2
-  - dataset: 'qcd*2024*'
-    pipelines: [withHLT_ObjDef1]
-  - dataset: 'tt_hadronic*2024*'
-    pipelines: [withHLT_ObjDef1]
-  - dataset: 'tt_semilep*2024'
-    pipelines: [withHLT_ObjDef1]
+      - SignalOnly
+#  - dataset: 'qcd*2024*'
+#   pipelines: [*mc_pipelines]
+# - dataset: 'tt_hadronic*2024*'
+#   pipelines: [*mc_pipelines]
+# - dataset: 'tt_semilep*2024'
+#   pipelines: [*mc_pipelines]
         
