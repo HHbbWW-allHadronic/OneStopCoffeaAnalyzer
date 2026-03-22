@@ -337,42 +337,8 @@ def datasets(filter, csv):
     table = createDatasetTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
     print(table)
 
-@click.option("--csv", is_flag=True)
-@click.argument("inputs", type=str, nargs=-1)
-@listData.command()
-def pair_dr_table(inputs, csv):
-    from analyzer.cli.dataset_table import createPairDRTable
-    from analyzer.core.results import loadResults
-    from analyzer.core.serialization import converter, setupConverter
-    import numpy as np
-
-    setupConverter(converter)
-    res = loadResults(inputs)
-
-    all_counts = None
-    for dataset_name in res:
-        dataset = res[dataset_name]
-        for sample_name in dataset:
-            sample = dataset[sample_name]
-            pipelines = sample["pipelines"]
-            for pipeline_name in pipelines:
-                pipeline = pipelines[pipeline_name]
-                if "min_dr_pair_idx" in pipeline:
-                    h = pipeline["min_dr_pair_idx"]
-                    counts = h.histogram.values()[0]
-                    if all_counts is None:
-                        all_counts = counts
-                    else:
-                        all_counts = all_counts + counts
-
-    if all_counts is None:
-        print("No min_dr_pair_idx found in results")
-        return
-
-    table = createPairDRTable(all_counts, as_csv=csv)
-    print(table)
-
 @listData.group()
+
 def eras():
     raise NotImplementedError()
 

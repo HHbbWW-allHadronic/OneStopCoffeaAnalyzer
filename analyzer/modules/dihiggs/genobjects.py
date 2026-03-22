@@ -217,12 +217,9 @@ class GenWOrganizer(AnalyzerModule):
 
     def run(self, columns, params):
         ws = columns[self.input_col]
-
-        # Per event, find which W is closer to the pole mass
         delta_mass = abs(ws.mass - self.w_mass)
         onshell_idx = ak.argmin(delta_mass, axis=1, keepdims=True)
         offshell_idx = ak.argmax(delta_mass, axis=1, keepdims=True)
-
         columns[self.onshell_col] = ws[onshell_idx]
         columns[self.offshell_col] = ws[offshell_idx]
         return columns, []
@@ -270,7 +267,6 @@ class GenWQuarkMatcher(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
-
 @define
 class GenQuarkPairDRTable(AnalyzerModule):
     """
@@ -313,28 +309,28 @@ class GenQuarkPairDRTable(AnalyzerModule):
         w_onshell = columns[self.w_onshell_col]
         w_offshell = columns[self.w_offshell_col]
 
-        # pT-order b quarks: b1=leading, b2=subleading
+        # pT-order b quarks
         b_sorted = b_quarks[ak.argsort(b_quarks.pt, axis=1, ascending=False)]
         b1 = b_sorted[:, 0]
         b2 = b_sorted[:, 1]
 
-        # Assign light quarks to on-shell W using dR, then pT-order
-        dr_onshell = w_onshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-        dr_onshell = dr_onshell[:, 0, :]
-        nearest_onshell = ak.argsort(dr_onshell, axis=1)[:, :2]
-        onshell_quarks = quarks[nearest_onshell]
-        onshell_sorted = onshell_quarks[ak.argsort(onshell_quarks.pt, axis=1, ascending=False)]
-        q1 = onshell_sorted[:, 0]
-        q2 = onshell_sorted[:, 1]
+        # Assign light quarks to on-shell W using dR
+        dr_on = w_onshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+        dr_on = dr_on[:, 0, :]
+        nearest_on = ak.argsort(dr_on, axis=1)[:, :2]
+        on_quarks = quarks[nearest_on]
+        on_sorted = on_quarks[ak.argsort(on_quarks.pt, axis=1, ascending=False)]
+        q1 = on_sorted[:, 0]
+        q2 = on_sorted[:, 1]
 
-        # Assign remaining 2 quarks to off-shell W, then pT-order
-        dr_offshell = w_offshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-        dr_offshell = dr_offshell[:, 0, :]
-        nearest_offshell = ak.argsort(dr_offshell, axis=1)[:, :2]
-        offshell_quarks = quarks[nearest_offshell]
-        offshell_sorted = offshell_quarks[ak.argsort(offshell_quarks.pt, axis=1, ascending=False)]
-        q3 = offshell_sorted[:, 0]
-        q4 = offshell_sorted[:, 1]
+        # Assign light quarks to off-shell W using dR
+        dr_off = w_offshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+        dr_off = dr_off[:, 0, :]
+        nearest_off = ak.argsort(dr_off, axis=1)[:, :2]
+        off_quarks = quarks[nearest_off]
+        off_sorted = off_quarks[ak.argsort(off_quarks.pt, axis=1, ascending=False)]
+        q3 = off_sorted[:, 0]
+        q4 = off_sorted[:, 1]
 
         # Compute dR for all 15 pairs and stack into (events, 15)
         pairs = [
@@ -346,14 +342,13 @@ class GenQuarkPairDRTable(AnalyzerModule):
             (q2, q3), (q2, q4),
             (q3, q4),
         ]
-        dr_stack = ak.concatenate(
-            [p[0].delta_r(p[1])[:, np.newaxis] for p in pairs],
-            axis=1
-        )
+        dr_values = np.stack([
+            ak.to_numpy(p[0].delta_r(p[1]))
+            for p in pairs
+        ], axis=1)
 
-        # Per event find which pair gives minimum dR
-        min_pair_idx = ak.argmin(dr_stack, axis=1)
-        columns[self.output_col] = ak.fill_none(min_pair_idx, -1)
+        min_pair_idx = np.argmin(dr_values, axis=1)
+        columns[self.output_col] = ak.Array(min_pair_idx.astype(np.int64))
         return columns, []
 
     def inputs(self, metadata):

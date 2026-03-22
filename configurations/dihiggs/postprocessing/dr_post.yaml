@@ -1,0 +1,16 @@
+Postprocessing:
+  processors:
+    - name: PairDRTable
+      inputs:
+        - "*/*/*/*"
+      format: csv
+      structure:
+        select: {name: "min_dr_pair_idx"}
+        group: {era.name: "*", pipeline: "*"}
+      output_name: "tables/{era.name}/{pipeline}/pair_dr_table.csv"
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
