@@ -251,10 +251,11 @@ gen_vars: &gen_vars
     pdgId: 25
     status_flag: 13
 
-  - module_name: GenPartDecayWalker
+  - module_name: GenPartFilter
     input_col: GenPart
     output_col: GenPart_2b4q
-    sample_type: signal
+    pdgId: [1, 2, 3, 4, 5]
+    status_flag: [12, 7]
 
   - module_name: GenPartFilter
     input_col: GenPart_2b4q

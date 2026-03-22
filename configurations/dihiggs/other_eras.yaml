@@ -396,30 +396,23 @@ gen_vars: &gen_vars
     pdgId: [1, 2, 3, 4]
     status_flag: [12, 7]
 
-  # First copy quarks with hard process flag
   - module_name: GenPartFilter
     input_col: GenPart
     output_col: GenPart_hardprocess_quarks
     pdgId: [1, 2, 3, 4, 5]
-    status_flag: [12, 7]   # isFirstCopy AND isHardProcess
+    status_flag: [12, 7]
 
-  # First copy quarks without hard process flag
   - module_name: GenPartFilter
     input_col: GenPart
     output_col: GenPart_firstcopy_quarks
     pdgId: [1, 2, 3, 4, 5]
-    status_flag: 12        # isFirstCopy only
+    status_flag: 12
 
   - module_name: GenPartFilter
     input_col: GenPart
     output_col: Gen_Ws
     pdgId: 24
     status_flag: 13
-  
-  - module_name: GenWOrganizer
-    input_col: Gen_Ws
-    onshell_col: Gen_W_onshell
-    offshell_col: Gen_W_offshell
 
   - module_name: Count
     input_col: GenPart_hardprocess_quarks
@@ -428,28 +421,6 @@ gen_vars: &gen_vars
   - module_name: Count
     input_col: GenPart_firstcopy_quarks
     output_col: nfirst_copy_qs
-
-  - module_name: GenDiparticleReconstructor
-    input_col: GenPart_2b4q
-    output_col: Gen_hbb
-    daughter_pids: [5]
-
-  - module_name: GenDiparticleReconstructor
-    input_col: GenPart_2b4q
-    output_col: Gen_hww
-    daughter_pids: [1, 2, 3, 4]
-
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_2b4q
-    output_col: min_dr_GenPart
-
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_2b
-    output_col: min_dr_gen_hbb
-
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_4q
-    output_col: min_dr_gen_hww
 
   - module_name: GenPartMinDRMaker
     input_col: Gen_Ws
@@ -464,6 +435,34 @@ gen_vars: &gen_vars
   - module_name: Count
     input_col: GenBJet
     output_col: n_GenBJet
+
+gen_vars_post_selection: &gen_vars_post_selection
+  - module_name: GenWOrganizer
+    input_col: Gen_Ws
+    onshell_col: Gen_W_onshell
+    offshell_col: Gen_W_offshell
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hbb
+    daughter_pids: [5]
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hww
+    daughter_pids: [1, 2, 3, 4]
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b4q
+    output_col: min_dr_GenPart
+      
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b
+    output_col: min_dr_gen_hbb
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_4q
+    output_col: min_dr_gen_hww
 
   - module_name: GenWQuarkMatcher
     w_col: Gen_W_onshell
@@ -733,6 +732,7 @@ analyzer:
     - *common_objects
     - *lepton_veto
     - *gen_vars
+    - *gen_vars_post_selection
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
@@ -760,23 +760,38 @@ analyzer:
     - *common_histograms
     - *gen_histograms
 
-
   NoSelection:
     - *common_objects
     - *lepton_veto
     - *gen_vars
+    - *gen_vars_post_selection
     - *common_histograms
     - *2024_plots
     - *gen_histograms
-
+  
   NoSelection_2023:
     - *common_objects
     - *lepton_veto
     - *gen_vars
     - module_name: SelectOnColumns
+      sel_name: is_fully_hadronic
+    - module_name: SelectOnColumns
       sel_name: selection
+    - module_name: GenPartFilter
+      input_col: GenPart
+      output_col: Gen_leptons
+      pdgId: [11, 13, 15]
+      status_flag: 13
+    - module_name: NObjFilter
+      input_col: Gen_leptons
+      selection_name: gen_lepton_veto
+      min_count: 0
+      max_count: 0
+    - module_name: SelectOnColumns
+      sel_name: gen_lepton_veto
+    - *gen_vars_post_selection
     - *common_histograms
-    - *gen_histograms  
+    - *gen_histograms
 
   NoSelection_run2_2018:
     - *common_objs_NO_JETID
@@ -789,10 +804,10 @@ analyzer:
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'ggHH2b2V6q_2024*'
-    pipelines: 
-      - withHLT_NoSelection
-      - NoSelection
+  #- dataset: 'ggHH2b2V6q_2024*'
+  #  pipelines: 
+  #    - withHLT_NoSelection
+  #    - NoSelection
       #- withHLT_ObjDef1
       #- noHLT_ObjDef1
       #- withHLT_ObjDef2
@@ -800,13 +815,13 @@ event_collections:
   
   - dataset: 'ggHHbbVV_2023_INCLUSIVE'
     pipelines:
-      - withHLT_NoSelection_nolep
+  #    - withHLT_NoSelection_nolep
       - NoSelection_2023
   
-  - dataset: 'ggHHbbVV_2018'
-    pipelines:
-      - withHLT_NoSelection_run2
-      - NoSelection_run2_2018
+  #- dataset: 'ggHHbbVV_2018'
+  #  pipelines:
+  #    - withHLT_NoSelection_run2
+  #    - NoSelection_run2_2018
 
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
