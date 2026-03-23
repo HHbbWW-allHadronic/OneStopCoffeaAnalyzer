@@ -22,6 +22,8 @@
   golden_json: https://cms-service-dqmdc.web.cern.ch/CAF/certification/Collisions24/Cert_Collisions2024_378981_386951_Golden.json
 
   btag_scale_factors:
+    tagger: "btagUParTAK4B"
+    correction_name: "UParTAK4_wp_values"
     file: /cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/btagging.json.gz
     systematics: [hf,lf,hfstats1,hfstats2]
 
