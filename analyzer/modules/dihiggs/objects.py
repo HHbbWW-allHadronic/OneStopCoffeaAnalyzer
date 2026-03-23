@@ -120,7 +120,7 @@ class JetID(AnalyzerModule):
                 0
             ))
         else:
-            jet_id = self.input_col.jetId
+            jet_id = jets.jetId
         columns[self.output_col] = jet_id
         return columns, []
 
