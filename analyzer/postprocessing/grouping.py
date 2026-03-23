@@ -117,6 +117,16 @@ class GroupBuilder:
 
         return ret
 
+    def _applySimple(self, items):
+        if self.select is not None:
+            items = [x for x in items if self.select.match(x.metadata)]
+        if self.group:
+            gathered = gatherByCapture(self.group, items)
+            groups: ResultSet = [g.items for g in gathered if g.capture is not NO_MATCH]
+        else:
+            groups = items
+        return groups
+
 
 def configureConverter(conv):
     base_transform_hook = conv.get_structure_hook(Transform)

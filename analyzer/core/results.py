@@ -81,6 +81,12 @@ class ResultBase(abc.ABC):
     def widget(self, *args, **kwargs):
         return None
 
+    def addMetadataRecursive(self, metadata):
+        for r in self.results.values():
+            r._metadata.update(metadata)
+            if isinstance(r, ResultGroup):
+                r.addMetadataRecursive(metadata)
+
 
 @define
 class ResultGroup(ResultBase):
@@ -239,6 +245,7 @@ class Histogram(ResultBase):
     @define
     class Summary(ResultBase):
         axes: Any
+        _approx_size: int = 0
 
         def __iadd__(self, other):
             return self
@@ -247,7 +254,7 @@ class Histogram(ResultBase):
             return self
 
         def approxSize(self):
-            return 0
+            return self._approx_size
 
         def finalize(self, finalizer):
             return self
@@ -256,7 +263,9 @@ class Histogram(ResultBase):
     histogram: hist.Hist
 
     def summary(self):
-        return Histogram.Summary(name=self.name, axes=self.axes)
+        return Histogram.Summary(
+            name=self.name, axes=self.axes, _approx_size=self.approxSize()
+        )
 
     def approxSize(self):
         from dask.sizeof import sizeof
@@ -274,11 +283,13 @@ class Histogram(ResultBase):
     def finalize(self, finalizer):
         return self
 
+
 @define
 class UnscaledHistogram(ResultBase):
     @define
     class Summary(ResultBase):
         axes: Any
+        _approx_size: int = 0
 
         def __iadd__(self, other):
             return self
@@ -287,7 +298,7 @@ class UnscaledHistogram(ResultBase):
             return self
 
         def approxSize(self):
-            return 0
+            return self._approx_size
 
         def finalize(self, finalizer):
             return self
@@ -296,7 +307,9 @@ class UnscaledHistogram(ResultBase):
     histogram: hist.Hist
 
     def summary(self):
-        return UnscaledHistogram.Summary(name=self.name, axes=self.axes)
+        return UnscaledHistogram.Summary(
+            name=self.name, axes=self.axes, _approx_size=self.approxSize()
+        )
 
     def approxSize(self):
         from dask.sizeof import sizeof
@@ -314,12 +327,13 @@ class UnscaledHistogram(ResultBase):
         return self
 
 
-
 Array = ak.Array | dak.Array | np.ndarray
 
 
 @define
 class BasicSummary(ResultBase):
+    _approx_size: int = 0
+
     def __iadd__(self, other):
         return self
 
@@ -327,7 +341,7 @@ class BasicSummary(ResultBase):
         return self
 
     def approxSize(self):
-        return 0
+        return self._approx_size
 
     def finalize(self, finalizer):
         return self
@@ -343,7 +357,7 @@ class ScalableArray(ResultBase):
         return self
 
     def summary(self):
-        return BasicSummary(name=self.name)
+        return BasicSummary(name=self.name, _approx_size=self.approxSize())
 
     def approxSize(self):
         return getArrayMem(self.array)
@@ -372,7 +386,7 @@ class RawArray(ResultBase):
         self.array = finalizer(self.array)
 
     def summary(self):
-        return BasicSummary(name=self.name)
+        return BasicSummary(name=self.name, _approx_size=self.approxSize())
 
     def approxSize(self):
         return getArrayMem(self.array)
@@ -399,7 +413,7 @@ class SavedColumns(ResultBase):
         return self
 
     def summary(self):
-        return BasicSummary(name=self.name)
+        return BasicSummary(name=self.name, _approx_size=self.approxSize())
 
     def approxSize(self):
         return sum(getArrayMem(x) for x in self.data.values())
@@ -601,9 +615,10 @@ def iFilterResultGroup(rg, keep_patterns, current_path=None):
     return rg
 
 
-def loadResults(paths, peek_only=False, keep_patterns=None):
+def loadResults(paths, peek_only=False, keep_patterns=None, return_file_sizes=False):
     all_paths = paths
     ret = None
+    file_sizes = {}
     func = ResultGroup.peekBytes if peek_only else ResultGroup.fromBytes
     for p in progbar(iterPaths(all_paths)):
         with open(p, "rb") as f:
@@ -612,11 +627,20 @@ def loadResults(paths, peek_only=False, keep_patterns=None):
         if keep_patterns is not None:
             iFilterResultGroup(result, keep_patterns)
 
+        for r in result.results.values():
+            r.addMetadataRecursive({"source_file": str(p)})
+
+        if return_file_sizes:
+            file_sizes[str(p)] = result.approxSize()
+
         if ret is None:
             ret = result
         else:
             ret += result
-    return ret
+    if return_file_sizes:
+        return ret, file_sizes
+    else:
+        return ret
 
 
 def mergeAndScale(results, drop_sample_pattern=None):

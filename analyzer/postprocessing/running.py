@@ -1,17 +1,21 @@
 from cattrs import Converter
 from analyzer.postprocessing.plots.common import PlotConfiguration
 import concurrent.futures as cf
+import math
 from analyzer.core.results import loadResults, mergeAndScale
 
+import heapq
 from .processors import configureConverter as procConfConv
 from .grouping import configureConverter as groupingConfConv
 from .transforms.registry import configureConverter as transConfConv
+from analyzer.utils.structure_tools import globWithMeta
 
 from .style import StyleSet
 from analyzer.core.serialization import setupConverter
 import matplotlib as mpl
 
 from rich.progress import Progress, track
+from rich import print
 from distributed import (
     WorkerPlugin,
 )
@@ -51,8 +55,36 @@ class LoadStyles(WorkerPlugin):
         pass
 
 
+def determineFileGroups(postprocessors, results):
+    ret = set()
+    for processor in postprocessors:
+        real_inputs = [[("*", *inp) for inp in l] for l in processor.inputs]
+        for i in real_inputs:
+            items = [y for x in (globWithMeta(results, l) for l in i) for y in x]
+            for x in processor.structure._applySimple(items):
+                ret.add(frozenset(y.metadata["source_file"] for y in x))
+    return ret
+
+
+def makeApproxEqualSubgroups(groups, target_num_groups, size_func=lambda x: x):
+    sets = [set() for _ in range(target_num_groups)]
+    totals = [(0, i) for i in range(target_num_groups)]
+    heapq.heapify(totals)
+    for group in groups:
+        total, index = heapq.heappop(totals)
+        value = size_func(group)
+        sets[index] |= group
+        heapq.heappush(totals, (total + value, index))
+    return sets
+
+
 def runPostprocessors(
-    path, input_files, parallel=None, prefix=None, loaded_results=None
+    path,
+    input_files,
+    parallel=None,
+    prefix=None,
+    loaded_results=None,
+    target_load_size: int = 1000000000,
 ):
     converter = Converter()
     setupConverter(converter)
@@ -84,30 +116,48 @@ def runPostprocessors(
             )
     keep_patterns = keep_patterns or None
 
-    if loaded_results is not None:
-        import copy
+    if target_load_size is not None:
+        peek_results, sizes = loadResults(
+            input_files,
+            keep_patterns=keep_patterns,
+            peek_only=True,
+            return_file_sizes=True,
+        )
+        # total_size = sum(sizes.values())
+        # num_groups = math.ceil(total_size / target_load_size)
+        # print(f"Total size is {total_size}")
+        # print(f"Target size is {target_load_size}")
+        # print(f"Num groups is {num_groups}")
 
-        results = copy.deepcopy(loaded_results)
+        file_groups = determineFileGroups(postprocessor.processors, peek_results)
     else:
-        results = loadResults(input_files, keep_patterns=keep_patterns)
+        file_groups = [input_files]
 
-    results = mergeAndScale(
-        results, drop_sample_pattern=postprocessor.drop_sample_pattern
-    )
-    all_funcs = []
-    for processor in postprocessor.processors:
-        all_funcs.extend(list(processor.run(results, prefix)))
+    for file_group in file_groups:
+        if loaded_results is not None:
+            import copy
 
-    if parallel and parallel > 1:
-        with Progress() as progress:
-            task = progress.add_task("[green]Processing...", total=len(all_funcs))
-            with cf.ProcessPoolExecutor(
-                max_workers=parallel, initializer=initProcess
-            ) as executor:
-                futures = [executor.submit(f) for f in all_funcs]
-                for future in cf.as_completed(futures):
-                    future.result()
-                    progress.update(task, advance=1)
-    else:
-        for f in track(all_funcs, description="Processing..."):
-            f()
+            results = copy.deepcopy(loaded_results)
+        else:
+            results = loadResults(file_group, keep_patterns=keep_patterns)
+
+        results = mergeAndScale(
+            results, drop_sample_pattern=postprocessor.drop_sample_pattern
+        )
+        all_funcs = []
+        for processor in postprocessor.processors:
+            all_funcs.extend(list(processor.run(results, prefix)))
+
+        if parallel and parallel > 1:
+            with Progress() as progress:
+                task = progress.add_task("[green]Processing...", total=len(all_funcs))
+                with cf.ProcessPoolExecutor(
+                    max_workers=parallel, initializer=initProcess
+                ) as executor:
+                    futures = [executor.submit(f) for f in all_funcs]
+                    for future in cf.as_completed(futures):
+                        future.result()
+                        progress.update(task, advance=1)
+        else:
+            for f in track(all_funcs, description="Processing..."):
+                f()
