@@ -3,7 +3,7 @@ Postprocessing:
     - name: PlotSelectionFlow
       inputs:
         - "*/*/*/selection"
-      scale: linear
+      scale: log
       normalize: True
       structure:
         select: {type: SelectionFlow}
