@@ -80,6 +80,22 @@ common_objects: &common_objects
   - module_name: Count
     input_col: MedB
     output_col: NMedB
+
+  - module_name: Count
+    input_col: looseMuon
+    output_col: NlooseMuon
+
+  - module_name: Count
+    input_col: tightMuon
+    output_col: NtightMuon
+
+  - module_name: Count
+    input_col: looseElectron
+    output_col: NlooseElectron
+
+  - module_name: Count
+    input_col: tightElectron
+    output_col: NtightElectron
 {%- endmacro %}
 
 {% macro regions() -%}

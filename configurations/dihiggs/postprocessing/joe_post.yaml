@@ -1,6 +1,5 @@
 Postprocessing:
   processors:
-
     - name: PlotSelectionFlow
       inputs:
         - "*/*/*/selection"

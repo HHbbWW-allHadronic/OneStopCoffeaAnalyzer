@@ -132,73 +132,41 @@ common_histograms: &common_histograms
         bins: 60
         unit: "GeV"
 
-gen_histograms: &gen_histograms
-  - module_name: TopVecHistograms
-    prefix: "GenJet"
-    input_col: GenJet
-    max_idx: 6
-
   - module_name: SimpleHistogram
-    hist_name: GenJetHT
-    input_cols: [GenJetHT]
+    hist_name: looseElectronN
+    input_cols: [NlooseElectron]
     axes:
-      - name: "GenJet $H_{T}$"
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
-
-  - module_name: SimpleHistogram
-    hist_name: GenNJet
-    input_cols: [NGenJet]
-    axes:
-      - name: "$N_{GenJets}$"
+      - name: "$N_{\\text{loose},e}$"
         start: -0.5
-        stop: 13.5
-        bins: 14
-
-  - module_name: FourVecHistograms
-    input_col: GenJet
-    hist_name: GenJet
-    mass_axis:
-      name: "GenJet"
-      start: 0
-      stop: 500
-      bins: 50
-
-  - module_name: GenPartFilter
-    input_col: GenPart
-    output_col: GenHiggs
-    pdgId: 25
-    status_flag: 13
-
-  - module_name: FourVecHistograms
-    input_col: GenHiggs
-    hist_name: GenHiggs
-    mass_axis:
-      name: "GenHiggs"
-      start: 0
-      stop: 500
-      bins: 50
-      unit: "GeV"
-
-  - module_name: GenPartDecayWalker
-    input_col: GenPart
-    output_col: GenPart_2b4q
-    sample_type: signal
-
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_2b4q
-    output_col: min_dr_GenPart 
+        stop: 4.5
+        bins: 5
 
   - module_name: SimpleHistogram
-    hist_name: min_dr_GenPart
-    input_cols: [min_dr_GenPart]
+    hist_name: tightElectronN
+    input_cols: [NtightElectron]
     axes:
-      - name: "minDR_{{GenPart}}"
-        start: 0.0
-        stop: 3.0
-        bins: 60
+      - name: "$N_{\\text{tight},e}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: looseMuonN
+    input_cols: [NlooseMuon]
+    axes:
+      - name: "$N_{\\text{loose},\\mu}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: tightMuonN
+    input_cols: [NtightMuon]
+    axes:
+      - name: "$N_{\\text{tight},\\mu}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
 
 {{ core.objects() }}
 {{ core.regions() }}
