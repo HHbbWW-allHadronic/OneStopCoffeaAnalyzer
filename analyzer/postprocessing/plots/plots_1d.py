@@ -101,7 +101,6 @@ def plotOne(
             label=title,
             density=normalize,
             yerr=style.yerr,
-            flow="none",
             **style.get(),
         )
 
