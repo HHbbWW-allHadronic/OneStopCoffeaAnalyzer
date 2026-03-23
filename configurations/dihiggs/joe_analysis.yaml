@@ -77,6 +77,21 @@ common_histograms: &common_histograms
       bins: 50
 
   - module_name: FourVecHistograms
+    input_col: nontop2b
+    hist_name: nontop2b
+
+  - module_name: JetComboHistograms
+    input_col: nontop2b
+    prefix: "nontop2b"
+    jet_combos:
+      - [0,1,2,3]
+    mass_axis:
+      name: "nontop2b"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: FourVecHistograms
     input_col: Jet
     hist_name: AK4Jet
     mass_axis:

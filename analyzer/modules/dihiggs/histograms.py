@@ -28,7 +28,7 @@ class FourVecHistograms(AnalyzerModule):
     input_col: Column
     hist_name: str
     mass_axis: RegularAxis = field(
-        factory=lambda: RegularAxis(20, 0, 1000, "", unit="GeV")
+        factory=lambda: RegularAxis(20, 0, 200, "", unit="GeV")
     )
 
     def run(self, columns, params):

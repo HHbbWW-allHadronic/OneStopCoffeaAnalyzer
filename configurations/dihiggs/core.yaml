@@ -48,10 +48,12 @@ common_objects: &common_objects
     min_pt: 25
     max_abs_eta: 2.4
 
-  - module_name: UParTBQuarkMaker
+  - module_name: HBQuarkMaker
     input_col: goodJet
     output_col: MedB
     working_point: M
+    nontop2b: True
+    nontop2b_col: nontop2b
 
   - module_name: HT
     input_col: Jet
