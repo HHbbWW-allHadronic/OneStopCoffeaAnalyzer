@@ -132,8 +132,9 @@ def makeStrHist(data, ax_name):
     import hist
 
     ax = hist.axis.StrCategory([x[0] for x in data], name=ax_name)
-    h = hist.Hist(ax, storage="double")
-    h[:] = np.array([x[1] for x in data])
+    h = hist.Hist(ax, storage="weight")
+    d = np.array([x[1] for x in data])
+    h[:] = np.stack([d, d], axis=-1)
     return h
 
 
@@ -159,7 +160,7 @@ def plotDictAsBars(
         style = styler.getStyle(meta)
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
         if normalize: 
-            h *= (1 / h[0])
+            h *= (1 / h[0].value)
         h.plot1d(
             ax=ax,
             label=title,
