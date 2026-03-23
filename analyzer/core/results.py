@@ -264,7 +264,7 @@ class Histogram(ResultBase):
 
     def summary(self):
         return Histogram.Summary(
-            name=self.name, axes=self.axes, _approx_size=self.approxSize()
+            name=self.name, axes=self.axes, approx_size=self.approxSize()
         )
 
     def approxSize(self):
@@ -308,7 +308,7 @@ class UnscaledHistogram(ResultBase):
 
     def summary(self):
         return UnscaledHistogram.Summary(
-            name=self.name, axes=self.axes, _approx_size=self.approxSize()
+            name=self.name, axes=self.axes, approx_size=self.approxSize()
         )
 
     def approxSize(self):
@@ -357,7 +357,7 @@ class ScalableArray(ResultBase):
         return self
 
     def summary(self):
-        return BasicSummary(name=self.name, _approx_size=self.approxSize())
+        return BasicSummary(name=self.name, approx_size=self.approxSize())
 
     def approxSize(self):
         return getArrayMem(self.array)
@@ -386,7 +386,7 @@ class RawArray(ResultBase):
         self.array = finalizer(self.array)
 
     def summary(self):
-        return BasicSummary(name=self.name, _approx_size=self.approxSize())
+        return BasicSummary(name=self.name, approx_size=self.approxSize())
 
     def approxSize(self):
         return getArrayMem(self.array)
@@ -413,7 +413,7 @@ class SavedColumns(ResultBase):
         return self
 
     def summary(self):
-        return BasicSummary(name=self.name, _approx_size=self.approxSize())
+        return BasicSummary(name=self.name, approx_size=self.approxSize())
 
     def approxSize(self):
         return sum(getArrayMem(x) for x in self.data.values())
