@@ -186,23 +186,6 @@ common_histograms: &common_histograms
 {{ core.objects() }}
 {{ core.regions() }}
 
-mc_pipelines: &mc_pipelines
-  - withHLT_NoSelection
-  - NoSelection
-  - withHLT_ObjDef1
-  - noHLT_ObjDef1
-  - withHLT_ObjDef2
-  - noHLT_ObjDef2
-
-signalmc_pipelines: &signalmc_pipelines
-  - withHLT_NoSelection
-  - NoSelection
-  - withHLT_ObjDef1
-  - noHLT_ObjDef1
-  - withHLT_ObjDef2
-  - noHLT_ObjDef2
-  - SignalOnly
-
 analyzer:
   default_run_builder:
     strategy_name: MultiRunBuilder
@@ -240,9 +223,7 @@ analyzer:
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
-event_collections:
-  - dataset: 'ggHH2b2V6q_2024*'
-    pipelines: 
+{%- macro signalmc_pipelines() %}
       - withHLT_NoSelection
       - NoSelection
       - withHLT_ObjDef1
@@ -250,10 +231,28 @@ event_collections:
       - withHLT_ObjDef2
       - noHLT_ObjDef2
       - SignalOnly
-#  - dataset: 'qcd*2024*'
-#   pipelines: [*mc_pipelines]
-# - dataset: 'tt_hadronic*2024*'
-#   pipelines: [*mc_pipelines]
-# - dataset: 'tt_semilep*2024'
-#   pipelines: [*mc_pipelines]
+{%- endmacro %}
+
+{%- macro mc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - noHLT_ObjDef2
+{%- endmacro %}
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+    {{ signalmc_pipelines() }}
+  - dataset: 'qcd*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+    {{ mc_pipelines() }}
         
