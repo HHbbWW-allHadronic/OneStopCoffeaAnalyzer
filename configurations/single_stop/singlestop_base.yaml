@@ -146,6 +146,14 @@
   model_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt"
   scaler_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl"
 
+- module_name: JetCombos
+  input_col: GoodJet
+  prefix: "composite"
+  jet_combos:
+    - [0,1,2,3]
+    - [0,1,2]
+    - [1,2,3]
+
 - module_name: NNMassPlots
   m3_input: mChi_comp
   m4_input: mStop_comp
@@ -156,25 +164,20 @@
   m4_input: mStop_uncomp
   prefix: uncomp
 
-- module_name: JetComboHistograms
-  input_col: GoodJet
-  prefix: "composite"
-  jet_combos:
-    - [0,1,2,3]
-    - [0,1,2]
-    - [1,2,3]
+- module_name: NNMassPlots
+  m3_input: composite_13_m
+  m4_input: composite_14_m
+  prefix: naive_comp
+
+- module_name: NNMassPlots
+  m3_input: composite_24_m
+  m4_input: composite_14_m
+  prefix: naive_uncomp
+
 
 {%- endmacro %}
 
 {% macro singlestop_extra_histograms() -%}
-- module_name: JetComboHistograms
-  input_col: GoodJet
-  prefix: "composite"
-  jet_combos:
-    - [0,1,2,3]
-    - [0,1,2]
-    - [1,2,3]
-
 - module_name: TopVecHistograms
   prefix: "fatjet"
   input_col: GoodFatJet

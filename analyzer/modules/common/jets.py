@@ -430,6 +430,57 @@ class TopVecHistograms(AnalyzerModule):
 
 
 @define
+class JetCombos(AnalyzerModule):
+    r"""
+    Compute invariant masses for specified combinations of jets.
+
+    This analyzer calculates the invariant mass for each group of jets
+    defined by their indices in the input collection. The results are
+    stored in new columns named using the prefix and the (min, max)
+    indices of the jets in the combination.
+
+    Parameters
+    ----------
+    prefix : str
+        Prefix used for naming the generated mass columns.
+    input_col : Column
+        Column containing the jet collection.
+    jet_combos : list of list of int
+        List of jet index combinations. Each inner list specifies the
+        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
+        two jets).
+
+    """
+
+    prefix: str
+    input_col: Column
+    jet_combos: list[list[int]]
+
+    def getNames(self):
+        return [
+            f"{self.prefix}_{min(combo) + 1}{max(combo) + 1}_m"
+            for combo in self.jet_combos
+        ]
+
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+        max_idx = max(flatten(self.jet_combos))
+        padded = ak.pad_none(jets, max_idx + 1, axis=1)
+        for combo in self.jet_combos:
+            i, j = min(combo), max(combo)
+            summed = padded[:, combo].sum()
+            columns[f"{self.prefix}_{i + 1}{j + 1}_m"] = summed.mass
+
+        return columns, []
+
+    def outputs(self, metadata):
+        return [Column(name) for name in self.getNames()]
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+
+@define
 class JetComboHistograms(AnalyzerModule):
     """
     Build composite objects from specified combinations
@@ -486,15 +537,6 @@ class JetComboHistograms(AnalyzerModule):
                     mask=mask,
                 )
             )
-            # ret.append(
-            #     makeHistogram(
-            #         f"{self.prefix}_{i + 1}{j + 1}_pt",
-            #         columns,
-            #         RegularAxis(50, 0, 3000, f"$pt_{{{i + 1}{j + 1}}}$", unit="GeV"),
-            #         summed.pt,
-            #         mask=mask,
-            #     )
-            # )
 
         return columns, ret
 
