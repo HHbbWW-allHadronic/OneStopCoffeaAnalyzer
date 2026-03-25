@@ -51,6 +51,10 @@ class GenPartFilter(AnalyzerModule):
     exclude_pdgId: bool, optional
         If True, exclude particles with the given pdgId instead of selecting them.
         By default False.
+    require_ancestor_pdgId: int or None, optional
+        If set, only keep particles that have a mother or grandmother with
+        this pdgId in the decay chain. Checked vectorially up to two levels.
+        By default None (no ancestor requirement).
     Notes
     -----
     """
@@ -59,6 +63,7 @@ class GenPartFilter(AnalyzerModule):
     pdgId: int | list
     status_flag: int | list
     exclude_pdgId: bool = False
+    require_ancestor_pdgId: int | None = None
 
     def run(self, columns, params):
         genpart = columns[self.input_col]
@@ -68,7 +73,6 @@ class GenPartFilter(AnalyzerModule):
         pass_pdgId = ak.zeros_like(genpart.pdgId, dtype=bool)
         for pid in pdgIds:
             pass_pdgId = pass_pdgId | (abs(genpart.pdgId) == pid)
-
         if self.exclude_pdgId:
             pass_pdgId = ~pass_pdgId
 
@@ -78,7 +82,32 @@ class GenPartFilter(AnalyzerModule):
         for flag in status_flags:
             pass_status_flag = pass_status_flag & ((genpart.statusFlags >> flag) & 1 == 1)
 
-        columns[self.output_col] = genpart[pass_pdgId & pass_status_flag]
+        pass_all = pass_pdgId & pass_status_flag
+
+        # Optionally require a specific ancestor (vectorized, checks up to 2 levels)
+        if self.require_ancestor_pdgId is not None:
+            ancestor_pid = self.require_ancestor_pdgId
+            n_per_event = ak.num(genpart, axis=1)
+
+            # Mother level
+            q_mother_idx = genpart.genPartIdxMother
+            valid_mother = (q_mother_idx >= 0) & (q_mother_idx < n_per_event)
+            safe_mother_idx = ak.where(valid_mother, q_mother_idx, 0)
+            mother_pid = abs(genpart.pdgId[safe_mother_idx])
+
+            # Grandmother level
+            grandmother_idx = genpart.genPartIdxMother[safe_mother_idx]
+            valid_grandmother = (grandmother_idx >= 0) & (grandmother_idx < n_per_event)
+            safe_grandmother_idx = ak.where(valid_grandmother, grandmother_idx, 0)
+            grandmother_pid = abs(genpart.pdgId[safe_grandmother_idx])
+
+            from_ancestor = (
+                (valid_mother & (mother_pid == ancestor_pid)) |
+                (valid_grandmother & (grandmother_pid == ancestor_pid))
+            )
+            pass_all = pass_all & from_ancestor
+
+        columns[self.output_col] = genpart[pass_all]
         return columns, []
 
     def inputs(self, metadata):
@@ -233,36 +262,59 @@ class GenWOrganizer(AnalyzerModule):
 @define
 class GenWQuarkMatcher(AnalyzerModule):
     """
-    For each W boson, find the two nearest light quarks and compute
-    their pairwise delta R.
+    For each W boson, find the two quarks whose mother is that W
+    and compute their pairwise delta R.
     Parameters
     ----------
     w_col : Column
         Column containing a single W boson per event (on-shell or off-shell).
+    genpart_col : Column
+        Column containing the full GenPart collection for index lookup.
     quark_col : Column
         Column containing the 4 light quarks (GenPart_4q).
     output_col : Column
         Column where the pairwise delta R between matched quarks will be stored.
     """
     w_col: Column
+    genpart_col: Column
     quark_col: Column
     output_col: Column
 
     def run(self, columns, params):
         ws = columns[self.w_col]
+        genpart = columns[self.genpart_col]
         quarks = columns[self.quark_col]
 
-        dr = ws[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-        dr = dr[:, 0, :]
-        nearest_two = ak.argsort(dr, axis=1)[:, :2]
-        matched_quarks = quarks[nearest_two]
+        # Get GenPart indices of the W bosons
+        w_mask = (abs(genpart.pdgId) == 24) & ((genpart.statusFlags >> 13) & 1 == 1)
+        all_w_indices = ak.local_index(genpart, axis=1)[w_mask]
+        ws_all = genpart[w_mask]
 
-        dr_qq = matched_quarks[:, 0].delta_r(matched_quarks[:, 1])
-        columns[self.output_col] = ak.fill_none(dr_qq, -1.0)
+        # Find local index of this W within Gen_Ws by pt matching
+        local_w_idx = ak.argmin(abs(ws_all.pt - ws[:, 0].pt), axis=1)
+
+        # Get the GenPart index of this W
+        w_genidx = ak.firsts(all_w_indices[ak.from_regular(local_w_idx[:, np.newaxis])])
+        w_genidx = ak.fill_none(w_genidx, -1)
+        w_genidx = ak.values_astype(w_genidx, np.int32)
+
+        # Match quarks by mother index
+        q_mother = ak.values_astype(quarks.genPartIdxMother, np.int32)
+        from_this_w = q_mother == w_genidx
+        matched_quarks = quarks[from_this_w]
+
+        # Compute pairwise dR only for events with exactly 2 matched quarks
+        has_two = ak.num(matched_quarks, axis=1) >= 2
+        valid_matched = matched_quarks[has_two]
+        dr_qq_valid = ak.to_numpy(valid_matched[:, 0].delta_r(valid_matched[:, 1]))
+
+        result = np.full(len(matched_quarks), -1.0)
+        result[ak.to_numpy(has_two)] = dr_qq_valid
+        columns[self.output_col] = ak.Array(result)
         return columns, []
 
     def inputs(self, metadata):
-        return [self.w_col, self.quark_col]
+        return [self.w_col, self.genpart_col, self.quark_col]
 
     def outputs(self, metadata):
         return [self.output_col]
@@ -271,27 +323,32 @@ class GenWQuarkMatcher(AnalyzerModule):
 class GenQuarkPairDRTable(AnalyzerModule):
     """
     Computes delta R for all 15 unique pairs of the 6 gen quarks
-    (2 b quarks + 2 on-shell W quarks + 2 off-shell W quarks) and
-    counts which pair gives the minimum delta R most frequently across
-    all events. Quarks are pT-ordered within each category.
+    (2 b quarks + 4 light quarks from 2 Ws) and counts which pair
+    gives the minimum delta R most frequently across all events.
+    Quarks are assigned to Ws via genPartIdxMother, then Ws are
+    classified as on-shell or off-shell by proximity to the W pole mass.
+    Quarks are pT-ordered within each W.
     Parameters
     ----------
     b_col : Column
         Column containing the 2 b quarks (GenPart_2b).
     q_col : Column
         Column containing the 4 light quarks (GenPart_4q).
-    w_onshell_col : Column
-        Column containing the on-shell W boson (Gen_W_onshell).
-    w_offshell_col : Column
-        Column containing the off-shell W boson (Gen_W_offshell).
+    w_col : Column
+        Column containing the W bosons (Gen_Ws).
+    genpart_col : Column
+        Column containing the full GenPart collection.
     output_col : Column
         Column where the per-event minimum pair index will be stored.
+    w_mass : float, optional
+        W pole mass in GeV. Default is 80.4.
     """
     b_col: Column
     q_col: Column
-    w_onshell_col: Column
-    w_offshell_col: Column
+    w_col: Column
+    genpart_col: Column
     output_col: Column
+    w_mass: float = 80.4
 
     PAIR_LABELS = [
         "b1-b2",
@@ -306,37 +363,59 @@ class GenQuarkPairDRTable(AnalyzerModule):
     def run(self, columns, params):
         b_quarks = columns[self.b_col]
         quarks = columns[self.q_col]
-        w_onshell = columns[self.w_onshell_col]
-        w_offshell = columns[self.w_offshell_col]
+        ws = columns[self.w_col]
+        genpart = columns[self.genpart_col]
 
         # pT-order b quarks
         b_sorted = b_quarks[ak.argsort(b_quarks.pt, axis=1, ascending=False)]
         b1 = b_sorted[:, 0]
         b2 = b_sorted[:, 1]
 
-        # Assign light quarks to on-shell W using dR
-        dr_on = w_onshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-        dr_on = dr_on[:, 0, :]
-        nearest_on = ak.argsort(dr_on, axis=1)[:, :2]
-        on_quarks = quarks[nearest_on]
-        on_sorted = on_quarks[ak.argsort(on_quarks.pt, axis=1, ascending=False)]
+        # Get GenPart indices of the W bosons
+        w_mask = (abs(genpart.pdgId) == 24) & ((genpart.statusFlags >> 13) & 1 == 1)
+        w_indices = ak.local_index(genpart, axis=1)[w_mask]
+
+        # Determine which W is on-shell vs off-shell by mass
+        delta_mass = abs(ws.mass - self.w_mass)
+        onshell_w_local = ak.argmin(delta_mass, axis=1)
+        offshell_w_local = ak.argmax(delta_mass, axis=1)
+
+        # Get GenPart index of each W
+        onshell_w_genidx = ak.fill_none(
+            ak.firsts(w_indices[ak.from_regular(onshell_w_local[:, np.newaxis])]), -1)
+        offshell_w_genidx = ak.fill_none(
+            ak.firsts(w_indices[ak.from_regular(offshell_w_local[:, np.newaxis])]), -1)
+        onshell_w_genidx = ak.values_astype(onshell_w_genidx, np.int32)
+        offshell_w_genidx = ak.values_astype(offshell_w_genidx, np.int32)
+
+        # Assign light quarks to on-shell or off-shell W via mother index
+        q_mother = ak.values_astype(quarks.genPartIdxMother, np.int32)
+        on_quarks = quarks[q_mother == onshell_w_genidx]
+        off_quarks = quarks[q_mother == offshell_w_genidx]
+
+        # Only process events where both Ws have exactly 2 quarks
+        has_valid = (
+            (ak.num(b_quarks, axis=1) >= 2) &
+            (ak.num(on_quarks, axis=1) >= 2) &
+            (ak.num(off_quarks, axis=1) >= 2)
+        )
+
+        # Work only on valid events
+        b1_v = b_sorted[has_valid][:, 0]
+        b2_v = b_sorted[has_valid][:, 1]
+
+        on_sorted = on_quarks[has_valid][ak.argsort(on_quarks[has_valid].pt, axis=1, ascending=False)]
+        off_sorted = off_quarks[has_valid][ak.argsort(off_quarks[has_valid].pt, axis=1, ascending=False)]
+
         q1 = on_sorted[:, 0]
         q2 = on_sorted[:, 1]
-
-        # Assign light quarks to off-shell W using dR
-        dr_off = w_offshell[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
-        dr_off = dr_off[:, 0, :]
-        nearest_off = ak.argsort(dr_off, axis=1)[:, :2]
-        off_quarks = quarks[nearest_off]
-        off_sorted = off_quarks[ak.argsort(off_quarks.pt, axis=1, ascending=False)]
         q3 = off_sorted[:, 0]
         q4 = off_sorted[:, 1]
 
-        # Compute dR for all 15 pairs and stack into (events, 15)
         pairs = [
-            (b1, b2),
-            (b1, q1), (b1, q2), (b1, q3), (b1, q4),
-            (b2, q1), (b2, q2), (b2, q3), (b2, q4),
+            (b1_v, b2_v),
+            (b1_v, q1), (b1_v, q2), (b1_v, q3), (b1_v, q4),
+            (b2_v, q1), (b2_v, q2), (b2_v, q3), (b2_v, q4),
             (q1, q2),
             (q1, q3), (q1, q4),
             (q2, q3), (q2, q4),
@@ -347,12 +426,15 @@ class GenQuarkPairDRTable(AnalyzerModule):
             for p in pairs
         ], axis=1)
 
-        min_pair_idx = np.argmin(dr_values, axis=1)
-        columns[self.output_col] = ak.Array(min_pair_idx.astype(np.int64))
+        min_pair_idx_valid = np.argmin(dr_values, axis=1)
+
+        result = np.full(len(b_quarks), -1, dtype=np.int64)
+        result[ak.to_numpy(has_valid)] = min_pair_idx_valid
+        columns[self.output_col] = ak.Array(result)
         return columns, []
 
     def inputs(self, metadata):
-        return [self.b_col, self.q_col, self.w_onshell_col, self.w_offshell_col]
+        return [self.b_col, self.q_col, self.w_col, self.genpart_col]
 
     def outputs(self, metadata):
         return [self.output_col]

@@ -378,11 +378,18 @@ gen_vars: &gen_vars
     output_col: Gen_Higgs
     pdgId: 25
     status_flag: 13
-
-  - module_name: GenPartDecayWalker
+  
+  - module_name: GenPartFilter
     input_col: GenPart
     output_col: GenPart_2b4q
-    sample_type: signal
+    pdgId: [1, 2, 3, 4, 5]
+    status_flag: [12, 7]  
+
+  - module_name: NObjFilter
+    input_col: GenPart_2b4q
+    selection_name: is_fully_hadronic
+    min_count: 6
+    max_count: 6
 
   - module_name: GenPartFilter
     input_col: GenPart_2b4q
@@ -756,7 +763,7 @@ analyzer:
     - *gen_vars
     - module_name: SelectOnColumns
       sel_name: selection
-    - *cut_histograms
+    - *gen_vars_post_selection
     - *common_histograms
     - *gen_histograms
 
@@ -773,22 +780,6 @@ analyzer:
     - *common_objects
     - *lepton_veto
     - *gen_vars
-    - module_name: SelectOnColumns
-      sel_name: is_fully_hadronic
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - module_name: GenPartFilter
-      input_col: GenPart
-      output_col: Gen_leptons
-      pdgId: [11, 13, 15]
-      status_flag: 13
-    - module_name: NObjFilter
-      input_col: Gen_leptons
-      selection_name: gen_lepton_veto
-      min_count: 0
-      max_count: 0
-    - module_name: SelectOnColumns
-      sel_name: gen_lepton_veto
     - *gen_vars_post_selection
     - *common_histograms
     - *gen_histograms
@@ -797,6 +788,7 @@ analyzer:
     - *common_objs_NO_JETID
     - *lepton_veto
     - *gen_vars
+    - *gen_vars_post_selection
     - *common_histograms
     - *gen_histograms
 
@@ -813,15 +805,15 @@ event_collections:
       #- withHLT_ObjDef2
       #- noHLT_ObjDef2
   
-  - dataset: 'ggHHbbVV_2023_INCLUSIVE'
-    pipelines:
-  #    - withHLT_NoSelection_nolep
-      - NoSelection_2023
-  
-  #- dataset: 'ggHHbbVV_2018'
+  #- dataset: 'ggHHbbVV_2023_INCLUSIVE'
   #  pipelines:
-  #    - withHLT_NoSelection_run2
-  #    - NoSelection_run2_2018
+  #    - withHLT_NoSelection_nolep
+  #    - NoSelection_2023
+  
+  - dataset: 'ggHHbbVV_2018'
+    pipelines:
+      - withHLT_NoSelection_run2
+      - NoSelection_run2_2018
 
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
