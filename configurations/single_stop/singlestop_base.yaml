@@ -158,22 +158,31 @@
   m3_input: mChi_comp
   m4_input: mStop_comp
   prefix: comp
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [700, 2500]
+  ratio_range: [0.6, 1.0]
+  bins: 50
+
+- module_name: NNMassPlots
+  m3_input: mChi_comp
+  m4_input: mStop_comp
+  prefix: verycomp
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [700, 2500]
+  ratio_range: [0.85, 1.0]
+  bins: 50
 
 - module_name: NNMassPlots
   m3_input: mChi_uncomp
   m4_input: mStop_uncomp
   prefix: uncomp
-
-- module_name: NNMassPlots
-  m3_input: composite_13_m
-  m4_input: composite_14_m
-  prefix: naive_comp
-
-- module_name: NNMassPlots
-  m3_input: composite_24_m
-  m4_input: composite_14_m
-  prefix: naive_uncomp
-
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [200, 2000]
+  ratio_range: [0.2, 0.8]
+  bins: 50
 
 {%- endmacro %}
 

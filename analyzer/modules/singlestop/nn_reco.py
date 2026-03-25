@@ -153,6 +153,11 @@ class NNMassPlots(AnalyzerModule):
     m3_input: Column
     m4_input: Column
     prefix: str
+    m4_range: tuple[int, int] = (0, 3000)
+    m3_range: tuple[int, int] = (0, 3000)
+    ratio_range: tuple[float, float] = (0.0, 1.0)
+    ratio_only: bool = False
+    bins: int = 60
 
     def run(self, columns, params):
         chi_m = columns[self.m3_input]
@@ -163,7 +168,13 @@ class NNMassPlots(AnalyzerModule):
             makeHistogram(
                 f"{self.prefix}_mChi",
                 columns,
-                RegularAxis(60, 0, 3000, r"$m_{\chi}$", unit="GeV"),
+                RegularAxis(
+                    self.bins,
+                    self.m3_range[0],
+                    self.m3_range[1],
+                    r"$m_{\chi}$",
+                    unit="GeV",
+                ),
                 chi_m,
             )
         )
@@ -171,28 +182,59 @@ class NNMassPlots(AnalyzerModule):
             makeHistogram(
                 f"{self.prefix}_mStop",
                 columns,
-                RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
+                RegularAxis(
+                    self.bins,
+                    self.m4_range[0],
+                    self.m4_range[1],
+                    r"$m_{\tilde{t}}$",
+                    unit="GeV",
+                ),
                 stop_m,
             )
         )
-        ret.append(
-            makeHistogram(
-                f"{self.prefix}_mStop_vs_mChi",
-                columns,
-                [
-                    RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
-                    RegularAxis(60, 0, 3000, r"$m_{\chi}$", unit="GeV"),
-                ],
-                [stop_m, chi_m],
+        if not self.ratio_only:
+            ret.append(
+                makeHistogram(
+                    f"{self.prefix}_mStop_vs_mChi",
+                    columns,
+                    [
+                        RegularAxis(
+                            self.bins,
+                            self.m4_range[0],
+                            self.m4_range[1],
+                            r"$m_{\tilde{t}}$",
+                            unit="GeV",
+                        ),
+                        RegularAxis(
+                            self.bins,
+                            self.m3_range[0],
+                            self.m3_range[1],
+                            r"$m_{\chi}$",
+                            unit="GeV",
+                        ),
+                    ],
+                    [stop_m, chi_m],
+                )
             )
-        )
         ret.append(
             makeHistogram(
                 f"{self.prefix}_mStop_vs_mChiRatio",
                 columns,
                 [
-                    RegularAxis(60, 0, 3000, r"$m_{\tilde{t}}$", unit="GeV"),
-                    RegularAxis(50, 0, 1, r"$m_{\chi} / m_{\tilde{t}}$", unit="GeV"),
+                    RegularAxis(
+                        self.bins,
+                        self.m4_range[0],
+                        self.m4_range[1],
+                        r"$m_{\tilde{t}}$",
+                        unit="GeV",
+                    ),
+                    RegularAxis(
+                        self.bins,
+                        self.ratio_range[0],
+                        self.ratio_range[1],
+                        r"$m_{\chi} / m_{\tilde{t}}$",
+                        unit="GeV",
+                    ),
                 ],
                 [stop_m, chi_m / stop_m],
             )
