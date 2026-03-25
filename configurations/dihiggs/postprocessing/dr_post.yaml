@@ -7,7 +7,7 @@ Postprocessing:
       structure:
         select: {name: "min_dr_pair_idx"}
         group: {era.name: "*", pipeline: "*"}
-      output_name: "tables/{era.name}/{pipeline}/pair_dr_table.csv"
+      output_name: "tables2/{era.name}/{pipeline}/pair_dr_table.csv"
 
   default_plot_config:
     cms_text: "Preliminary"

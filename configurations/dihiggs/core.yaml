@@ -256,6 +256,13 @@ gen_vars: &gen_vars
     output_col: GenPart_2b4q
     pdgId: [1, 2, 3, 4, 5]
     status_flag: [12, 7]
+    require_ancestor_pdgId: 25
+
+  - module_name: NObjFilter
+    input_col: GenPart_2b4q
+    selection_name: is_fully_hadronic
+    min_count: 6
+    max_count: 6
 
   - module_name: GenPartFilter
     input_col: GenPart_2b4q
@@ -302,6 +309,10 @@ gen_vars: &gen_vars
     input_col: GenPart_firstcopy_quarks
     output_col: nfirst_copy_qs
 
+  - module_name: Count
+    input_col: Gen_Higgs
+    output_col: nGen_Higgs
+
   - module_name: GenDiparticleReconstructor
     input_col: GenPart_2b4q
     output_col: Gen_hbb
@@ -328,6 +339,10 @@ gen_vars: &gen_vars
     input_col: Gen_Ws
     output_col: min_dr_Gen_Ws
 
+  - module_name: GenPartMinDRMaker
+    input_col: Gen_Higgs
+    output_col: dr_Gen_Higgs
+
   - module_name: GenBJetMatcher
     genpart_col: GenPart_2b
     genjet_col: GenJet
@@ -340,19 +355,27 @@ gen_vars: &gen_vars
 
   - module_name: GenWQuarkMatcher
     w_col: Gen_W_onshell
+    genpart_col: GenPart
     quark_col: GenPart_4q
     output_col: dr_qq_onshell
 
   - module_name: GenWQuarkMatcher
     w_col: Gen_W_offshell
+    genpart_col: GenPart
     quark_col: GenPart_4q
     output_col: dr_qq_offshell
+  
+  - module_name: GenPartMaxDRMaker
+    input_col: GenPart_4q
+    output_col_4q: max_dr_4q
+    output_col_3q: max_dr_3q
+    isolation_threshold: 0.8
 
   - module_name: GenQuarkPairDRTable
     b_col: GenPart_2b
     q_col: GenPart_4q
-    w_onshell_col: Gen_W_onshell
-    w_offshell_col: Gen_W_offshell
+    w_col: Gen_Ws
+    genpart_col: GenPart
     output_col: min_dr_pair_idx
 
 gen_histograms: &gen_histograms
@@ -539,7 +562,34 @@ gen_histograms: &gen_histograms
         start: 0.0
         stop: 6.0
         bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_Gen_Higgs
+    input_cols: [dr_Gen_Higgs]
+    axes:
+      - name: 'genpart $\Delta R$ HH'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: max_dr_4q
+    input_cols: [max_dr_4q]
+    axes:
+      - name: 'Max $\Delta R$ (4 light quarks)'
+        start: 0
+        stop: 6
+        bins: 60
   
+  - module_name: SimpleHistogram
+    hist_name: max_dr_3q
+    input_cols: [max_dr_3q]
+    axes:
+      - name: 'Max $\Delta R$ (3 light quarks, most isolated removed)'
+        start: 0
+        stop: 6
+        bins: 60
+ 
   - module_name: SimpleHistogram
     hist_name: min_dr_pair_idx
     input_cols: [min_dr_pair_idx]
