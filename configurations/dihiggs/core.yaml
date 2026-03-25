@@ -485,8 +485,8 @@ gen_histograms: &gen_histograms
     mass_axis:
       name: "Gen_W_onshell mass"
       start: 0
-      stop: 500
-      bins: 50
+      stop: 120
+      bins: 60
       unit: "GeV"
 
   - module_name: FourVecHistograms
@@ -495,8 +495,8 @@ gen_histograms: &gen_histograms
     mass_axis:
       name: "Gen_W_offshell mass"
       start: 0
-      stop: 500
-      bins: 50
+      stop: 120
+      bins: 60
       unit: "GeV"
 
   - module_name: FourVecHistograms
@@ -576,7 +576,7 @@ gen_histograms: &gen_histograms
     hist_name: max_dr_4q
     input_cols: [max_dr_4q]
     axes:
-      - name: 'Max $\Delta R$ (4 light quarks)'
+      - name: 'Max $\Delta R$ (4 quarks from W decay)'
         start: 0
         stop: 6
         bins: 60
@@ -585,7 +585,7 @@ gen_histograms: &gen_histograms
     hist_name: max_dr_3q
     input_cols: [max_dr_3q]
     axes:
-      - name: 'Max $\Delta R$ (3 light quarks, most isolated removed)'
+      - name: 'Max $\Delta R$ (3 quarks from W decay, most isolated removed)'
         start: 0
         stop: 6
         bins: 60
@@ -598,6 +598,19 @@ gen_histograms: &gen_histograms
         start: 0
         stop: 15
         bins: 15
+          
+  - module_name: SimpleHistogram
+    hist_name: hbb_vs_hww_dr
+    input_cols: [min_dr_gen_hbb, max_dr_4q]
+    axes:
+      - name: '$\Delta R$ (2b)'
+        start: 0
+        stop: 5
+        bins: 50
+      - name: 'Max $\Delta R$ (4q)'
+        start: 0
+        stop: 5
+        bins: 50
 
 analyzer:
   default_run_builder:

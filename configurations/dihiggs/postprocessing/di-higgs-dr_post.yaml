@@ -4,6 +4,7 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       show_info: True
+      normalize: False
       vline: 0.4
       vline_label: 'AK4 R'
       structure:
@@ -18,6 +19,7 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       show_info: True
+      normalize: False
       vline: 0.4
       vline_label: 'AK4 R'
       structure:
@@ -32,6 +34,7 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       show_info: True
+      normalize: False
       vline: 0.8
       vline_label: 'AK8 R'
       structure:
@@ -41,11 +44,12 @@ Postprocessing:
           - name: SplitAxes
             split_axis_names: ["variation"]
       output_name: "plots_DR/{era.name}/{pipeline}/max_dr_4q.png"
-
+    
     - name: DRPlotWithLine
       inputs:
         - "*/*/*/*"
       show_info: True
+      normalize: False
       vline: 0.8
       vline_label: 'AK8 R'
       structure:
@@ -55,6 +59,19 @@ Postprocessing:
           - name: SplitAxes
             split_axis_names: ["variation"]
       output_name: "plots_DR/{era.name}/{pipeline}/max_dr_3q.png"
+    
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      structure:
+        select: {name: "hbb_vs_hww_dr"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: ["variation"]
+      output_name: "plots_2D/{era.name}/{pipeline}/hbb_vs_hww_dr.png"
 
   default_plot_config:
     cms_text: "Preliminary"
