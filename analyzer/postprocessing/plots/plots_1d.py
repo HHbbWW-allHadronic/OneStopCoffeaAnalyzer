@@ -112,7 +112,7 @@ def plotOne(
     addCMSBits(
         ax,
         [x.metadata for x in histograms] + [x.metadata for x in stacked_hists],
-        extra_text=f"{common_metadata['pipeline']}",
+        extra_text=f"{common_metadata.get('pipeline')}",
         plot_configuration=pc,
     )
 

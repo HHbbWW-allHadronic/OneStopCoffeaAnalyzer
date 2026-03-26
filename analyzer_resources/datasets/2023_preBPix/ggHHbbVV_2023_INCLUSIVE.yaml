@@ -1,0 +1,11 @@
+- name: ggHHbbVV_2023_INCLUSIVE
+  title: "ggHH2b2V_INCL_2023"
+  sample_type: MC
+  era: '2023_preBPix'
+  other_data:
+    nanoversion: "V13"
+  samples:
+    - name: GluGlutoHHto2B2V_kl-1p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV_powheg-pythia8
+      n_events: 666665
+      das_path: /GluGlutoHHto2B2V_kl-1p00_kt-1p00_c2-0p00_TuneCP5_13p6TeV_powheg-pythia8/Run3Summer23NanoAODv13-133X_mcRun3_2023_realistic_ForNanov13_v1-v1/NANOAODSIM
+      x_sec: 3.5
