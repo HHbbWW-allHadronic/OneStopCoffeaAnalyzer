@@ -1739,7 +1739,6 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "textual" },
     { name = "textual-plotext" },
-    { name = "xrootd" },
 ]
 
 [package.optional-dependencies]
@@ -1794,7 +1793,6 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "textual", specifier = ">=6.7.1" },
     { name = "textual-plotext", specifier = ">=1.0.1" },
-    { name = "xrootd", specifier = ">=5.9.1" },
 ]
 provides-extras = ["condor", "lpc", "notebooks"]
 
@@ -2896,12 +2894,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/bd/f4/c67440c7fb409a71b
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3f/0e/fa3b193432cfc60c93b42f3be03365f5f909d2b3ea410295cf36df739e31/widgetsnbextension-4.0.15-py3-none-any.whl", hash = "sha256:8156704e4346a571d9ce73b84bee86a29906c9abfd7223b7228a28899ccf3366", size = 2196503, upload-time = "2025-11-01T21:15:53.565Z" },
 ]
-
-[[package]]
-name = "xrootd"
-version = "5.9.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/15/03/8ef34e9b735829230245b07ec6177b2fd0385d93ba5563e66af18517ceb9/xrootd-5.9.1.tar.gz", hash = "sha256:99ded4a168ce4b435cb9f7683acbe414c49ebc6486266ed9099a7c448ddc5b13", size = 6954286, upload-time = "2025-11-17T15:38:09.45Z" }
 
 [[package]]
 name = "xxhash"

@@ -444,6 +444,7 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     - *common_histograms
+    - *gen_vars
     - *gen_histograms
 
   NoSelection:
