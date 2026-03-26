@@ -377,6 +377,14 @@ gen_vars: &gen_vars
     w_col: Gen_Ws
     genpart_col: GenPart
     output_col: min_dr_pair_idx
+    mode: min
+
+  - module_name: GenQuarkPairDRTable
+    q_col: GenPart_4q
+    w_col: Gen_Ws
+    genpart_col: GenPart
+    output_col: max_dr_pair_idx_4q
+    mode: max
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -589,7 +597,7 @@ gen_histograms: &gen_histograms
         start: 0
         stop: 6
         bins: 60
- 
+  
   - module_name: SimpleHistogram
     hist_name: min_dr_pair_idx
     input_cols: [min_dr_pair_idx]
@@ -598,19 +606,29 @@ gen_histograms: &gen_histograms
         start: 0
         stop: 15
         bins: 15
-          
+  
   - module_name: SimpleHistogram
-    hist_name: hbb_vs_hww_dr
-    input_cols: [min_dr_gen_hbb, max_dr_4q]
+    hist_name: max_dr_pair_idx_4q
+    input_cols: [max_dr_pair_idx_4q]
     axes:
-      - name: '$\Delta R$ (2b)'
+      - name: 'Genpart quark pairs that give the max $\Delta R$ (4q)'
         start: 0
-        stop: 5
-        bins: 50
-      - name: 'Max $\Delta R$ (4q)'
-        start: 0
-        stop: 5
-        bins: 50
+        stop: 6
+        bins: 6
+
+          
+  #- module_name: SimpleHistogram
+  #  hist_name: hbb_vs_hww_dr
+  #  input_cols: [min_dr_gen_hbb, max_dr_4q]
+  #  axes:
+  #    - name: '$\Delta R$ (2b)'
+  #      start: 0
+  #      stop: 5
+  #      bins: 50
+  #    - name: 'Max $\Delta R$ (4q)'
+  #      start: 0
+  #      stop: 5
+  #      bins: 50
 
 analyzer:
   default_run_builder:
