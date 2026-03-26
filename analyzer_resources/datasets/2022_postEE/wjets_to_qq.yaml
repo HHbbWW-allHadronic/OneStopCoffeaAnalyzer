@@ -1,0 +1,21 @@
+- name: wjets_to_qq_2022_preEE
+  title: WJetsQQ
+  sample_type: MC
+  era: 2022_preEE
+  samples:
+  - name: Wto2Q-3Jets_HT-200to400_TuneCP5_13p6TeV_madgraphMLM-pythia8
+    n_events: 667305 
+    das_path: /Wto2Q-3Jets_HT-200to400_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM
+    x_sec: 2723000.0 
+  - name: Wto2Q-3Jets_HT-400to600_TuneCP5_13p6TeV_madgraphMLM-pythia8
+    n_events: 726890  
+    das_path: /Wto2Q-3Jets_HT-400to600_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM
+    x_sec: 299800.0
+  - name: Wto2Q-3Jets_HT-600to800_TuneCP5_13p6TeV_madgraphMLM-pythia8
+    n_events: 750515 
+    das_path: /Wto2Q-3Jets_HT-600to800_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM
+    x_sec: 63900.0 
+  - name: Wto2Q-3Jets_HT-800_TuneCP5_13p6TeV_madgraphMLM-pythia8
+    n_events: 674707 
+    das_path: /Wto2Q-3Jets_HT-800_TuneCP5_13p6TeV_madgraphMLM-pythia8/Run3Summer22EENanoAODv12-130X_mcRun3_2022_realistic_postEE_v6-v2/NANOAODSIM 
+    x_sec: 31900.0 

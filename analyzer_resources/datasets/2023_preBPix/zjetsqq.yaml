@@ -1,7 +1,7 @@
-- name: zjets_to_qq_2023_preBPix
+- name: z_to_qq_2023_preBPix
   title: ZJets
   sample_type: MC
-  era: 2023_preBPix
+  era: '2023_preBPix'
   samples:
   - name: Zto2Q-2Jets_PTQQ-100to200_1J_TuneCP5_13p6TeV_amcatnloFXFX-pythia8
     n_events: 18998967
