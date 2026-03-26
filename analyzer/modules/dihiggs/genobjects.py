@@ -322,16 +322,12 @@ class GenWQuarkMatcher(AnalyzerModule):
 @define
 class GenQuarkPairDRTable(AnalyzerModule):
     """
-    Computes delta R for all 15 unique pairs of the 6 gen quarks
-    (2 b quarks + 4 light quarks from 2 Ws) and counts which pair
-    gives the minimum delta R most frequently across all events.
-    Quarks are assigned to Ws via genPartIdxMother, then Ws are
-    classified as on-shell or off-shell by proximity to the W pole mass.
-    Quarks are pT-ordered within each W.
+    Computes delta R for all pairs of gen quarks and counts which pair 
+    gives the minimum OR maximum delta R most frequently across all events.
+    Can operate on all 6 quark pairs (with b quarks) or just the 6 pairs
+    from the 4 light quarks (same-W and cross-W).
     Parameters
     ----------
-    b_col : Column
-        Column containing the 2 b quarks (GenPart_2b).
     q_col : Column
         Column containing the 4 light quarks (GenPart_4q).
     w_col : Column
@@ -339,37 +335,47 @@ class GenQuarkPairDRTable(AnalyzerModule):
     genpart_col : Column
         Column containing the full GenPart collection.
     output_col : Column
-        Column where the per-event minimum pair index will be stored.
+        Column where the per-event pair index will be stored.
+    b_col : Column or None, optional
+        Column containing the 2 b quarks. If None, only 4q pairs are computed.
+    mode : str, optional
+        Either 'min' or 'max'. Default is 'min'.
     w_mass : float, optional
         W pole mass in GeV. Default is 80.4.
     """
-    b_col: Column
     q_col: Column
     w_col: Column
     genpart_col: Column
     output_col: Column
+    b_col: Column | None = None
+    mode: str = "min"
     w_mass: float = 80.4
 
-    PAIR_LABELS = [
+    PAIR_LABELS_4Q = [
+        "q1-q2 (same W on)",
+        "q3-q4 (same W off)",
+        "q1-q3 (cross W)",
+        "q1-q4 (cross W)",
+        "q2-q3 (cross W)",
+        "q2-q4 (cross W)",
+    ]
+
+    PAIR_LABELS_6Q = [
         "b1-b2",
         "b1-q1", "b1-q2", "b1-q3", "b1-q4",
         "b2-q1", "b2-q2", "b2-q3", "b2-q4",
-        "q1-q2",
-        "q1-q3", "q1-q4",
-        "q2-q3", "q2-q4",
-        "q3-q4",
+        "q1-q2 (same W on)",
+        "q3-q4 (same W off)",
+        "q1-q3 (cross W)",
+        "q1-q4 (cross W)",
+        "q2-q3 (cross W)",
+        "q2-q4 (cross W)",
     ]
 
     def run(self, columns, params):
-        b_quarks = columns[self.b_col]
         quarks = columns[self.q_col]
         ws = columns[self.w_col]
         genpart = columns[self.genpart_col]
-
-        # pT-order b quarks
-        b_sorted = b_quarks[ak.argsort(b_quarks.pt, axis=1, ascending=False)]
-        b1 = b_sorted[:, 0]
-        b2 = b_sorted[:, 1]
 
         # Get GenPart indices of the W bosons
         w_mask = (abs(genpart.pdgId) == 24) & ((genpart.statusFlags >> 13) & 1 == 1)
@@ -393,16 +399,11 @@ class GenQuarkPairDRTable(AnalyzerModule):
         on_quarks = quarks[q_mother == onshell_w_genidx]
         off_quarks = quarks[q_mother == offshell_w_genidx]
 
-        # Only process events where both Ws have exactly 2 quarks
+        # Validity check
         has_valid = (
-            (ak.num(b_quarks, axis=1) >= 2) &
             (ak.num(on_quarks, axis=1) >= 2) &
             (ak.num(off_quarks, axis=1) >= 2)
         )
-
-        # Work only on valid events
-        b1_v = b_sorted[has_valid][:, 0]
-        b2_v = b_sorted[has_valid][:, 1]
 
         on_sorted = on_quarks[has_valid][ak.argsort(on_quarks[has_valid].pt, axis=1, ascending=False)]
         off_sorted = off_quarks[has_valid][ak.argsort(off_quarks[has_valid].pt, axis=1, ascending=False)]
@@ -412,29 +413,53 @@ class GenQuarkPairDRTable(AnalyzerModule):
         q3 = off_sorted[:, 0]
         q4 = off_sorted[:, 1]
 
-        pairs = [
-            (b1_v, b2_v),
-            (b1_v, q1), (b1_v, q2), (b1_v, q3), (b1_v, q4),
-            (b2_v, q1), (b2_v, q2), (b2_v, q3), (b2_v, q4),
-            (q1, q2),
-            (q1, q3), (q1, q4),
-            (q2, q3), (q2, q4),
-            (q3, q4),
-        ]
+        if self.b_col is not None:
+            b_quarks = columns[self.b_col]
+            b_sorted = b_quarks[has_valid][ak.argsort(b_quarks[has_valid].pt, axis=1, ascending=False)]
+            has_valid = has_valid & (ak.num(b_quarks, axis=1) >= 2)
+            b1 = b_sorted[:, 0]
+            b2 = b_sorted[:, 1]
+            pairs = [
+                (b1, b2),
+                (b1, q1), (b1, q2), (b1, q3), (b1, q4),
+                (b2, q1), (b2, q2), (b2, q3), (b2, q4),
+                (q1, q2),
+                (q1, q3), (q1, q4),
+                (q2, q3), (q2, q4),
+                (q3, q4),
+            ]
+        else:
+            pairs = [
+                (q1, q2), 
+                (q3, q4),
+                (q1, q3), 
+                (q1, q4),
+                (q2, q3), 
+                (q2, q4),
+            ]
+
         dr_values = np.stack([
             ak.to_numpy(p[0].delta_r(p[1]))
             for p in pairs
         ], axis=1)
 
-        min_pair_idx_valid = np.argmin(dr_values, axis=1)
+        if self.mode == "min":
+            pair_idx = np.argmin(dr_values, axis=1)
+        elif self.mode == "max":
+            pair_idx = np.argmax(dr_values, axis=1)
+        else:
+            raise ValueError(f"Unknown mode: {self.mode}. Must be 'min' or 'max'.")
 
-        result = np.full(len(b_quarks), -1, dtype=np.int64)
-        result[ak.to_numpy(has_valid)] = min_pair_idx_valid
+        result = np.full(len(quarks), -1, dtype=np.int64)
+        result[ak.to_numpy(has_valid)] = pair_idx
         columns[self.output_col] = ak.Array(result)
         return columns, []
 
     def inputs(self, metadata):
-        return [self.b_col, self.q_col, self.w_col, self.genpart_col]
+        inputs = [self.q_col, self.w_col, self.genpart_col]
+        if self.b_col is not None:
+            inputs.append(self.b_col)
+        return inputs
 
     def outputs(self, metadata):
         return [self.output_col]

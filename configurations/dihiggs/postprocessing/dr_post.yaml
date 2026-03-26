@@ -7,7 +7,16 @@ Postprocessing:
       structure:
         select: {name: "min_dr_pair_idx"}
         group: {era.name: "*", pipeline: "*"}
-      output_name: "tables2/{era.name}/{pipeline}/pair_dr_table.csv"
+      output_name: "tables2/{era.name}/{pipeline}/min_dr_pair_table.csv"
+
+    - name: PairDRTable
+      inputs:
+        - "*/*/*/*"
+      format: csv
+      structure:
+        select: {name: "max_dr_pair_idx_4q"}
+        group: {era.name: "*", pipeline: "*"}
+      output_name: "tables2/{era.name}/{pipeline}/max_dr_pair_table_4q.csv"
 
   default_plot_config:
     cms_text: "Preliminary"
