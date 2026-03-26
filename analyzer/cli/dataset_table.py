@@ -61,4 +61,4 @@ def createDatasetTable(manager, pattern=None, as_csv=False):
         writer.writerow(headers)
         for r in vals:
             writer.writerow(r)
-        return output.getvalue()
+        return output.getvalue() 

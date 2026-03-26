@@ -28,6 +28,7 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "textual>=6.7.1",
     "textual-plotext>=1.0.1",
+    "xrootd>=5.9.1",
 ]
 
 [dependency-groups]

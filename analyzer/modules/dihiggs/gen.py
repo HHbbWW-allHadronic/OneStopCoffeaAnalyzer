@@ -1,6 +1,6 @@
 from analyzer.core.analysis_modules import AnalyzerModule
 import re
-
+import numba
 from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import flatten
@@ -43,10 +43,10 @@ class GenPartMinDRMaker(AnalyzerModule):
         gen_parts = columns[self.input_col]
         pairs = ak.combinations(gen_parts, 2, axis=1)
         qi, qj = ak.unzip(pairs)
-
         dr_all = qi.delta_r(qj)
-
-        columns[self.output_col] = ak.min(dr_all, axis=1)
+        min_dr = ak.min(dr_all, axis=1)
+        # Replace None (from empty events) with -1 so histogram can handle it
+        columns[self.output_col] = ak.fill_none(min_dr, -1.0)
         return columns, []
 
     def inputs(self, metadata):
@@ -55,237 +55,71 @@ class GenPartMinDRMaker(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
-class HHSampleType(enum.Enum):
-    SIGNAL = "signal"
-    TTBAR_HADRONIC = "ttbar_hadronic"
-    TTBAR_SEMILEPTONIC = "ttbar_semileptonic"
-
-
 @define
-class GenPartDecayWalker(AnalyzerModule):
+class GenPartMaxDRMaker(AnalyzerModule):
     """
-    Walk the GenPart decay tree to find the 6 (or 4 for ttbar semileptonic)
-    first-copy quarks from HH->bbWW->bbqqqq or tt->bbWW->bbqqqq decays.
+    Computes two max delta R variables for a collection of 4 light quarks:
+    1) max_dr_4q: maximum delta R among all 6 unique pairs of the 4 quarks,
+       no conditions applied.
+    2) max_dr_3q: for events where max_dr_4q > isolation_threshold, remove
+       the quark that contributes most to the max dR (most isolated from the
+       other three), then compute max dR of remaining 3 quarks.
+       Filled with -1.0 for events where max_dr_4q <= isolation_threshold.
 
     Parameters
     ----------
     input_col : Column
-        Column containing the GenPart collection.
-    output_col : Column
-        Column where the filtered quark collection will be stored.
-    sample_type : HHSampleType
-        The sample type, which determines the decay tree traversal path.
-        Options: SIGNAL, TTBAR_HADRONIC, TTBAR_SEMILEPTONIC
+        Column containing the 4 light quarks (GenPart_4q).
+    output_col_4q : Column
+        Column where max delta R of all 4 quarks will be stored.
+    output_col_3q : Column
+        Column where max delta R after removing most isolated quark will be stored.
+    isolation_threshold : float, optional
+        Delta R threshold above which we remove the most isolated quark.
+        By default 0.8 (AK8 fat jet radius).
     """
     input_col: Column
-    output_col: Column
-    sample_type: HHSampleType
-
-    def _has_ancestor_with(self, idx, mother_idxs, pids, target_pid, target_status=None):
-        """
-        Walk up the decay tree from idx to check if any ancestor matches
-        target_pid and optionally target_status.
-        mother_idxs and pids are flat numpy arrays for a single event.
-        """
-        visited = set()
-        current = idx
-        while current >= 0 and current not in visited:
-            visited.add(current)
-            if abs(pids[current]) == target_pid:
-                if target_status is None:
-                    return True
-                # status check would need to be passed in — see note below
-                return True
-            current = mother_idxs[current]
-        return False
-
-    def _walk_signal(self, gen_parts):
-        """
-        For signal HH->bbWW->bbqqqq:
-        Find status 23 quarks whose ancestry includes a status 62 Higgs (PID 25).
-        """
-        import numpy as np
-
-        result_mask_events = []
-
-        # Work event by event since we need to walk the tree
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
-
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
-
-            selected = []
-            for i in range(n):
-                # Must be status 23 and a quark we care about
-                if ev_status[i] != 23:
-                    continue
-                if abs(ev_pid[i]) not in {5, 1, 2, 3, 4}:
-                    continue
-
-                # Walk up to find a status 62 Higgs ancestor
-                visited = set()
-                current = ev_mother[i]
-                found_higgs = False
-                while current >= 0 and current not in visited:
-                    visited.add(current)
-                    if abs(ev_pid[current]) == 25 and ev_status[current] == 62:
-                        found_higgs = True
-                        break
-                    current = ev_mother[current]
-
-                if found_higgs:
-                    selected.append(i)
-
-            if len(selected) != 6:
-                raise ValueError(
-                    f"Signal event {ev}: expected 6 quarks, found {len(selected)}. "
-                    f"Check decay chain integrity."
-                )
-            result_mask_events.append(selected)
-
-        return result_mask_events
-
-    def _walk_ttbar_hadronic(self, gen_parts):
-        """
-        For TTbar hadronic tt->bbWW->bbqqqq:
-        Find status 23 quarks whose ancestry includes a PID ±24 W
-        which itself comes from a PID ±6 top.
-        """
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
-
-        result_mask_events = []
-
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
-
-            selected = []
-            for i in range(n):
-                if ev_status[i] != 23:
-                    continue
-                if abs(ev_pid[i]) not in {5, 1, 2, 3, 4}:
-                    continue
-
-                # Walk up — for b quarks, expect direct top ancestor
-                # For light quarks, expect W ancestor whose mother is a top
-                visited = set()
-                current = ev_mother[i]
-                found_top_ancestry = False
-
-                while current >= 0 and current not in visited:
-                    visited.add(current)
-                    if abs(ev_pid[current]) == 6:
-                        found_top_ancestry = True
-                        break
-                    current = ev_mother[current]
-
-                if found_top_ancestry:
-                    selected.append(i)
-
-            if len(selected) != 6:
-                raise ValueError(
-                    f"TTbar hadronic event {ev}: expected 6 quarks, found {len(selected)}. "
-                    f"Check decay chain integrity."
-                )
-            result_mask_events.append(selected)
-
-        return result_mask_events
-
-    def _walk_ttbar_semileptonic(self, gen_parts):
-        """
-        For TTbar semileptonic:
-        Collect b quarks from both tops, but only light quarks from the
-        hadronic W. Skip the leptonic W daughters entirely.
-        Expected result: 4 quarks (2b + 2 light)
-        """
-        mother_idxs = ak.to_list(gen_parts.genPartIdxMother)
-        pdg_ids = ak.to_list(gen_parts.pdgId)
-        statuses = ak.to_list(gen_parts.status)
-
-        result_mask_events = []
-
-        for ev in range(len(mother_idxs)):
-            ev_mother = mother_idxs[ev]
-            ev_pid = pdg_ids[ev]
-            ev_status = statuses[ev]
-            n = len(ev_pid)
-
-            selected = []
-            for i in range(n):
-                if ev_status[i] != 23:
-                    continue
-
-                pid = abs(ev_pid[i])
-
-                # Collect b quarks with top ancestry
-                if pid == 5:
-                    visited = set()
-                    current = ev_mother[i]
-                    found_top = False
-                    while current >= 0 and current not in visited:
-                        visited.add(current)
-                        if abs(ev_pid[current]) == 6:
-                            found_top = True
-                            break
-                        current = ev_mother[current]
-                    if found_top:
-                        selected.append(i)
-
-                # Collect light quarks only from hadronic W
-                # (leptonic W daughters will be leptons/neutrinos, not in 1-4)
-                elif pid in {1, 2, 3, 4}:
-                    visited = set()
-                    current = ev_mother[i]
-                    found_w_from_top = False
-                    while current >= 0 and current not in visited:
-                        visited.add(current)
-                        if abs(ev_pid[current]) == 24:
-                            # Check this W comes from a top
-                            w_mother = ev_mother[current]
-                            if w_mother >= 0 and abs(ev_pid[w_mother]) == 6:
-                                found_w_from_top = True
-                            break
-                        current = ev_mother[current]
-                    if found_w_from_top:
-                        selected.append(i)
-
-            if len(selected) != 4:
-                raise ValueError(
-                    f"TTbar semileptonic event {ev}: expected 4 quarks, found {len(selected)}. "
-                    f"Check decay chain integrity."
-                )
-            result_mask_events.append(selected)
-
-        return result_mask_events
+    output_col_4q: Column
+    output_col_3q: Column
+    isolation_threshold: float = 0.8
 
     def run(self, columns, params):
-        gen_parts = columns[self.input_col]
+        quarks = columns[self.input_col]
 
-        if self.sample_type == HHSampleType.SIGNAL:
-            selected_indices = self._walk_signal(gen_parts)
-        elif self.sample_type == HHSampleType.TTBAR_HADRONIC:
-            selected_indices = self._walk_ttbar_hadronic(gen_parts)
-        elif self.sample_type == HHSampleType.TTBAR_SEMILEPTONIC:
-            selected_indices = self._walk_ttbar_semileptonic(gen_parts)
-        else:
-            raise ValueError(f"Unknown sample type: {self.sample_type}")
+        # Compute all pairwise dR using combinations
+        pairs = ak.combinations(quarks, 2, axis=1)
+        q_a, q_b = ak.unzip(pairs)
+        dr_pairs = q_a.delta_r(q_b)
 
-        # Convert selected indices back to an awkward array mask
-        selected_ak = ak.Array(selected_indices)
-        columns[self.output_col] = gen_parts[selected_ak]
+        # Max dR among all 6 pairs — no conditions
+        max_dr_4q = ak.fill_none(ak.max(dr_pairs, axis=1), -1.0)
+        columns[self.output_col_4q] = max_dr_4q
+
+        # For each quark find its min dR to any other quark
+        dr_matrix = quarks[:, :, np.newaxis].delta_r(quarks[:, np.newaxis, :])
+        large_val = 999.0
+        local_idx = ak.local_index(quarks, axis=1)
+        dr_no_self = ak.where(
+            local_idx[:, :, np.newaxis] == local_idx[:, np.newaxis, :],
+            large_val,
+            dr_matrix
+        )
+        min_dr_to_others = ak.min(dr_no_self, axis=2)
+
+        # Remove most isolated quark and compute max dR of remaining 3 — all events
+        isolated_idx = ak.argmax(min_dr_to_others, axis=1, keepdims=True)
+        keep_mask = local_idx != isolated_idx
+        remaining_quarks = quarks[keep_mask]
+        pairs_3q = ak.combinations(remaining_quarks, 2, axis=1)
+        q_a3, q_b3 = ak.unzip(pairs_3q)
+        dr_pairs_3q = q_a3.delta_r(q_b3)
+        max_dr_3q = ak.fill_none(ak.max(dr_pairs_3q, axis=1), -1.0)
+        columns[self.output_col_3q] = max_dr_3q
+
         return columns, []
 
     def inputs(self, metadata):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]
+        return [self.output_col_4q, self.output_col_3q]

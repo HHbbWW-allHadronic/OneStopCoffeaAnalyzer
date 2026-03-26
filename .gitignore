@@ -36,6 +36,7 @@ logs/
 
 *.pdf
 *.pth
+*.csv
 *env/
 *.log
 *.dot

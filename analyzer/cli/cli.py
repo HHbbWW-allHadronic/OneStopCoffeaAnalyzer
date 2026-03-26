@@ -337,8 +337,8 @@ def datasets(filter, csv):
     table = createDatasetTable(dataset_repo, pattern=filter_pattern, as_csv=csv)
     print(table)
 
-
 @listData.group()
+
 def eras():
     raise NotImplementedError()
 

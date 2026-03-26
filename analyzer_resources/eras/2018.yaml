@@ -20,6 +20,7 @@
     IsoMuon: IsoMu24
     EleWPTight: Ele32_WPTight_Gsf
     EleCaloIdVT: Ele115_CaloIdVT_GsfTrkIdT
+    HT400_6jet: PFHT400_SixPFJet32_DoublePFBTagDeepCSV_2p94
     
     HT350: PFHT350
     HT450: PFHT430
