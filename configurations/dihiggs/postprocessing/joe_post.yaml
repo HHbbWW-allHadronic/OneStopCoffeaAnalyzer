@@ -45,7 +45,7 @@ Postprocessing:
         - "*/*/*/nontop2b_14_m"
       ratio_type: "significance"
       show_den_unc: False
-      scale: linear
+      scale: log
       ratio_ylim: null
       ratio_hlines: []
       structure:
