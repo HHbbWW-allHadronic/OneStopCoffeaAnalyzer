@@ -1,5 +1,5 @@
 import numpy as np
-
+from rich import print
 import operator as op
 from collections import defaultdict
 import functools as ft
@@ -78,11 +78,21 @@ def plotOne(
         )
         if show_stacked_unc:
             stacked_total = ft.reduce(op.add, [x.item.histogram for x in stacked_hists])
+            vals = stacked_total.values()
+            vars = stacked_total.variances()
+            if vars is None:
+                yerr = np.sqrt(vals)
+            else:
+                yerr = np.sqrt(vars)
+            zero_mask = np.isclose(vals, 0.0, atol=1e-10)
+            yerr[zero_mask] = 0.0
+            
             mplhep.histplot(
                 stacked_total,
                 ax=ax,
                 label="Stacked Unc.",
                 histtype="band",
+                yerr=yerr
             )
 
     for item, meta in histograms:
@@ -434,7 +444,8 @@ def plotRatio(
         ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
 
     ratio_ax.set_xlim(left_edge, right_edge)
-    ratio_ax.set_ylim(*ratio_ylim)
+    if ratio_ylim is not None:
+        ratio_ax.set_ylim(*ratio_ylim)
     if ratio_type == "significance":
         rylabel = "Significance"
     else:

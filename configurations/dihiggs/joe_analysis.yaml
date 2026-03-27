@@ -183,6 +183,26 @@ common_histograms: &common_histograms
         stop: 4.5
         bins: 5
 
+  - module_name: SimpleHistogram
+    hist_name: puppiMET_pt
+    input_cols: [PuppiMET.pt]
+    axes:
+      - name: "$p_{T}^{\\text{PUPPI MET}}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: pfMET_pt
+    input_cols: [PFMET.pt]
+    axes:
+      - name: "$p_{T}^{\\text{PF MET}}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+
 {{ core.objects() }}
 {{ core.regions() }}
 

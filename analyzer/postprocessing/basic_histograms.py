@@ -59,7 +59,7 @@ class RatioPlot(BasePostprocessor):
     output_name: str
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
-    ratio_ylim: tuple[float, float] = (0, 2)
+    ratio_ylim: tuple[float, float] | None = (0, 2)
     ratio_hlines: list[float] = field(factory=lambda: [1.0])
     ratio_height: float = 0.5
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
@@ -102,7 +102,7 @@ class RatioOfRatiosPlot(BasePostprocessor):
     double_ratio_label: str = "Double Ratio"
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
-    ratio_ylim: tuple[float, float] = (0, 2)
+    ratio_ylim: tuple[float, float] | None = (0, 2)
     ratio_hlines: list[float] = field(factory=lambda: [1.0])
     ratio_height: float = 0.5
     ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
