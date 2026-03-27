@@ -1,256 +1,61 @@
-{% macro objects() -%}
-common_objects: &common_objects
-  - module_name: HElectronMaker
-    input_col: Electron
-    output_col: tightElectron
-    working_point: "tight"
-    min_pt: 15
-    max_abs_eta: 2.5
-    max_abs_dxy:
-      barrel: 0.05 
-      endcap: 0.1
-    max_abs_dz:
-      barrel: 0.1
-      endcap: 0.2
-
-  - module_name: HElectronMaker
-    input_col: Electron
-    output_col: looseElectron
-    working_point: "loose"
-    min_pt: 7
-    max_abs_eta: 2.5
-
-  - module_name: HMuonMaker
-    input_col: Muon
-    output_col: tightMuon
-    id_working_point: "tightId"
-    min_pt: 15
-    max_abs_eta: 2.4
-    iso_working_pt: "tight"
-
-  - module_name: HMuonMaker
-    input_col: Muon
-    output_col: looseMuon
-    id_working_point: "looseId"
-    min_pt: 5
-    max_abs_eta: 2.4
-    iso_working_pt: "loose"
- 
-  - module_name: JetID
-    input_col: Jet
-    output_col: Jet.jetId
-
-  - module_name: HJetFilter
-    input_col: Jet
-    output_col: goodJet
-    include_pu_id: False
-    include_jet_id: True
-    min_pt: 25
-    max_abs_eta: 2.4
-
-  - module_name: HBQuarkMaker
-    input_col: goodJet
-    output_col: MedB
-    working_point: M
-    nontop2b: True
-    nontop2b_col: nontop2b
-
-  - module_name: HT
-    input_col: Jet
-    output_col: AK4HT
-
-  - module_name: HT
-    input_col: goodJet
-    output_col: HT
-
-  - module_name: HT
-    input_col: GenJet
-    output_col: GenJetHT
-
-  - module_name: Count
-    input_col: Jet
-    output_col: NAK4Jet
-
-  - module_name: Count
-    input_col: goodJet
-    output_col: NJet
-
-  - module_name: Count
-    input_col: GenJet
-    output_col: NGenJet
-
-  - module_name: Count
-    input_col: MedB
-    output_col: NMedB
-
-  - module_name: Count
-    input_col: looseMuon
-    output_col: NlooseMuon
-
-  - module_name: Count
-    input_col: tightMuon
-    output_col: NtightMuon
-
-  - module_name: Count
-    input_col: looseElectron
-    output_col: NlooseElectron
-
-  - module_name: Count
-    input_col: tightElectron
-    output_col: NtightElectron
-{%- endmacro %}
-
-<<<<<<< HEAD
-{% macro regions() -%}
-=======
-not-trigger_selection: &not-trigger_selection
-  - module_name: NObjFilter
-    input_col: looseElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: looseMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: goodJet
-    selection_name: njets
-    min_count: 6
-
-  - module_name: NObjFilter
-    input_col: MedB
-    selection_name: 2b
-    min_count: 2
-
-  - module_name: ScalarCut
-    input_col: HT
-    selection_name: min_ht_cut
-    min_val: 400
-
-  - module_name: SimpleHistogram
-    hist_name: HT
-    input_cols: [HT]
-    axes:
-      - name: "$H_{T}$ after 400 GeV cut"
-        start: 0
-        stop: 3000
-        bins: 60
-        unit: GeV
-
->>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)
-hlt_selection: &hlt_selection
-  - module_name: SimpleHLT
-    triggers: [250HT4J2B]
-
-tight_selection: &tight_selection
-  - module_name: NObjFilter
-    input_col: tightElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: tightMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: goodJet
-    selection_name: njets
-    min_count: 6
-
-  - module_name: NObjFilter
-    input_col: MedB
-    selection_name: 2b
-    min_count: 2
-
-loose_selection: &loose_selection
-  - module_name: NObjFilter
-    input_col: looseElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: looseMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: goodJet
-    selection_name: njets
-    min_count: 6
-
-  - module_name: NObjFilter
-    input_col: MedB
-    selection_name: 2b
-    min_count: 2
-<<<<<<< HEAD
-=======
-    
-lepton_veto: &lepton_veto
-  - module_name: NObjFilter
-    input_col: looseElectron
-    selection_name: zero_electron
-    min_count: 0
-    max_count: 0
-
-  - module_name: NObjFilter
-    input_col: looseMuon
-    selection_name: zero_muon
-    min_count: 0
-    max_count: 0
+{% import 'core.yaml' as core %}
 
 common_histograms: &common_histograms
   - module_name: TopVecHistograms
     prefix: "Jet"
     input_col: goodJet
     max_idx: 6
->>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)
 
-withHLT_ObjDef1: &withHLT_ObjDef1
-  - *hlt_selection
-  - *common_objects
-  - *tight_selection
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - module_name: FourVecHistograms
+    input_col: goodJet
+    hist_name: Jet
+    mass_axis:
+      name: "Jet $m$"
+      start: 0
+      stop: 500
+      bins: 50
 
-withHLT_ObjDef2: &withHLT_ObjDef2
-  - *hlt_selection
-  - *common_objects
-  - *loose_selection
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - module_name: SimpleHistogram
+    hist_name: JetHT
+    input_cols: [HT]
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+    
+  - module_name: SimpleHistogram
+    hist_name: JetN
+    input_cols: [NJet]
+    axes:
+      - name: "$N_{jets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
-noHLT_ObjDef1: &noHLT_ObjDef1
-  - *common_objects
-  - *tight_selection
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - module_name: FourVecHistograms
+    input_col: MedB
+    hist_name: MedB
 
-noHLT_ObjDef2: &noHLT_ObjDef2
-  - *common_objects
-  - *loose_selection
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - module_name: SimpleHistogram
+    hist_name: AK4JetQvG
+    input_cols: [Jet.btagUParTAK4QvG]
+    axes:
+      - name: "AK4Jet UParTQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
 
-withHLT_NoSelection: &withHLT_NoSelection
-  - *hlt_selection
-  - *common_objects
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - module_name: SimpleHistogram
+    hist_name: AK4Jetbtag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: "AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
 
-<<<<<<< HEAD
-NoSelection: &NoSelection
-  - *common_objects
-{%- endmacro %}
-=======
   - module_name: SimpleHistogram
     hist_name: MedBN
     input_cols: [NMedB]
@@ -291,24 +96,6 @@ NoSelection: &NoSelection
         bins: 14
 
   - module_name: SimpleHistogram
-    hist_name: AK4JetQvG
-    input_cols: [Jet.btagUParTAK4QvG]
-    axes:
-      - name: "AK4Jet UParTQvG Score"
-        start: 0
-        stop: 1
-        bins: 20
-
-  - module_name: SimpleHistogram
-    hist_name: AK4Jetbtag
-    input_cols: [Jet.btagUParTAK4B]
-    axes:
-      - name: "AK4Jet UParTB Score"
-        start: 0
-        stop: 1
-        bins: 20  
-
-  - module_name: SimpleHistogram
     hist_name: AK4JetID
     input_cols: [Jet.jetId]
     axes:
@@ -327,6 +114,147 @@ NoSelection: &NoSelection
         bins: 60
         unit: "GeV"
 
+gen_vars: &gen_vars
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: Gen_Higgs
+    pdgId: 25
+    status_flag: 13
+
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenPart_2b4q
+    pdgId: [1, 2, 3, 4, 5]
+    status_flag: [12, 7]
+    require_ancestor_pdgId: 25
+
+  - module_name: NObjFilter
+    input_col: GenPart_2b4q
+    selection_name: is_fully_hadronic
+    min_count: 6
+    max_count: 6
+
+  - module_name: GenPartFilter
+    input_col: GenPart_2b4q
+    output_col: GenPart_2b
+    pdgId: 5
+    status_flag: [12, 7]
+
+  - module_name: GenPartFilter
+    input_col: GenPart_2b4q
+    output_col: GenPart_4q
+    pdgId: [1, 2, 3, 4]
+    status_flag: [12, 7]
+
+  # First copy quarks with hard process flag
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenPart_hardprocess_quarks
+    pdgId: [1, 2, 3, 4, 5]
+    status_flag: [12, 7]   # isFirstCopy AND isHardProcess
+
+  # First copy quarks without hard process flag
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: GenPart_firstcopy_quarks
+    pdgId: [1, 2, 3, 4, 5]
+    status_flag: 12        # isFirstCopy only
+
+  - module_name: GenPartFilter
+    input_col: GenPart
+    output_col: Gen_Ws
+    pdgId: 24
+    status_flag: 13
+  
+  - module_name: GenWOrganizer
+    input_col: Gen_Ws
+    onshell_col: Gen_W_onshell
+    offshell_col: Gen_W_offshell
+
+  - module_name: Count
+    input_col: GenPart_hardprocess_quarks
+    output_col: nhard_first_copy_qs
+
+  - module_name: Count
+    input_col: GenPart_firstcopy_quarks
+    output_col: nfirst_copy_qs
+
+  - module_name: Count
+    input_col: Gen_Higgs
+    output_col: nGen_Higgs
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hbb
+    daughter_pids: [5]
+
+  - module_name: GenDiparticleReconstructor
+    input_col: GenPart_2b4q
+    output_col: Gen_hww
+    daughter_pids: [1, 2, 3, 4]
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b4q
+    output_col: min_dr_GenPart
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_2b
+    output_col: min_dr_gen_hbb
+
+  - module_name: GenPartMinDRMaker
+    input_col: GenPart_4q
+    output_col: min_dr_gen_hww
+
+  - module_name: GenPartMinDRMaker
+    input_col: Gen_Ws
+    output_col: min_dr_Gen_Ws
+
+  - module_name: GenPartMinDRMaker
+    input_col: Gen_Higgs
+    output_col: dr_Gen_Higgs
+
+  - module_name: GenBJetMatcher
+    genpart_col: GenPart_2b
+    genjet_col: GenJet
+    output_col: GenBJet
+    dr_threshold: 0.4
+
+  - module_name: Count
+    input_col: GenBJet
+    output_col: n_GenBJet
+
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_onshell
+    genpart_col: GenPart
+    quark_col: GenPart_4q
+    output_col: dr_qq_onshell
+
+  - module_name: GenWQuarkMatcher
+    w_col: Gen_W_offshell
+    genpart_col: GenPart
+    quark_col: GenPart_4q
+    output_col: dr_qq_offshell
+  
+  - module_name: GenPartMaxDRMaker
+    input_col: GenPart_4q
+    output_col_4q: max_dr_4q
+    output_col_3q: max_dr_3q
+    isolation_threshold: 0.8
+
+  - module_name: GenQuarkPairDRTable
+    b_col: GenPart_2b
+    q_col: GenPart_4q
+    w_col: Gen_Ws
+    genpart_col: GenPart
+    output_col: min_dr_pair_idx
+    mode: min
+
+  - module_name: GenQuarkPairDRTable
+    q_col: GenPart_4q
+    w_col: Gen_Ws
+    genpart_col: GenPart
+    output_col: max_dr_pair_idx_4q
+    mode: max
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -362,105 +290,252 @@ gen_histograms: &gen_histograms
       stop: 500
       bins: 50
 
-  - module_name: GenPartFilter
-    input_col: GenPart
-    output_col: GenHiggs
-    pdgId: 25
-    status_flag: 13
+  - module_name: SimpleHistogram
+    hist_name: nhard_first_copy_qs
+    input_cols: [nhard_first_copy_qs]
+    axes:
+      - name: "num 1st copy, hard process quarks"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: SimpleHistogram
+    hist_name: n_GenBJet
+    input_cols: [n_GenBJet]
+    axes:
+      - name: "num gen b jets"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: SimpleHistogram
+    hist_name: nfirst_copy_qs
+    input_cols: [nfirst_copy_qs]
+    axes:
+      - name: "num 1st copy quarks"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: FourVecHistograms
-    input_col: GenHiggs
-    hist_name: GenHiggs
+    input_col: Gen_Higgs
+    hist_name: Gen_Higgs
     mass_axis:
-      name: "GenHiggs"
+      name: "Gen_Higgs"
       start: 0
       stop: 500
       bins: 50
       unit: "GeV"
 
-  - module_name: GenPartDecayWalker
-    input_col: GenPart
-    output_col: GenPart_2b4q
-    sample_type: signal
+  - module_name: FourVecHistograms
+    input_col: Gen_hbb
+    hist_name: Gen_hbb
+    mass_axis:
+      name: "Gen_hbb"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
 
-  - module_name: GenPartMinDRMaker
-    input_col: GenPart_2b4q
-    output_col: min_dr_GenPart 
+  - module_name: FourVecHistograms
+    input_col: Gen_hww
+    hist_name: Gen_hww
+    mass_axis:
+      name: "Gen_hww"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: Gen_Ws
+    hist_name: Gen_Ws
+    mass_axis:
+      name: "Gen_W mass"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: Gen_W_onshell
+    hist_name: Gen_W_onshell
+    mass_axis:
+      name: "Gen_W_onshell mass"
+      start: 0
+      stop: 120
+      bins: 60
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: Gen_W_offshell
+    hist_name: Gen_W_offshell
+    mass_axis:
+      name: "Gen_W_offshell mass"
+      start: 0
+      stop: 120
+      bins: 60
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: GenBJet
+    hist_name: GenBJet
+    mass_axis:
+      name: 'Gen b Jet'
+      start: 0
+      stop: 500
+      bins: 50
+      unit: GeV
 
   - module_name: SimpleHistogram
     hist_name: min_dr_GenPart
     input_cols: [min_dr_GenPart]
     axes:
-      - name: "min_dr_GenPart"
+      - name: 'genpart min $\Delta R$ HH(2b4q)'
         start: 0.0
         stop: 3.0
         bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_gen_hbb
+    input_cols: [min_dr_gen_hbb]
+    axes:
+      - name: 'genpart $\Delta R$ H(2b)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_gen_hww
+    input_cols: [min_dr_gen_hww]
+    axes:
+      - name: 'genpart min $\Delta R$ H(4q)'
+        start: 0.0
+        stop: 3.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: min_dr_Gen_Ws
+    input_cols: [min_dr_Gen_Ws]
+    axes:
+      - name: 'genpart $\Delta R$ H(2W)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_onshell
+    input_cols: [dr_qq_onshell]
+    axes:
+      - name: 'genpart $\Delta R$ onshell W(2q)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_qq_offshell
+    input_cols: [dr_qq_offshell]
+    axes:
+      - name: 'genpart $\Delta R$ offshell W(2q)'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: dr_Gen_Higgs
+    input_cols: [dr_Gen_Higgs]
+    axes:
+      - name: 'genpart $\Delta R$ HH'
+        start: 0.0
+        stop: 6.0
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: max_dr_4q
+    input_cols: [max_dr_4q]
+    axes:
+      - name: 'Max $\Delta R$ (4 quarks from W decay)'
+        start: 0
+        stop: 6
+        bins: 60
+  
+  - module_name: SimpleHistogram
+    hist_name: max_dr_3q
+    input_cols: [max_dr_3q]
+    axes:
+      - name: 'Max $\Delta R$ (3 quarks from W decay, most isolated removed)'
+        start: 0
+        stop: 6
+        bins: 60
+  
+  - module_name: SimpleHistogram
+    hist_name: min_dr_pair_idx
+    input_cols: [min_dr_pair_idx]
+    axes:
+      - name: 'Genpart quark pairs that gave the min $\Delta R$'
+        start: 0
+        stop: 15
+        bins: 15
+  
+  - module_name: SimpleHistogram
+    hist_name: max_dr_pair_idx_4q
+    input_cols: [max_dr_pair_idx_4q]
+    axes:
+      - name: 'Genpart quark pairs that give the max $\Delta R$ (4q)'
+        start: 0
+        stop: 6
+        bins: 6
+
+          
+  #- module_name: SimpleHistogram
+  #  hist_name: hbb_vs_hww_dr
+  #  input_cols: [min_dr_gen_hbb, max_dr_4q]
+  #  axes:
+  #    - name: '$\Delta R$ (2b)'
+  #      start: 0
+  #      stop: 5
+  #      bins: 50
+  #    - name: 'Max $\Delta R$ (4q)'
+  #      start: 0
+  #      stop: 5
+  #      bins: 50
+
+{{ core.objects() }}
+{{ core.regions() }}
 
 analyzer:
   default_run_builder:
     strategy_name: NoSystematics
   withHLT_ObjDef1:
-    - *hlt_selection
-    - *common_objects
-    - *tight_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - *common_histograms
-
-  withHLT_ObjDef2:
-    - *hlt_selection
-    - *common_objects
-    - *loose_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - *common_histograms
-
-  noHLT_ObjDef1:
-    - *common_objects
-    - *tight_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - *common_histograms
-
-  noHLT_ObjDef2:
-    - *common_objects
-    - *loose_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
-    - *common_histograms
-
-  withHLT_NoSelection:
-    - *hlt_selection
-    - *common_objects
-    - module_name: SelectOnColumns
-      sel_name: selection
+    - *withHLT_ObjDef1
     - *common_histograms
     - *gen_histograms
 
-  withHLT_NoSelection_nolep:
-    - *hlt_selection
-    - *common_objects
-    - *lepton_veto
-    - module_name: SelectOnColumns
-      sel_name: selection
+  withHLT_ObjDef2:
+    - *withHLT_ObjDef2
+    - *common_histograms
+    - *gen_histograms
+
+  noHLT_ObjDef1:
+    - *noHLT_ObjDef1
+    - *common_histograms
+    - *gen_histograms
+
+  noHLT_ObjDef2:
+    - *noHLT_ObjDef2
+    - *common_histograms
+    - *gen_histograms
+
+  withHLT_NoSelection:
+    - *withHLT_NoSelection
     - *common_histograms
     - *gen_vars
     - *gen_histograms
 
   NoSelection:
-    - *common_objects
+    - *NoSelection
+    - *gen_vars
     - *common_histograms
-    - *gen_histograms
-
-  NoSelection_run2:
-    - *common_objs_NO_JETID
-    - *gen_histograms
-
-  withHLT_NoSelection_run2:
-    - *common_objs_NO_JETID
-    - *not-trigger_selection
-    - module_name: SelectOnColumns
-      sel_name: selection
     - *gen_histograms
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
@@ -474,17 +549,7 @@ event_collections:
       #- noHLT_ObjDef1
       #- withHLT_ObjDef2
       #- noHLT_ObjDef2
-
-  #- dataset: 'ggHHbbVV_2024_INCLUSIVE'
-  #  pipelines:
-  #    - withHLT_NoSelection_nolep
-  #    - NoSelection
-
-  - dataset: 'ggHHbbVV_2018'
-    pipelines:
-      - withHLT_NoSelection_run2
-      - NoSelection_run2
-
+  
 #  - dataset: 'qcd*2024*'
 #    pipelines: [withHLT_ObjDef1]
 #  - dataset: 'tt_hadronic*2024*'
@@ -492,4 +557,3 @@ event_collections:
 #  - dataset: 'tt_semilep*2024'
 #    pipelines: [SignalRegion]
         
->>>>>>> 1b08af80 (pushing today's changes to main; primarily worked on getting min_dr plot made w/ run2 sample)

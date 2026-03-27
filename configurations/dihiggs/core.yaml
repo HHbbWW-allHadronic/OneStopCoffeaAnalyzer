@@ -1,0 +1,188 @@
+{% macro objects() -%}
+common_objects: &common_objects
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: tightElectron
+    working_point: "tight"
+    min_pt: 15
+    max_abs_eta: 2.5
+    max_abs_dxy:
+      barrel: 0.05 
+      endcap: 0.1
+    max_abs_dz:
+      barrel: 0.1
+      endcap: 0.2
+
+  - module_name: HElectronMaker
+    input_col: Electron
+    output_col: looseElectron
+    working_point: "loose"
+    min_pt: 7
+    max_abs_eta: 2.5
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: tightMuon
+    id_working_point: "tightId"
+    min_pt: 15
+    max_abs_eta: 2.4
+    iso_working_pt: "tight"
+
+  - module_name: HMuonMaker
+    input_col: Muon
+    output_col: looseMuon
+    id_working_point: "looseId"
+    min_pt: 5
+    max_abs_eta: 2.4
+    iso_working_pt: "loose"
+ 
+  - module_name: JetID
+    input_col: Jet
+    output_col: Jet.jetId
+
+  - module_name: HJetFilter
+    input_col: Jet
+    output_col: goodJet
+    include_pu_id: False
+    include_jet_id: True
+    min_pt: 25
+    max_abs_eta: 2.4
+
+  - module_name: HBQuarkMaker
+    input_col: goodJet
+    output_col: MedB
+    working_point: M
+    nontop2b: True
+    nontop2b_col: nontop2b
+
+  - module_name: HT
+    input_col: Jet
+    output_col: AK4HT
+
+  - module_name: HT
+    input_col: goodJet
+    output_col: HT
+
+  - module_name: HT
+    input_col: GenJet
+    output_col: GenJetHT
+
+  - module_name: Count
+    input_col: Jet
+    output_col: NAK4Jet
+
+  - module_name: Count
+    input_col: goodJet
+    output_col: NJet
+
+  - module_name: Count
+    input_col: GenJet
+    output_col: NGenJet
+
+  - module_name: Count
+    input_col: MedB
+    output_col: NMedB
+
+  - module_name: Count
+    input_col: looseMuon
+    output_col: NlooseMuon
+
+  - module_name: Count
+    input_col: tightMuon
+    output_col: NtightMuon
+
+  - module_name: Count
+    input_col: looseElectron
+    output_col: NlooseElectron
+
+  - module_name: Count
+    input_col: tightElectron
+    output_col: NtightElectron
+{%- endmacro %}
+
+{% macro regions() -%}
+hlt_selection: &hlt_selection
+  - module_name: SimpleHLT
+    triggers: [250HT4J2B]
+
+tight_selection: &tight_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedB
+    selection_name: 2b
+    min_count: 2
+
+loose_selection: &loose_selection
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedB
+    selection_name: 2b
+    min_count: 2
+
+withHLT_ObjDef1: &withHLT_ObjDef1
+  - *hlt_selection
+  - *common_objects
+  - *tight_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+withHLT_ObjDef2: &withHLT_ObjDef2
+  - *hlt_selection
+  - *common_objects
+  - *loose_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+noHLT_ObjDef1: &noHLT_ObjDef1
+  - *common_objects
+  - *tight_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+noHLT_ObjDef2: &noHLT_ObjDef2
+  - *common_objects
+  - *loose_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+withHLT_NoSelection: &withHLT_NoSelection
+  - *hlt_selection
+  - *common_objects
+  - module_name: SelectOnColumns
+    sel_name: selection
+
+NoSelection: &NoSelection
+  - *common_objects
+{%- endmacro %}
