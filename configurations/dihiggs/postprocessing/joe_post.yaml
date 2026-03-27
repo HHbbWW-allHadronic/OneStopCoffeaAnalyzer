@@ -41,8 +41,32 @@ Postprocessing:
 
     - name: RatioPlot
       inputs:
+        - "*/*/*/b_dijet_12_m"
+        - "*/*/*/nontop2b_14_m"
+      ratio_type: "significance"
+      show_den_unc: False
+      scale: linear
+      ratio_ylim: null
+      ratio_hlines: []
+      structure:
+        select: {dataset_name: "*", name: "*", pipeline: "*"}
+        group: {era.name: "*", name: "*", pipeline: "*"}
+        subgroups:
+          denominator:
+            select: {dataset_name: "!ggHH2b2V6q*"}
+          numerator:
+            select: {dataset_name: "ggHH2b2V6q*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
+
+    - name: RatioPlot
+      inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
+      ratio_ylim: [0 ,1.1]
+      ratio_scale: 1
       show_den_unc: False
       scale: log
       structure:
