@@ -72,6 +72,21 @@ Postprocessing:
           - name: SplitAxes
             split_axis_names: ["variation"]
       output_name: "plots_2D/{era.name}/{pipeline}/hbb_vs_hww_dr.png"
+    
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      vline: 0.8
+      hline: 0.8
+      structure:
+        select: {name: "dr2b_vs_*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: ["variation"]
+      output_name: "plots_2D/{era.name}/{pipeline}/{name}.png"
 
   default_plot_config:
     cms_text: "Preliminary"

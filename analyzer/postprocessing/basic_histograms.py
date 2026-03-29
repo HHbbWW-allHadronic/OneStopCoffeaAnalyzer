@@ -176,9 +176,10 @@ class Histogram2D(BasePostprocessor):
     output_name: str
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
+    vline: float | None = None
+    hline: float | None = None
 
     def getRunFuncs(self, group, prefix=None):
-        # print(group)
         if len(group) != 1:
             raise RuntimeError()
         hist = group[0]
@@ -196,4 +197,6 @@ class Histogram2D(BasePostprocessor):
             normalize=self.normalize,
             plot_configuration=self.plot_configuration,
             color_scale=self.scale,
+            vline=self.vline,
+            hline=self.hline,
         )

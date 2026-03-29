@@ -18,21 +18,29 @@ def plot2D(
     normalize=False,
     plot_configuration=None,
     color_scale="linear",
+    vline=None,
+    hline=None,
 ):
     pc = plot_configuration or PlotConfiguration()
-
+    styler = Styler(style_set)
     fig, ax = plt.subplots(layout="constrained")
     item, meta = histogram
     h = item.histogram
-
+    style = styler.getStyle(meta)
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
         h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
         h.plot2d(ax=ax)
-    labelAxis(ax, "y", h.axes)
+    
+    # Add optional reference lines
+    if vline is not None:
+        ax.axvline(x=vline, color="white", linestyle="--", linewidth=1.5)
+    if hline is not None:
+        ax.axhline(y=hline, color="white", linestyle="--", linewidth=1.5)
 
+    labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     addCMSBits(
         ax,
@@ -43,7 +51,6 @@ def plot2D(
     )
     saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
-
 
 def getContour(HH, val):
     total = np.sum(HH)

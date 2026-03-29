@@ -463,3 +463,149 @@ class GenQuarkPairDRTable(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+def _get_quark_assignments(quarks, ws, genpart, w_mass=80.4):
+    """
+    Helper function to assign light quarks to on-shell and off-shell Ws
+    via genPartIdxMother matching.
+    Returns on_quarks, off_quarks, has_valid
+    """
+    w_mask = (abs(genpart.pdgId) == 24) & ((genpart.statusFlags >> 13) & 1 == 1)
+    w_indices = ak.local_index(genpart, axis=1)[w_mask]
+    delta_mass = abs(ws.mass - w_mass)
+    onshell_w_local = ak.argmin(delta_mass, axis=1)
+    offshell_w_local = ak.argmax(delta_mass, axis=1)
+    onshell_w_genidx = ak.fill_none(
+        ak.firsts(w_indices[ak.from_regular(onshell_w_local[:, np.newaxis])]), -1)
+    offshell_w_genidx = ak.fill_none(
+        ak.firsts(w_indices[ak.from_regular(offshell_w_local[:, np.newaxis])]), -1)
+    onshell_w_genidx = ak.values_astype(onshell_w_genidx, np.int32)
+    offshell_w_genidx = ak.values_astype(offshell_w_genidx, np.int32)
+    q_mother = ak.values_astype(quarks.genPartIdxMother, np.int32)
+    on_quarks = quarks[q_mother == onshell_w_genidx]
+    off_quarks = quarks[q_mother == offshell_w_genidx]
+    has_valid = (
+        (ak.num(on_quarks, axis=1) >= 2) &
+        (ak.num(off_quarks, axis=1) >= 2)
+    )
+    return on_quarks, off_quarks, has_valid
+
+
+@define
+class GenQuarkPairDRHistograms(AnalyzerModule):
+    """
+    Computes delta R for all unique pairs of gen quarks and stores
+    the dR values as separate columns for histogramming.
+    If b_col is provided, computes all 15 pairs (6q).
+    If b_col is None, computes only the 6 light quark pairs (4q).
+    Parameters
+    ----------
+    q_col : Column
+        Column containing the 4 light quarks (GenPart_4q).
+    w_col : Column
+        Column containing the W bosons (Gen_Ws).
+    genpart_col : Column
+        Column containing the full GenPart collection.
+    output_prefix : str
+        Prefix for output column names.
+    b_col : Column or None, optional
+        Column containing the 2 b quarks. If provided, all 15 pairs
+        are computed. Default is None.
+    w_mass : float, optional
+        W pole mass in GeV. Default is 80.4.
+    """
+    q_col: Column
+    w_col: Column
+    genpart_col: Column
+    output_prefix: str
+    b_col: Column | None = None
+    w_mass: float = 80.4
+
+    PAIR_NAMES_6 = [
+        "q1q2_same_W_on",
+        "q3q4_same_W_off",
+        "q1q3_cross_W",
+        "q1q4_cross_W",
+        "q2q3_cross_W",
+        "q2q4_cross_W",
+    ]
+
+    PAIR_NAMES_15 = [
+        "b1b2",
+        "b1q1", "b1q2", "b1q3", "b1q4",
+        "b2q1", "b2q2", "b2q3", "b2q4",
+        "q1q2_same_W_on",
+        "q1q3_cross_W", "q1q4_cross_W",
+        "q2q3_cross_W", "q2q4_cross_W",
+        "q3q4_same_W_off",
+    ]
+
+    def run(self, columns, params):
+        quarks = columns[self.q_col]
+        ws = columns[self.w_col]
+        genpart = columns[self.genpart_col]
+
+        on_quarks, off_quarks, has_valid = _get_quark_assignments(
+            quarks, ws, genpart, self.w_mass
+        )
+
+        if self.b_col is not None:
+            b_quarks = columns[self.b_col]
+            has_valid = has_valid & (ak.num(b_quarks, axis=1) >= 2)
+
+        on_sorted = on_quarks[has_valid][ak.argsort(on_quarks[has_valid].pt, axis=1, ascending=False)]
+        off_sorted = off_quarks[has_valid][ak.argsort(off_quarks[has_valid].pt, axis=1, ascending=False)]
+
+        q1 = on_sorted[:, 0]
+        q2 = on_sorted[:, 1]
+        q3 = off_sorted[:, 0]
+        q4 = off_sorted[:, 1]
+
+        if self.b_col is not None:
+            b_sorted = b_quarks[has_valid][ak.argsort(b_quarks[has_valid].pt, axis=1, ascending=False)]
+            b1 = b_sorted[:, 0]
+            b2 = b_sorted[:, 1]
+            pairs = [
+                (b1, b2),
+                (b1, q1), (b1, q2), (b1, q3), (b1, q4),
+                (b2, q1), (b2, q2), (b2, q3), (b2, q4),
+                (q1, q2),
+                (q1, q3), (q1, q4),
+                (q2, q3), (q2, q4),
+                (q3, q4),
+            ]
+            pair_names = self.PAIR_NAMES_15
+        else:
+            pairs = [
+                (q1, q2),
+                (q3, q4),
+                (q1, q3),
+                (q1, q4),
+                (q2, q3),
+                (q2, q4),
+            ]
+            pair_names = self.PAIR_NAMES_6
+
+        # Compute dR for each pair and store as separate columns
+        for name, (pa, pb) in zip(pair_names, pairs):
+            dr = ak.to_numpy(pa.delta_r(pb))
+            result = np.full(len(quarks), -1.0)
+            result[ak.to_numpy(has_valid)] = dr
+            col = Column((f"{self.output_prefix}_{name}",))
+            columns[col] = ak.Array(result)
+
+        return columns, []
+
+    def inputs(self, metadata):
+        inputs = [self.q_col, self.w_col, self.genpart_col]
+        if self.b_col is not None:
+            inputs.append(self.b_col)
+        return inputs
+
+    def outputs(self, metadata):
+        pair_names = self.PAIR_NAMES_15 if self.b_col is not None else self.PAIR_NAMES_6
+        return [
+            Column((f"{self.output_prefix}_{name}",))
+            for name in pair_names
+        ]
+
