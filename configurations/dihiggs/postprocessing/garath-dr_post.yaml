@@ -65,6 +65,8 @@ Postprocessing:
         - "*/*/*/*"
       scale: linear
       normalize: False
+      vline: 0.8
+      hline: 0.8
       structure:
         select: {name: "hbb_vs_hww_dr"}
         group: {era.name: "*", pipeline: "*", name: "*"}

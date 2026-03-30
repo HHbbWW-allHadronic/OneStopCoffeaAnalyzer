@@ -510,11 +510,11 @@ gen_histograms: &gen_histograms
     hist_name: dr2b_vs_q1q2_same_W_on
     input_cols: [pair_dr_q1q2_same_W_on, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q1-q2, same W on-shell)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q1-q2, same W on-shell)'
         start: 0
         stop: 6
         bins: 60
@@ -523,11 +523,11 @@ gen_histograms: &gen_histograms
     hist_name: dr2b_vs_q3q4_same_W_off
     input_cols: [pair_dr_q3q4_same_W_off, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q3-q4, same W off-shell)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q3-q4, same W off-shell)'
         start: 0
         stop: 6
         bins: 60
@@ -536,11 +536,11 @@ gen_histograms: &gen_histograms
     hist_name: dr2b_vs_q1q3_cross_W
     input_cols: [pair_dr_q1q3_cross_W, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q1-q3, cross W)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q1-q3, cross W)'
         start: 0
         stop: 6
         bins: 60
@@ -549,39 +549,39 @@ gen_histograms: &gen_histograms
     hist_name: dr2b_vs_q1q4_cross_W
     input_cols: [pair_dr_q1q4_cross_W, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q1-q4, cross W)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q1-q4, cross W)'
         start: 0
-        stop: 3
+        stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
     hist_name: dr2b_vs_q2q3_cross_W
     input_cols: [pair_dr_q2q3_cross_W, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q2-q3, cross W)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q2-q3, cross W)'
         start: 0
-        stop: 3
+        stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
     hist_name: dr2b_vs_q2q4_cross_W
     input_cols: [pair_dr_q2q4_cross_W, min_dr_gen_hbb]
     axes:
-      - name: '$\Delta R$ (q2-q4, cross W)'
+      - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (H$\rightarrow$bb)'
+      - name: '$\Delta R$ (q2-q4, cross W)'
         start: 0
-        stop: 3
+        stop: 6
         bins: 60
 
 {{ core.objects() }}
