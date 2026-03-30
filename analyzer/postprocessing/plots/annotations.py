@@ -25,6 +25,7 @@ def addCMSBits(
         info_text = era_text + ", " + lumi_text
 
     text = plot_configuration.cms_text or ""
+    extra_text = extra_text or plot_configuration.extra_text
     if extra_text is not None:
         text += "\n" + extra_text
     mplhep.cms.text(

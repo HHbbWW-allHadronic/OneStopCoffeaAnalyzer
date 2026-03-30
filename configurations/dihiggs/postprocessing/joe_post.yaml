@@ -1,10 +1,19 @@
 Postprocessing:
+  default_plot_config: &default_plot_config
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
+
   processors:
     - name: PlotSelectionFlow
       inputs:
         - "*/*/*/selection"
       scale: log
       normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
       structure:
         select: {type: SelectionFlow}
         group: {era.name: "*", pipeline: "*"}
@@ -48,6 +57,9 @@ Postprocessing:
       scale: linear
       ratio_ylim: null
       ratio_hlines: []
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
       structure:
         select: {dataset_name: "*", name: "*", pipeline: "*"}
         group: {era.name: "*", name: "*", pipeline: "*"}
@@ -152,10 +164,3 @@ Postprocessing:
         select: {dataset_name: "*", pipeline: "*"}
         group: {era.name: "*", name: "*"}
       output_name: "signal_yields.csv"
-
-  default_plot_config:
-    cms_text: "Preliminary"
-    image_type: ".png"
-    cms_text_color: Black
-    legend_num_cols: 1
-

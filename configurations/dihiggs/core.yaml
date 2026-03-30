@@ -7,7 +7,7 @@ common_objects: &common_objects
     min_pt: 15
     max_abs_eta: 2.5
     max_abs_dxy:
-      barrel: 0.05 
+      barrel: 0.05
       endcap: 0.1
     max_abs_dz:
       barrel: 0.1
@@ -35,7 +35,7 @@ common_objects: &common_objects
     min_pt: 5
     max_abs_eta: 2.4
     iso_working_pt: "loose"
- 
+
   - module_name: JetID
     input_col: Jet
     output_col: Jet.jetId
@@ -47,6 +47,30 @@ common_objects: &common_objects
     include_jet_id: True
     min_pt: 25
     max_abs_eta: 2.4
+
+#  - module_name: DRVetoFilter
+#    input_col: tightElectronPreCleaning
+#    output_col: tightElectron
+#    veto_cols: [goodJet]
+#    veto_dr: 0.4
+
+#  - module_name: DRVetoFilter
+#    input_col: looseElectronPreCleaning
+#    output_col: looseElectron
+#    veto_cols: [goodJet]
+#    veto_dr: 0.4
+
+#  - module_name: DRVetoFilter
+#    input_col: tightMuonPreCleaning
+#    output_col: tightMuon
+#    veto_cols: [goodJet]
+#    veto_dr: 0.4
+
+#  - module_name: DRVetoFilter
+#    input_col: looseMuonPreCleaning
+#   output_col: looseMuon
+#   veto_cols: [goodJet]
+#   veto_dr: 0.4
 
   - module_name: HBQuarkMaker
     input_col: goodJet

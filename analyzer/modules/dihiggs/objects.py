@@ -279,7 +279,7 @@ class HJetFilter(AnalyzerModule):
         by default False.
     include_jet_id : bool, optional
         Whether to apply jet ID requirements, by default False.
-
+        
     Notes
     -----
     - Jet ID selection requires only the tight bit to be set (bitmask `0b010`).
@@ -318,3 +318,39 @@ class HJetFilter(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+@define
+class DRVetoFilter(AnalyzerModule):
+    """
+    Filters an input collection by removing elements that are within a given
+    delta R of objects in any of the veto collections.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the collection to be filtered.
+    output_col : Column
+        Column where the filtered collection will be stored.
+    veto_cols : list[Column]
+        Columns containing objects to veto against.
+    veto_dr : float
+        Elements within this delta R of any veto object will be removed.
+    """
+    input_col: Column
+    output_col: Column
+    veto_cols: list[Column]
+    veto_dr: float
+
+    def run(self, columns, params):
+        objects = columns[self.input_col]
+        veto_objects = ak.concatenate([columns[col] for col in self.veto_cols], axis=1)
+        veto_objects = ak.with_name(veto_objects, "PtEtaPhiMLorentzVector")
+        drs = objects.metric_table(veto_objects)
+        min_dr = ak.fill_none(ak.min(drs, axis=2), self.veto_dr + 1)
+        columns[self.output_col] = objects[min_dr > self.veto_dr]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col] + self.veto_cols
+
+    def outputs(self, metadata):
+        return [self.output_col]

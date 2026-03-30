@@ -266,13 +266,13 @@ event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
-  - dataset: 'qcd*2024*'
-    pipelines:
-    {{ mc_pipelines() }}
-  - dataset: 'tt_hadronic*2024*'
-    pipelines:
-    {{ mc_pipelines() }}
-  - dataset: 'tt_semilep*2024'
-    pipelines:
-    {{ mc_pipelines() }}
+#  - dataset: 'qcd*2024*'
+#   pipelines:
+#   {{ mc_pipelines() }}
+# - dataset: 'tt_hadronic*2024*'
+#   pipelines:
+#   {{ mc_pipelines() }}
+# - dataset: 'tt_semilep*2024'
+#   pipelines:
+#   {{ mc_pipelines() }}
         
