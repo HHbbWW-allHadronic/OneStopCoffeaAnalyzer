@@ -123,3 +123,45 @@ class GenPartMaxDRMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col_4q, self.output_col_3q]
+
+@define
+class GenPartMaxDeltaEtaPhiMaker(AnalyzerModule):
+    """
+    Computes max |delta eta| and max |delta phi| among all 6 unique pairs
+    of the 4 light quarks from WW decays.
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the 4 light quarks (GenPart_4q).
+    output_col_deta : Column
+        Column where max |delta eta| will be stored.
+    output_col_dphi : Column
+        Column where max |delta phi| will be stored.
+    """
+    input_col: Column
+    output_col_deta: Column
+    output_col_dphi: Column
+
+    def run(self, columns, params):
+        quarks = columns[self.input_col]
+
+        pairs = ak.combinations(quarks, 2, axis=1)
+        q_a, q_b = ak.unzip(pairs)
+
+        deta = abs(q_a.eta - q_b.eta)
+        dphi = abs(q_a.phi - q_b.phi)
+        # Wrap dphi to [0, pi]
+        dphi = ak.where(dphi > np.pi, 2 * np.pi - dphi, dphi)
+
+        max_deta = ak.fill_none(ak.max(deta, axis=1), -1.0)
+        max_dphi = ak.fill_none(ak.max(dphi, axis=1), -1.0)
+
+        columns[self.output_col_deta] = max_deta
+        columns[self.output_col_dphi] = max_dphi
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col_deta, self.output_col_dphi]

@@ -134,6 +134,10 @@ gen_vars: &gen_vars
     min_count: 6
     max_count: 6
 
+  - module_name: HT
+    input_col: GenPart_2b4q
+    output_col: GenPartHT
+
   - module_name: GenPartFilter
     input_col: GenPart_2b4q
     output_col: GenPart_2b
@@ -242,11 +246,12 @@ gen_vars: &gen_vars
     isolation_threshold: 0.8
 
   - module_name: GenQuarkPairDRTable
-    b_col: GenPart_2b
     q_col: GenPart_4q
     w_col: Gen_Ws
     genpart_col: GenPart
+    b_col: GenPart_2b
     output_col: min_dr_pair_idx
+    output_col_dr: min_dr_pair_dr
     mode: min
 
   - module_name: GenQuarkPairDRTable
@@ -254,14 +259,25 @@ gen_vars: &gen_vars
     w_col: Gen_Ws
     genpart_col: GenPart
     output_col: max_dr_pair_idx_4q
+    output_col_dr: max_dr_pair_dr_4q
     mode: max
 
-  - module_name: GenQuarkPairDRHistograms
-    q_col: GenPart_4q
-    w_col: Gen_Ws
-    genpart_col: GenPart
-    b_col: GenPart_2b
-    output_prefix: pair_dr
+  - module_name: GenQuarkPairDRByIndex
+    idx_col: max_dr_pair_idx_4q
+    dr_col: max_dr_pair_dr_4q
+    output_prefix: max_dr_by_pair
+    n_pairs: 6
+
+  - module_name: GenQuarkPairDRByIndex
+    idx_col: min_dr_pair_idx
+    dr_col: min_dr_pair_dr
+    output_prefix: min_dr_by_pair
+    n_pairs: 15
+
+  - module_name: GenPartMaxDeltaEtaPhiMaker
+    input_col: GenPart_4q
+    output_col_deta: max_deta_4q
+    output_col_dphi: max_dphi_4q
 
 gen_histograms: &gen_histograms
   - module_name: TopVecHistograms
@@ -274,6 +290,16 @@ gen_histograms: &gen_histograms
     input_cols: [GenJetHT]
     axes:
       - name: "GenJet $H_{T}$"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: GenPartHT
+    input_cols: [GenPartHT]
+    axes:
+      - name: "GenPart $H_{T}$"
         start: 0
         stop: 3000
         bins: 60
@@ -392,7 +418,7 @@ gen_histograms: &gen_histograms
       start: 0
       stop: 500
       bins: 50
-      unit: GeV
+      unit: "GeV"
 
   - module_name: SimpleHistogram
     hist_name: min_dr_GenPart
@@ -494,7 +520,25 @@ gen_histograms: &gen_histograms
         bins: 6
 
   - module_name: SimpleHistogram
-    hist_name: hbb_vs_hww_dr
+    hist_name: max_deta_4q
+    input_cols: [max_deta_4q]
+    axes:
+      - name: 'Max $|\Delta\eta|$ (4q)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: max_dphi_4q
+    input_cols: [max_dphi_4q]
+    axes:
+      - name: 'Max $|\Delta\phi|$ (4q)'
+        start: 0
+        stop: 3.14159
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_hbb_vs_hww_dr
     input_cols: [min_dr_gen_hbb, max_dr_4q]
     axes:
       - name: '$\Delta R$ (2b)'
@@ -505,81 +549,396 @@ gen_histograms: &gen_histograms
         start: 0
         stop: 5
         bins: 50
-
+  
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q1q2_same_W_on
-    input_cols: [pair_dr_q1q2_same_W_on, min_dr_gen_hbb]
+    hist_name: 2d_higgs_pt_vs_min_dr_hbb
+    input_cols: [Gen_hbb.pt, min_dr_gen_hbb]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: '$\Delta R$ (2b)'
+        start: 0
+        stop: 6
+        bins: 60
+
+    # ===== dr of 2b compared to 6 qq pairs from WW =====         
+  - module_name: SimpleHistogram
+    hist_name: 2d_dr2b_vs_q1q2_same_W_on
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q1q2_same_W_on]
     axes:
       - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (q1-q2, same W on-shell)'
+      - name: 'Max $\Delta R$ (q1-q2, same W on-shell)'
         start: 0
         stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q3q4_same_W_off
-    input_cols: [pair_dr_q3q4_same_W_off, min_dr_gen_hbb]
+    hist_name: 2d_dr2b_vs_q3q4_same_W_off
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q3q4_same_W_off]
     axes:
       - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (q3-q4, same W off-shell)'
+      - name: 'Max $\Delta R$ (q3-q4, same W off-shell)'
+        start: 0
+        stop: 6
+        bins: 60
+  
+  - module_name: SimpleHistogram
+    hist_name: 2d_dr2b_vs_q1q3_cross_W
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q1q3_cross_W]
+    axes:
+      - name: '$\Delta R$ (2b)'
+        start: 0
+        stop: 6
+        bins: 60
+      - name: 'Max $\Delta R$ (q1-q3, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+  
+  - module_name: SimpleHistogram
+    hist_name: 2d_dr2b_vs_q1q4_cross_W
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q1q4_cross_W]
+    axes:
+      - name: '$\Delta R$ (2b)'
+        start: 0
+        stop: 6
+        bins: 60
+      - name: 'Max $\Delta R$ (q1-q4, cross W)'
         start: 0
         stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q1q3_cross_W
-    input_cols: [pair_dr_q1q3_cross_W, min_dr_gen_hbb]
+    hist_name: 2d_dr2b_vs_q2q3_cross_W
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q2q3_cross_W]
     axes:
       - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (q1-q3, cross W)'
+      - name: 'Max $\Delta R$ (q2-q3, cross W)'
         start: 0
         stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q1q4_cross_W
-    input_cols: [pair_dr_q1q4_cross_W, min_dr_gen_hbb]
+    hist_name: 2d_dr2b_vs_q2q4_cross_W
+    input_cols: [min_dr_gen_hbb, max_dr_by_pair_q2q4_cross_W]
     axes:
       - name: '$\Delta R$ (2b)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (q1-q4, cross W)'
+      - name: 'Max $\Delta R$ (q2-q4, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+ 
+  # ===== Gen Higgs pT vs 15 MIN DR pairs =====
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b1b2
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b1b2]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b1-b2)'
         start: 0
         stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q2q3_cross_W
-    input_cols: [pair_dr_q2q3_cross_W, min_dr_gen_hbb]
+    hist_name: 2d_higgs_pt_vs_min_dr_b1q1
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b1q1]
     axes:
-      - name: '$\Delta R$ (2b)'
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
         start: 0
-        stop: 6
-        bins: 60
-      - name: '$\Delta R$ (q2-q3, cross W)'
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b1-q1)'
         start: 0
         stop: 6
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: dr2b_vs_q2q4_cross_W
-    input_cols: [pair_dr_q2q4_cross_W, min_dr_gen_hbb]
+    hist_name: 2d_higgs_pt_vs_min_dr_b1q2
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b1q2]
     axes:
-      - name: '$\Delta R$ (2b)'
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b1-q2)'
         start: 0
         stop: 6
         bins: 60
-      - name: '$\Delta R$ (q2-q4, cross W)'
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b1q3
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b1q3]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b1-q3)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b1q4
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b1q4]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b1-q4)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b2q1
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b2q1]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b2-q1)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b2q2
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b2q2]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b2-q2)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b2q3
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_b2q3]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b2-q3)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_b2q4
+    input_cols: [Gen_hww.pt, min_dr_by_pair_b2q4]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (b2-q4)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q1q2_same_W_on
+    input_cols: [Gen_hww.pt, min_dr_by_pair_q1q2_same_W_on]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q1-q2, same W on-shell)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q1q3_cross_W
+    input_cols: [Gen_hww.pt, min_dr_by_pair_q1q3_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q1-q3, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q1q4_cross_W
+    input_cols: [Gen_hww.pt, min_dr_by_pair_q1q4_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q1-q4, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q2q3_cross_W
+    input_cols: [Gen_hww.pt, min_dr_by_pair_q2q3_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q2-q3, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q2q4_cross_W
+    input_cols: [Gen_hww.pt, min_dr_by_pair_q2q4_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q2-q4, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_min_dr_q3q4_same_W_off
+    input_cols: [Gen_hbb.pt, min_dr_by_pair_q3q4_same_W_off]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Min $\Delta R$ (q3-q4, same W off-shell)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  # ===== Gen Higgs pT vs 6 MAX DR pairs =====
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q1q2_same_W_on
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q1q2_same_W_on]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q1-q2, same W on-shell)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q3q4_same_W_off
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q3q4_same_W_off]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q3-q4, same W off-shell)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q1q3_cross_W
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q1q3_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q1-q3, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q1q4_cross_W
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q1q4_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q1-q4, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q2q3_cross_W
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q2q3_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q2-q3, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_q2q4_cross_W
+    input_cols: [Gen_hww.pt, max_dr_by_pair_q2q4_cross_W]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (q2-q4, cross W)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_4q
+    input_cols: [Gen_hww.pt, max_dr_4q]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (4 quarks from W decay)'
+        start: 0
+        stop: 6
+        bins: 60
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_higgs_pt_vs_max_dr_3q
+    input_cols: [Gen_hww.pt, max_dr_3q]
+    axes:
+      - name: 'Gen Higgs $p_{T}$ [GeV]'
+        start: 0
+        stop: 500
+        bins: 50
+      - name: 'Max $\Delta R$ (3 quarks from W decay, most isolated removed)'
         start: 0
         stop: 6
         bins: 60

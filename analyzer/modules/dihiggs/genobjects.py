@@ -347,30 +347,10 @@ class GenQuarkPairDRTable(AnalyzerModule):
     w_col: Column
     genpart_col: Column
     output_col: Column
+    output_col_dr: Column
     b_col: Column | None = None
     mode: str = "min"
     w_mass: float = 80.4
-
-    PAIR_LABELS_4Q = [
-        "q1-q2 (same W on)",
-        "q3-q4 (same W off)",
-        "q1-q3 (cross W)",
-        "q1-q4 (cross W)",
-        "q2-q3 (cross W)",
-        "q2-q4 (cross W)",
-    ]
-
-    PAIR_LABELS_6Q = [
-        "b1-b2",
-        "b1-q1", "b1-q2", "b1-q3", "b1-q4",
-        "b2-q1", "b2-q2", "b2-q3", "b2-q4",
-        "q1-q2 (same W on)",
-        "q3-q4 (same W off)",
-        "q1-q3 (cross W)",
-        "q1-q4 (cross W)",
-        "q2-q3 (cross W)",
-        "q2-q4 (cross W)",
-    ]
 
     def run(self, columns, params):
         quarks = columns[self.q_col]
@@ -450,9 +430,16 @@ class GenQuarkPairDRTable(AnalyzerModule):
         else:
             raise ValueError(f"Unknown mode: {self.mode}. Must be 'min' or 'max'.")
 
-        result = np.full(len(quarks), -1, dtype=np.int64)
-        result[ak.to_numpy(has_valid)] = pair_idx
-        columns[self.output_col] = ak.Array(result)
+        # Extract the actual dR value for the winning pair
+        pair_dr_value = dr_values[np.arange(len(dr_values)), pair_idx]
+
+        result_idx = np.full(len(quarks), -1, dtype=np.int64)
+        result_dr = np.full(len(quarks), -1.0, dtype=np.float64)
+        result_idx[ak.to_numpy(has_valid)] = pair_idx
+        result_dr[ak.to_numpy(has_valid)] = pair_dr_value
+
+        columns[self.output_col] = ak.Array(result_idx)
+        columns[self.output_col_dr] = ak.Array(result_dr)
         return columns, []
 
     def inputs(self, metadata):
@@ -462,73 +449,28 @@ class GenQuarkPairDRTable(AnalyzerModule):
         return inputs
 
     def outputs(self, metadata):
-        return [self.output_col]
-
-def _get_quark_assignments(quarks, ws, genpart, w_mass=80.4):
-    """
-    Helper function to assign light quarks to on-shell and off-shell Ws
-    via genPartIdxMother matching.
-    Returns on_quarks, off_quarks, has_valid
-    """
-    w_mask = (abs(genpart.pdgId) == 24) & ((genpart.statusFlags >> 13) & 1 == 1)
-    w_indices = ak.local_index(genpart, axis=1)[w_mask]
-    delta_mass = abs(ws.mass - w_mass)
-    onshell_w_local = ak.argmin(delta_mass, axis=1)
-    offshell_w_local = ak.argmax(delta_mass, axis=1)
-    onshell_w_genidx = ak.fill_none(
-        ak.firsts(w_indices[ak.from_regular(onshell_w_local[:, np.newaxis])]), -1)
-    offshell_w_genidx = ak.fill_none(
-        ak.firsts(w_indices[ak.from_regular(offshell_w_local[:, np.newaxis])]), -1)
-    onshell_w_genidx = ak.values_astype(onshell_w_genidx, np.int32)
-    offshell_w_genidx = ak.values_astype(offshell_w_genidx, np.int32)
-    q_mother = ak.values_astype(quarks.genPartIdxMother, np.int32)
-    on_quarks = quarks[q_mother == onshell_w_genidx]
-    off_quarks = quarks[q_mother == offshell_w_genidx]
-    has_valid = (
-        (ak.num(on_quarks, axis=1) >= 2) &
-        (ak.num(off_quarks, axis=1) >= 2)
-    )
-    return on_quarks, off_quarks, has_valid
-
+        return [self.output_col, self.output_col_dr]
 
 @define
-class GenQuarkPairDRHistograms(AnalyzerModule):
+class GenQuarkPairDRByIndex(AnalyzerModule):
     """
-    Computes delta R for all unique pairs of gen quarks and stores
-    the dR values as separate columns for histogramming.
-    If b_col is provided, computes all 15 pairs (6q).
-    If b_col is None, computes only the 6 light quark pairs (4q).
+    For each unique pair index, creates a histogram of the dR value
+    for events where that pair gave the min/max dR.
     Parameters
     ----------
-    q_col : Column
-        Column containing the 4 light quarks (GenPart_4q).
-    w_col : Column
-        Column containing the W bosons (Gen_Ws).
-    genpart_col : Column
-        Column containing the full GenPart collection.
+    idx_col : Column
+        Column containing the per-event pair index.
+    dr_col : Column
+        Column containing the per-event dR value of the winning pair.
     output_prefix : str
-        Prefix for output column names.
-    b_col : Column or None, optional
-        Column containing the 2 b quarks. If provided, all 15 pairs
-        are computed. Default is None.
-    w_mass : float, optional
-        W pole mass in GeV. Default is 80.4.
+        Prefix for output histogram names.
+    n_pairs : int
+        Number of pairs (6 for 4q only, 15 for full 6q).
     """
-    q_col: Column
-    w_col: Column
-    genpart_col: Column
+    idx_col: Column
+    dr_col: Column
     output_prefix: str
-    b_col: Column | None = None
-    w_mass: float = 80.4
-
-    PAIR_NAMES_6 = [
-        "q1q2_same_W_on",
-        "q3q4_same_W_off",
-        "q1q3_cross_W",
-        "q1q4_cross_W",
-        "q2q3_cross_W",
-        "q2q4_cross_W",
-    ]
+    n_pairs: int = 15
 
     PAIR_NAMES_15 = [
         "b1b2",
@@ -540,72 +482,36 @@ class GenQuarkPairDRHistograms(AnalyzerModule):
         "q3q4_same_W_off",
     ]
 
+    PAIR_NAMES_6 = [
+        "q1q2_same_W_on",
+        "q3q4_same_W_off",
+        "q1q3_cross_W",
+        "q1q4_cross_W",
+        "q2q3_cross_W",
+        "q2q4_cross_W",
+    ]
+
     def run(self, columns, params):
-        quarks = columns[self.q_col]
-        ws = columns[self.w_col]
-        genpart = columns[self.genpart_col]
+        idx_vals = ak.to_numpy(columns[self.idx_col])
+        dr_vals = ak.to_numpy(columns[self.dr_col])
 
-        on_quarks, off_quarks, has_valid = _get_quark_assignments(
-            quarks, ws, genpart, self.w_mass
-        )
+        pair_names = self.PAIR_NAMES_15 if self.n_pairs == 15 else self.PAIR_NAMES_6
 
-        if self.b_col is not None:
-            b_quarks = columns[self.b_col]
-            has_valid = has_valid & (ak.num(b_quarks, axis=1) >= 2)
-
-        on_sorted = on_quarks[has_valid][ak.argsort(on_quarks[has_valid].pt, axis=1, ascending=False)]
-        off_sorted = off_quarks[has_valid][ak.argsort(off_quarks[has_valid].pt, axis=1, ascending=False)]
-
-        q1 = on_sorted[:, 0]
-        q2 = on_sorted[:, 1]
-        q3 = off_sorted[:, 0]
-        q4 = off_sorted[:, 1]
-
-        if self.b_col is not None:
-            b_sorted = b_quarks[has_valid][ak.argsort(b_quarks[has_valid].pt, axis=1, ascending=False)]
-            b1 = b_sorted[:, 0]
-            b2 = b_sorted[:, 1]
-            pairs = [
-                (b1, b2),
-                (b1, q1), (b1, q2), (b1, q3), (b1, q4),
-                (b2, q1), (b2, q2), (b2, q3), (b2, q4),
-                (q1, q2),
-                (q1, q3), (q1, q4),
-                (q2, q3), (q2, q4),
-                (q3, q4),
-            ]
-            pair_names = self.PAIR_NAMES_15
-        else:
-            pairs = [
-                (q1, q2),
-                (q3, q4),
-                (q1, q3),
-                (q1, q4),
-                (q2, q3),
-                (q2, q4),
-            ]
-            pair_names = self.PAIR_NAMES_6
-
-        # Compute dR for each pair and store as separate columns
-        for name, (pa, pb) in zip(pair_names, pairs):
-            dr = ak.to_numpy(pa.delta_r(pb))
-            result = np.full(len(quarks), -1.0)
-            result[ak.to_numpy(has_valid)] = dr
+        for i, name in enumerate(pair_names):
+            # Mask to events where this pair gave the min/max dR
+            mask = idx_vals == i
+            dr_for_pair = np.where(mask, dr_vals, -1.0)
             col = Column((f"{self.output_prefix}_{name}",))
-            columns[col] = ak.Array(result)
+            columns[col] = ak.Array(dr_for_pair)
 
         return columns, []
 
     def inputs(self, metadata):
-        inputs = [self.q_col, self.w_col, self.genpart_col]
-        if self.b_col is not None:
-            inputs.append(self.b_col)
-        return inputs
+        return [self.idx_col, self.dr_col]
 
     def outputs(self, metadata):
-        pair_names = self.PAIR_NAMES_15 if self.b_col is not None else self.PAIR_NAMES_6
+        pair_names = self.PAIR_NAMES_15 if self.n_pairs == 15 else self.PAIR_NAMES_6
         return [
             Column((f"{self.output_prefix}_{name}",))
             for name in pair_names
         ]
-
