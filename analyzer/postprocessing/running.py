@@ -78,6 +78,19 @@ def makeApproxEqualSubgroups(groups, target_num_groups, size_func=lambda x: x):
     return sets
 
 
+def maximalSubgroups(groups: set[frozenset]) -> set[frozenset]:
+    ret = set()
+    for x in groups:
+        overlapped = [s for s in ret if not s.isdisjoint(x)]
+        if not overlapped:
+            ret.add(x)
+            continue
+        for s in overlapped:
+            ret.discard(s)
+        ret.add(frozenset(set().union(*overlapped, x)))
+    return ret
+
+
 def runPostprocessors(
     path,
     input_files,
@@ -123,12 +136,6 @@ def runPostprocessors(
             peek_only=True,
             return_file_sizes=True,
         )
-        # total_size = sum(sizes.values())
-        # num_groups = math.ceil(total_size / target_load_size)
-        # print(f"Total size is {total_size}")
-        # print(f"Target size is {target_load_size}")
-        # print(f"Num groups is {num_groups}")
-
         file_groups = determineFileGroups(postprocessor.processors, peek_results)
     else:
         file_groups = [input_files]
