@@ -180,9 +180,10 @@
   prefix: uncomp
   ratio_only: True
   m4_range: [750, 2500]
-  m3_range: [200, 2000]
-  ratio_range: [0.2, 0.8]
+  m3_range: [0, 2000]
+  ratio_range: [0.0, 0.8]
   bins: 50
+  y_bins: 60
 
 {%- endmacro %}
 
