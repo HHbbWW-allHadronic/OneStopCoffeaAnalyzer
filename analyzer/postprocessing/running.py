@@ -40,6 +40,7 @@ class PostprocessorConfig:
     default_style_set: StyleSet = field(factory=StyleSet)
     default_plot_config: PlotConfiguration = field(factory=PlotConfiguration)
     drop_sample_pattern: BasePattern | None = None
+    do_merge_and_scale: bool = True
 
 
 def initProcess():
@@ -148,9 +149,10 @@ def runPostprocessors(
         else:
             results = loadResults(file_group, keep_patterns=keep_patterns)
 
-        results = mergeAndScale(
-            results, drop_sample_pattern=postprocessor.drop_sample_pattern
-        )
+        if postprocessor.do_merge_and_scale:
+            results = mergeAndScale(
+                results, drop_sample_pattern=postprocessor.drop_sample_pattern
+            )
         all_funcs = []
         for processor in postprocessor.processors:
             all_funcs.extend(list(processor.run(results, prefix)))
