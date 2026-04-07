@@ -2,6 +2,7 @@ import numpy as np
 
 import operator as op
 from collections import defaultdict
+from analyzer.utils.structure_tools import commonDict
 import functools as ft
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -105,7 +106,7 @@ def plotOne(
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
-    saveFig(fig, output_path, extension=pc.image_type)
+    saveFig(fig, output_path, metadata=common_metadata, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -158,7 +159,7 @@ def plotDictAsBars(
     addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
     scaleYAxis(ax)
-    saveFig(fig, output_path, extension=pc.image_type)
+    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -436,7 +437,9 @@ def plotRatio(
     ax.set_yscale(scale)
     scaleYAxis(ax)
 
-    saveFig(fig, output_path, extension=pc.image_type)
+    common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
+
+    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -535,5 +538,7 @@ def plotRatioOfRatios(
 
     ax.set_yscale(scale)
 
-    saveFig(fig, output_path, extension=pc.image_type)
+    common_meta = commonDict(all_meta, key=lambda x: x)
+
+    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)

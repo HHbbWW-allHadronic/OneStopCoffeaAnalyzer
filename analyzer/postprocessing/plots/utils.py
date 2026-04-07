@@ -1,9 +1,14 @@
 from pathlib import Path
 from matplotlib.axes import Axes
 
+from collections import ChainMap
+import json
 import matplotlib as mpl
 import mplhep
 from .common import PlotConfiguration
+
+
+INCLUDE_SIDECAR = True
 
 
 def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=True):
@@ -35,12 +40,23 @@ def scaleYAxis(ax):
     return ax
 
 
+def makeDict(x):
+    if isinstance(x, (dict, ChainMap)):
+        return {k: makeDict(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [makeDict(y) for y in x]
+    return x
+
+
 def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
     path = Path(out)
     path.parent.mkdir(exist_ok=True, parents=True)
     if extension:
         path = path.with_suffix(extension)
-    fig.savefig(path, metadata=metadata, **kwargs)
+    fig.savefig(path, **kwargs)
+    if INCLUDE_SIDECAR:
+        with open(Path(out).with_suffix(".json"), "w") as f:
+            json.dump(makeDict(metadata), f)
 
 
 def addLegend(ax: Axes, cfg: PlotConfiguration, **legend_kwargs):

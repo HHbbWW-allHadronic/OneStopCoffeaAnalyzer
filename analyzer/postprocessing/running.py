@@ -99,7 +99,12 @@ def runPostprocessors(
     prefix=None,
     loaded_results=None,
     target_load_size: int | None = None,
+    include_sidecar: bool = False,
 ):
+    import analyzer.postprocessing.plots.utils as plots
+
+    plots.INCLUDE_SIDECAR = include_sidecar
+
     converter = Converter()
     setupConverter(converter)
 
@@ -124,7 +129,7 @@ def runPostprocessors(
 
     keep_patterns = []
     for processor in postprocessor.processors:
-        if hasattr(processor, "inputs"):
+        if hasattr(processor, "inputs") and  postprocessor.do_merge_and_scale:
             keep_patterns.extend(
                 tuple(("*", *inp)) for inp_list in processor.inputs for inp in inp_list
             )
@@ -149,10 +154,12 @@ def runPostprocessors(
         else:
             results = loadResults(file_group, keep_patterns=keep_patterns)
 
+
         if postprocessor.do_merge_and_scale:
             results = mergeAndScale(
                 results, drop_sample_pattern=postprocessor.drop_sample_pattern
             )
+
         all_funcs = []
         for processor in postprocessor.processors:
             all_funcs.extend(list(processor.run(results, prefix)))

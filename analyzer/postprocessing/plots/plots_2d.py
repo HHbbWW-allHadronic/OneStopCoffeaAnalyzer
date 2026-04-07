@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 from analyzer.postprocessing.style import Styler
 
+from analyzer.utils.structure_tools import commonDict
 from .annotations import addCMSBits, labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig
@@ -41,7 +42,7 @@ def plot2D(
         text_color="white",
         plot_configuration=pc,
     )
-    saveFig(fig, output_path, extension=pc.image_type)
+    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -125,5 +126,7 @@ def plot2DSigBkg(
         text_color="white",
         plot_configuration=plot_configuration,
     )
-    saveFig(fig, output_path, extension=pc.image_type)
+
+    common_meta = commonDict([bkg_hist.metadata, sig_hist.metadata], key=lambda x: x)
+    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
