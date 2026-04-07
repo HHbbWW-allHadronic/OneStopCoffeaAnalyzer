@@ -129,12 +129,10 @@ def runPostprocessors(
 
     keep_patterns = []
     for processor in postprocessor.processors:
-        if hasattr(processor, "inputs") and postprocessor.do_merge_and_scale:
+        if hasattr(processor, "inputs"):
             if postprocessor.do_merge_and_scale:
                 keep_patterns.extend(
-                    inp
-                    for inp_list in processor.inputs
-                    for inp in inp_list
+                    inp for inp_list in processor.inputs for inp in inp_list
                 )
             else:
                 keep_patterns.extend(
