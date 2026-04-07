@@ -129,10 +129,19 @@ def runPostprocessors(
 
     keep_patterns = []
     for processor in postprocessor.processors:
-        if hasattr(processor, "inputs") and  postprocessor.do_merge_and_scale:
-            keep_patterns.extend(
-                tuple(("*", *inp)) for inp_list in processor.inputs for inp in inp_list
-            )
+        if hasattr(processor, "inputs") and postprocessor.do_merge_and_scale:
+            if postprocessor.do_merge_and_scale:
+                keep_patterns.extend(
+                    inp
+                    for inp_list in processor.inputs
+                    for inp in inp_list
+                )
+            else:
+                keep_patterns.extend(
+                    tuple(("*", *inp))
+                    for inp_list in processor.inputs
+                    for inp in inp_list
+                )
     keep_patterns = keep_patterns or None
 
     if target_load_size is not None:
@@ -153,7 +162,6 @@ def runPostprocessors(
             results = copy.deepcopy(loaded_results)
         else:
             results = loadResults(file_group, keep_patterns=keep_patterns)
-
 
         if postprocessor.do_merge_and_scale:
             results = mergeAndScale(
