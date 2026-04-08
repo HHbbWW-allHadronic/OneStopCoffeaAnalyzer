@@ -47,18 +47,16 @@
 - module_name: ElectronMaker
   input_col: Electron
   output_col: GoodElectron
-  working_point: "loose"
+  working_point: "veto"
   min_pt: 10
   max_abs_eta: 2.4
-  max_mini_iso: 0.1
 
 - module_name: MuonMaker
   input_col: Muon
   output_col: GoodMuon
   id_working_point: "looseId"
-  min_pt: 30
+  iso_working_point: "loose"
   max_abs_eta: 2.4
-  max_mini_iso: 0.1
 
 - module_name: JetFilter
   input_col: Jet
