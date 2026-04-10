@@ -82,11 +82,11 @@ common_histograms: &common_histograms
 
   - module_name: JetComboHistograms
     input_col: nontop2b
-    prefix: "nontop2b"
+    prefix: "nontop2b_fourjet"
     jet_combos:
       - [0,1,2,3]
     mass_axis:
-      name: "nontop2b"
+      name: "nontop2b_fourjet"
       start: 0
       stop: 500
       bins: 50
@@ -266,13 +266,13 @@ event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
-#  - dataset: 'qcd*2024*'
-#   pipelines:
-#   {{ mc_pipelines() }}
-# - dataset: 'tt_hadronic*2024*'
-#   pipelines:
-#   {{ mc_pipelines() }}
-# - dataset: 'tt_semilep*2024'
-#   pipelines:
-#   {{ mc_pipelines() }}
-        
+  - dataset: 'qcd*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+    {{ mc_pipelines() }}
+

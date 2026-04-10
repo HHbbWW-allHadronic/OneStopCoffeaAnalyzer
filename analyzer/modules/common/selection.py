@@ -66,37 +66,19 @@ class SelectOnColumns(AnalyzerModule):
         ret = columns[Column("Selection") + cuts[0]]
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}
 
-        single = columns[Column("Selection") + cuts[0]] 
-        one_cut = {"initial": initial, cuts[0]: ak.count_nonzero(single, axis=0)}
-        
         for name in cuts[1:]:
             ret = ret & getCol(name)
             cutflow[name] = ak.count_nonzero(ret, axis=0)
         
-            single = columns[Column("Selection") + name]
-            one_cut[name] = ak.count_nonzero(single, axis=0)
+        final = ak.count_nonzero(ret, axis=0)
+        
+        one_cut = {'initial': initial}
+        one_cut = {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
+        one_cut['final'] = final
         
         n_minus_one = {'initial': initial}
-        for skip_cut in cuts:
-            mask = None
-            for cut_name in cuts:
-                if cut_name != skip_cut:
-                    if mask is None:
-                        mask = columns[Column("Selection") + cut_name]
-                    else:
-                        mask = mask & columns[Column("Selection") + cut_name]
-            if mask is not None:
-                n_minus_one[skip_cut] = ak.count_nonzero(mask, axis=0)
-            else:
-                n_minus_one[skip_cut] = initial
-
-        final = ak.count_nonzero(ret, axis=0)
-        one_cut['final'] = final
-        n_minus_one['final'] = final
-
-
-        onecut = {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
         n_minus_one = {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i,cut in enumerate(cuts)}
+        n_minus_one['final'] = final
         columns.filter(ret)
 
         if self.save_flows:

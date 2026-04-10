@@ -1,5 +1,5 @@
 - name: tt_semileptonic_2024
-  title: "$t\\overline{t}$"
+  title: "$t\\overline{t}$ Semileptonic"
   sample_type: MC
   era: '2024'
   other_data:

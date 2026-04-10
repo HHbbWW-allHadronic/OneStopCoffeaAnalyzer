@@ -17,7 +17,46 @@ Postprocessing:
       structure:
         select: {type: SelectionFlow}
         group: {era.name: "*", pipeline: "*"}
+        transforms:
+         - name: SumSelectionFlow
+           sum_match_pattern: {dataset_name: "tt*"}
+           new_meta_fields:
+             dataset_name: "tt"
+             title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/cutflow.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/selection"
+      scale: log
+      normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow}
+        group: {era.name: "*", pipeline: "*"}
+        transforms:
+         - name: SumSelectionFlow
+           sum_match_pattern: {dataset_name: "!ggHH2b2V6q*"}
+           new_meta_fields:
+             dataset_name: "bkgd"
+             title: "Background"
+      output_name: "plots/{era.name}/{pipeline}/cutflow_svb.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/selection"
+      scale: log
+      normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow, dataset_name: "ggHH2b2V6q*"}
+        group: {era.name: "*", pipeline: "*"}
+      output_name: "plots/{era.name}/{pipeline}/cutflow_s.png"
+
 
     - name: Histogram1D
       inputs:
@@ -51,10 +90,11 @@ Postprocessing:
     - name: RatioPlot
       inputs:
         - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_14_m"
+        - "*/*/*/nontop2b_fourjet_14_m"
+        - "*/*/*/JetN"
       ratio_type: "significance"
       show_den_unc: False
-      scale: linear
+      scale: log
       ratio_ylim: null
       ratio_hlines: []
       plot_configuration:
@@ -71,6 +111,11 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
 
     - name: RatioPlot
@@ -78,7 +123,7 @@ Postprocessing:
         - "*/*/*/*"
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
-      ratio_scale: 1
+      ratio_height: 1
       show_den_unc: False
       scale: log
       structure:
@@ -98,6 +143,11 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_NoSelection/trigger_eff_{name}.png"
@@ -106,6 +156,8 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
+      ratio_ylim: [0 ,1.1]
+      ratio_height: 1
       show_den_unc: False
       scale: log
       structure:
@@ -125,6 +177,11 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef2/trigger_eff_{name}.png"
@@ -133,6 +190,8 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
+      ratio_ylim: [0 ,1.1]
+      ratio_height: 1
       show_den_unc: False
       scale: log
       structure:
@@ -163,4 +222,4 @@ Postprocessing:
       structure:
         select: {dataset_name: "*", pipeline: "*"}
         group: {era.name: "*", name: "*"}
-      output_name: "signal_yields.csv"
+      output_name: "plots/{era.name}/signal_trigger_yields.csv"

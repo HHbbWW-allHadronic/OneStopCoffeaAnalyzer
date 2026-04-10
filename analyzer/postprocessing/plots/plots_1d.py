@@ -27,6 +27,18 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
         )
     return ratios, unc
 
+def getYMin(histograms, stacked_hists):
+    all_values = []
+    for item, _ in histograms:
+        all_values.append(item.histogram.values())
+    for item, _ in stacked_hists:
+        all_values.append(item.histogram.values())
+
+    all_values = np.concatenate([v.flatten() for v in all_values])
+    nonzero = all_values[all_values > 0]
+    if len(nonzero) == 0:
+        return None
+    return nonzero.min()
 
 def plotOne(
     histograms,
@@ -61,7 +73,7 @@ def plotOne(
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
                 std = np.sqrt(np.average((centers - mean)**2, weights=counts))
-                title = f"{title}, Int.={integral}\nmean={mean:.3f}, std={std:.3f}"
+                title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get(plottype="fill").items():
@@ -127,6 +139,11 @@ def plotOne(
     )
 
     ax.set_yscale(scale)
+    if scale == "log":
+        # Ensure small signals are appropriately shown on plots
+        ymin = getYMin(histograms, stacked_hists)
+        if ymin is not None:
+            ax.set_ylim(bottom=ymin * 0.1)
     addLegend(ax, pc)
 
     scaleYAxis(ax)
