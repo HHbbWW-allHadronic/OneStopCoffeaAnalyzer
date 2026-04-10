@@ -17,6 +17,17 @@ def hist_sum(h):
     s = h.sum()
     return s.value if hasattr(s, 'value') else s
 
+def get_yerr(h):
+    vals = h.values()
+    vars = h.variances()
+    if vars is None:
+        yerr = np.sqrt(vals)
+    else:
+        yerr = np.sqrt(vars)
+    zero_mask = np.isclose(vals, 0.0, atol=1e-10)
+    yerr[zero_mask] = 0
+    return yerr
+
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
     import hist.intervals as hinter
 
@@ -90,14 +101,7 @@ def plotOne(
         )
         if show_stacked_unc:
             stacked_total = ft.reduce(op.add, [x.item.histogram for x in stacked_hists])
-            vals = stacked_total.values()
-            vars = stacked_total.variances()
-            if vars is None:
-                yerr = np.sqrt(vals)
-            else:
-                yerr = np.sqrt(vars)
-            zero_mask = np.isclose(vals, 0.0, atol=1e-10)
-            yerr[zero_mask] = 0.0
+            yerr = get_yerr(stacked_total)
             
             mplhep.histplot(
                 stacked_total,
@@ -118,11 +122,12 @@ def plotOne(
             std = np.sqrt(np.average((centers - mean)**2, weights=counts))
             title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
+        yerr = get_yerr(h) if style.yerr else style.yerr
         h.plot1d(
             ax=ax,
             label=title,
             density=normalize,
-            yerr=style.yerr,
+            yerr=yerr,
             **style.get(),
         )
 
