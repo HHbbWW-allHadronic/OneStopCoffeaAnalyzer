@@ -235,7 +235,7 @@ def computeRatio(n, d, normalize=False, ratio_type="poisson"):
 def computeSignificance(n, d, normalize=False, ratio_type="poisson"):
     with np.errstate(divide="ignore", invalid="ignore"):
         significance = n / np.sqrt(d)
-
+    
     return significance, None
 
 
@@ -249,7 +249,7 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
 
 def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
     den_to_plot = sorted(denominators, key=lambda x: hist_sum(x.item.histogram))
-
+    
     hists = []
     titles = []
     style_kwargs = defaultdict(list)
@@ -259,7 +259,7 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
         hists.append(item.histogram)
         titles.append(meta.get("title") or meta["dataset_title"])
         style = styler.getStyle(meta)
-        for key, value in style.get().items():
+        for key, value in style.get(plottype="fill").items():
             style_kwargs[key].append(value)
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
@@ -275,11 +275,13 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
     
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
     if show_den_unc:
+        yerr = get_yerr(den_total)
         mplhep.histplot(
             den_total,
             ax=ax,
             label="Den. Stat. Unc.",
             histtype="band",
+            yerr=yerr
         )
     return den_total
 
@@ -293,11 +295,13 @@ def plotUnstackedDenominators(ax, denominators, styler, *, normalize):
     for item, meta in den_to_plot:
         style = styler.getStyle(meta)
         den_styles.append(style)
-        item.histogram.plot1d(
+        hist = item.histogram
+        yerr = get_yerr(hist) if style.yerr else style.yerr
+        hist.plot1d(
             ax=ax,
             label=meta.get("title") or meta["dataset_title"],
             density=normalize,
-            yerr=style.yerr,
+            yerr=yerr,
             **style.get(),
         )
 
@@ -314,7 +318,7 @@ def plotMultiNumerators(
     ratio_type,
     x_values,
     ratio_func=computeRatio,
-    show_den_unc=True,
+    show_den_unc_ratio=True,
 ):
 
     for item, meta in numerators:
@@ -335,13 +339,13 @@ def plotMultiNumerators(
             ax=ax,
             label=meta.get("title") or meta["dataset_title"],
             density=normalize,
-            yerr=True,
+            yerr=get_yerr(hist),
             **style.get(),
         )
 
         plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style)
 
-    if show_den_unc:
+    if show_den_unc_ratio:
         with np.errstate(divide="ignore", invalid="ignore"):
             den_scaled_uncertainties = np.where(
                 den_total.values() != 0,
@@ -379,7 +383,7 @@ def plotSingleNumeratorMultiDen(
         ax=ax,
         label=numerator.metadata.get("title") or numerator.metadata["dataset_title"],
         density=normalize,
-        yerr=True,
+        yerr=get_yerr(hist),
         **n_style.get(),
     )
 
@@ -410,7 +414,8 @@ def plotRatio(
     no_stack=False,
     ratio_hlines=(1.0,),
     ratio_height=0.3,
-    show_den_unc=True
+    show_den_unc=True,
+    show_den_unc_ratio=False
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -460,7 +465,7 @@ def plotRatio(
             ratio_type=ratio_type,
             x_values=x_values,
             ratio_func=ratio_func,
-            show_den_unc=show_den_unc
+            show_den_unc_ratio=show_den_unc_ratio
         )
 
     for y in ratio_hlines:

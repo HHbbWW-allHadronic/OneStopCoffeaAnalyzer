@@ -93,7 +93,7 @@ Postprocessing:
         - "*/*/*/nontop2b_fourjet_14_m"
         - "*/*/*/JetN"
       ratio_type: "significance"
-      show_den_unc: False
+      show_den_unc: True
       scale: log
       ratio_ylim: null
       ratio_hlines: []
@@ -124,7 +124,8 @@ Postprocessing:
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
       ratio_height: 1
-      show_den_unc: False
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
         select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*NoSelection"}
@@ -158,7 +159,8 @@ Postprocessing:
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
       ratio_height: 1
-      show_den_unc: False
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
         select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef2"}
@@ -192,7 +194,8 @@ Postprocessing:
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
       ratio_height: 1
-      show_den_unc: False
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
         select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef1"}
