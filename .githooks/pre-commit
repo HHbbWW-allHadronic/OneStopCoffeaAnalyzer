@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+LIMIT=$(git config hooks.filesizelimit)
+: ${LIMIT:=1048576}
+
+STAGED_FILES=$(git diff --cached --name-only)
+
+for FILE in $STAGED_FILES; do
+    if [ -f "$FILE" ]; then
+        SIZE=$(stat -c%s "$FILE")
+        if [[ "$SIZE" -gt "$LIMIT" ]]; then
+            echo "ERROR: '$FILE' is $(expr $SIZE / 1048576)MB, exceeding the ${LIMIT} limit. Commit was rejected."
+            echo "Binary/data files should almost never be committed to the repository, and instead should be places in eos and references through a path."
+            echo "Jupyter notebooks may be large if they have many images, please clear your notebook output before committing."
+            echo "If you are absolutely positive this file deserves to be a permanent fixture of the git repository, you can run with --no-verify."
+            exit 1
+        fi
+    fi
+done

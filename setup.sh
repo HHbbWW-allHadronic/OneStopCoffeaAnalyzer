@@ -34,6 +34,11 @@ if [[ -n "$SINGULARITY_NAME" ]] || [[ -n "$APPTAINER_NAME" ]]; then
     
     exec /bin/bash 
 else
+
+    if [[ ! -e .git/hooks/pre-commit ]]; then
+        cp .githooks/pre-commit .git/hooks/pre-commit
+    fi
+
     HOST=$(hostname)
     IS_LPC="false"
     if [[ "$HOST" == *"cmslpc"* ]]; then
