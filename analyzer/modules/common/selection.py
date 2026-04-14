@@ -73,11 +73,11 @@ class SelectOnColumns(AnalyzerModule):
         final = ak.count_nonzero(ret, axis=0)
         
         one_cut = {'initial': initial}
-        one_cut = {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
+        one_cut |= {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
         one_cut['final'] = final
         
         n_minus_one = {'initial': initial}
-        n_minus_one = {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i,cut in enumerate(cuts)}
+        n_minus_one |= {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i,cut in enumerate(cuts)}
         n_minus_one['final'] = final
         columns.filter(ret)
 
