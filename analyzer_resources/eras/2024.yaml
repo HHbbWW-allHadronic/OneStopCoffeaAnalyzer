@@ -25,11 +25,14 @@
     tagger: "btagUParTAK4B"
     correction_name: "UParTAK4_wp_values"
     file: /cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/btagging.json.gz
-    systematics: [hf,lf,hfstats1,hfstats2]
+    sf_name: "UParTAK4_comb"
+    systematics:
+      - up
+      - down
 
   jet_veto_map:
     file: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz
-    name: "Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15"
+    name: "Summer24Prompt24_RunBCDEFGHI_V1"
 
   pileup_scale_factors:
     file: /cvmfs/cms-griddata.cern.ch/cat/metadata/LUM/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/puWeights_BCDEFGHI.json.gz
@@ -39,12 +42,6 @@
     250HT4J: PFHT250_QuadPFJet25
     250HT4J2B: PFHT250_QuadPFJet25_PNet2BTagMean0p55
 
-  trigger_plateaus:
-    HT: 1200
-    AK8SingleJetPt:
-      pt: 500
-      msoftdrop: 50
-
   jet_corrections:
     jet_names:
       AK4: AK4PFPuppi
@@ -53,7 +50,7 @@
       AK8: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/fatJet_jerc.json.gz
       smear: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/jer_smear.json.gz
     jec:
-      campaign: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
+      campaign: Summer24Prompt24
       version: V2
       systematics:
         - AbsoluteMPFBias
@@ -96,8 +93,8 @@
         - Regrouped_RelativeSample_2023
         - Regrouped_RelativeBal
     jer:
-      campaign: Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15
-      version: V2
+      campaign: Summer23BPixPrompt23_RunD
+      version: JRV1
       genjet_idx_col: genJetIdx
       systematics:
         - up

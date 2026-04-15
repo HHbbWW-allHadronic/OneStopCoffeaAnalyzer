@@ -1,0 +1,29 @@
+- name: data_HHParking_2024
+  title: Data
+  sample_type: Data
+  era: '2024'
+  samples:
+    - name: Run2024C-MINIv6NANOv15-v1_ParkingHH
+      n_events: 105158321
+      das_path: /ParkingHH/Run2024C-MINIv6NANOv15-v1/NANOAOD
+    - name: Run2024D-MINIv6NANOv15-v1_ParkingHH
+      n_events: 125986310
+      das_path: /ParkingHH/Run2024D-MINIv6NANOv15-v1/NANOAOD
+    - name: Run2024E-MINIv6NANOv15-v1_ParkingHH
+      n_events: 177971586
+      das_path: /ParkingHH/Run2024E-MINIv6NANOv15-v1/NANOAOD
+    - name: Run2024F-MINIv6NANOv15-v4_ParkingHH
+      n_events: 486729639
+      das_path: /ParkingHH/Run2024F-MINIv6NANOv15-v4/NANOAOD
+    - name: Run2024G-MINIv6NANOv15-v3_ParkingHH
+      n_events: 709609093
+      das_path: /ParkingHH/Run2024G-MINIv6NANOv15-v3/NANOAOD
+    - name: Run2024H-MINIv6NANOv15-v3_ParkingHH
+      n_events: 99559443
+      das_path: /ParkingHH/Run2024H-MINIv6NANOv15-v3/NANOAOD
+    - name: Run2024I-MINIv6NANOv15-v3_ParkingHH
+      n_events: 103497248
+      das_path: /ParkingHH/Run2024I-MINIv6NANOv15-v3/NANOAOD
+    - name: Run2024I-MINIv6NANOv15_v2-v2_ParkingHH
+      n_events: 104677951
+      das_path: /ParkingHH/Run2024I-MINIv6NANOv15_v2-v2/NANOAOD

@@ -8,7 +8,7 @@ Postprocessing:
   processors:
     - name: PlotSelectionFlow
       inputs:
-        - "*/*/*/selection"
+        - "*/*/*/*selection"
       scale: log
       normalize: True
       plot_configuration:
@@ -16,18 +16,18 @@ Postprocessing:
         extra_text: "{pipeline}"
       structure:
         select: {type: SelectionFlow}
-        group: {era.name: "*", pipeline: "*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
          - name: SumSelectionFlow
            sum_match_pattern: {dataset_name: "tt*"}
            new_meta_fields:
              dataset_name: "tt"
              title: "$t\\overline{t}$"
-      output_name: "plots/{era.name}/{pipeline}/cutflow.png"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow.png"
 
     - name: PlotSelectionFlow
       inputs:
-        - "*/*/*/selection"
+        - "*/*/*/*selection"
       scale: log
       normalize: True
       plot_configuration:
@@ -35,18 +35,18 @@ Postprocessing:
         extra_text: "{pipeline}"
       structure:
         select: {type: SelectionFlow}
-        group: {era.name: "*", pipeline: "*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
          - name: SumSelectionFlow
            sum_match_pattern: {dataset_name: "!ggHH2b2V6q*"}
            new_meta_fields:
              dataset_name: "bkgd"
              title: "Background"
-      output_name: "plots/{era.name}/{pipeline}/cutflow_svb.png"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_svb.png"
 
     - name: PlotSelectionFlow
       inputs:
-        - "*/*/*/selection"
+        - "*/*/*/*selection"
       scale: log
       normalize: True
       plot_configuration:
@@ -54,8 +54,8 @@ Postprocessing:
         extra_text: "{pipeline}"
       structure:
         select: {type: SelectionFlow, dataset_name: "ggHH2b2V6q*"}
-        group: {era.name: "*", pipeline: "*"}
-      output_name: "plots/{era.name}/{pipeline}/cutflow_s.png"
+        group: {era.name: "*", pipeline: "*", name: "*"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_s.png"
 
 
     - name: Histogram1D
@@ -65,7 +65,7 @@ Postprocessing:
       normalize: False
       show_info: True
       structure:
-        select: {dataset_name: "*", name: "re:^(?!selection$|all_triggers$).*"}
+        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$).*"}
         group: {pipeline: "*", era.name: "*", name: "*"}
         subgroups:
           unstacked: {select: {dataset_name: "ggHH2b2V6q*"}}
@@ -128,7 +128,7 @@ Postprocessing:
       no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*NoSelection"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*NoSelection"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -163,7 +163,7 @@ Postprocessing:
       no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef2"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*ObjDef2"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -198,7 +198,7 @@ Postprocessing:
       no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef1"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*ObjDef1"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:

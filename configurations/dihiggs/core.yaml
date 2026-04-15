@@ -36,10 +36,6 @@ common_objects: &common_objects
     max_abs_eta: 2.4
     iso_working_pt: "loose"
 
-  - module_name: JetID
-    input_col: Jet
-    output_col: Jet.jetId
-
   - module_name: HJetFilter
     input_col: Jet
     output_col: goodJet
@@ -129,6 +125,18 @@ hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
 
+eventlevel_selection: &eventlevel_selection
+  - module_name: JetID
+    input_col: Jet
+    output_col: Jet.jetId
+  - module_name: GoldenLumi
+  - module_name: VetoMap
+    input_col: Jet
+  - module_name: VetoMapFilter
+    input_col: Jet
+    output_col: Jet
+  - module_name: NoiseFilter
+
 tight_selection: &tight_selection
   - module_name: NObjFilter
     input_col: tightElectron
@@ -177,6 +185,9 @@ loose_selection: &loose_selection
 
 withHLT_ObjDef1: &withHLT_ObjDef1
   - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
   - *tight_selection
   - module_name: SelectOnColumns
@@ -184,18 +195,27 @@ withHLT_ObjDef1: &withHLT_ObjDef1
 
 withHLT_ObjDef2: &withHLT_ObjDef2
   - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
   - *loose_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 noHLT_ObjDef1: &noHLT_ObjDef1
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
   - *tight_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 noHLT_ObjDef2: &noHLT_ObjDef2
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
   - *loose_selection
   - module_name: SelectOnColumns
@@ -203,10 +223,16 @@ noHLT_ObjDef2: &noHLT_ObjDef2
 
 withHLT_NoSelection: &withHLT_NoSelection
   - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
   - module_name: SelectOnColumns
     sel_name: selection
 
 NoSelection: &NoSelection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - *common_objects
 {%- endmacro %}
