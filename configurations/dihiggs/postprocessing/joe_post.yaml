@@ -4,7 +4,7 @@ Postprocessing:
     image_type: ".png"
     cms_text_color: Black
     legend_num_cols: 1
-  default_style_set:
+  default_style_set: &default_style_set
     styles:
       - pattern:
           dataset_name: 'data*'
@@ -13,6 +13,7 @@ Postprocessing:
           color: black
           linestyle: null
           marker: 'o'
+
 
   processors:
     - name: PlotSelectionFlow
@@ -87,7 +88,8 @@ Postprocessing:
         - "*/*/*/*"
       scale: log
       normalize: False
-      show_info: True
+      show_info: False
+      style_set: *default_style_set
       structure:
         select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$).*"}
         group: {pipeline: "*", era.name: "*", name: "*"}
@@ -102,13 +104,6 @@ Postprocessing:
             new_meta_fields:
               dataset_name: "tt"
               title: "$t\\overline{t}$"
-        styles:
-          - pattern: {dataset_name: "!gg*"}
-            style:
-              fill: true
-          - pattern: {dataset_name: "gg*"}
-            style:
-              fill: false
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
