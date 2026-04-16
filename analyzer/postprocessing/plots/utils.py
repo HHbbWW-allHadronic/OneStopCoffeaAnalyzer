@@ -2,10 +2,12 @@ from pathlib import Path
 from matplotlib.axes import Axes
 
 from collections import ChainMap
+import copy
 import json
 import matplotlib as mpl
 import mplhep
 from .common import PlotConfiguration
+from .annotations import addCMSBits, removeCMSAnnotations
 
 
 INCLUDE_SIDECAR = True
@@ -59,10 +61,58 @@ def saveFig(fig, out, extension=".pdf", metadata=None, **kwargs):
             json.dump(makeDict(metadata), f)
 
 
+def saveFigVariants(
+    fig,
+    ax,
+    out,
+    all_meta,
+    plot_configuration=None,
+    metadata=None,
+    extra_text=None,
+    text_color=None,
+    **save_kwargs,
+):
+
+    pc = plot_configuration or PlotConfiguration()
+
+    cms_texts = pc.cms_text if isinstance(pc.cms_text, list) else [pc.cms_text or ""]
+    suffix_text = len(cms_texts) > 1
+
+    raw_types = (
+        pc.image_type if isinstance(pc.image_type, list) else [pc.image_type or ".pdf"]
+    )
+    extensions = [ext if ext.startswith(".") else f".{ext}" for ext in raw_types]
+    suffix_ext = len(extensions) > 1
+
+    base_path = Path(out)
+    base_path.parent.mkdir(exist_ok=True, parents=True)
+
+    for variant in cms_texts:
+        variant_pc = copy.copy(pc)
+        variant_pc.cms_text = variant
+
+        removeCMSAnnotations(ax)
+        addCMSBits(
+            ax,
+            all_meta,
+            extra_text=extra_text,
+            text_color=text_color,
+            plot_configuration=variant_pc,
+        )
+
+        text_suffix = f"_{variant.lower().replace(' ', '_')}" if suffix_text else ""
+        for ext in extensions:
+            variant_path = base_path.with_stem(
+                f"{base_path.stem}{text_suffix}"
+            ).with_suffix(ext)
+            fig.savefig(variant_path, **save_kwargs)
+
+    if INCLUDE_SIDECAR:
+        with open(base_path.with_suffix(".json"), "w") as f:
+            json.dump(makeDict(metadata), f)
+
+
 def addLegend(ax: Axes, cfg: PlotConfiguration, **legend_kwargs):
-    """
-    Add and style a legend on a matplotlib axis using PlotConfiguration.
-    """
     legend_loc = cfg.legend_loc
 
     legend = ax.legend(

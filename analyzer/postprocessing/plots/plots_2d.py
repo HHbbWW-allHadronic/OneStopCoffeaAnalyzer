@@ -6,9 +6,9 @@ import matplotlib.pyplot as plt
 from analyzer.postprocessing.style import Styler
 
 from analyzer.utils.structure_tools import commonDict
-from .annotations import addCMSBits, labelAxis
+from .annotations import labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig
+from .utils import saveFigVariants
 
 
 def plot2D(
@@ -35,14 +35,16 @@ def plot2D(
     labelAxis(ax, "y", h.axes)
 
     labelAxis(ax, "x", h.axes)
-    addCMSBits(
+    saveFigVariants(
+        fig,
         ax,
+        output_path,
         [meta],
+        plot_configuration=pc,
+        metadata=common_meta,
         extra_text=f"{common_meta['pipeline']}",
         text_color="white",
-        plot_configuration=pc,
     )
-    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
 
 
@@ -119,14 +121,15 @@ def plot2DSigBkg(
         frameon=True,
     )
 
-    addCMSBits(
+    common_meta = commonDict([bkg_hist.metadata, sig_hist.metadata], key=lambda x: x)
+    saveFigVariants(
+        fig,
         ax,
+        output_path,
         [sp],
+        plot_configuration=pc,
+        metadata=common_meta,
         extra_text=f"{sp.region_name}\n{bkg_hist.title}",
         text_color="white",
-        plot_configuration=plot_configuration,
     )
-
-    common_meta = commonDict([bkg_hist.metadata, sig_hist.metadata], key=lambda x: x)
-    saveFig(fig, output_path, metadata=common_meta, extension=pc.image_type)
     plt.close(fig)
