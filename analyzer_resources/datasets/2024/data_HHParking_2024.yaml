@@ -2,6 +2,8 @@
   title: Data
   sample_type: Data
   era: '2024'
+  other_data:
+    nanoversion: "V15"
   samples:
     - name: Run2024C-MINIv6NANOv15-v1_ParkingHH
       n_events: 105158321

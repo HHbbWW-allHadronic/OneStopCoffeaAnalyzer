@@ -29,6 +29,7 @@ class PlotSelectionFlow(BasePostprocessor):
     style_set: str | StyleSet = field(factory=StyleSet)
     scale: Literal["log", "linear"] = "linear"
     normalize: bool = False
+    show_yields: bool = False
 
     def getRunFuncs(self, group, prefix=None):
         common_meta = commonDict(group)
@@ -53,6 +54,7 @@ class PlotSelectionFlow(BasePostprocessor):
                 normalize=self.normalize,
                 scale=self.scale,
                 style_set=self.style_set,
+                show_yields=self.show_yields,
                 plot_configuration=pc,
                 ax_name=ax_name
             )

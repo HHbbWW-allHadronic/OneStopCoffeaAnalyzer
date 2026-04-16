@@ -178,6 +178,7 @@ def plotDictAsBars(
     ax_name=None,
     normalize=False,
     scale="linear",
+    show_yields=False,
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
@@ -192,6 +193,22 @@ def plotDictAsBars(
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
         if normalize: 
             h *= (1 / h[0].value)
+        if show_yields and normalize:
+            values = h.values()
+            errs = np.sqrt(h.variances())
+            edges = h.axes[0].edges
+            centers = 0.5 * (edges[:-1] + edges[1:])
+            centers, values, errs = centers[1:], values[1:], errs[1:]
+            for x, y, e in zip(centers, values, errs):
+                if y > 0:
+                    txt = ax.text(
+                        x, y+e,
+                        f"{100*y:.1f}%",
+                        ha="center",
+                        va="bottom",
+                        fontsize=20
+                    )
+                    txt._is_yield_label = True
         h.plot1d(
             ax=ax,
             label=title,

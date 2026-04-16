@@ -1,5 +1,30 @@
 {% import 'core.yaml' as core %}
 
+{%- macro signalmc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - noHLT_ObjDef2
+      - SignalOnly
+{%- endmacro %}
+
+{%- macro mc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - noHLT_ObjDef2
+{%- endmacro %}
+
+{%- macro data_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+{%- endmacro %}
+
+
 common_histograms: &common_histograms
   - module_name: TopVecHistograms
     prefix: "Jet"
@@ -243,26 +268,10 @@ analyzer:
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
-{%- macro signalmc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - noHLT_ObjDef2
-      - SignalOnly
-{%- endmacro %}
-
-{%- macro mc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - noHLT_ObjDef2
-{%- endmacro %}
-
 event_collections:
+  - dataset: 'data_HHParking_2024*'
+    pipelines:
+    {{ data_pipelines() }}
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
@@ -275,4 +284,3 @@ event_collections:
   - dataset: 'tt_semilep*2024'
     pipelines:
     {{ mc_pipelines() }}
-

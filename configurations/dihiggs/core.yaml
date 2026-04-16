@@ -83,10 +83,6 @@ common_objects: &common_objects
     input_col: goodJet
     output_col: HT
 
-  - module_name: HT
-    input_col: GenJet
-    output_col: GenJetHT
-
   - module_name: Count
     input_col: Jet
     output_col: NAK4Jet
@@ -94,10 +90,6 @@ common_objects: &common_objects
   - module_name: Count
     input_col: goodJet
     output_col: NJet
-
-  - module_name: Count
-    input_col: GenJet
-    output_col: NGenJet
 
   - module_name: Count
     input_col: MedB
