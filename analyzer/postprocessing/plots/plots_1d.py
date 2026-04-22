@@ -514,6 +514,12 @@ def plotRatio(
     )
 
     ax.set_yscale(scale)
+    if scale == "log":
+        # Ensure small signals are appropriately shown on plots
+        ymin = getYMin(numerators, denominator)
+        if ymin is not None:
+            ax.set_ylim(bottom=ymin * 0.1)
+
     scaleYAxis(ax)
 
     saveFig(fig, output_path, extension=pc.image_type)

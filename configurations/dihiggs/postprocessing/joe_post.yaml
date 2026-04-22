@@ -140,6 +140,36 @@ Postprocessing:
     - name: RatioPlot
       inputs:
         - "*/*/*/*"
+      ratio_type: "poisson"
+      show_den_unc: True
+      scale: log
+      ratio_ylim: null
+      ratio_hlines: [1]
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$).*"}        
+        group: {era.name: "*", name: "*", pipeline: "*"}
+        subgroups:
+          denominator:
+            select: {dataset_name: "!data*"}
+          numerator:
+            select: {dataset_name: "data*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datamc_{name}.png"
+
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
       ratio_height: 1
