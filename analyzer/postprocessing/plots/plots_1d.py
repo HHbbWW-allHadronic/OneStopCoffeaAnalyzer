@@ -17,6 +17,17 @@ def hist_sum(h):
     s = h.sum()
     return s.value if hasattr(s, 'value') else s
 
+def get_yerr(h):
+    vals = h.values()
+    vars = h.variances()
+    if vars is None:
+        yerr = np.sqrt(vals)
+    else:
+        yerr = np.sqrt(vars)
+    zero_mask = np.isclose(vals, 0.0, atol=1e-10)
+    yerr[zero_mask] = 0
+    return yerr
+
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
     import hist.intervals as hinter
 
@@ -27,6 +38,18 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
         )
     return ratios, unc
 
+def getYMin(histograms, stacked_hists):
+    all_values = []
+    for item, _ in histograms:
+        all_values.append(item.histogram.values())
+    for item, _ in stacked_hists:
+        all_values.append(item.histogram.values())
+
+    all_values = np.concatenate([v.flatten() for v in all_values])
+    nonzero = all_values[all_values > 0]
+    if len(nonzero) == 0:
+        return None
+    return nonzero.min()
 
 def plotOne(
     histograms,
@@ -61,7 +84,7 @@ def plotOne(
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
                 std = np.sqrt(np.average((centers - mean)**2, weights=counts))
-                title = f"{title}, Int.={integral}\nmean={mean:.3f}, std={std:.3f}"
+                title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
             for k, v in style.get(plottype="fill").items():
@@ -78,14 +101,7 @@ def plotOne(
         )
         if show_stacked_unc:
             stacked_total = ft.reduce(op.add, [x.item.histogram for x in stacked_hists])
-            vals = stacked_total.values()
-            vars = stacked_total.variances()
-            if vars is None:
-                yerr = np.sqrt(vals)
-            else:
-                yerr = np.sqrt(vars)
-            zero_mask = np.isclose(vals, 0.0, atol=1e-10)
-            yerr[zero_mask] = 0.0
+            yerr = get_yerr(stacked_total)
             
             mplhep.histplot(
                 stacked_total,
@@ -106,11 +122,12 @@ def plotOne(
             std = np.sqrt(np.average((centers - mean)**2, weights=counts))
             title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
+        yerr = get_yerr(h) if style.yerr else style.yerr
         h.plot1d(
             ax=ax,
             label=title,
             density=normalize,
-            yerr=style.yerr,
+            yerr=yerr,
             **style.get(),
         )
 
@@ -127,6 +144,11 @@ def plotOne(
     )
 
     ax.set_yscale(scale)
+    if scale == "log":
+        # Ensure small signals are appropriately shown on plots
+        ymin = getYMin(histograms, stacked_hists)
+        if ymin is not None:
+            ax.set_ylim(bottom=ymin * 0.1)
     addLegend(ax, pc)
 
     scaleYAxis(ax)
@@ -156,6 +178,7 @@ def plotDictAsBars(
     ax_name=None,
     normalize=False,
     scale="linear",
+    show_yields=False,
     plot_configuration=None,
 ):
     pc = plot_configuration or PlotConfiguration()
@@ -170,6 +193,22 @@ def plotDictAsBars(
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
         if normalize: 
             h *= (1 / h[0].value)
+        if show_yields and normalize:
+            values = h.values()
+            errs = np.sqrt(h.variances())
+            edges = h.axes[0].edges
+            centers = 0.5 * (edges[:-1] + edges[1:])
+            centers, values, errs = centers[1:], values[1:], errs[1:]
+            for x, y, e in zip(centers, values, errs):
+                if y > 0:
+                    txt = ax.text(
+                        x, y+e,
+                        f"{100*y:.1f}%",
+                        ha="center",
+                        va="bottom",
+                        fontsize=20
+                    )
+                    txt._is_yield_label = True
         h.plot1d(
             ax=ax,
             label=title,
@@ -213,7 +252,7 @@ def computeRatio(n, d, normalize=False, ratio_type="poisson"):
 def computeSignificance(n, d, normalize=False, ratio_type="poisson"):
     with np.errstate(divide="ignore", invalid="ignore"):
         significance = n / np.sqrt(d)
-
+    
     return significance, None
 
 
@@ -227,7 +266,7 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
 
 def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
     den_to_plot = sorted(denominators, key=lambda x: hist_sum(x.item.histogram))
-
+    
     hists = []
     titles = []
     style_kwargs = defaultdict(list)
@@ -237,7 +276,7 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
         hists.append(item.histogram)
         titles.append(meta.get("title") or meta["dataset_title"])
         style = styler.getStyle(meta)
-        for key, value in style.get().items():
+        for key, value in style.get(plottype="fill").items():
             style_kwargs[key].append(value)
 
     style_kwargs["histtype"] = style_kwargs["histtype"][0]
@@ -253,11 +292,13 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
     
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
     if show_den_unc:
+        yerr = get_yerr(den_total)
         mplhep.histplot(
             den_total,
             ax=ax,
             label="Den. Stat. Unc.",
             histtype="band",
+            yerr=yerr
         )
     return den_total
 
@@ -271,11 +312,13 @@ def plotUnstackedDenominators(ax, denominators, styler, *, normalize):
     for item, meta in den_to_plot:
         style = styler.getStyle(meta)
         den_styles.append(style)
-        item.histogram.plot1d(
+        hist = item.histogram
+        yerr = get_yerr(hist) if style.yerr else style.yerr
+        hist.plot1d(
             ax=ax,
             label=meta.get("title") or meta["dataset_title"],
             density=normalize,
-            yerr=style.yerr,
+            yerr=yerr,
             **style.get(),
         )
 
@@ -292,7 +335,7 @@ def plotMultiNumerators(
     ratio_type,
     x_values,
     ratio_func=computeRatio,
-    show_den_unc=True,
+    show_den_unc_ratio=True,
 ):
 
     for item, meta in numerators:
@@ -313,13 +356,13 @@ def plotMultiNumerators(
             ax=ax,
             label=meta.get("title") or meta["dataset_title"],
             density=normalize,
-            yerr=True,
+            yerr=get_yerr(hist),
             **style.get(),
         )
 
         plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style)
 
-    if show_den_unc:
+    if show_den_unc_ratio:
         with np.errstate(divide="ignore", invalid="ignore"):
             den_scaled_uncertainties = np.where(
                 den_total.values() != 0,
@@ -357,7 +400,7 @@ def plotSingleNumeratorMultiDen(
         ax=ax,
         label=numerator.metadata.get("title") or numerator.metadata["dataset_title"],
         density=normalize,
-        yerr=True,
+        yerr=get_yerr(hist),
         **n_style.get(),
     )
 
@@ -388,7 +431,8 @@ def plotRatio(
     no_stack=False,
     ratio_hlines=(1.0,),
     ratio_height=0.3,
-    show_den_unc=True
+    show_den_unc=True,
+    show_den_unc_ratio=False
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -438,7 +482,7 @@ def plotRatio(
             ratio_type=ratio_type,
             x_values=x_values,
             ratio_func=ratio_func,
-            show_den_unc=show_den_unc
+            show_den_unc_ratio=show_den_unc_ratio
         )
 
     for y in ratio_hlines:
@@ -470,6 +514,12 @@ def plotRatio(
     )
 
     ax.set_yscale(scale)
+    if scale == "log":
+        # Ensure small signals are appropriately shown on plots
+        ymin = getYMin(numerators, denominator)
+        if ymin is not None:
+            ax.set_ylim(bottom=ymin * 0.1)
+
     scaleYAxis(ax)
 
     saveFig(fig, output_path, extension=pc.image_type)

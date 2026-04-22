@@ -87,7 +87,7 @@ def runPostprocessors(
     parallel=None,
     prefix=None,
     loaded_results=None,
-    target_load_size: int = 1000000000,
+    target_load_size: int | None = None,
 ):
     converter = Converter()
     setupConverter(converter)

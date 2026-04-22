@@ -20,7 +20,9 @@ def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=
 def scaleYAxis(ax):
     children = ax.get_children()
     text_children = [
-        x for x in children if isinstance(x, mpl.text.Text | mpl.legend.Legend)
+        x for x in children 
+        if isinstance(x, mpl.text.Text | mpl.legend.Legend)
+        and not getattr(x, "_is_yield_label", False)
     ]
     # breakpoint()
     bbs = [t.get_tightbbox() for t in text_children]

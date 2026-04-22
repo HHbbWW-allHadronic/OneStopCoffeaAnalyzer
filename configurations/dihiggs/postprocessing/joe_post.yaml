@@ -4,33 +4,98 @@ Postprocessing:
     image_type: ".png"
     cms_text_color: Black
     legend_num_cols: 1
+  default_style_set: &default_style_set
+    styles:
+      - pattern:
+          dataset_name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          linestyle: null
+          marker: 'o'
+
 
   processors:
     - name: PlotSelectionFlow
       inputs:
-        - "*/*/*/selection"
+        - "*/*/*/*selection"
       scale: log
       normalize: True
       plot_configuration:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {type: SelectionFlow}
-        group: {era.name: "*", pipeline: "*"}
-      output_name: "plots/{era.name}/{pipeline}/cutflow.png"
+        select: {type: SelectionFlow, sample_type: "MC"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+        transforms:
+         - name: SumSelectionFlow
+           sum_match_pattern: {dataset_name: "tt*"}
+           new_meta_fields:
+             dataset_name: "tt"
+             title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/*selection"
+      scale: log
+      normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow, sample_type: "MC"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+        transforms:
+         - name: SumSelectionFlow
+           sum_match_pattern: {dataset_name: "!ggHH2b2V6q*"}
+           new_meta_fields:
+             dataset_name: "bkgd"
+             title: "Background"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_svb.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/*selection"
+      scale: log
+      normalize: True
+      show_yields: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow, dataset_name: "ggHH2b2V6q*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_s.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/*selection"
+      scale: log
+      normalize: True
+      show_yields: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow, dataset_name: "data*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_data.png"
+
 
     - name: Histogram1D
       inputs:
         - "*/*/*/*"
       scale: log
       normalize: False
-      show_info: True
+      show_info: False
+      style_set: *default_style_set
       structure:
-        select: {dataset_name: "*", name: "re:^(?!selection$|all_triggers$).*"}
+        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$).*"}
         group: {pipeline: "*", era.name: "*", name: "*"}
         subgroups:
-          unstacked: {select: {dataset_name: "ggHH2b2V6q*"}}
-          stacked: {select: {dataset_name: "!ggHH2b2V6q*"}}
+          unstacked: {select: {dataset_name: "re:^(data.*|ggHH2b2V6q.*)$"}}
+          stacked: {select: {dataset_name: "re:^(?!data.*|ggHH2b2V6q.*).*$"}}
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
@@ -39,29 +104,23 @@ Postprocessing:
             new_meta_fields:
               dataset_name: "tt"
               title: "$t\\overline{t}$"
-        styles:
-          - pattern: {dataset_name: "!gg*"}
-            style:
-              fill: true
-          - pattern: {dataset_name: "gg*"}
-            style:
-              fill: false
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
       inputs:
         - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_14_m"
+        - "*/*/*/nontop2b_fourjet_14_m"
+        - "*/*/*/JetN"
       ratio_type: "significance"
-      show_den_unc: False
-      scale: linear
+      show_den_unc: True
+      scale: log
       ratio_ylim: null
       ratio_hlines: []
       plot_configuration:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {dataset_name: "*", name: "*", pipeline: "*"}
+        select: {dataset_name: "*", name: "*", pipeline: "*", sample_type: "MC"}
         group: {era.name: "*", name: "*", pipeline: "*"}
         subgroups:
           denominator:
@@ -71,18 +130,54 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "poisson"
+      show_den_unc: True
+      scale: log
+      ratio_ylim: null
+      ratio_hlines: [1]
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$).*"}        
+        group: {era.name: "*", name: "*", pipeline: "*"}
+        subgroups:
+          denominator:
+            select: {dataset_name: "!data*"}
+          numerator:
+            select: {dataset_name: "data*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datamc_{name}.png"
+
 
     - name: RatioPlot
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
       ratio_ylim: [0 ,1.1]
-      ratio_scale: 1
-      show_den_unc: False
+      ratio_height: 1
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*NoSelection"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*NoSelection"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -98,6 +193,11 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_NoSelection/trigger_eff_{name}.png"
@@ -106,10 +206,13 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
-      show_den_unc: False
+      ratio_ylim: [0 ,1.1]
+      ratio_height: 1
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef2"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*ObjDef2"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -125,6 +228,11 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef2/trigger_eff_{name}.png"
@@ -133,10 +241,13 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       ratio_type: "efficiency"
-      show_den_unc: False
+      ratio_ylim: [0 ,1.1]
+      ratio_height: 1
+      show_den_unc: True
+      no_stack: True
       scale: log
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!selection$|all_triggers$).*", pipeline: "*ObjDef1"}
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$).*", pipeline: "*ObjDef1"}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:
@@ -163,4 +274,4 @@ Postprocessing:
       structure:
         select: {dataset_name: "*", pipeline: "*"}
         group: {era.name: "*", name: "*"}
-      output_name: "signal_yields.csv"
+      output_name: "plots/{era.name}/signal_trigger_yields.csv"
