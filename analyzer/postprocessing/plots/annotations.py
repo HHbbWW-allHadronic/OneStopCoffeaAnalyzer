@@ -1,6 +1,7 @@
 import mplhep
 
 from .common import PlotConfiguration
+import matplotlib.patheffects as path_effects
 
 
 def _getSampleCategory(all_meta):
@@ -33,7 +34,7 @@ def _buildCMSText(cms_text, all_meta):
             data_label = "CMS Simulation"
         else:
             data_label = "CMS Data"
-        return "", f"Private Work ({data_label})"
+        return "", f"Private Work\n({data_label})"
     else:
         if sim_only:
             label = f"Simulation {label}" if label else "Simulation"
@@ -100,6 +101,14 @@ def addCMSBits(
         )
         artists = (label_artist, None, lumi_artist, None)
 
+    for artist in artists:
+        if artist:
+            artist.set_path_effects(
+                [
+                    path_effects.Stroke(linewidth=1, foreground="white"),
+                    path_effects.Normal(),
+                ]
+            )
     ax._cms_text_artists = artists
     return artists
 
