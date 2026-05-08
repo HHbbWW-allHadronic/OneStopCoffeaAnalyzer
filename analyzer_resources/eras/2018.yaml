@@ -39,7 +39,19 @@
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2018_UL/btagging.json.gz
-    systematics: [hf,lf,hfstats1,hfstats2]
+    systematics: [hf, lf, hfstats1_2018, hfstats2_2018]
+    jes_correlated_systematics:
+      - Regrouped_Absolute
+      - Regrouped_Absolute_2018
+      - Regrouped_FlavorQCD
+      - Regrouped_BBEC1
+      - Regrouped_BBEC1_2018
+      - Regrouped_EC2
+      - Regrouped_EC2_2018
+      - Regrouped_HF
+      - Regrouped_HF_2018
+      - Regrouped_RelativeSample_2018
+      - Regrouped_RelativeBal
       
 
   pileup_scale_factors:
