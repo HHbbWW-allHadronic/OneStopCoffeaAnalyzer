@@ -128,7 +128,19 @@ def loadPostprocessor(path):
     if "Postprocessing" in data:
         data = data["Postprocessing"]
 
-    postprocessor = converter.structure(data, PostprocessorConfig)
+    try:
+        postprocessor = converter.structure(data, PostprocessorConfig)
+    except Exception as e:
+        from cattrs.errors import BaseValidationError
+        from cattrs.v import transform_error
+
+        if isinstance(e, BaseValidationError):
+            errors = transform_error(e)
+            error_msg = "\n".join([f"  - {err}" for err in errors])
+            raise ValueError(
+                f"Failed to load postprocessor due to configuration validation errors:\n{error_msg}"
+            ) from None
+        raise
 
     for processor in postprocessor.processors:
         if processor.style_set is None:
