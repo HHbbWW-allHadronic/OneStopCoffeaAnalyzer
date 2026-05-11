@@ -4,6 +4,7 @@ import correctionlib
 from analyzer.modules.common.jets import JetScaleCorrections
 from analyzer.modules.common.bjet_sf import BJetShapeSF
 from analyzer.core.datasets import SampleType
+from pathlib import Path
 from analyzer.core.columns import Column
 from analyzer.core.run_builders import CompleteSysts
 from analyzer.core.param_specs import ModuleParameterSpec
@@ -18,6 +19,7 @@ def load_era_metadata(era_name):
     return data[0]
 
 
+@pytest.mark.skipif(not Path("/cvmfs").exists(), reason="CVMFS Not Available")
 @pytest.mark.parametrize("era_name", ["2018", "2017", "2016_preVFP", "2016_postVFP"])
 def test_jes_btag_correlation_specs(era_name):
     metadata = {"era": load_era_metadata(era_name), "sample_type": SampleType.MC}
@@ -66,6 +68,7 @@ def test_jes_btag_correlation_specs(era_name):
                 assert val == mapped
 
 
+@pytest.mark.skipif(not Path("/cvmfs").exists(), reason="CVMFS Not Available")
 @pytest.mark.parametrize("era_name", ["2018", "2023_preBPix"])
 def test_run_builder_integration(era_name):
     metadata = {
@@ -104,7 +107,9 @@ def test_run_builder_integration(era_name):
     assert len(combos) == expected_count
 
     # Verify a correlated combo only if it's supposed to be correlated
-    jes_correlated = metadata["era"]["btag_scale_factors"].get("jes_correlated_systematics", [])
+    jes_correlated = metadata["era"]["btag_scale_factors"].get(
+        "jes_correlated_systematics", []
+    )
     if jes_correlated:
         regrouped_abs_up = "up_jesRegrouped_Absolute"
         found_correlated = False
@@ -113,7 +118,7 @@ def test_run_builder_integration(era_name):
                 # Should have mapped to up_jesAbsolute
                 assert values.get("bjetshapesf-variation") == "up_jesAbsolute"
                 found_correlated = True
-        
+
         assert found_correlated, f"Could not find combo for {regrouped_abs_up}"
 
     # Check that we have weight variations too
@@ -127,6 +132,7 @@ def test_run_builder_integration(era_name):
     assert found_btag_lf, "Could not find independent btag variation up_lf"
 
 
+@pytest.mark.skipif(not Path("/cvmfs").exists(), reason="CVMFS Not Available")
 @pytest.mark.parametrize(
     "era_name",
     [
