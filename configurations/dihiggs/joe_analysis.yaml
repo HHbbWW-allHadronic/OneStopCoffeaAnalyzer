@@ -44,11 +44,11 @@ med_mass_plane: &med_mass_plane
       - name: "b_dijet"
         start: 0
         stop: 500
-        bins: 50
+        bins: 20
       - name: "nontop2b_fourjet"
         start: 0
-        stop: 500
-        bins: 50
+        stop: 800
+        bins: 20
 
   - module_name: FourVecHistograms
     input_col: nontop2b_med
@@ -69,11 +69,11 @@ tight_mass_plane: &tight_mass_plane
       - name: "b_dijet"
         start: 0
         stop: 500
-        bins: 50
+        bins: 20
       - name: "nontop2b_fourjet"
         start: 0
-        stop: 500
-        bins: 50
+        stop: 800
+        bins: 20
 
   - module_name: FourVecHistograms
     input_col: nontop2b_tight

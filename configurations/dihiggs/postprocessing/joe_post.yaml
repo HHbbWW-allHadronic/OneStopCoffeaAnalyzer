@@ -20,67 +20,41 @@ Postprocessing:
       inputs:
         - "*/*/*/*selection"
       scale: log
+      show_yields: True
       normalize: True
       plot_configuration:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {type: SelectionFlow, sample_type: "MC"}
-        group: {era.name: "*", pipeline: "*", name: "*"}
+        select: {type: SelectionFlow}
+        group: {era.name: "*", pipeline: "*", name: "*", dataset_name: "*"}
         transforms:
-         - name: SumSelectionFlow
-           sum_match_pattern: {dataset_name: "tt*"}
-           new_meta_fields:
-             dataset_name: "tt"
-             title: "$t\\overline{t}$"
-      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow.png"
+          - name: SumSelectionFlow
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_{dataset_name}.png"
 
     - name: PlotSelectionFlow
       inputs:
         - "*/*/*/*selection"
       scale: log
+      show_yields: True
       normalize: True
       plot_configuration:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {type: SelectionFlow, sample_type: "MC"}
+        select: {type: SelectionFlow, sample_type: "MC", dataset_name : "!ggHH2b2V6q"}
         group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
          - name: SumSelectionFlow
-           sum_match_pattern: {dataset_name: "!ggHH2b2V6q*"}
+           sum_match_pattern: {dataset_name: "*"}
            new_meta_fields:
              dataset_name: "bkgd"
              title: "Background"
-      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_svb.png"
-
-    - name: PlotSelectionFlow
-      inputs:
-        - "*/*/*/*selection"
-      scale: log
-      normalize: True
-      show_yields: True
-      plot_configuration:
-        <<: *default_plot_config
-        extra_text: "{pipeline}"
-      structure:
-        select: {type: SelectionFlow, dataset_name: "ggHH2b2V6q*"}
-        group: {era.name: "*", pipeline: "*", name: "*"}
-      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_s.png"
-
-    - name: PlotSelectionFlow
-      inputs:
-        - "*/*/*/*selection"
-      scale: log
-      normalize: True
-      show_yields: True
-      plot_configuration:
-        <<: *default_plot_config
-        extra_text: "{pipeline}"
-      structure:
-        select: {type: SelectionFlow, dataset_name: "data*"}
-        group: {era.name: "*", pipeline: "*", name: "*"}
-      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_data.png"
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_b.png"
 
     - name: Histogram2D
       inputs:
@@ -103,7 +77,6 @@ Postprocessing:
               dataset_name: "tt"
               title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
-
 
     - name: Histogram1D
       inputs:
