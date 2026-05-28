@@ -6,7 +6,8 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef2
-      - noHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
       - SignalOnly
 {%- endmacro %}
 
@@ -16,14 +17,67 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef2
-      - noHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
 {%- endmacro %}
 
 {%- macro data_pipelines() %}
       - withHLT_NoSelection
-      - NoSelection
+      - withHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
 {%- endmacro %}
 
+med_mass_plane: &med_mass_plane
+  - module_name: JetComboHistogram2D
+    prefixes:
+      - "b_dijet"
+      - "nontop2b_fourjet"
+    input_cols:
+      - MedB
+      - nontop2b_med
+    jet_combos:
+      - [0, 1]
+      - [0, 1, 2, 3]
+    mass_axes:
+      - name: "b_dijet"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_fourjet"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_med
+    hist_name: nontop2b
+
+tight_mass_plane: &tight_mass_plane
+  - module_name: JetComboHistogram2D
+    prefixes:
+      - "b_dijet"
+      - "nontop2b_fourjet"
+    input_cols:
+      - TightB
+      - nontop2b_tight
+    jet_combos:
+      - [0, 1]
+      - [0, 1, 2, 3]
+    mass_axes:
+      - name: "b_dijet"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_fourjet"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_tight
+    hist_name: nontop2b
 
 common_histograms: &common_histograms
   - module_name: TopVecHistograms
@@ -90,31 +144,18 @@ common_histograms: &common_histograms
         stop: 13.5
         bins: 14
 
-  - module_name: JetComboHistograms
-    input_col: MedB
-    prefix: "b_dijet"
-    jet_combos:
-      - [0,1]
-    mass_axis:
-      name: "b_dijet"
-      start: 0
-      stop: 500
-      bins: 50
-
   - module_name: FourVecHistograms
-    input_col: nontop2b
-    hist_name: nontop2b
+    input_col: TightB
+    hist_name: TightB
 
-  - module_name: JetComboHistograms
-    input_col: nontop2b
-    prefix: "nontop2b_fourjet"
-    jet_combos:
-      - [0,1,2,3]
-    mass_axis:
-      name: "nontop2b_fourjet"
-      start: 0
-      stop: 500
-      bins: 50
+  - module_name: SimpleHistogram
+    hist_name: TightBN
+    input_cols: [NTightB]
+    axes:
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: FourVecHistograms
     input_col: Jet
@@ -132,8 +173,8 @@ common_histograms: &common_histograms
     axes: 
       - name: "$N_{AK4Jets}$"
         start: -0.5
-        stop: 13.5
-        bins: 14
+        stop: 20.5
+        bins: 21
 
   - module_name: SimpleHistogram
     hist_name: AK4JetQvG
@@ -241,26 +282,37 @@ analyzer:
   withHLT_NoSelection:
     - *withHLT_NoSelection
     - *common_histograms
+    - *med_mass_plane
 
   NoSelection:
     - *NoSelection
     - *common_histograms
+    - *med_mass_plane
 
   withHLT_ObjDef1:
     - *withHLT_ObjDef1
     - *common_histograms
+    - *med_mass_plane
 
   noHLT_ObjDef1:
     - *noHLT_ObjDef1
     - *common_histograms
+    - *med_mass_plane
 
   withHLT_ObjDef2:
     - *withHLT_ObjDef2
     - *common_histograms
+    - *med_mass_plane
 
-  noHLT_ObjDef2:
-    - *noHLT_ObjDef2
+  withHLT_ObjDef3:
+    - *withHLT_ObjDef3
     - *common_histograms
+    - *tight_mass_plane
+
+  withHLT_ObjDef4:
+    - *withHLT_ObjDef4
+    - *common_histograms 
+    - *tight_mass_plane
 
   SignalOnly:
     - module_name: SelectAllTriggers

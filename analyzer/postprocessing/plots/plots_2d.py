@@ -46,7 +46,7 @@ def plot2D(
         ax,
         [meta],
         extra_text=f"{common_meta['pipeline']}",
-        text_color="white",
+        text_color=pc.cms_text_color or "white",
         plot_configuration=pc,
     )
     saveFig(fig, output_path, extension=pc.image_type)
@@ -129,7 +129,7 @@ def plot2DSigBkg(
         ax,
         [sp],
         extra_text=f"{sp.region_name}\n{bkg_hist.title}",
-        text_color="white",
+        text_color=plot_configuratiton.cms_text_color or "white",
         plot_configuration=plot_configuration,
     )
     saveFig(fig, output_path, extension=pc.image_type)
