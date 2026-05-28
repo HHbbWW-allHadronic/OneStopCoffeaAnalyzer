@@ -3,7 +3,7 @@ from analyzer.core.columns import Column
 from attrs import define, field, evolve
 from ..common.axis import RegularAxis
 from ..common.histogram_builder import makeHistogram
-
+import awkward as ak
 
 import correctionlib
 import logging
