@@ -238,66 +238,66 @@ looselep_tightb_selection: &looselep_tightb_selection
 
      
 withHLT_ObjDef4: &withHLT_ObjDef4
+  - *common_objects
   - *hlt_selection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - *looselep_tightb_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 withHLT_ObjDef3: &withHLT_ObjDef3
+  - *common_objects
   - *hlt_selection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - *tightlep_tightb_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 withHLT_ObjDef2: &withHLT_ObjDef2
+  - *common_objects
   - *hlt_selection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - *looselep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 withHLT_ObjDef1: &withHLT_ObjDef1
+  - *common_objects
   - *hlt_selection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - *tightlep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 noHLT_ObjDef1: &noHLT_ObjDef1
+  - *common_objects
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - *tightlep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
 
 withHLT_NoSelection: &withHLT_NoSelection
+  - *common_objects
   - *hlt_selection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
   - module_name: SelectOnColumns
     sel_name: selection
 
 NoSelection: &NoSelection
+  - *common_objects
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
-  - *common_objects
 {%- endmacro %}
