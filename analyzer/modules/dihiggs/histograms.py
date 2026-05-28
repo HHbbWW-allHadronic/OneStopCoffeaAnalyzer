@@ -129,3 +129,30 @@ class JetComboHistogram2D(AnalyzerModule):
 
             if axis.name:
                 new_name = f"{axis.name} {name_suffix}"
+            else:
+                new_name = name_suffix
+
+            axis = evolve(axis, name=new_name)
+            axes.append(axis)
+
+        combined_mask = masks[0]
+        for mask in masks[1:]:
+            combined_mask = combined_mask & mask
+
+        ret.append(
+            makeHistogram(
+                names, 
+                columns,
+                axes,
+                masses,
+                mask=combined_mask,
+            )
+        )
+
+        return columns, ret
+
+    def outputs(self, metadata):
+        return []
+
+    def inputs(self, metadata):
+        return self.input_cols

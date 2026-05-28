@@ -1,5 +1,8 @@
 {% macro objects() -%}
 common_objects: &common_objects
+  - module_name: JetID
+    input_col: Jet
+    output_col: Jet.jetId
   - module_name: HElectronMaker
     input_col: Electron
     output_col: tightElectron
@@ -133,9 +136,6 @@ hlt_selection: &hlt_selection
     min_val: 300
 
 eventlevel_selection: &eventlevel_selection
-  - module_name: JetID
-    input_col: Jet
-    output_col: Jet.jetId
   - module_name: GoldenLumi
   - module_name: VetoMap
     input_col: Jet
