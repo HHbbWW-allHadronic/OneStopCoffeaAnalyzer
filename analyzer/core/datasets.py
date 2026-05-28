@@ -77,7 +77,7 @@ def configureConverter(conv):
                 if k not in f:
                     source[k] = value.pop(k)
             value["source"] = source
-        ret = base_sample_hook(value)
+        ret = base_sample_hook(value, type)
         return ret
 
     base_dataset_hook = conv.get_structure_hook(Dataset)
@@ -91,7 +91,7 @@ def configureConverter(conv):
                 if k not in f:
                     sample[k] = value.pop(k)
             value["samples"] = [sample]
-        ret = base_dataset_hook(value)
+        ret = base_dataset_hook(value, type)
         return ret
 
 

@@ -158,10 +158,13 @@ class NNMassPlots(AnalyzerModule):
     ratio_range: tuple[float, float] = (0.0, 1.0)
     ratio_only: bool = False
     bins: int = 60
+    y_bins: int | None = None
 
     def run(self, columns, params):
         chi_m = columns[self.m3_input]
         stop_m = columns[self.m4_input]
+
+        y_bins = self.y_bins or self.bins
 
         ret = []
         ret.append(
@@ -206,7 +209,7 @@ class NNMassPlots(AnalyzerModule):
                             unit="GeV",
                         ),
                         RegularAxis(
-                            self.bins,
+                            y_bins,
                             self.m3_range[0],
                             self.m3_range[1],
                             r"$m_{\chi}$",
@@ -229,7 +232,7 @@ class NNMassPlots(AnalyzerModule):
                         unit="GeV",
                     ),
                     RegularAxis(
-                        self.bins,
+                        y_bins,
                         self.ratio_range[0],
                         self.ratio_range[1],
                         r"$m_{\chi} / m_{\tilde{t}}$",

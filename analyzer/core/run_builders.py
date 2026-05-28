@@ -7,18 +7,48 @@ import abc
 from analyzer.utils.querying import BasePattern
 import copy
 from analyzer.core.param_specs import ModuleParameterSpec, getTags
+import logging
+from typing import Callable
+from collections import defaultdict
+
+logger = logging.getLogger("analyzer.core")
+
+
+def _buildDrivenMap(
+    spec: ModuleParameterSpec,
+) -> dict[str, list[tuple[str, Callable[[str], str | None]]]]:
+    """driver_param_name -> [(driven_param_name, mapping_fn), ...]."""
+    driven_map = defaultdict(list)
+    for param_name, param_spec in spec.items():
+        if not param_spec.driven_by:
+            continue
+        for driver_name, mapping_fn in param_spec.driven_by.items():
+            driven_map[driver_name].append((param_name, mapping_fn))
+    return driven_map
 
 
 def buildCombos(spec, tag):
     ret = []
     tup = getTags(spec, tag)
     central = {k: v.default_value for k, v in tup.items()}
+    driven_map = _buildDrivenMap(spec)
+
     for k, v in tup.items():
-        for p in v.possible_values:
+        independent = v.getIndependentValues(spec)
+        for p in independent:
             if p == v.default_value:
                 continue
             c = copy.deepcopy(central)
             c[k] = p
+            if k in driven_map:
+                for driven_param, mapping_fn in driven_map[k]:
+                    correlated_value = mapping_fn(p)
+                    if correlated_value is not None:
+                        c[driven_param] = correlated_value
+                        logger.debug(
+                            f"Correlation: {k}={p} -> {driven_param}={correlated_value}"
+                        )
+
             ret.append(["_".join([k, p]), c])
     return ret
 

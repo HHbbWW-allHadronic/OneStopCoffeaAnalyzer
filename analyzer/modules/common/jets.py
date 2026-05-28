@@ -10,6 +10,7 @@ import itertools as it
 from attrs import define, field, evolve
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 import correctionlib
@@ -69,6 +70,20 @@ class FilterNear(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=[
+                    ADLStatement("take", self.target_col.adl_name),
+                    ADLStatement(
+                        "reject", f"dR(this, {self.near_col.adl_name}) < {self.max_dr}"
+                    ),
+                ],
+            )
+        ]
 
 
 @define
@@ -292,6 +307,22 @@ class HT(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+    def adlExport(self, metadata):
+        return [
+            ADLBlock(
+                block_type="define",
+                name="",
+                statements=[
+                    ADLStatement(
+                        "define",
+                        f"{self.output_col.adl_name} = sum(pt({self.input_col.adl_name}))",
+                    )
+                ],
+            )
+        ]
+
+
+
 @define
 class ScalarCut(AnalyzerModule):
     """
@@ -393,6 +424,27 @@ class JetFilter(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        statements = [
+            ADLStatement("take", self.input_col.adl_name),
+            ADLStatement("select", f"pt > {self.min_pt}"),
+            ADLStatement("select", f"abs(eta) < {self.max_abs_eta}"),
+        ]
+        if self.include_jet_id:
+            statements.append(ADLStatement("select", "jetId & 6 != 0  # Tight jet ID"))
+        if self.include_pu_id:
+            statements.append(
+                ADLStatement("select", "pt > 50 or puId & 2 != 0  # PU ID")
+            )
+
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=statements,
+            )
+        ]
 
 
 @define

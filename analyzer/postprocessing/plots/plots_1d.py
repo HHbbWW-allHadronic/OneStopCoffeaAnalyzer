@@ -2,6 +2,7 @@ import numpy as np
 from rich import print
 import operator as op
 from collections import defaultdict
+from analyzer.utils.structure_tools import commonDict
 import functools as ft
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -9,9 +10,9 @@ import mplhep
 from analyzer.postprocessing.style import Styler
 
 # from ..grouping import doFormatting
-from .annotations import addCMSBits, labelAxis
+from .annotations import labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig, scaleYAxis, addLegend
+from .utils import saveFig, saveFigVariants, scaleYAxis, addLegend
 
 def hist_sum(h):
     s = h.sum()
@@ -136,12 +137,8 @@ def plotOne(
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
-    addCMSBits(
-        ax,
-        [x.metadata for x in histograms] + [x.metadata for x in stacked_hists],
-        extra_text=f"{common_metadata.get('pipeline')}",
-        plot_configuration=pc,
-    )
+
+    all_meta = [x.metadata for x in histograms] + [x.metadata for x in stacked_hists]
 
     ax.set_yscale(scale)
     if scale == "log":
@@ -155,7 +152,16 @@ def plotOne(
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min:
         ax.set_ylim(bottom=style.y_min)
-    saveFig(fig, output_path, extension=pc.image_type)
+
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_metadata,
+        extra_text=f"{common_metadata['pipeline']}",
+    )
     plt.close(fig)
 
 
@@ -218,16 +224,19 @@ def plotDictAsBars(
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
     ax.tick_params(axis="x", rotation=90)
-    addCMSBits(
-        ax,
-        [x.metadata for x in items],
-        plot_configuration=pc,
-    )
+    all_meta = [x.metadata for x in items]
     ax.set_yscale(scale)
     addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
     scaleYAxis(ax)
-    saveFig(fig, output_path, extension=pc.image_type)
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
     plt.close(fig)
 
 
@@ -507,11 +516,7 @@ def plotRatio(
     ax.set_xlabel("")
 
     addLegend(ax, pc)
-    addCMSBits(
-        ax,
-        [x.metadata for x in numerators] + [x.metadata for x in denominator],
-        plot_configuration=pc,
-    )
+    all_meta = [x.metadata for x in numerators] + [x.metadata for x in denominator]
 
     ax.set_yscale(scale)
     if scale == "log":
@@ -522,7 +527,16 @@ def plotRatio(
 
     scaleYAxis(ax)
 
-    saveFig(fig, output_path, extension=pc.image_type)
+    common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
+
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
     plt.close(fig)
 
 
@@ -617,9 +631,17 @@ def plotRatioOfRatios(
         x.metadata
         for x in [num_numerator, num_denominator, den_numerator, den_denominator]
     ]
-    addCMSBits(ax, all_meta, plot_configuration=pc)
 
     ax.set_yscale(scale)
 
-    saveFig(fig, output_path, extension=pc.image_type)
+    common_meta = commonDict(all_meta, key=lambda x: x)
+
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
     plt.close(fig)

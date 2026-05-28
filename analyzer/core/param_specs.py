@@ -10,7 +10,6 @@ import logging
 logger = logging.getLogger("analyzer.core")
 
 ModuleParameterValues = dict[str, Any]
-PipelineParameterValues = dict[str, ModuleParameterValues]
 
 
 @define
@@ -19,17 +18,31 @@ class ParameterSpec:
     possible_values: Collection | None = None
     tags: set[str] = field(factory=set)
     param_type: type | None = None
-    correlation_function: Callable | None = None
-    correlated_values: Collection | None = None
 
-    @property
-    def free_values(self):
-        return set(self.possible_values or []) - set(self.correlated_values or [])
+    driven_by: dict[str, Callable[[str], str | None]] | None = None
+
+    def getIndependentValues(self, full_spec: dict[str, "ParameterSpec"]) -> set:
+        if not self.possible_values:
+            return set()
+        if not self.driven_by:
+            return set(self.possible_values)
+
+        driven_values = set()
+        for driver_name, mapping_fn in self.driven_by.items():
+            if driver_name not in full_spec:
+                continue
+            driver_spec = full_spec[driver_name]
+            for driver_val in driver_spec.possible_values or []:
+                result = mapping_fn(driver_val)
+                if result is not None:
+                    driven_values.add(result)
+
+        return set(self.possible_values) - driven_values
+
 
 def getTags(multi_spec, *tags):
-    return {
-        x: y for x, y in multi_spec.items() if any(t in y.tags for t in tags)
-    }
+    return {x: y for x, y in multi_spec.items() if any(t in y.tags for t in tags)}
+
 
 def getWithValues(multi_spec, values: dict[str, Any]):
     ret = {}
@@ -51,10 +64,10 @@ def getWithValues(multi_spec, values: dict[str, Any]):
                 )
             ret[name] = spec.default_value
     return ret
-    
+
 
 def toTuples(d):
     return {(x, y): v for x, s in d.items() for y, v in s.items()}
 
 
-ModuleParameterSpec = dict[str,ParameterSpec]
+ModuleParameterSpec = dict[str, ParameterSpec]

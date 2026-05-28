@@ -42,7 +42,19 @@ def loadAnalysis(path):
         loadModuleFromPath(p.stem, path)
 
     setupConverter(converter)
-    analysis = converter.structure(data, Analysis)
+    try:
+        analysis = converter.structure(data, Analysis)
+    except Exception as e:
+        from cattrs.errors import BaseValidationError
+        from cattrs.v import transform_error
+
+        if isinstance(e, BaseValidationError):
+            errors = transform_error(e)
+            error_msg = "\n".join([f"  - {err}" for err in errors])
+            raise ValueError(
+                f"Failed to load analysis due to configuration validation errors:\n{error_msg}"
+            ) from None
+        raise
     return analysis
 
 

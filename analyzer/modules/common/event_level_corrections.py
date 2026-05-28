@@ -13,9 +13,10 @@ from analyzer.core.analysis_modules import (
 from analyzer.core.columns import Column
 from attrs import define, field
 import correctionlib
+import correctionlib
 import awkward as ak
 import correctionlib.convert
-import correctionlib
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 @define
@@ -189,6 +190,7 @@ class GoldenLumi(AnalyzerModule):
 
     def run(self, columns, params):
         import coffea.lumi_tools as ltools
+
         metadata = columns.metadata
         lumi_json = metadata["era"]["golden_json"]
         lmask = ltools.LumiMask(lumi_json)
@@ -230,3 +232,10 @@ class NoiseFilter(AnalyzerModule):
         sel = ft.reduce(op.and_, [columns["Flag"][x] for x in noise_flags])
         addSelection(columns, self.selection_name, sel)
         return columns, []
+
+    def adlExport(self, metadata):
+        noise_flags = metadata["era"]["noise_filters"]
+        statements = [
+            ADLStatement("select", f"Flag_{flag} == True") for flag in noise_flags
+        ]
+        return [ADLBlock(block_type="region_statement", name="", statements=statements)]

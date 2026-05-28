@@ -76,6 +76,10 @@ class Column:
     def __repr__(self):
         return ".".join(self.fields)
 
+    @property
+    def adl_name(self):
+        return self.fields[-1] if self.fields else ""
+
     @classmethod
     def _structure(cls, data: str, conv):
         if isinstance(data, str):

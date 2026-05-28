@@ -16,8 +16,11 @@ from analyzer.utils.structure_tools import SimpleCache
 from analyzer.core.columns import TrackedColumns, Column, ColumnCollection
 import contextlib
 import abc
-from typing import Any
+from typing import Any, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from analyzer.core.adl import ADLBlock
 
 logger = logging.getLogger("analyzer.core")
 
@@ -115,6 +118,9 @@ class BaseAnalyzerModule(abc.ABC):
 
     def neededResources(self, metadata) -> list[str]:
         return []
+
+    def adlExport(self, metadata) -> list["ADLBlock"] | None:
+        return None
 
     @classmethod
     def name(cls):

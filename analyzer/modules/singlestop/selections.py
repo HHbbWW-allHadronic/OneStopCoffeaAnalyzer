@@ -3,6 +3,7 @@ from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
 import awkward as ak
 from attrs import define
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 @define
@@ -36,6 +37,22 @@ class VecDRSelection(AnalyzerModule):
         addSelection(columns, self.selection_name, sel)
         return columns, []
 
+    def adlExport(self, metadata):
+        statements = []
+        col_name = self.input_col.adl_name
+        if self.min_dr is not None:
+            statements.append(ADLStatement("select", f"dR({col_name}[{self.idx_1}], {col_name}[{self.idx_2}]) >= {self.min_dr}"))
+        if self.max_dr is not None:
+            statements.append(ADLStatement("select", f"dR({col_name}[{self.idx_1}], {col_name}[{self.idx_2}]) <= {self.max_dr}"))
+        
+        return [
+            ADLBlock(
+                block_type="region_statement",
+                name="",
+                statements=statements
+            )
+        ]
+
 
 @define
 class VecPt(AnalyzerModule):
@@ -67,3 +84,19 @@ class VecPt(AnalyzerModule):
         sel = ak.fill_none(sel, False)
         addSelection(columns, self.selection_name, sel)
         return columns, []
+
+    def adlExport(self, metadata):
+        statements = []
+        col_name = self.input_col.adl_name
+        if self.min_pt is not None:
+            statements.append(ADLStatement("select", f"pt({col_name}[{self.idx}]) >= {self.min_pt}"))
+        if self.max_pt is not None:
+            statements.append(ADLStatement("select", f"pt({col_name}[{self.idx}]) <= {self.max_pt}"))
+        
+        return [
+            ADLBlock(
+                block_type="region_statement",
+                name="",
+                statements=statements
+            )
+        ]

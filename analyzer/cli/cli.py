@@ -203,10 +203,21 @@ def browse(inputs, interpretter, peek, merge_datasets):
 @click.argument("inputs", type=str, nargs=-1)
 @click.option("--prefix", type=str, required=False, default=None)
 @click.option("--parallel", type=int, required=False, default=None)
-def postprocess(configuration, inputs, parallel, prefix):
+@click.option("--target-load-size", type=int, required=False, default=None)
+@click.option("--include-sidecar", is_flag=True, default=False)
+def postprocess(
+    configuration, inputs, parallel, prefix, target_load_size, include_sidecar
+):
     from analyzer.postprocessing.running import runPostprocessors
 
-    runPostprocessors(configuration, inputs, parallel=parallel, prefix=prefix)
+    runPostprocessors(
+        configuration,
+        inputs,
+        parallel=parallel,
+        prefix=prefix,
+        target_load_size=target_load_size,
+        include_sidecar=include_sidecar,
+    )
 
 
 @cli.command()
@@ -349,6 +360,71 @@ def searchModules(query):
     from analyzer.cli.module_search import searchModules as runSearch
 
     runSearch(query)
+
+
+@cli.command("export-adl")
+@click.argument("config-path", type=str)
+@click.option(
+    "--metadata",
+    "-m",
+    multiple=True,
+    type=str,
+    help="Metadata sets in format key=value,key=value. Example: era=2018,type=MC,name=2018_MC",
+)
+@click.option(
+    "--output-dir", "-o", type=str, default=".", help="Directory to save the ADL files"
+)
+@click.option(
+    "--ignore-module",
+    multiple=True,
+    type=str,
+    help="Regex pattern of module names to ignore",
+)
+def exportAdl(config_path, metadata, output_dir, ignore_module):
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.core.adl import MetadataSpec, buildMetadata
+    from analyzer.core.running import getRepos
+    from pathlib import Path
+    from analyzer.core.datasets import SampleType
+
+    analysis = loadAnalysis(config_path)
+    dataset_repo, era_repo = getRepos(
+        analysis.extra_dataset_paths, analysis.extra_era_paths
+    )
+
+    outdir = Path(output_dir)
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    ignore_pattern = None
+    if ignore_module:
+        ignore_pattern = "|".join(f"({m})" for m in ignore_module)
+
+    if not metadata:
+        print("Warning: No metadata specified. Using default 2018 MC context.")
+        metadata = ["era=2018,type=MC,name=2018_MC"]
+
+    for m_str in metadata:
+        m_dict = dict(kv.split("=") for kv in m_str.split(","))
+        era = m_dict.get("era", "2018")
+        sample_type = m_dict.get("type", "MC")
+        label = m_dict.get("name", f"{era}_{sample_type}")
+
+        st = SampleType.MC if sample_type.upper() == "MC" else SampleType.Data
+        spec = MetadataSpec(era=era, sampleType=st, label=label)
+
+        full_meta = buildMetadata(spec, era_repo)
+
+        adl_content = analysis.analyzer.exportAdl(
+            metadata=full_meta,
+            ignore_pattern=ignore_pattern,
+            title=f"Analysis Export for {label}",
+            config_path=config_path,
+        )
+
+        out_file = outdir / f"{label}.adl"
+        with open(out_file, "w") as f:
+            f.write(adl_content)
+        print(f"Exported ADL to {out_file}")
 
 
 def main():

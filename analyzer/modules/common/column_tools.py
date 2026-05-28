@@ -10,6 +10,7 @@ import itertools as it
 from attrs import define, field, evolve
 from .axis import RegularAxis
 from .histogram_builder import makeHistogram
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 import correctionlib
@@ -98,3 +99,14 @@ class Concatenate(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        input_names = [c.adl_name for c in self.input_cols]
+        union_expr = "union(" + ", ".join(input_names) + ")"
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=[ADLStatement("take", union_expr)]
+            )
+        ]

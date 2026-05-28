@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 
 from analyzer.postprocessing.style import Styler
 
-from .annotations import addCMSBits, labelAxis
+from analyzer.utils.structure_tools import commonDict
+from .annotations import labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig
+from .utils import saveFigVariants
+import mplhep
 
 
 def plot2D(
@@ -20,6 +22,7 @@ def plot2D(
     color_scale="linear",
     vline=None,
     hline=None,
+    cbar_title="Events",
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -30,10 +33,13 @@ def plot2D(
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        h.plot2d(norm=matplotlib.colors.LogNorm(), ax=ax)
+        objs = mplhep.hist2dplot(h, norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-        h.plot2d(ax=ax)
-    
+         objs = mplhep.hist2dplot(h, ax=ax)
+    cbar = objs.cbar
+    if cbar_title and cbar is not None:
+        cbar.set_label(cbar_title)
+
     # Add optional reference lines
     if vline is not None:
         ax.axvline(x=vline, color="white", linestyle="--", linewidth=1.5)
@@ -42,14 +48,16 @@ def plot2D(
 
     labelAxis(ax, "y", h.axes)
     labelAxis(ax, "x", h.axes)
-    addCMSBits(
+    saveFigVariants(
+        fig,
         ax,
+        output_path,
         [meta],
+        plot_configuration=pc,
+        metadata=common_meta,
         extra_text=f"{common_meta['pipeline']}",
         text_color=pc.cms_text_color or "white",
-        plot_configuration=pc,
     )
-    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
 
 def getContour(HH, val):
@@ -125,12 +133,15 @@ def plot2DSigBkg(
         frameon=True,
     )
 
-    addCMSBits(
+    common_meta = commonDict([bkg_hist.metadata, sig_hist.metadata], key=lambda x: x)
+    saveFigVariants(
+        fig,
         ax,
+        output_path,
         [sp],
+        plot_configuration=pc,
+        metadata=common_meta,
         extra_text=f"{sp.region_name}\n{bkg_hist.title}",
         text_color=plot_configuratiton.cms_text_color or "white",
-        plot_configuration=plot_configuration,
     )
-    saveFig(fig, output_path, extension=pc.image_type)
     plt.close(fig)
