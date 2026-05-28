@@ -79,3 +79,53 @@ class FourVecHistograms(AnalyzerModule):
     def inputs(self, metadata):
         return [self.input_col]
 
+@define
+class JetComboHistogram2D(AnalyzerModule):
+    """
+    Build composite objects from specified combinations
+    of jets (by index) and produce 2D histogram of their 
+    invariant mass. Histograms are filled only for events 
+    where all required jets are present.
+
+    Parameters
+    ----------
+    prefixes : list of str
+        Prefix used for naming the generated histogram.
+    input_cols : list of Column
+        Column containing the jet collection.
+    jet_combos : list of list of int
+        List of jet index combinations. Each inner list specifies the
+        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
+        two jets). Number of jet combos should be equal to input columns.
+    mass_axes : list[RegularAxis]
+        Axes to use for the mass plotting.
+    """
+
+    prefixes: list[str]
+    input_cols: list[Column]
+    jet_combos: list[list[int]]
+    mass_axes: list[RegularAxis]
+
+    def run(self, columns, params):
+        ret = []
+        masks = []
+        masses = []
+        axes = []
+        names = f"{self.prefixes[0]}_{self.prefixes[1]}_m2d"
+
+        for i, input_col in enumerate(self.input_cols):
+            combo = self.jet_combos[i]
+            jets = columns[input_col]
+            max_idx = max(combo)
+            padded = ak.pad_none(jets, max_idx + 1, axis=1)
+            mask = ak.num(jets, axis=1) > max_idx
+            masks.append(mask)
+
+            summed = padded[:, combo].sum()
+            masses.append(summed.mass)
+
+            axis = self.mass_axes[i]
+            name_suffix = f"$m_{{{''.join(str(x) for x in combo)}}}$"
+
+            if axis.name:
+                new_name = f"{axis.name} {name_suffix}"
