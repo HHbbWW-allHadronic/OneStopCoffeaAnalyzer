@@ -32,7 +32,7 @@ class SelectOnColumns(AnalyzerModule):
 
     sel_name: str
     selection_names: list[str] | None = None
-    save_flows: bool = True
+    save_cutflow: bool = True
 
     def run(self, columns, params):
 
@@ -81,7 +81,7 @@ class SelectOnColumns(AnalyzerModule):
         n_minus_one['final'] = final
         columns.filter(ret)
 
-        if self.save_flows:
+        if self.save_cutflow:
             return columns, [SelectionFlow(
                 self.sel_name, 
                 cuts=cuts, 
