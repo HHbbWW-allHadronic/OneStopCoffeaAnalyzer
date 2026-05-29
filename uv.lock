@@ -399,7 +399,7 @@ wheels = [
 
 [[package]]
 name = "coffea"
-version = "2025.12.0"
+version = "2026.5.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -431,9 +431,9 @@ dependencies = [
     { name = "uproot" },
     { name = "vector" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b9/c1/cd3a2422eedacbf7375109a4a70eccdb7793586ed451088483a2c4e3aab7/coffea-2025.12.0.tar.gz", hash = "sha256:ff13edaa26bbf0b51c9c52535a40eda8379696632c96e500bf938f6b02e2793e", size = 26600379, upload-time = "2025-12-15T21:38:03.255Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/cf/99/d42f57bf88cd7b03935aee949dda9c86550d8bcc88488e15804fe4efc422/coffea-2026.5.0.tar.gz", hash = "sha256:1bcee0c4fefb05a1a7e1942dca71c14d2715fa2eaa558ab540d55f36d85545db", size = 27629005, upload-time = "2026-05-25T08:08:40.991Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/d7/07/db205782116dd15151243b8cba264981434c317cfbbeef9b3100d4e3e14c/coffea-2025.12.0-py3-none-any.whl", hash = "sha256:848030d0f71772302b4272156123a5cc1eacca3cfc133a1c909236f2fde21d0f", size = 300845, upload-time = "2025-12-15T21:38:00.981Z" },
+    { url = "https://files.pythonhosted.org/packages/9c/e3/4c603b753613f9c1abde16de325d401093b33ae008d00f3c37ab636c6fc2/coffea-2026.5.0-py3-none-any.whl", hash = "sha256:355d0b94bde3bf42f2439769d7447d1599f33eeb59d5f9e0d130224758a9d0d1", size = 309170, upload-time = "2026-05-25T08:08:37.272Z" },
 ]
 
 [package.optional-dependencies]
@@ -1793,7 +1793,7 @@ requires-dist = [
     { name = "cattrs", specifier = ">=25.3.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "cloudpickle", specifier = ">=3.1.2" },
-    { name = "coffea", extras = ["xrootd", "rucio"], specifier = ">=2025.10.0" },
+    { name = "coffea", extras = ["xrootd", "rucio"], specifier = ">=2026.5.0" },
     { name = "dask", specifier = ">=2025.3.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "distributed", specifier = ">=2025.3.0" },
@@ -2825,7 +2825,7 @@ wheels = [
 
 [[package]]
 name = "uproot"
-version = "5.6.9"
+version = "5.7.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "awkward" },
@@ -2835,9 +2835,9 @@ dependencies = [
     { name = "packaging" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/bf/7f9b1838b4543d6a5505135082b2b9dc84bd013b69f412af39cd3678d17c/uproot-5.6.9.tar.gz", hash = "sha256:0f019088f0f6f0d6e9e6cbc7ec158515d26f0dfed029f32e8b8faf041a507d3d", size = 994721, upload-time = "2025-12-16T11:00:39.85Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ee/f7/b94c612a3db8c4c1d9b7bc4266c6cdfe01fdbc0390f55c1a4e5e5996a51b/uproot-5.7.4.tar.gz", hash = "sha256:ce28909b494f3ce2ae0fc0e5e8d47f5e7db0331d5a1f8162c9919ce37e72b9f3", size = 1014497, upload-time = "2026-04-30T09:11:49.906Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/e2/aec0cfd00ea82b988ff3af227891acd98c07e7e2ede1442adc358eb513b9/uproot-5.6.9-py3-none-any.whl", hash = "sha256:e481de392a54775aa4c80989c6164f7bada75277f889ea00ef4d83fe8f7ed0c1", size = 394067, upload-time = "2025-12-16T11:00:37.896Z" },
+    { url = "https://files.pythonhosted.org/packages/74/03/d426348a5f13514182c1d1afab2285ec25a94bacc8d2f8d2cc627496754a/uproot-5.7.4-py3-none-any.whl", hash = "sha256:497b7db1592f62edf05404884ec235f6cb804a50382a62c8df5f885d138c3695", size = 397455, upload-time = "2026-04-30T09:11:47.994Z" },
 ]
 
 [[package]]

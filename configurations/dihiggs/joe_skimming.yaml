@@ -25,7 +25,7 @@ analyzer:
         - "b_dijet"
         - "nontop2b_fourjet"
     - module_name: SaveEventsH5
-      prefix: /uscms_data/d3/jgehrke/skims/2024/withHLT_ObjDef1
+      prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef1
       jet_col: goodJet
       jet_vars: [pt, eta, phi, mass, btag]
       n_jets: 6
@@ -44,13 +44,13 @@ analyzer:
         - "b_dijet"
         - "nontop2b_fourjet"
     - module_name: SaveEventsH5
-      prefix: /uscms_data/d3/jgehrke/skims/2024/withHLT_ObjDef3
+      prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef3
       jet_col: goodJet
       jet_vars: [pt, eta, phi, mass, btag]
       n_jets: 6
       event_vars: [HT, b_dijet.mass, nontop2b_fourjet.mass]
 
-location_priorities: [".*(T0|T1|T2).*","eos"]
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
   - dataset: 'data_HHParking_2024*'
