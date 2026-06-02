@@ -64,8 +64,6 @@ def merge_group(
         return
 
     logger.info("[%s] Matched %d file(s):", name, len(matched))
-    for f in matched:
-        logger.info("    %s", f)
 
     if dry_run:
         logger.info("[%s] Dry-run mode — no output written.", name)

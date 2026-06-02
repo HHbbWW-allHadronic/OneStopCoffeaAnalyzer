@@ -4,11 +4,7 @@ source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDe
 
 output_dir: "./slimmedskims/2024/withHLT_ObjDef1/"
 
-datasets:
-  - "/jets"
-  - "/event_info"
-
-chunk_size: 16000
+chunk_size: 8192
 
 # Pattern structure: ^<process>_\d{4}__
 # Anchored at start, year-agnostic, double-underscore separates from generator string.
