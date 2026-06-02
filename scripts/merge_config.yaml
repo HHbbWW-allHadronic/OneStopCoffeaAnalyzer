@@ -1,0 +1,28 @@
+# H5 File Merge Configuration
+
+source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef1"
+
+output_dir: "./slimmedskims/2024/withHLT_ObjDef1/"
+
+datasets:
+  - "/jets"
+  - "/event_info"
+
+chunk_size: 16000
+
+# Pattern structure: ^<process>_\d{4}__
+# Anchored at start, year-agnostic, double-underscore separates from generator string.
+
+groups:
+
+  - name: "tt_semileptonic"
+    pattern: "^tt_semileptonic_\\d{4}__"
+
+  - name: "tt_hadronic"
+    pattern: "^tt_hadronic_\\d{4}__"
+
+  - name: "qcd_inclusive"
+    pattern: "^qcd_inclusive_\\d{4}__"
+
+  - name: "ggHH2b2V6q"
+    pattern: "^ggHH2b2V6q_\\d{4}__"
