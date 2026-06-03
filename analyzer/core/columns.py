@@ -98,7 +98,7 @@ def setColumn(events, column, value):
     rest = column.fields[1:]
     if head not in events.fields:
         for c in reversed(rest):
-            value = ak.zip({c: value})
+            value = ak.zip({c: value}, depth_limit=1)
         return ak.with_field(events, value, head)
     else:
         return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
@@ -171,6 +171,9 @@ class TrackedColumns:
         return self._events
 
     def flush(self):
+        """
+        Synchronize stored lazy columns with underlying events
+        """
         if not self._lazy_columns:
             return
         for col, val in self._lazy_columns.items():
@@ -259,14 +262,18 @@ class TrackedColumns:
             )
 
         if any(c.contains(column) for c in self._lazy_columns if c != column):
+            # If any of the lazy columns contains the columns we are trying to set,
+            # we first synchronize the lazy columns to the events
             self.flush()
 
         self._lazy_columns[column] = value
+        # Delete any lazy column that was contained in the one we just set, it is overriden
         to_del = [k for k in self._lazy_columns if k != column and column.contains(k)]
         for k in to_del:
             del self._lazy_columns[k]
 
         self._column_provenance[column] = self._current_provenance
+        # Get all the columns the column we are trying to set and update their provenance
         if hasattr(value, "layout"):
             all_columns = getAllColumns(value.layout, column)
         else:
@@ -274,6 +281,8 @@ class TrackedColumns:
         for c in all_columns:
             self._column_provenance[c] = self._current_provenance
 
+
+        # For every parent column, update it provenance to be based on its previous provenance and the provenance of the set child
         for c in column.parents():
             p = hash((self._column_provenance.get(c, None), self._current_provenance))
             self._column_provenance[c] = p
@@ -294,14 +303,17 @@ class TrackedColumns:
         if column in self._lazy_columns:
             return self._lazy_columns[column]
 
+        # If this column is the child of a lazy column, extract the relevant portion
         for c in column.parents():
             if c in self._lazy_columns:
                 remainder = Column(column.fields[len(c.fields) :])
                 return remainder.extract(self._lazy_columns[c])
 
+        # If we are trying to extract a column that contains a lazy column, first synchronize
         if any(column.contains(c) for c in self._lazy_columns):
             self.flush()
 
+        # Do the extraction with the synchronized columns
         return column.extract(self._events)
 
     def addColumnsFrom(self, other, columns):
