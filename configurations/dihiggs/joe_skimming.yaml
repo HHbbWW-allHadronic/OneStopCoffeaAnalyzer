@@ -14,16 +14,6 @@ analyzer:
 
   withHLT_ObjDef1:
     - *withHLT_ObjDef1
-    - module_name: JetCombos
-      input_cols:
-        - MedB
-        - nontop2b_med
-      jet_combos:
-        - [0, 1]
-        - [0, 1, 2, 3]
-      output_cols:
-        - "b_dijet"
-        - "nontop2b_fourjet"
     - module_name: SaveEventsH5
       prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef1
       jet_col: goodJet
@@ -33,16 +23,6 @@ analyzer:
 
   withHLT_ObjDef3:
     - *withHLT_ObjDef3
-    - module_name: JetCombos
-      input_cols:
-        - TightB
-        - nontop2b_tight
-      jet_combos:
-        - [0, 1]
-        - [0, 1, 2, 3]
-      output_cols:
-        - "b_dijet"
-        - "nontop2b_fourjet"
     - module_name: SaveEventsH5
       prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef3
       jet_col: goodJet
@@ -53,9 +33,6 @@ analyzer:
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'data_HHParking_2024*'
-    pipelines:
-    {{ all_pipelines() }}
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ all_pipelines() }}

@@ -359,9 +359,8 @@ class DRVetoFilter(AnalyzerModule):
 class JetCombos(AnalyzerModule):
     """
     Build composite objects from specified combinations
-    of jets (by index). Ensure all required jets exist,
-    as missing jets in the sum are ignored 
-    (i.e. jet0 + jet1 = jet1 if jet0 does not exist).
+    of jets (by index). Events missing the required number
+    of jets are filled with None (i.e. excluded/ignored).
     For NN training only.
 
     Parameters
@@ -386,8 +385,10 @@ class JetCombos(AnalyzerModule):
             jets = columns[input_col]
             max_idx = max(combo)
             padded = ak.pad_none(jets, max_idx + 1, axis=1)
+            msk = ak.num(jets, axis=1) < max_idx + 1
 
             summed = padded[:, combo].sum()
+            summed[msk] = None
             columns[self.output_cols[i] + Column("mass")] = summed.mass
             columns[self.output_cols[i] + Column("pt")] = summed.pt
             columns[self.output_cols[i] + Column("eta")] = summed.eta
