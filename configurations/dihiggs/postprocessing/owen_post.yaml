@@ -22,7 +22,7 @@ Postprocessing:
       inputs:
         - "*/*/*/*"
       scale: log
-      normalize: False
+      normalize: True
       show_info: False
       style_set: *default_style_set
       structure:

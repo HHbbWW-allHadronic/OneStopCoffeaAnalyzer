@@ -61,6 +61,53 @@ common_histograms: &common_histograms
         stop: 1
         bins: 20
 
+  - module_name: FourVecHistograms
+    input_col: MedC
+    hist_name: MedC
+
+
+
+  - module_name: SimpleHistogram
+    hist_name: MedCN
+    input_cols: [NMedC]
+    axes:
+      - name: "$N_{c}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: JetVarRankHistograms
+    hist_name: MedC_pt
+    input_col: MedC.pt 
+    axis: 
+      name: "$Pt_{c}$"
+      start: 0
+      stop: 1000
+      bins: 20
+
+  - module_name: JetVarRankHistograms
+    hist_name: gJetCvsBtag
+    input_col: goodJet.btagUParTAK4CvB
+    axis:
+      name: "Jet CvsB Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+  - module_name: JetVarRankHistograms
+    hist_name: JetCvsLtag
+    input_col: goodJet.btagUParTAK4CvL
+    axis:
+      name: "Jet CvsL Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+
+
+
+
 
 {{ core.objects() }}
 {{ core.regions() }}

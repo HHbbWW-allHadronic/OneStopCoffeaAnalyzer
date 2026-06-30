@@ -30,6 +30,11 @@
       - up
       - down
 
+    c_tagger: {"CvB":"btagUParTAK4CvB","CvL": "btagUParTAK4CvL"}
+
+    c_file: /cvmfs/cms-griddata.cern.ch/cat/metadata/BTV/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/2026-03-10/ctagging.json.gz
+
+
   jet_veto_map:
     file: /cvmfs/cms-griddata.cern.ch/cat/metadata/JME/Run3-24CDEReprocessingFGHIPrompt-Summer24-NanoAODv15/latest/jetvetomaps.json.gz
     name: "Summer24Prompt24_RunBCDEFGHI_V1"
