@@ -21,14 +21,14 @@ from analyzer.core.analysis_modules import (
     IsSampleType,
 )
 
-
 logger = logging.getLogger("analyzer.modules")
+
 
 @define
 class GenPartMinDRMaker(AnalyzerModule):
     """
     Compute the minimum delta R among all unique pairs of gen quarks.
-    
+
     Parameters
     ----------
     input_col : Column
@@ -36,6 +36,7 @@ class GenPartMinDRMaker(AnalyzerModule):
     output_col : Column
         Column where the per-event minimum delta R scalar will be stored.
     """
+
     input_col: Column
     output_col: Column
 
@@ -54,6 +55,7 @@ class GenPartMinDRMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
 
 @define
 class GenPartMaxDRMaker(AnalyzerModule):
@@ -78,6 +80,7 @@ class GenPartMaxDRMaker(AnalyzerModule):
         Delta R threshold above which we remove the most isolated quark.
         By default 0.8 (AK8 fat jet radius).
     """
+
     input_col: Column
     output_col_4q: Column
     output_col_3q: Column
@@ -102,7 +105,7 @@ class GenPartMaxDRMaker(AnalyzerModule):
         dr_no_self = ak.where(
             local_idx[:, :, np.newaxis] == local_idx[:, np.newaxis, :],
             large_val,
-            dr_matrix
+            dr_matrix,
         )
         min_dr_to_others = ak.min(dr_no_self, axis=2)
 

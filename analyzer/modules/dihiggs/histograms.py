@@ -21,7 +21,7 @@ class FourVecHistograms(AnalyzerModule):
         Column containing the object collection (e.g. jets).
     hist_name: str
         Name of column to be used in histogram.
-    mass_axis: 
+    mass_axis:
         RegularAxis for mass plotting.
     """
 
