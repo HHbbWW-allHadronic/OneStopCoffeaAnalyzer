@@ -29,6 +29,7 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "textual>=6.7.1",
     "textual-plotext>=1.0.1",
+    "tritonclient[grpc]>=2.70.0",
 ]
 
 [dependency-groups]
