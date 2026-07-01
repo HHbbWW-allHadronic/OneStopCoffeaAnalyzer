@@ -387,7 +387,7 @@ class JetCombos(AnalyzerModule):
             msk = ak.num(jets, axis=1) < max_idx + 1
 
             summed = padded[:, combo].sum()
-            summed[msk] = None
+            summed = ak.mask(summed, ~msk)
             columns[self.output_cols[i] + Column("mass")] = summed.mass
             columns[self.output_cols[i] + Column("pt")] = summed.pt
             columns[self.output_cols[i] + Column("eta")] = summed.eta
