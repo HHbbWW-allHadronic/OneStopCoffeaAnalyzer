@@ -236,6 +236,30 @@ looselep_tightb_selection: &looselep_tightb_selection
     selection_name: 2b
     min_count: 2
 
+medb_obj: &medb_obj
+  - module_name: JetCombos
+    input_cols:
+      - MedB
+      - nontop2b_med
+    jet_combos:
+      - [0, 1]
+      - [0, 1, 2, 3]
+    output_cols:
+      - "b_dijet"
+      - "nontop2b_fourjet"
+
+tightb_obj: &tightb_obj
+    - module_name: JetCombos
+      input_cols:
+        - TightB
+        - nontop2b_tight
+      jet_combos:
+        - [0, 1]
+        - [0, 1, 2, 3]
+      output_cols:
+        - "b_dijet"
+        - "nontop2b_fourjet"
+
      
 withHLT_ObjDef4: &withHLT_ObjDef4
   - *common_objects
@@ -246,6 +270,7 @@ withHLT_ObjDef4: &withHLT_ObjDef4
   - *looselep_tightb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *tightb_obj
 
 withHLT_ObjDef3: &withHLT_ObjDef3
   - *common_objects
@@ -256,6 +281,7 @@ withHLT_ObjDef3: &withHLT_ObjDef3
   - *tightlep_tightb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *tightb_obj
 
 withHLT_ObjDef2: &withHLT_ObjDef2
   - *common_objects
@@ -266,6 +292,7 @@ withHLT_ObjDef2: &withHLT_ObjDef2
   - *looselep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
 
 withHLT_ObjDef1: &withHLT_ObjDef1
   - *common_objects
@@ -276,6 +303,7 @@ withHLT_ObjDef1: &withHLT_ObjDef1
   - *tightlep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
 
 noHLT_ObjDef1: &noHLT_ObjDef1
   - *common_objects
@@ -285,6 +313,7 @@ noHLT_ObjDef1: &noHLT_ObjDef1
   - *tightlep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
 
 withHLT_NoSelection: &withHLT_NoSelection
   - *common_objects
@@ -294,10 +323,12 @@ withHLT_NoSelection: &withHLT_NoSelection
     sel_name: preselection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
 
 NoSelection: &NoSelection
   - *common_objects
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
+  - *medb_obj
 {%- endmacro %}
