@@ -192,12 +192,11 @@ class ResultGroup(ResultBase):
         if "_provenance" in self.results:
             if "_provenance" not in other.results:
                 raise RuntimeError()
+            intersection = self["_provenance"].file_set.intersection(other["_provenance"].file_set)
             if (
-                not self["_provenance"]
-                .file_set.intersection(other["_provenance"].file_set)
-                .empty
+                not intersection.empty
             ):
-                raise ResultIntegrityError("Overlapping Provenance.")
+                raise ResultIntegrityError(f"Overlapping Provenance.\n{intersection}")
 
     def __iadd__(self, other):
         self.checkOk(other)
@@ -620,7 +619,12 @@ def loadResults(paths, peek_only=False, keep_patterns=None, return_file_sizes=Fa
     ret = None
     file_sizes = {}
     func = ResultGroup.peekBytes if peek_only else ResultGroup.fromBytes
+    used_paths = set()
     for p in progbar(iterPaths(all_paths)):
+        if p in used_paths:
+            continue
+        used_paths.add(p)
+
         with open(p, "rb") as f:
             result = func(f.read())
 

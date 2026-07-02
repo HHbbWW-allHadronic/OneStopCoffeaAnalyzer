@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools as ft
 from analyzer.core.columns import addSelection
 import operator as op

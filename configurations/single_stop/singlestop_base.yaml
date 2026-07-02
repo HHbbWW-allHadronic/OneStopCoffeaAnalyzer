@@ -179,9 +179,57 @@
   ratio_only: True
   m4_range: [750, 2500]
   m3_range: [0, 2000]
-  ratio_range: [0.0, 0.8]
+  ratio_range: [0.1, 0.8]
   bins: 50
   y_bins: 60
+
+{%- endmacro %}
+
+{% macro singlestop_high_res_histograms() -%}
+- module_name: NNMassReco
+  input_col: GoodJet
+  m3_output: mChi_uncomp
+  m4_output: mStop_uncomp
+  model_path: "nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/jetMatcherNNTraced.pt"
+  scaler_path: "nn_models/nominalBinaryUncompressed0p67_24-09-18-19-53/scaler.pkl"
+
+- module_name: NNMassReco
+  input_col: GoodJet
+  m3_output: mChi_comp
+  m4_output: mStop_comp
+  model_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/jetMatcherNNTraced.pt"
+  scaler_path: "nn_models/nominalBinaryCompressed0p67_24-09-18-20-06/scaler.pkl"
+
+- module_name: NNMassPlots
+  m3_input: mChi_comp
+  m4_input: mStop_comp
+  prefix: comp
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [700, 2500]
+  ratio_range: [0.6, 1.0]
+  bins: 100
+
+- module_name: NNMassPlots
+  m3_input: mChi_comp
+  m4_input: mStop_comp
+  prefix: verycomp
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [700, 2500]
+  ratio_range: [0.85, 1.0]
+  bins: 100
+
+- module_name: NNMassPlots
+  m3_input: mChi_uncomp
+  m4_input: mStop_uncomp
+  prefix: uncomp
+  ratio_only: True
+  m4_range: [750, 2500]
+  m3_range: [0, 2000]
+  ratio_range: [0.1, 0.8]
+  bins: 100
+  y_bins: 120
 
 {%- endmacro %}
 

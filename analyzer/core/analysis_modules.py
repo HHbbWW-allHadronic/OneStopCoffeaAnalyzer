@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from typing import Literal
 from analyzer.core.param_specs import (
     ModuleParameterSpec,
@@ -18,15 +19,18 @@ import contextlib
 import abc
 from typing import Any, TYPE_CHECKING
 import logging
-
-if TYPE_CHECKING:
-    from analyzer.core.adl import ADLBlock
+from analyzer.core.adl import ADLBlock
 
 logger = logging.getLogger("analyzer.core")
 
 
+# This system could probably be unified with the pattern matching system
 @define
 class MetadataExpr(abc.ABC):
+    """
+    Base class for simple predicates of metadata.
+    """
+    
     @abc.abstractmethod
     def evaluate(self, metadata) -> bool: ...
 
@@ -89,6 +93,11 @@ def moduleExcludeFilter(attribute, value):
 
 @define
 class BaseAnalyzerModule(abc.ABC):
+    """
+    Base class for a unit of analysis.
+    Provides a cache to avoid duplicate execution when running systematics.
+    """
+    
     MAX_CACHE_SIZE = 25
 
     _cache: SimpleCache = field(
@@ -122,6 +131,7 @@ class BaseAnalyzerModule(abc.ABC):
     def adlExport(self, metadata) -> list["ADLBlock"] | None:
         return None
 
+    # Why is this not a property?
     @classmethod
     def name(cls):
         return cls.__name__
@@ -129,6 +139,7 @@ class BaseAnalyzerModule(abc.ABC):
     def clearCache(self):
         self._cache.clear()
 
+    # Technically this is dangerous, as the class is not frozen, but the user should never modify the properties of a module once it is created
     @ft.cached_property
     def selfkey(self):
         return hash(freeze(asdict(self, filter=moduleExcludeFilter)))
@@ -152,16 +163,28 @@ class AnalyzerModule(BaseAnalyzerModule):
         pass
 
     def getKey(self, columns, params):
+        """
+        Get a unique key associated with a given run.
+        Acts a proxy for caching the output of the run method.
+        Computed by hashing the self key, the parameters, and the key associated with the columns. 
+        """
+        
         logger.debug(f"Params are {params}")
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
         else:
             k = columns.getKeyForColumns(inp)
+        # The first two should not be necessary but got worried.
         ret = hash((self.selfkey, self.name(), freeze(params), k))
+        # logger.info(f"Module: {self}. Input columns are: {inp}.\nColumn key is {k}\nFinal key is {ret}")
         return ret
 
     def getKeyNoParams(self, columns):
+        """
+        Why is ths even a different method.
+        """
+        
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
@@ -189,17 +212,18 @@ class AnalyzerModule(BaseAnalyzerModule):
             if outputs == "EVENTS":
                 return cached_cols, r
             outputs += internal
+            logger.debug(f"Updating columns with cached output from columns: {outputs}")
             columns.addColumnsFrom(cached_cols, outputs)
             columns.pipeline_data = cached_cols.pipeline_data
             return columns, r
-        logger.debug(f"Did not find cached result, running module {self.name}")
+
+        logger.debug(f"Did not find cached result, running module {self.name()}")
         outputs = self.outputs(columns.metadata)
         inputs = self.inputs(columns.metadata)
         if outputs == "EVENTS":
             output_cx = contextlib.nullcontext()
         else:
             output_cx = columns.allowedOutputs(outputs)
-
         if inputs == "EVENTS":
             inputs_cx = contextlib.nullcontext()
         else:
@@ -213,6 +237,7 @@ class AnalyzerModule(BaseAnalyzerModule):
             _, res = self.run(columns, params)
             internal = columns.updatedColumns(orig_columns, Column("INTERNAL_USE"))
         self._cache[cache_key] = (columns, res, internal)
+
         return columns, res
 
     def __call__(self, columns, params):
@@ -308,7 +333,7 @@ class PureResultModule(BaseAnalyzerModule):
             logger.debug("Found key, using cached result")
             ret = self._cache[key]
             return ret
-        logger.debug(f"Did not find cached result, running module {self.name}")
+        logger.debug(f"Did not find cached result, running module {self.name()}")
         with contextlib.ExitStack() as stack:
             for c in just_cols:
                 stack.enter_context(c.useKey(key))
@@ -349,10 +374,18 @@ def defaultParameterSpec(params):
 
 
 def register_module(input_columns, output_columns, configuration=None, params=None):
+    """
+    Attempt to make decorator for constructing modules.
+    Has problems with pickle.
+    
+    """
+    
+    raise NotImplementedError()
     configuration = configuration or {}
     params = params or {}
 
     def wrapper(func):
+        
         getParameterSpec = defaultParameterSpec(params)
         run = func
         if callable(input_columns):

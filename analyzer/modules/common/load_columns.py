@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from analyzer.core.analysis_modules import (
     ModuleParameterSpec,
     ParameterSpec,

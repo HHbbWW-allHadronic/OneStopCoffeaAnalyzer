@@ -11,7 +11,7 @@ from analyzer.utils.structure_tools import (
     dotFormat,
 )
 from .processors import BasePostprocessor
-from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios
+from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios, plotModel
 from .plots.plots_2d import plot2D
 from attrs import define, field
 
@@ -199,4 +199,59 @@ class Histogram2D(BasePostprocessor):
             color_scale=self.scale,
             vline=self.vline,
             hline=self.hline,
+        )
+
+
+@define
+class ModelPlot(BasePostprocessor):
+    output_name: str
+    scale: Literal["log", "linear"] = "linear"
+    normalize: bool = False
+    ratio_ylim: tuple[float, float] = (0, 2)
+    ratio_hlines: list[float] = field(factory=lambda: [1.0])
+    ratio_height: float = 0.5
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "poisson"
+    )
+
+    def getRunFuncs(self, group, prefix=None):
+        data = group.get("data", [])
+        backgrounds = group.get("background", [])
+        signals = group.get("signal", []) or group.get("signals", [])
+
+        items = list(it.chain(data, backgrounds, signals))
+        if not items:
+            return
+
+        if len(data) != 1:
+            raise RuntimeError(f"Expected 1 data histogram, got {len(data)}")
+        data = data[0]
+
+        if not backgrounds:
+            raise RuntimeError("Expected at least 1 background histogram")
+
+        if len(signals) != 1:
+            raise RuntimeError(f"Expected 1 signal histogram, got {len(signals)}")
+        signal = signals[0]
+
+        common_meta = commonDict(items)
+        output_path = dotFormat(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
+        pc = self.plot_configuration.makeFormatted(common_meta)
+
+        yield ft.partial(
+            plotModel,
+            data,
+            backgrounds,
+            signal,
+            output_path,
+            self.style_set,
+            normalize=self.normalize,
+            ratio_ylim=self.ratio_ylim,
+            ratio_type=self.ratio_type,
+            scale=self.scale,
+            ratio_hlines=self.ratio_hlines,
+            ratio_height=self.ratio_height,
+            plot_configuration=pc,
         )

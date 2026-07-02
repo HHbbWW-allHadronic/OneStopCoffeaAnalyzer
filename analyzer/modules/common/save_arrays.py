@@ -2,6 +2,7 @@ from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 from attrs import define
 from analyzer.core.results import SavedColumns
+from analyzer.core.analysis_modules import MetadataExpr
 
 
 @define
@@ -13,7 +14,7 @@ class SaveCols(AnalyzerModule):
     def run(self, columns, params):
         ret = {}
         era_trigger_names = columns.metadata["era"]["trigger_names"]
-        for name,col in self.to_save.items():
+        for name, col in self.to_save.items():
             real_name = col
             if real_name.startswith("HLTMAP:"):
                 real_name = "HLT." + era_trigger_names[real_name[7:]]

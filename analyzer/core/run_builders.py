@@ -73,9 +73,13 @@ class MultiRunBuilder(RunBuilder):
     components: list[RunBuilder]
 
     def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
+        used_names = set()
         ret = []
         for x in self.components:
-            ret.extend(x(spec, metadata))
+            new= x(spec, metadata)
+            new = [x for x in new if x[0] not in used_names]
+            ret.extend(new)
+            used_names |= set(x[0] for x in new)
         return ret
 
 
@@ -97,6 +101,23 @@ class LimitSysts(RunBuilder):
         shapes = buildCombos(spec, "shape_variation")
         all_vars = weights + shapes
         all_vars = [x for x in all_vars if self.systs.match(x[0])]
+        if not any(x[0] == "central" for x in all_vars):
+            all_vars = [("central", {})] + all_vars
+        return all_vars
+
+@define
+class LimitSystsBackground(RunBuilder):
+    systs: BasePattern
+
+    def __call__(self, spec: ModuleParameterSpec, metadata) -> list[tuple[Any, dict]]:
+
+        if "signal" in metadata["dataset_name"]:
+            return [("central", {})]
+        weights = buildCombos(spec, "weight_variation")
+        shapes = buildCombos(spec, "shape_variation")
+        all_vars = weights + shapes
+        all_vars = [x for x in all_vars if self.systs.match(x[0])]
+
         if not any(x[0] == "central" for x in all_vars):
             all_vars = [("central", {})] + all_vars
         return all_vars

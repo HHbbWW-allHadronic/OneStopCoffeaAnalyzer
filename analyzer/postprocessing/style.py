@@ -133,11 +133,15 @@ class StyleSet:
     styles: list[StyleRule] = field(factory=list)
 
     def getStyle(self, sector_params, other_data=None):
+
         for style_rule in self.styles:
-            if style_rule.pattern is None:
-                return style_rule.style
-            elif style_rule.pattern.match(sector_params):
-                return style_rule.style
+            try:
+                if style_rule.pattern is None:
+                    return style_rule.style
+                elif style_rule.pattern.match(sector_params):
+                    return style_rule.style
+            except KeyError as e:
+                pass
         return None
 
 
