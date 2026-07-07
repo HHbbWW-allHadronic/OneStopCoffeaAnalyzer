@@ -205,9 +205,54 @@ def browse(inputs, interpretter, peek, merge_datasets):
 @click.option("--parallel", type=int, required=False, default=None)
 @click.option("--target-load-size", type=int, required=False, default=None)
 @click.option("--include-sidecar", is_flag=True, default=False)
+@click.option(
+    "--explain-grouping-only",
+    is_flag=True,
+    default=False,
+    help="Dry-run the structure blocks and print a trace of how items are selected, grouped, and transformed.",
+)
+@click.option(
+    "--explain-grouping-verbose",
+    is_flag=True,
+    default=False,
+    help="",
+)
 def postprocess(
-    configuration, inputs, parallel, prefix, target_load_size, include_sidecar
+    configuration,
+    inputs,
+    parallel,
+    prefix,
+    target_load_size,
+    include_sidecar,
+    explain_grouping_only,
+    explain_grouping_verbose,
 ):
+    if explain_grouping_only:
+        from analyzer.postprocessing.running import loadPostprocessor
+        from analyzer.core.results import loadResults, mergeAndScale
+        from analyzer.postprocessing.explain import renderTrace
+        from rich import print as rprint
+
+        postprocessor = loadPostprocessor(configuration)
+        results = loadResults(inputs)
+        if postprocessor.do_merge_and_scale:
+            results = mergeAndScale(
+                results, drop_sample_pattern=postprocessor.drop_sample_pattern
+            )
+
+        for proc_idx, processor in enumerate(postprocessor.processors):
+            proc_name = type(processor).__name__
+            rprint(f"\n[bold]━━━ Processor {proc_idx}: {proc_name} ━━━[/bold]")
+            traces = processor.explain(results)
+            for input_desc, trace in traces:
+                tree = renderTrace(
+                    trace,
+                    label=f"inputs: {input_desc}",
+                    verbose=explain_grouping_verbose,
+                )
+                rprint(tree)
+        return
+
     from analyzer.postprocessing.running import runPostprocessors
 
     runPostprocessors(

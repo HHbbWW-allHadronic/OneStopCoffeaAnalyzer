@@ -164,7 +164,7 @@ For example, the :class:`~analyzer.modules.common.jets.JetFilter` module has the
       include_jet_id: True    # Apply jet ID
       include_pu_id: False    # Apply pileup jet ID
 
-See the :doc:`../reference` for the complete list of built-in modules and their parameters.
+See the :doc:`builtin_modules` for the complete list of built-in modules and their parameters.
 You can also use ``./osca search-modules "query"`` to search for available modules from the command line.
 
 
@@ -331,7 +331,7 @@ This is a very useful feature for avoiding duplication when you have many pipeli
 
 A Jinja2 **macro** defines a reusable block of YAML:
 
-.. code-block:: yaml
+.. code-block:: yaml+jinja
 
     {% macro common_cleanup() -%}
     - module_name: GoldenLumi
@@ -385,7 +385,7 @@ Complete Annotated Example
 
 Here is a complete, realistic configuration that demonstrates all the major features:
 
-.. code-block:: yaml
+.. code-block:: yaml+jinja
 
     {% macro common_cleanup() -%}
     - module_name: GoldenLumi

@@ -55,3 +55,12 @@ html_theme_options = {
 }
 
 autoapi_dirs = [str(Path(__file__).parent.parent.parent / 'analyzer')]
+autoapi_options = [
+    'members',
+    'undoc-members',
+    'show-inheritance',
+    'show-module-summary',
+    'special-members',
+    'imported-members',
+]
+suppress_warnings = ["autoapi.python_import_resolution"]

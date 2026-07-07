@@ -14,7 +14,9 @@ The recommended workflow for developing an analysis is:
 1. **Test Locally**: Run on a single dataset with a small event count to verify your pipeline works.
 2. **Go to production**: Switch to a distributed executor for full processing.
 3. **Check and patch**: Verify completeness and reprocess any failures.
-3. **Postprocess and Plot**: Run postprocessing to produce plots and tables.
+4. **Postprocess and Plot**: Run postprocessing to produce plots and tables.
+
+
 
 
 Step 1: Quick Test

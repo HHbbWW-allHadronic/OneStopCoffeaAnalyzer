@@ -175,10 +175,11 @@ class GoldenLumi(AnalyzerModule):
     should_run : MetadataExpr, optional
         Condition to determine if the module should run. By default, only
         runs on real data samples.
+
     Notes
     -----
     - The certified luminosity sections are read from the metadata for
-        the given era under "golden_json".
+      the given era under "golden_json".
     """
 
     selection_name: str = "golden_lumi"

@@ -94,6 +94,16 @@ class Pattern:
     def Any():
         return Pattern(pattern="", mode=PatternMode.ANY)
 
+    def __repr__(self):
+        if self.mode == PatternMode.ANY:
+            return "*"
+        elif self.mode == PatternMode.REGEX:
+            return f"re:{self.pattern}"
+        elif self.mode == PatternMode.LITERAL:
+            return repr(self.pattern)
+        else:
+            return str(self.pattern)
+
 
 @define
 class PatternAnd:
@@ -110,6 +120,9 @@ class PatternAnd:
         else:
             return captures
 
+    def __repr__(self):
+        return "AND(" + ", ".join(repr(x) for x in self.and_exprs) + ")"
+
 
 @define
 class PatternNot:
@@ -124,6 +137,9 @@ class PatternNot:
             return NO_MATCH
         else:
             return self.not_expr.capture(data)
+
+    def __repr__(self):
+        return f"!{self.not_expr!r}"
 
 
 @define
@@ -141,6 +157,9 @@ class PatternOr:
         else:
             return next(x for x in captures if x is not NO_MATCH)
 
+    def __repr__(self):
+        return "OR(" + ", ".join(repr(x) for x in self.or_exprs) + ")"
+
 
 @define
 class DeepPattern:
@@ -157,6 +176,10 @@ class DeepPattern:
         if capture is NO_MATCH:
             return capture
         return {self.key: capture}
+
+    def __repr__(self):
+        key_str = ".".join(self.key)
+        return f"{{{key_str}: {self.pattern!r}}}"
 
 
 BasePattern = Pattern | PatternOr | PatternAnd | DeepPattern | PatternNot

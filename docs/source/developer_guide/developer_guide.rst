@@ -9,4 +9,5 @@ These pages are for users who need to extend the framework itself -- writing cus
 
    writing_modules
    writing_postprocessors
+   execution_in_detail
    project_structure

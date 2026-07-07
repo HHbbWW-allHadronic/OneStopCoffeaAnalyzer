@@ -24,8 +24,8 @@ Columns are constructed from dot-delimited strings or tuples:
 
 Columns support a few useful operations:
 
-- **Containment**: :class:`~analyzer.core.columns.Column` returns ``True``. This means "Jet" is a parent of "Jet.pt".
-- **Concatenation**: :class:`~analyzer.core.columns.Column` gives :class:`~analyzer.core.columns.Column`.
+- **Containment**: :meth:`~analyzer.core.columns.Column.contains`
+- **Concatenation**: :meth:`~analyzer.core.columns.Column.__add__`.
 - **Extraction**: ``col.extract(events)`` navigates the events array to retrieve the data at that path.
 
 

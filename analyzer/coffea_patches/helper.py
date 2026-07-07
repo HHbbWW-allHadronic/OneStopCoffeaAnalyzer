@@ -76,8 +76,8 @@ class nonserializable_attribute:
 
 class container_converter:
     """
-    Running over the all arguments of arbitrary function inputs (*args,
-    **kwargs), iterating through the base python containers and running a
+    Running over the all arguments of arbitrary function inputs (\*args,
+    \*\*kwargs), iterating through the base python containers and running a
     conversion function on each of the leaf entries.
 
     The method_map has types as the map key and a callable as the value, the

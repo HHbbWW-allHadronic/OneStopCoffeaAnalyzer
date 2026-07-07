@@ -175,6 +175,7 @@ class NObjFilter(AnalyzerModule):
 class SelectAllTriggers(AnalyzerModule):
     """
     Selection trigger by trigger for each dataset. Takes advantage of the selection flow to get the yield.
+
     Parameters
     ----------
     sel_name : str

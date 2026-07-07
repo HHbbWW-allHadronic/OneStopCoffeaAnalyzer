@@ -1,4 +1,4 @@
-from analyzer.core.results import loadSampleResultFromPaths
+from analyzer.core.results import loadResults
 from rich import print
 import hist
 
@@ -57,14 +57,14 @@ def quicklookHist(result, region, hist_name, variation=None, rebin=None):
 
 def quicklookFiles(paths,**kwargs):
     print(kwargs)
-    results = loadSampleResultFromPaths(paths,decompress=True,show_progress=True)
-    for k, v in results.items():
+    results = loadResults(paths)
+    for k, v in results.results.items():
         quicklookSample(v,**kwargs)
 
 
 def quicklookHistsPath(paths, region, hist_name, interact=False, variation=None, rebin=None):
-    results = loadSampleResultFromPaths(paths)
-    for k, v in results.items():
+    results = loadResults(paths)
+    for k, v in results.results.items():
         histogram = quicklookHist(v, region, hist_name, variation=variation, rebin=rebin)
     if interact:
         import code

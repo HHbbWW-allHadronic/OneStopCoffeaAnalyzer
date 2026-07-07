@@ -5,7 +5,7 @@ In this framework, modules are the fundamental building blocks of an analysis.
 Each module should implement a single, well-defined operation.
 Understanding the module system is essential for both using existing modules and writing your own.
 
-It is highly recommended to take a look at :doc:`the built-in modules </user_guide/builtin_modules.rst>`.
+It is highly recommended to take a look at :doc:`the built-in modules <../user_guide/builtin_modules>`.
 
 
 Module Types

@@ -30,6 +30,15 @@ class BasePostprocessor(abc.ABC):
             for x in self.structure.apply(items):
                 yield from self.getRunFuncs(x, prefix)
 
+    def explain(self, data):
+        traces = []
+        for i in self.inputs:
+            items = [y for x in (globWithMeta(data, l) for l in i) for y in x]
+            input_desc = " + ".join("/".join(l) for l in i)
+            trace = self.structure.explain(items)
+            traces.append((input_desc, trace))
+        return traces
+
     @abc.abstractmethod
     def getRunFuncs(self, group: PostprocessingGroup, prefix=None):
         pass
