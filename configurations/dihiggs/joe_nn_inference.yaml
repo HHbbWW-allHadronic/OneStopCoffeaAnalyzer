@@ -1,0 +1,183 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  withHLT_ObjDef1:
+    - *withHLT_ObjDef1
+
+    - module_name: ABCDiHiggsInference
+      jet_col: goodJet
+      jet_vars: [pt, eta, phi, mass, btag]
+      n_jets: 6
+      global_cols: [HT, nontop2b_fourjet.mass, b_dijet.mass]
+      output_cols: [Disc1]
+      scaler_path: nn_models/checkpoint_09-06-26.pt
+      model_path: nn_models/checkpoint_09-06-26_jitmodel.pt
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_sig
+      input_cols: [Disc1.sig]
+      axes:
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_tt
+      input_cols: [Disc1.tt]
+      axes:
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd
+      input_cols: [Disc1.qcd]
+      axes:
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_sig_b_dijet_mass_2d
+      input_cols: [Disc1.sig, b_dijet.mass]
+      axes:
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: b_dijet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_tt_b_dijet_mass_2d
+      input_cols: [Disc1.tt, b_dijet.mass]
+      axes:
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: b_dijet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd_b_dijet_mass_2d
+      input_cols: [Disc1.qcd, b_dijet.mass]
+      axes:
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: b_dijet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_sig_nontop2b_fourjet_mass_2d
+      input_cols: [Disc1.sig, nontop2b_fourjet.mass]
+      axes:
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: nontop2b_fourjet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_tt_nontop2b_fourjet_mass_2d
+      input_cols: [Disc1.tt, nontop2b_fourjet.mass]
+      axes:
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: nontop2b_fourjet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd_nontop2b_fourjet_mass_2d
+      input_cols: [Disc1.qcd, nontop2b_fourjet.mass]
+      axes:
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: nontop2b_fourjet.mass
+          start: 0
+          stop: 500
+          bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_sig_HT_2d
+      input_cols: [Disc1.sig, HT]
+      axes:
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: HT
+          start: 0
+          stop: 3000
+          bins: 60
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_tt_HT_2d
+      input_cols: [Disc1.tt, HT]
+      axes:
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: HT
+          start: 0
+          stop: 3000
+          bins: 60
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd_HT_2d
+      input_cols: [Disc1.qcd, HT]
+      axes:
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: HT
+          start: 0
+          stop: 3000
+          bins: 60
+          unit: GeV
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+      - withHLT_ObjDef1
+  - dataset: 'qcd*2024*'
+    pipelines:
+      - withHLT_ObjDef1
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+      - withHLT_ObjDef1
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+      - withHLT_ObjDef1

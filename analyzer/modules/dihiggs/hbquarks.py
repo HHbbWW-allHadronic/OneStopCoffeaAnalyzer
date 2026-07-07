@@ -31,7 +31,7 @@ class HBQuarkMaker(AnalyzerModule):
     -----
     - B-tagging thresholds are loaded from the correction file specified
       in ``metadata["era"]["btag_scale_factors"]["file"]``.
-    - Desired tagger and path to correction thresholds are specified using 
+    - Desired tagger and path to correction thresholds are specified using
       the "tagger" and "correction_name" fields in above metadata path.
     """
 
@@ -47,17 +47,19 @@ class HBQuarkMaker(AnalyzerModule):
         tagger, wps = self.getWPs(columns.metadata)
         jets = columns[self.input_col]
         mask = jets[tagger] > wps[self.working_point]
-        
+
         if self.nontop2b:
             if self.nontop2b_col is None:
                 raise ValueError("nontop2b_col must be provided when nontop2b is True")
             else:
                 local_indices = ak.local_index(jets, axis=1)
-                # Indices of top two b's, if there are fewer than two then fill -1 (Avoids index out of range). 
+                # Indices of top two b's, if there are fewer than two then fill -1 (Avoids index out of range).
                 # As no jets have idx -1, they will still be included (nontop2b with 1b present only removes 1b).
-                toptwob_indices = ak.fill_none(ak.pad_none(local_indices[mask], 2, axis=1)[:,:2], -1)
-                ind_1 = toptwob_indices[:,0]
-                ind_2 = toptwob_indices[:,1]
+                toptwob_indices = ak.fill_none(
+                    ak.pad_none(local_indices[mask], 2, axis=1)[:, :2], -1
+                )
+                ind_1 = toptwob_indices[:, 0]
+                ind_2 = toptwob_indices[:, 1]
                 nontop2b_mask = (local_indices != ind_1) & (local_indices != ind_2)
                 nontop2b = jets[nontop2b_mask]
                 columns[self.nontop2b_col] = nontop2b

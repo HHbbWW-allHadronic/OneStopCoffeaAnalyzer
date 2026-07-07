@@ -4,6 +4,7 @@ from analyzer.core.columns import Column
 from attrs import define
 from analyzer.core.columns import addSelection
 from analyzer.core.results import SelectionFlow
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 @define
@@ -31,7 +32,7 @@ class SelectOnColumns(AnalyzerModule):
 
     sel_name: str
     selection_names: list[str] | None = None
-    save_flows: bool = True
+    save_cutflow: bool = True
 
     def run(self, columns, params):
 
@@ -57,7 +58,6 @@ class SelectOnColumns(AnalyzerModule):
                 ret = ret & getCol(cut)
             return ret
 
-
         for s in columns.pipeline_data.get("Selections", {}):
             columns.pipeline_data["Selections"][s] = True
 
@@ -66,40 +66,22 @@ class SelectOnColumns(AnalyzerModule):
         ret = columns[Column("Selection") + cuts[0]]
         cutflow = {"initial": initial, cuts[0]: ak.count_nonzero(ret, axis=0)}
 
-        single = columns[Column("Selection") + cuts[0]] 
-        one_cut = {"initial": initial, cuts[0]: ak.count_nonzero(single, axis=0)}
-        
         for name in cuts[1:]:
             ret = ret & getCol(name)
             cutflow[name] = ak.count_nonzero(ret, axis=0)
         
-            single = columns[Column("Selection") + name]
-            one_cut[name] = ak.count_nonzero(single, axis=0)
+        final = ak.count_nonzero(ret, axis=0)
+        
+        one_cut = {'initial': initial}
+        one_cut |= {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
+        one_cut['final'] = final
         
         n_minus_one = {'initial': initial}
-        for skip_cut in cuts:
-            mask = None
-            for cut_name in cuts:
-                if cut_name != skip_cut:
-                    if mask is None:
-                        mask = columns[Column("Selection") + cut_name]
-                    else:
-                        mask = mask & columns[Column("Selection") + cut_name]
-            if mask is not None:
-                n_minus_one[skip_cut] = ak.count_nonzero(mask, axis=0)
-            else:
-                n_minus_one[skip_cut] = initial
-
-        final = ak.count_nonzero(ret, axis=0)
-        one_cut['final'] = final
+        n_minus_one |= {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i, cut in enumerate(cuts)}
         n_minus_one['final'] = final
-
-
-        onecut = {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
-        n_minus_one = {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i,cut in enumerate(cuts)}
         columns.filter(ret)
 
-        if self.save_flows:
+        if self.save_cutflow:
             return columns, [SelectionFlow(
                 self.sel_name, 
                 cuts=cuts, 
@@ -109,8 +91,6 @@ class SelectOnColumns(AnalyzerModule):
                 )]
         else:
             return columns, []
-
-        
 
     def inputs(self, metadata):
         if self.selection_names is None:
@@ -167,10 +147,35 @@ class NObjFilter(AnalyzerModule):
     def outputs(self, metadata):
         return [Column(("Selection", self.selection_name))]
 
+    def adlExport(self, metadata):
+        statements = []
+        col_name = self.input_col.adl_name
+        if (
+            self.min_count is not None
+            and self.max_count is not None
+            and self.min_count == self.max_count
+        ):
+            statements.append(
+                ADLStatement("select", f"size({col_name}) == {self.min_count}")
+            )
+        else:
+            if self.min_count is not None:
+                statements.append(
+                    ADLStatement("select", f"size({col_name}) >= {self.min_count}")
+                )
+            if self.max_count is not None:
+                statements.append(
+                    ADLStatement("select", f"size({col_name}) <= {self.max_count}")
+                )
+
+        return [ADLBlock(block_type="region_statement", name="", statements=statements)]
+
+
 @define
 class SelectAllTriggers(AnalyzerModule):
     """
     Selection trigger by trigger for each dataset. Takes advantage of the selection flow to get the yield.
+
     Parameters
     ----------
     sel_name : str
@@ -183,7 +188,7 @@ class SelectAllTriggers(AnalyzerModule):
     def run(self, columns, params):
         all_triggers = columns["HLT"].fields
         initial = ak.num(columns._events, axis=0)
-        
+
         cutflow = {"initial": initial}
         for trigger_name in all_triggers:
             ret = columns["HLT"][trigger_name]

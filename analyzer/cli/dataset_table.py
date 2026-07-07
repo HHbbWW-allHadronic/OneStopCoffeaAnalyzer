@@ -2,6 +2,7 @@ import io
 import csv
 from rich.table import Table
 
+
 def createSampleTable(repo, pattern=None, as_csv=False):
     table = Table(title="Samples")
     table.add_column("Dataset")
@@ -18,14 +19,14 @@ def createSampleTable(repo, pattern=None, as_csv=False):
                 dataset.name,
                 sample.name,
                 f"{str(sample.n_events)}",
-                dataset.sample_type,
+                str(dataset.sample_type),
                 f"{dataset.era}",
                 f"{xs:0.3g}" if xs else "N/A",
             )
     if not as_csv:
         return table
     else:
-        d = {x.header:x.cells for x in table.columns}
+        d = {x.header: x.cells for x in table.columns}
         output = output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC)
         headers = list(d)
@@ -47,13 +48,13 @@ def createDatasetTable(manager, pattern=None, as_csv=False):
         table.add_row(
             s.name,
             f"{len(s)}",
-            s.sample_type,
+            str(s.sample_type),
             f"{s.era}",
         )
     if not as_csv:
         return table
     else:
-        d = {x.header:x.cells for x in table.columns}
+        d = {x.header: x.cells for x in table.columns}
         output = output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC)
         headers = list(d)

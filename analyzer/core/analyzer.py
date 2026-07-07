@@ -20,6 +20,8 @@ from analyzer.core.param_specs import getWithValues
 from collections import ChainMap
 from analyzer.modules.common.load_columns import LoadColumns
 import logging
+from analyzer.core.adl import ADLEmitter, ADLBlock, ADLStatement
+import re
 
 from analyzer.utils.structure_tools import SimpleCache, freeze, flatten
 
@@ -63,6 +65,53 @@ class Analyzer:
         self._cache.clear()
         for m in self.all_modules:
             m.clearCache()
+
+    def exportAdl(self, metadata, ignore_pattern=None, title=None, config_path=None):
+
+        emitter = ADLEmitter(
+            title=title,
+            config_path=config_path,
+            context_name=metadata.get("dataset_name"),
+        )
+
+        for pipeline_name, pipeline in self.base_pipelines.items():
+            region_statements = []
+
+            for module in pipeline:
+                if ignore_pattern and re.match(
+                    ignore_pattern, module.__class__.__name__
+                ):
+                    continue
+
+                if (
+                    hasattr(module, "should_run")
+                    and module.should_run
+                    and not module.should_run.evaluate(metadata)
+                ):
+                    continue
+
+                blocks = module.adlExport(metadata)
+                if blocks:
+                    for block in blocks:
+                        if block.block_type == "region_statement":
+                            if block.comment:
+                                region_statements.append(
+                                    ADLStatement("#", block.comment)
+                                )
+                            region_statements.extend(block.statements)
+                        else:
+                            emitter.addBlock(block)
+
+            if region_statements:
+                emitter.addBlock(
+                    ADLBlock(
+                        block_type="region",
+                        name=pipeline_name,
+                        statements=region_statements,
+                    )
+                )
+
+        return emitter.render()
 
     def getUniqueModule(self, module):
         found = next((x for x in self.all_modules if x == module), None)
@@ -146,7 +195,7 @@ class Analyzer:
                             complete_pipeline.append(module)
                         params = ChainMap(params, res.this_module_parameters)
                     else:
-                        logger.debug("Running multi-parameter pipeline")
+                        logger.debug("RUNNING MULTI PARAMETER PIPELINE!!")
                         if res.run_builder is DEFAULT_RUN_BUILDER:
                             run_builder = self.default_run_builder
                         else:
@@ -171,6 +220,7 @@ class Analyzer:
                         )
                         r = module(everything, res.this_module_parameters or {})
                         results.extendleft(r)
+                        logger.debug("FINISHED RUNNING MULTIPARAMETER PIPELINE!")
                 else:
                     raise RuntimeError(
                         f"Invalid object type returned from analyzer module. {res}"

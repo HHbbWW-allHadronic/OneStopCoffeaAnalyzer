@@ -8,7 +8,7 @@ from attrs import define
 class PlotConfiguration:
     lumi_text: Optional[str] = None
     extra_text: Optional[str] = None
-    cms_text: Optional[str] = None
+    cms_text: str | list[str] | None = None
     cms_text_pos: int = 2
     cms_text_color: Optional[str] = None
 
@@ -18,7 +18,7 @@ class PlotConfiguration:
     x_label: Optional[str] = None
     y_label: Optional[str] = None
 
-    image_type: Optional[str] = None
+    image_type: str | list[str] | None = None
 
     legend_fill_color: mplt.ColorType | None = None
     legend_fill_alpha: float | None = None
@@ -31,5 +31,8 @@ class PlotConfiguration:
         if ret.extra_text:
             ret.extra_text = ret.extra_text.format(**meta)
         if ret.cms_text:
-            ret.cms_text = ret.cms_text.format(**meta)
+            if isinstance(ret.cms_text, list):
+                ret.cms_text = [t.format(**meta) for t in ret.cms_text]
+            else:
+                ret.cms_text = ret.cms_text.format(**meta)
         return ret

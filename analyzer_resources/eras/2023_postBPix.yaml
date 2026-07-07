@@ -9,7 +9,19 @@
 
   btag_scale_factors:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/BTV/2023_Summer23BPix/btagging.json.gz
-    systematics: [hf,lf,hfstats1,hfstats2]
+    systematics: [hf, lf, hfstats1_2023_postBPix, hfstats2_2023_postBPix]
+    jes_correlated_systematics: []
+    #  - Regrouped_Absolute
+    #  - Regrouped_Absolute_2023BPix
+    #  - Regrouped_FlavorQCD
+    #  - Regrouped_BBEC1
+    #  - Regrouped_BBEC1_2023BPix
+    #  - Regrouped_EC2
+    #  - Regrouped_EC2_2023BPix
+    #  - Regrouped_HF
+    #  - Regrouped_HF_2023BPix
+    #  - Regrouped_RelativeSample_2023BPix
+    #  - Regrouped_RelativeBal
 
   jet_veto_map:
     file: /cvmfs/cms.cern.ch/rsync/cms-nanoAOD/jsonpog-integration/POG/JME/2023_Summer23BPix/jetvetomaps.json.gz

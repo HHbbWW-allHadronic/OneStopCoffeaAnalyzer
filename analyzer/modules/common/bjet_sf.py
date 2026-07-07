@@ -34,12 +34,31 @@ class BJetShapeSF(AnalyzerModule):
             + ["disabled"]
         )
 
+        jes_correlated = b_meta.get("jes_correlated_systematics", [])
+        jes_values = list(it.product(["up", "down"], jes_correlated))
+        jes_correlated_values = [
+            f"{updown}_jes{name}".replace("Regrouped_", "")
+            for updown, name in jes_values
+        ]
+        possible_values += jes_correlated_values
+
+        driven_by = None
+        if jes_correlated_values:
+
+            def jesToBtag(jes_val):
+                if jes_val == "central":
+                    return None
+                return jes_val.replace("Regrouped_", "")
+
+            driven_by = {"jes-variation": jesToBtag}
+
         return ModuleParameterSpec(
             {
                 "bjetshapesf-variation": ParameterSpec(
                     default_value="central",
                     possible_values=possible_values,
                     tags={"weight_variation"},
+                    driven_by=driven_by,
                 ),
             }
         )
@@ -47,11 +66,12 @@ class BJetShapeSF(AnalyzerModule):
     def run(self, columns, params):
         sf_eval = self.getCorrection(columns.metadata)
         systematic = params["bjetshapesf-variation"]
+        systematic = systematic.removesuffix("_" + columns.metadata["era"]["name"])
         gj = columns[self.input_col]
         if systematic == "disabled":
             columns["Weights", self.weight_name] = ak.ones_like(ak.firsts(gj.pt))
             return columns, []
-        # bjets = jets[jets.btagDeepFlavB > wp[self.working_point]]
+
         if systematic == "central":
             j = gj
             sf = ak.prod(

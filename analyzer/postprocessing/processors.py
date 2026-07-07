@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import abc
-from cattrs.strategies import (
-    include_subclasses,
-    configure_tagged_union,
-)
-
+from cattrs.strategies import include_subclasses, configure_tagged_union
 import functools as ft
 from .plots.common import PlotConfiguration
 from .style import StyleSet
-from analyzer.utils.structure_tools import (
-    ItemWithMeta,
-)
-from .grouping import GroupBuilder
+from analyzer.utils.structure_tools import ItemWithMeta
+from analyzer.postprocessing.grouping import GroupBuilder
 from analyzer.utils.structure_tools import globWithMeta
 from attrs import define, field
 
@@ -35,6 +29,15 @@ class BasePostprocessor(abc.ABC):
             items = [y for x in (globWithMeta(data, l) for l in i) for y in x]
             for x in self.structure.apply(items):
                 yield from self.getRunFuncs(x, prefix)
+
+    def explain(self, data):
+        traces = []
+        for i in self.inputs:
+            items = [y for x in (globWithMeta(data, l) for l in i) for y in x]
+            input_desc = " + ".join("/".join(l) for l in i)
+            trace = self.structure.explain(items)
+            traces.append((input_desc, trace))
+        return traces
 
     @abc.abstractmethod
     def getRunFuncs(self, group: PostprocessingGroup, prefix=None):

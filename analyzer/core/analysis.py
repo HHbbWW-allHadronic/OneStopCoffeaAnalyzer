@@ -19,6 +19,8 @@ class DatasetDescription:
 class Analysis:
     """
     Complete description of an Analysis
+    The only options the user should need to provide at runtime are
+    the executor with which to run the analysis, and the path of the output data.
     """
 
     analyzer: Analyzer
@@ -35,6 +37,8 @@ class Analysis:
 def loadAnalysis(path):
     data = loadTemplateYaml(path)
 
+    # We must first load use provided modules so they are registered
+    # with cattrs before attempting deserialization
     for path in data.get("extra_module_paths", []):
         from pathlib import Path
 
@@ -42,7 +46,19 @@ def loadAnalysis(path):
         loadModuleFromPath(p.stem, path)
 
     setupConverter(converter)
-    analysis = converter.structure(data, Analysis)
+    try:
+        analysis = converter.structure(data, Analysis)
+    except Exception as e:
+        from cattrs.errors import BaseValidationError
+        from cattrs.v import transform_error
+
+        if isinstance(e, BaseValidationError):
+            errors = transform_error(e)
+            error_msg = "\n".join([f"  - {err}" for err in errors])
+            raise ValueError(
+                f"Failed to load analysis due to configuration validation errors:\n{error_msg}"
+            ) from None
+        raise
     return analysis
 
 

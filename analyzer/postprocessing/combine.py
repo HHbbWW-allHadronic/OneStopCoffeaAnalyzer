@@ -8,6 +8,8 @@ import uproot
 import os
 import operator as op
 import jinja2
+import numpy as np
+import hist
 
 from analyzer.utils.structure_tools import (
     commonDict,
@@ -15,6 +17,24 @@ from analyzer.utils.structure_tools import (
     dotFormat,
 )
 from .processors import BasePostprocessor
+
+def flatten_if_2d(h, axis_name="gpr_bin", order="C"):
+    """
+    If h is 2D, flatten all bins into a 1D hist.Hist with linear edges.
+    """
+    if h.ndim != 2:
+        return h
+
+    counts2d = np.asarray(h.view(flow=False))
+    counts1d = counts2d.reshape(-1, order=order)
+
+    linear_edges = np.arange(counts1d.size + 1)
+
+    storage = h.storage_type() if hasattr(h, "storage_type") else hist.storage.Weight()
+
+    h1 = hist.Hist(hist.axis.Variable(linear_edges, name=axis_name), storage=storage)
+    h1[...] = counts1d
+    return h1
 
 
 def formatLines(elems, separator=" ", force_max=None):
@@ -209,7 +229,7 @@ def _handleProcessSystematics(
                     card.addSystematic(syst_obj)
 
                 h_var = hist[{"systematic": syst_name}]
-                rf[f"{process_name}_{syst_name}"] = h_var
+                rf[f"{process_name}_{syst_name}"] = flatten_if_2d(h_var)
                 card.setProcessSystematic(proc, syst_obj, channel, 1.0)
 
 
@@ -237,11 +257,10 @@ def _processList(
                 h_nom = hist[{"variation": "nominal"}]
             else:
                 h_nom = hist[{"variation": 0}]
-            rate = h_nom.sum().value
-            rf[process_name] = h_nom
         else:
-            rate = hist.sum().value
-            rf[process_name] = hist
+            h_nom = hist
+        rate = h_nom.sum().value
+        rf[process_name] = flatten_if_2d(h_nom)
 
         card.setProcessRate(proc, channel, rate)
         card.addShape(
@@ -264,8 +283,13 @@ def _handleObservation(rf, card, observation, background, channel, root_file_nam
     if observation:
         if len(observation) != 1:
             raise ValueError("Observation must have exactly one element.")
-
-        rf["data_obs"] = observation[0].item.histogram
+        h = observation[0].item.histogram
+        if "variation" in h.axes.name:
+            if "nominal" in h.axes["variation"]:
+                h = h[{"variation": "nominal"}]
+            else:
+                h = h[{"variation": 0}]
+        rf["data_obs"] = flatten_if_2d(h)
         card.addObservation(channel, root_file_name, "data_obs", -1)
     else:
         background_hists = [item.item.histogram for item in background]
@@ -277,7 +301,7 @@ def _handleObservation(rf, card, observation, background, channel, root_file_nam
                     hist = hist[{"variation": "nominal"}]
                 else:
                     hist = hist[{"variation": 0}]
-            rf["data_obs"] = hist
+            rf["data_obs"] = flatten_if_2d(hist)
             card.addObservation(channel, root_file_name, "data_obs", -1)
 
 

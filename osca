@@ -1,3 +1,52 @@
 #!/usr/bin/env bash
 
-uv run python3 -m analyzer "$@"
+container="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12"
+
+if [[ -n "$SINGULARITY_NAME" ]] || [[ -n "$APPTAINER_NAME" ]]; then
+    if [ -f "$HOME/.bashrc" ]; then
+        . "$HOME/.bashrc"  > /dev/null 2>&1
+    fi
+
+    if ! command -v uv &> /dev/null; then
+        echo "Error: 'uv' is not installed or not in PATH."
+        echo "Please install 'uv' and try again."
+        exit 1
+    fi
+
+
+
+    SYNC_CMD_EXTRAS=""
+    if [[ "$IS_LPC" == "true" ]]; then
+        SYNC_CMD_EXTRAS="$SYNC_CMD_EXTRAS --extra lpc --extra condor"
+    fi
+
+    if [ ! -d ".venv" ]; then
+        echo "Creating virtual environment. This will be done only once."
+        uv venv --clear --no-managed-python --relocatable --system-site-packages --link-mode copy
+        uv sync --no-managed-python --link-mode copy $SYNC_CMD_EXTRAS
+    fi
+
+    source .venv/bin/activate
+    python3 -m analyzer "$@"
+else
+
+    if [[ ! -e .git/hooks/pre-commit ]]; then
+        cp .githooks/pre-commit .git/hooks/pre-commit
+    fi
+
+    HOST=$(hostname)
+    IS_LPC="false"
+    if [[ "$HOST" == *"cmslpc"* ]]; then
+        IS_LPC="true"
+    fi
+    SCRIPT_PATH=$(realpath "$0")
+    ARGS=""
+    if [[ "$IS_LPC" == "true" ]]; then
+        ARGS="-B $HOME,/uscmst1b_scratch,$(realpath "$HOME"),/uscms_data,/cvmfs,/etc/condor/,/usr/local/bin/cmslpc-local-conf.py,$(realpath .):$PWD"
+    else
+        ARGS="-B $(realpath .):$PWD,$(realpath "$HOME")" 
+    fi
+
+    export IS_LPC
+    apptainer exec $ARGS "$container" "$SCRIPT_PATH" "$@"
+fi 

@@ -1,0 +1,16 @@
+processors:
+  - name: Dump
+    inputs:
+      # - "*/*/*/comp_mChi" 
+      # - "*/*/*/comp_mStop" 
+      # - "*/*/*/uncomp_mStop" 
+      # - "*/*/*/uncomp_mChi" 
+      - "*/*/*/uncomp_mStop_vs_mChiRatio" 
+      - "*/*/*/comp_mStop_vs_mChiRatio" 
+      - "*/*/*/verycomp_mStop_vs_mChiRatio" 
+      - "*/*/*/complete_uncomp_mStop_vs_mChiRatio" 
+      - "*/*/*/complete_comp_mStop_vs_mChiRatio" 
+    structure:
+      group: {era.name: "*", pipeline: "*"}
+      transforms: 
+    output_name: "{prefix}/{era.name}/{pipeline}/{name}.pklz4"

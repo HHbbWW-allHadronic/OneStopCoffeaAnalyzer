@@ -2,6 +2,7 @@ from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 from attrs import define, field
 import correctionlib
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 @define
@@ -57,3 +58,23 @@ class BQuarkMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        try:
+            wps = self.getWPs(metadata)
+            threshold = f"{wps[self.working_point]:.4f}"
+        except Exception:
+            threshold = f"<deepJet_{self.working_point}_WP>"
+
+        statements = [
+            ADLStatement("take", self.input_col.adl_name),
+            ADLStatement("select", f"btagDeepFlavB > {threshold}"),
+        ]
+
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=statements,
+            )
+        ]

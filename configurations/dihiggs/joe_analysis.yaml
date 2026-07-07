@@ -1,5 +1,34 @@
 {% import 'core.yaml' as core %}
 
+{%- macro signalmc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+      - SignalOnly
+{%- endmacro %}
+
+{%- macro mc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+{%- endmacro %}
+
+{%- macro data_pipelines() %}
+      - withHLT_NoSelection
+      - withHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+{%- endmacro %}
+
 common_histograms: &common_histograms
   - module_name: TopVecHistograms
     prefix: "Jet"
@@ -65,31 +94,59 @@ common_histograms: &common_histograms
         stop: 13.5
         bins: 14
 
-  - module_name: JetComboHistograms
-    input_col: MedB
-    prefix: "b_dijet"
-    jet_combos:
-      - [0,1]
-    mass_axis:
-      name: "b_dijet"
-      start: 0
-      stop: 500
-      bins: 50
+  - module_name: FourVecHistograms
+    input_col: nontop2b_med
+    hist_name: nontop2b_med
 
   - module_name: FourVecHistograms
-    input_col: nontop2b
-    hist_name: nontop2b
+    input_col: TightB
+    hist_name: TightB
 
-  - module_name: JetComboHistograms
-    input_col: nontop2b
-    prefix: "nontop2b"
-    jet_combos:
-      - [0,1,2,3]
+  - module_name: SimpleHistogram
+    hist_name: TightBN
+    input_cols: [NTightB]
+    axes:
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_tight
+    hist_name: nontop2b_tight
+
+  - module_name: SimpleHistogram
+    hist_name: dijet_fourjet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_fourjet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_fourjet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: b_dijet
+    hist_name: b_dijet
     mass_axis:
-      name: "nontop2b"
+      name: "nontop2b_fourjet"
       start: 0
       stop: 500
-      bins: 50
+      bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_fourjet
+    hist_name: nontop2b_fourjet
+    mass_axis:
+      name: "nontop2b_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
 
   - module_name: FourVecHistograms
     input_col: Jet
@@ -107,8 +164,8 @@ common_histograms: &common_histograms
     axes: 
       - name: "$N_{AK4Jets}$"
         start: -0.5
-        stop: 13.5
-        bins: 14
+        stop: 20.5
+        bins: 21
 
   - module_name: SimpleHistogram
     hist_name: AK4JetQvG
@@ -233,9 +290,13 @@ analyzer:
     - *withHLT_ObjDef2
     - *common_histograms
 
-  noHLT_ObjDef2:
-    - *noHLT_ObjDef2
+  withHLT_ObjDef3:
+    - *withHLT_ObjDef3
     - *common_histograms
+
+  withHLT_ObjDef4:
+    - *withHLT_ObjDef4
+    - *common_histograms 
 
   SignalOnly:
     - module_name: SelectAllTriggers
@@ -243,36 +304,19 @@ analyzer:
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
-{%- macro signalmc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - noHLT_ObjDef2
-      - SignalOnly
-{%- endmacro %}
-
-{%- macro mc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - noHLT_ObjDef2
-{%- endmacro %}
-
 event_collections:
+  - dataset: 'data_HHParking_2024*'
+    pipelines:
+    {{ data_pipelines() }}
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
-#  - dataset: 'qcd*2024*'
-#   pipelines:
-#   {{ mc_pipelines() }}
-# - dataset: 'tt_hadronic*2024*'
-#   pipelines:
-#   {{ mc_pipelines() }}
-# - dataset: 'tt_semilep*2024'
-#   pipelines:
-#   {{ mc_pipelines() }}
-        
+  - dataset: 'qcd*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+    {{ mc_pipelines() }}

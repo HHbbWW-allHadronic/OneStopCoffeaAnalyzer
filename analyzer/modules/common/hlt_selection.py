@@ -8,6 +8,7 @@ import awkward as ak
 
 from analyzer.core.columns import addSelection
 import functools as ft
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 @define
@@ -41,6 +42,21 @@ class SimpleHLT(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Column(f"Selection.{self.selection_name}")]
+
+    def adlExport(self, metadata):
+        trigger_names = [
+            metadata["era"]["trigger_names"].get(t, t) for t in self.triggers
+        ]
+        trigger_str = " OR ".join(trigger_names)
+
+        return [
+            ADLBlock(
+                block_type="region_statement",
+                name="",
+                statements=[],
+                comment=f"Trigger ({self.selection_name}): {trigger_str}",
+            )
+        ]
 
 
 @define

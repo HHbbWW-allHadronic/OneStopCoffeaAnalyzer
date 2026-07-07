@@ -2,6 +2,7 @@ from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 from attrs import define, field
 import enum
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 class IdWps(str, enum.Enum):
@@ -81,3 +82,30 @@ class MuonMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        statements = [
+            ADLStatement("take", self.input_col.adl_name),
+            ADLStatement("select", f"pt > {self.min_pt}"),
+            ADLStatement("select", f"abs(eta) < {self.max_abs_eta}"),
+        ]
+
+        statements.append(ADLStatement("select", f"{self.id_working_point} == True"))
+        statements.append(
+            ADLStatement("select", f"miniPFRelIso_all < {self.max_mini_iso}")
+        )
+
+        if self.iso_working_point is not None:
+            statements.append(
+                ADLStatement(
+                    "select", f"pfIsoId >= {cut_mapping[self.iso_working_point]}"
+                )
+            )
+
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=statements,
+            )
+        ]

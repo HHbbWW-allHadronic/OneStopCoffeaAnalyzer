@@ -2,6 +2,7 @@ from analyzer.core.analysis_modules import AnalyzerModule, MetadataExpr
 from analyzer.core.columns import Column
 from attrs import define, field
 import enum
+from analyzer.core.adl import ADLBlock, ADLStatement
 
 
 class CutBasedWPs(str, enum.Enum):
@@ -64,3 +65,25 @@ class ElectronMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+    def adlExport(self, metadata):
+        statements = [
+            ADLStatement("take", self.input_col.adl_name),
+            ADLStatement("select", f"pt > {self.min_pt}"),
+            ADLStatement("select", f"abs(eta) < {self.max_abs_eta}"),
+        ]
+
+        statements.append(
+            ADLStatement("select", f"cutBased >= {cut_mapping[self.working_point]}")
+        )
+        statements.append(
+            ADLStatement("select", f"miniPFRelIso_all < {self.max_mini_iso}")
+        )
+
+        return [
+            ADLBlock(
+                block_type="object",
+                name=self.output_col.adl_name,
+                statements=statements,
+            )
+        ]

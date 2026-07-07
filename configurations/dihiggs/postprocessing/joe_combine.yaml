@@ -1,0 +1,35 @@
+Postprocessing:
+  default_plot_config: &default_plot_config
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
+  default_style_set: &default_style_set
+    styles:
+      - pattern:
+          dataset_name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          linestyle: null
+          marker: 'o'
+
+
+  processors:
+    - name: CombineDatacard
+      channel: "m2d_{era.name}_{pipeline}"
+      inputs: 
+        - "*/*/*/*2d"
+      structure:
+        group: {pipeline: "*", era.name: "*"}
+        subgroups: 
+          signal: {select: {dataset_name: "re:^ggHH2b2V6q.*"}} 
+          observation: {select: {dataset_name: "re:^$"}} #{select: {dataset_name: "re:^data.*"}}
+          background: {select: {dataset_name: "re:^(?!data.*|ggHH2b2V6q.*).*"}}
+        transforms:
+            - name: SumHistograms
+              sum_match_pattern: {dataset_name: "tt*"}
+              new_meta_fields:
+                dataset_name: "tt"
+                title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datacard"

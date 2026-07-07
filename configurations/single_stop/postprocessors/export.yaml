@@ -7,6 +7,7 @@ processors:
       # - "*/*/*/uncomp_mChi" 
       - "*/*/*/uncomp_mStop_vs_mChiRatio" 
       - "*/*/*/comp_mStop_vs_mChiRatio" 
+      - "*/*/*/verycomp_mStop_vs_mChiRatio" 
     structure:
       group: {dataset_name: "*", era.name: "*", pipeline: "*"}
       transforms: 
@@ -18,4 +19,6 @@ processors:
             dataset_name: "signal*"
         - name: MergeAxes
           merge_axis_names: ["HT_Cat"]
+          should_run:
+            sample_type: "MC"
     output_name: "{prefix}/{era.name}/{pipeline}/{dataset_name}/{name}.pklz4"

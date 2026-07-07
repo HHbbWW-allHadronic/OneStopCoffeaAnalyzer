@@ -61,5 +61,14 @@ oldpkl/
 *.pdf
 
 
-trained_bnns/
-nn_models/
+/trained_bnns/
+/knn_models/
+/*export*/
+/*postprocessing*/
+/*compressed*/
+/*scratch*/
+/*DANGER*/
+/*trigger*/
+/*forseth*/
+/*forjoe*/
+/docs/source/api/

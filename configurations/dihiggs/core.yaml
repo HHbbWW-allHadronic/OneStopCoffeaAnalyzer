@@ -1,5 +1,8 @@
 {% macro objects() -%}
 common_objects: &common_objects
+  - module_name: JetID
+    input_col: Jet
+    output_col: Jet.jetId
   - module_name: HElectronMaker
     input_col: Electron
     output_col: tightElectron
@@ -35,10 +38,6 @@ common_objects: &common_objects
     min_pt: 5
     max_abs_eta: 2.4
     iso_working_pt: "loose"
-
-  - module_name: JetID
-    input_col: Jet
-    output_col: Jet.jetId
 
   - module_name: HJetFilter
     input_col: Jet
@@ -77,7 +76,30 @@ common_objects: &common_objects
     output_col: MedB
     working_point: M
     nontop2b: True
-    nontop2b_col: nontop2b
+    nontop2b_col: nontop2b_med
+
+  - module_name: HBQuarkMaker
+    input_col: goodJet
+    output_col: TightB
+    working_point: T
+    nontop2b: True
+    nontop2b_col: nontop2b_tight
+
+
+  - module_name: HCQuarkMaker
+    input_col: goodJet
+    output_col: MedC
+    working_point: M
+    nontop2b: True
+    nontop2b_col: nontop2c_med
+
+  - module_name: HCQuarkMaker
+    input_col: goodJet
+    output_col: TightC
+    working_point: T
+    nontop2b: True
+    nontop2b_col: nontop2c_tight
+
 
   - module_name: HT
     input_col: Jet
@@ -86,10 +108,6 @@ common_objects: &common_objects
   - module_name: HT
     input_col: goodJet
     output_col: HT
-
-  - module_name: HT
-    input_col: GenJet
-    output_col: GenJetHT
 
   - module_name: Count
     input_col: Jet
@@ -100,12 +118,20 @@ common_objects: &common_objects
     output_col: NJet
 
   - module_name: Count
-    input_col: GenJet
-    output_col: NGenJet
-
-  - module_name: Count
     input_col: MedB
     output_col: NMedB
+
+  - module_name: Count
+    input_col: TightB
+    output_col: NTightB
+
+  - module_name: Count
+    input_col: MedC
+    output_col: NMedC
+
+  - module_name: Count
+    input_col: TightC
+    output_col: NTightC
 
   - module_name: Count
     input_col: looseMuon
@@ -128,8 +154,21 @@ common_objects: &common_objects
 hlt_selection: &hlt_selection
   - module_name: SimpleHLT
     triggers: [250HT4J2B]
+  - module_name: ScalarCut
+    input_col: HT
+    selection_name: HT300
+    min_val: 300
 
-tight_selection: &tight_selection
+eventlevel_selection: &eventlevel_selection
+  - module_name: GoldenLumi
+  - module_name: VetoMap
+    input_col: Jet
+  - module_name: VetoMapFilter
+    input_col: Jet
+    output_col: Jet
+  - module_name: NoiseFilter
+
+tightlep_medb_selection: &tightlep_medb_selection
   - module_name: NObjFilter
     input_col: tightElectron
     selection_name: zero_electron
@@ -152,7 +191,7 @@ tight_selection: &tight_selection
     selection_name: 2b
     min_count: 2
 
-loose_selection: &loose_selection
+looselep_medb_selection: &looselep_medb_selection
   - module_name: NObjFilter
     input_col: looseElectron
     selection_name: zero_electron
@@ -175,38 +214,145 @@ loose_selection: &loose_selection
     selection_name: 2b
     min_count: 2
 
-withHLT_ObjDef1: &withHLT_ObjDef1
-  - *hlt_selection
+tightlep_tightb_selection: &tightlep_tightb_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+looselep_tightb_selection: &looselep_tightb_selection
+  - module_name: NObjFilter
+    input_col: looseElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: looseMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+medb_obj: &medb_obj
+  - module_name: JetCombos
+    input_cols:
+      - MedB
+      - nontop2b_med
+    jet_combos:
+      - [0, 1]
+      - [0, 1, 2, 3]
+    output_cols:
+      - "b_dijet"
+      - "nontop2b_fourjet"
+
+tightb_obj: &tightb_obj
+    - module_name: JetCombos
+      input_cols:
+        - TightB
+        - nontop2b_tight
+      jet_combos:
+        - [0, 1]
+        - [0, 1, 2, 3]
+      output_cols:
+        - "b_dijet"
+        - "nontop2b_fourjet"
+
+     
+withHLT_ObjDef4: &withHLT_ObjDef4
   - *common_objects
-  - *tight_selection
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *looselep_tightb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *tightb_obj
+
+withHLT_ObjDef3: &withHLT_ObjDef3
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_tightb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *tightb_obj
 
 withHLT_ObjDef2: &withHLT_ObjDef2
-  - *hlt_selection
   - *common_objects
-  - *loose_selection
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *looselep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
+
+withHLT_ObjDef1: &withHLT_ObjDef1
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_medb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *medb_obj
 
 noHLT_ObjDef1: &noHLT_ObjDef1
   - *common_objects
-  - *tight_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_medb_selection
   - module_name: SelectOnColumns
     sel_name: selection
-
-noHLT_ObjDef2: &noHLT_ObjDef2
-  - *common_objects
-  - *loose_selection
-  - module_name: SelectOnColumns
-    sel_name: selection
+  - *medb_obj
 
 withHLT_NoSelection: &withHLT_NoSelection
-  - *hlt_selection
   - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
   - module_name: SelectOnColumns
     sel_name: selection
+  - *medb_obj
 
 NoSelection: &NoSelection
   - *common_objects
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *medb_obj
 {%- endmacro %}

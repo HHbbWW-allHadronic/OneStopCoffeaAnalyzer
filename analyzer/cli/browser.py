@@ -17,6 +17,9 @@ from analyzer.core.results import ResultGroup, Histogram
 from textual.widget import Widget
 import numpy as np
 import hist
+import io
+import sys
+from contextlib import redirect_stdout
 
 
 def formatSize(size_in_bytes: int) -> str:
@@ -93,6 +96,7 @@ class ResultBrowser(App):
         self.viewer = ResultViewer()
 
     def compose(self) -> ComposeResult:
+        """Compose the application layout."""
         with Vertical():
             yield Header()
             with Horizontal():
@@ -129,9 +133,6 @@ class ResultBrowser(App):
                 if out is not None:
                     log_widget.write(repr(out))
             except SyntaxError:
-                import io
-                import sys
-                from contextlib import redirect_stdout
 
                 f = io.StringIO()
                 with redirect_stdout(f):
@@ -163,6 +164,7 @@ class ResultTree(Widget):
         self.results = results
 
     def compose(self) -> ComposeResult:
+        """Compose the tree layout."""
         tree = Tree("/")
 
         def matches(result, term):
@@ -216,6 +218,7 @@ class HistogramViewer(Widget):
         return options
 
     def compose(self) -> ComposeResult:
+        """Compose the histogram viewer controls and plot."""
         from textual.containers import Vertical, Horizontal
         from textual_plotext import PlotextPlot
 
@@ -377,6 +380,7 @@ class ResultViewer(Widget):
         self.result = result
 
     def compose(self):
+        """Compose the result viewer layout."""
         if self.result is None:
             return
 

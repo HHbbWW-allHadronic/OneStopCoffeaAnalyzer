@@ -77,7 +77,7 @@ def configureConverter(conv):
                 if k not in f:
                     source[k] = value.pop(k)
             value["source"] = source
-        ret = base_sample_hook(value)
+        ret = base_sample_hook(value, type)
         return ret
 
     base_dataset_hook = conv.get_structure_hook(Dataset)
@@ -91,7 +91,7 @@ def configureConverter(conv):
                 if k not in f:
                     sample[k] = value.pop(k)
             value["samples"] = [sample]
-        ret = base_dataset_hook(value)
+        ret = base_dataset_hook(value, type)
         return ret
 
 
@@ -127,6 +127,7 @@ class Dataset:
 
 @cache.memoize(tag="dataset")
 def getDatasetFromPathMTime(path, mtime):
+    print(path)
     with open(path, "r") as fo:
         data = yaml.load(fo, Loader=Loader)
     data = converter.structure(data, list[Dataset])
@@ -149,7 +150,7 @@ class DatasetRepo:
         try:
             data = getDatasetFromPathMTime(path, path.stat().st_mtime)
             for d in data:
-                logger.debug(f"Adding dataset {d.name} to repo")
+                # logger.debug(f"Adding dataset {d.name} to repo")
                 if d.name in self.datasets:
                     raise KeyError(f"A dataset with the name {d.name} already exists")
                 self.datasets[d.name] = d
@@ -160,6 +161,9 @@ class DatasetRepo:
     def addFromDirectory(self, path):
         logger.info(f"Loading datasets recursively from path {path}")
         directory = Path(path)
-        files = list(directory.rglob("*.yaml"))
-        for f in files:
-            self.addFromFile(f)
+        if directory.is_file():
+            self.addFromFile(directory)
+        else:
+            files = list(directory.rglob("*.yaml"))
+            for f in files:
+                self.addFromFile(f)

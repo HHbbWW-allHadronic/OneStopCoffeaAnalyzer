@@ -3,7 +3,7 @@ from analyzer.core.columns import Column
 from attrs import define, field, evolve
 from ..common.axis import RegularAxis
 from ..common.histogram_builder import makeHistogram
-
+import awkward as ak
 
 import correctionlib
 import logging
@@ -21,7 +21,7 @@ class FourVecHistograms(AnalyzerModule):
         Column containing the object collection (e.g. jets).
     hist_name: str
         Name of column to be used in histogram.
-    mass_axis: 
+    mass_axis:
         RegularAxis for mass plotting.
     """
 
@@ -34,7 +34,11 @@ class FourVecHistograms(AnalyzerModule):
     def run(self, columns, params):
         jets = columns[self.input_col]
         ret = []
-        mass_axis = evolve(self.mass_axis, name=f"{self.hist_name} $m$")
+        if axis.name:
+            new_name = axis.name
+        else:
+            new_name = f"{self.hist_name} $m$"
+        mass_axis = evolve(self.mass_axis, name=new_name)
         ret.append(
             makeHistogram(
                 f"{self.hist_name}_pt",
@@ -79,3 +83,47 @@ class FourVecHistograms(AnalyzerModule):
     def inputs(self, metadata):
         return [self.input_col]
 
+@define
+class JetVarRankHistograms(AnalyzerModule):
+
+
+    input_col: Column
+    hist_name: str
+
+    axis: RegularAxis
+    max_idx: int = 6
+
+
+    def run(self, columns, params):
+        var = columns[self.input_col]
+        ret = []
+        padded = ak.pad_none(var, self.max_idx, axis=1)
+        for i in range(0, self.max_idx):
+            mask = ak.num(var, axis=1) > i
+            jet_individual = padded[:, i]
+            
+
+            rank_label = f"$_{{{i + 1}}}$"
+            
+            new_name = f"{self.axis.name} {rank_label}"
+
+            axis = evolve(self.axis, name=new_name)
+            # Generate the histogram for Jet [i+1]
+            ret.append(
+                makeHistogram(
+                    f"{self.axis.name}{i+1}",
+                    columns,
+                    axis,
+                    jet_individual,
+                    description=f"{self.axis.name} of jet {i + 1}",
+                    mask=mask,
+                )
+            )
+
+        return columns, ret
+
+    def outputs(self, metadata):
+        return []
+
+    def inputs(self, metadata):
+        return [self.input_col]
