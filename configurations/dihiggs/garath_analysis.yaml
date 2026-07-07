@@ -538,7 +538,7 @@ gen_histograms: &gen_histograms
         bins: 60
 
   - module_name: SimpleHistogram
-    hist_name: 2d_hbb_vs_hww_dr
+    hist_name: 2d_hbb_vs_hww_4q_dr
     input_cols: [min_dr_gen_hbb, max_dr_4q]
     axes:
       - name: '$\Delta R$ (2b)'
@@ -546,6 +546,19 @@ gen_histograms: &gen_histograms
         stop: 5
         bins: 50
       - name: 'Max $\Delta R$ (4q)'
+        start: 0
+        stop: 5
+        bins: 50
+
+  - module_name: SimpleHistogram
+    hist_name: 2d_hbb_vs_hww_3q_dr
+    input_cols: [min_dr_gen_hbb, max_dr_3q]
+    axes:
+      - name: '$\Delta R$ (2b)'
+        start: 0
+        stop: 5
+        bins: 50
+      - name: 'Max $\Delta R$ (3q)'
         start: 0
         stop: 5
         bins: 50
