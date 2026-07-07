@@ -19,6 +19,8 @@ class DatasetDescription:
 class Analysis:
     """
     Complete description of an Analysis
+    The only options the user should need to provide at runtime are
+    the executor with which to run the analysis, and the path of the output data.
     """
 
     analyzer: Analyzer
@@ -35,6 +37,8 @@ class Analysis:
 def loadAnalysis(path):
     data = loadTemplateYaml(path)
 
+    # We must first load use provided modules so they are registered
+    # with cattrs before attempting deserialization
     for path in data.get("extra_module_paths", []):
         from pathlib import Path
 

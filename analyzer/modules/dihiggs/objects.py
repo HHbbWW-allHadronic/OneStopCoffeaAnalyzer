@@ -25,7 +25,6 @@ from analyzer.core.analysis_modules import (
     IsSampleType,
 )
 
-
 logger = logging.getLogger("analyzer.modules")
 
 
@@ -55,70 +54,67 @@ class JetID(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         nanoversion = metadata["other_data"]["nanoversion"]
-        nanoversion = "V"+nanoversion if "V" not in nanoversion else nanoversion
+        nanoversion = "V" + nanoversion if "V" not in nanoversion else nanoversion
         jets = columns[self.input_col]
         if nanoversion in ["V13", "V14", "V15"]:
             eta = abs(jets.eta)
             jet_id_tight = ak.where(
                 eta <= 2.6,
-                (jets.neHEF < 0.99) & (jets.neEmEF < 0.9) & 
-                (jets.chMultiplicity + jets.neMultiplicity > 1) & 
-                (jets.chHEF > 0.01) & (jets.chMultiplicity > 0),
-            ak.where(
-                (eta > 2.6) & (eta <= 2.7),
-                (jets.neHEF < 0.90) & (jets.neEmEF < 0.99),
-            ak.where(
-                (eta > 2.7) & (eta <= 3.0),
-                (jets.neHEF < 0.99),
-            ak.where(
-                eta > 3.0,
-                (jets.neMultiplicity >= 2) & (jets.neEmEF < 0.4),
-                False
-            ))))
+                (jets.neHEF < 0.99)
+                & (jets.neEmEF < 0.9)
+                & (jets.chMultiplicity + jets.neMultiplicity > 1)
+                & (jets.chHEF > 0.01)
+                & (jets.chMultiplicity > 0),
+                ak.where(
+                    (eta > 2.6) & (eta <= 2.7),
+                    (jets.neHEF < 0.90) & (jets.neEmEF < 0.99),
+                    ak.where(
+                        (eta > 2.7) & (eta <= 3.0),
+                        (jets.neHEF < 0.99),
+                        ak.where(
+                            eta > 3.0,
+                            (jets.neMultiplicity >= 2) & (jets.neEmEF < 0.4),
+                            False,
+                        ),
+                    ),
+                ),
+            )
 
             jet_id_tight_lep_veto = ak.where(
-            eta <= 2.7,
-            jet_id_tight & (jets.muEF < 0.8) & (jets.chEmEF < 0.8),
-            jet_id_tight
-            )
-            
-            jet_id = ak.where(
-                jet_id_tight & jet_id_tight_lep_veto,
-                6,
-            ak.where(
+                eta <= 2.7,
+                jet_id_tight & (jets.muEF < 0.8) & (jets.chEmEF < 0.8),
                 jet_id_tight,
-                2,
-                0
-            ))
+            )
+
+            jet_id = ak.where(
+                jet_id_tight & jet_id_tight_lep_veto, 6, ak.where(jet_id_tight, 2, 0)
+            )
         elif nanoversion == "V12":
             eta = abs(jets.eta)
 
             jet_id_tight = ak.where(
                 eta <= 2.7,
                 (jets.jetId & (1 << 1)) > 0,
-            ak.where(
-                (eta > 2.7) & (eta <= 3.0),
-                ((jets.jetId & (1 << 1)) > 0) & (jets.neHEF < 0.99),
-            ak.where(
-                eta > 3.0,
-                ((jets.jetId & (1 << 1)) > 0) & (jets.neEmEF < 0.4),
-                False
-            )))
+                ak.where(
+                    (eta > 2.7) & (eta <= 3.0),
+                    ((jets.jetId & (1 << 1)) > 0) & (jets.neHEF < 0.99),
+                    ak.where(
+                        eta > 3.0,
+                        ((jets.jetId & (1 << 1)) > 0) & (jets.neEmEF < 0.4),
+                        False,
+                    ),
+                ),
+            )
 
             jet_id_tight_lep_veto = ak.where(
                 eta <= 2.7,
                 jet_id_tight & (jets.muEF < 0.8) & (jets.chEmEF < 0.8),
-                jet_id_tight
+                jet_id_tight,
             )
 
             jet_id = ak.where(
-                jet_id_tight & jet_id_tight_lep_veto,
-                6,
-            ak.where(
-                jet_id_tight,
-                2,
-                0
-            ))
+                jet_id_tight & jet_id_tight_lep_veto, 6, ak.where(jet_id_tight, 2, 0)
+            )
         else:
             jet_id = jets.jetId
         columns[self.output_col] = jet_id
@@ -176,22 +172,24 @@ class HElectronMaker(AnalyzerModule):
         pass_wp = electrons.cutBased >= electron_cut_mapping[self.working_point]
         if self.max_abs_dxy:
             pass_dxy = abs(electrons.dxy) < ak.where(
-                            abs(electrons.eta) < 1.479,
-                            self.max_abs_dxy["barrel"],
-                            self.max_abs_dxy["endcap"]
-                            )
+                abs(electrons.eta) < 1.479,
+                self.max_abs_dxy["barrel"],
+                self.max_abs_dxy["endcap"],
+            )
         else:
             pass_dxy = True
-        if self.max_abs_dz: 
+        if self.max_abs_dz:
             pass_dz = abs(electrons.dxy) < ak.where(
-                           abs(electrons.eta) < 1.479,
-                            self.max_abs_dxy["barrel"],
-                            self.max_abs_dxy["endcap"]
-                            )
+                abs(electrons.eta) < 1.479,
+                self.max_abs_dxy["barrel"],
+                self.max_abs_dxy["endcap"],
+            )
         else:
             pass_dz = True
 
-        columns[self.output_col] = electrons[pass_pt & pass_eta & pass_wp & pass_dxy & pass_dz]
+        columns[self.output_col] = electrons[
+            pass_pt & pass_eta & pass_wp & pass_dxy & pass_dz
+        ]
         return columns, []
 
     def inputs(self, metadata):
@@ -279,7 +277,7 @@ class HJetFilter(AnalyzerModule):
         by default False.
     include_jet_id : bool, optional
         Whether to apply jet ID requirements, by default False.
-        
+
     Notes
     -----
     - Jet ID selection requires only the tight bit to be set (bitmask `0b010`).
@@ -300,9 +298,7 @@ class HJetFilter(AnalyzerModule):
         good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
 
         if self.include_jet_id:
-            good_jets = good_jets[
-                ((good_jets.jetId & 0b010) != 0)
-            ]
+            good_jets = good_jets[((good_jets.jetId & 0b010) != 0)]
 
         if self.include_pu_id:
             if any(x in metadata["era"]["name"] for x in ["2016", "2017", "2018"]):
@@ -317,6 +313,7 @@ class HJetFilter(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
 
 @define
 class DRVetoFilter(AnalyzerModule):
@@ -335,6 +332,7 @@ class DRVetoFilter(AnalyzerModule):
     veto_dr : float
         Elements within this delta R of any veto object will be removed.
     """
+
     input_col: Column
     output_col: Column
     veto_cols: list[Column]
@@ -355,13 +353,13 @@ class DRVetoFilter(AnalyzerModule):
     def outputs(self, metadata):
         return [self.output_col]
 
+
 @define
 class JetCombos(AnalyzerModule):
     """
     Build composite objects from specified combinations
-    of jets (by index). Ensure all required jets exist,
-    as missing jets in the sum are ignored 
-    (i.e. jet0 + jet1 = jet1 if jet0 does not exist).
+    of jets (by index). Events missing the required number
+    of jets are filled with None (i.e. excluded/ignored).
     For NN training only.
 
     Parameters
@@ -386,8 +384,10 @@ class JetCombos(AnalyzerModule):
             jets = columns[input_col]
             max_idx = max(combo)
             padded = ak.pad_none(jets, max_idx + 1, axis=1)
+            msk = ak.num(jets, axis=1) < max_idx + 1
 
             summed = padded[:, combo].sum()
+            summed = ak.mask(summed, ~msk)
             columns[self.output_cols[i] + Column("mass")] = summed.mass
             columns[self.output_cols[i] + Column("pt")] = summed.pt
             columns[self.output_cols[i] + Column("eta")] = summed.eta

@@ -1,0 +1,239 @@
+
+* Intro to this Document
+The purpose of this document is to provide a high level architectural overview of the framework for developers, rather than users.
+A "user" should be will interact primarily with analyzer modules and postprocessors, and the vast majority of their efforts will be in programming modules to suit their needs when a when the existing systems are lacking.
+A framework developer, on the other hand, should understand the architecture of the framework itself: how data and metadata flow through the system, how configurations are handled, and how to debug when things go wrong.
+Realistically most users will also be framework developers at various points, as they identify bugs and deficiencies in the framework itself, rather than their personal code.
+The hope is that the information provided here will act as a guide to developing and debugging the framework itself.
+
+** Vocabulary
+Some of the terms here may not be used in the standard way.
+
+- Dataset: a collection of events that share common "era" information. A dataset may contain multiple samples
+- Sample: A single collection of events. In Data this generally corresponds to a certain sub-era. In simulation this corresponds to a process with a given cross section.
+- Era: A CMS run era, effectively a container for common parameters, such as corrections and scale factors.
+- Event: A single readout of the detector electronics, the basic unit of analysis.
+  An event contains many objects.
+- Objects: Physics quantities reconstructed from detector readout and various postprocessing steps. Objects may be either /event level/, meaning there is one of them per event (ie HT, MET), or there may be multiple of a given object in a event, such as electrons.
+  
+- Analyzer: This program, the system used to extract information from datasets
+- Executor: Responsible for actually running the analysis, potentially in a distributed manner.
+
+
+** Used Libraries
+We mention here the major libraries that are used and their purposes.
+- coffea/awkward: Core library for reading NanoAOD datasets and manipulating their contents. 
+- dask/distributed: distributed execution
+- attrs/cattrs: Advanced dataclass definitions and serialization. Used to load configuration files and define the yaml analysis schema.
+- click: CLI
+- diskcache: Disk based caching, used for storing information like the replica locations from rucio
+- rich/textual: pretty printing and TUIs
+- lz4: compression, critical as the analysis starts to expand.
+- hist: histograms
+
+
+
+* Overview of the Analyzer
+
+Before getting into the details, it is important to understand the goals of the framework.
+
+** CMS Analysis Challenges
+In the authors opinion, the three most difficult parts of designing an analysis system is systematics, multiple regions, and general bookkeeping.
+- Systematics: systematics are challenging because they can vastly expand the execution time and memory requirements of the system. Weight systematics can be handled easily by computing the varied event level weights, and then producing copies of each result computed using the varied weights.
+  Object level systematics, also called /shape systematics/, are much more challenging. Since these manipulate actual objects in an event, an calculation which uses these objects downstream may yield a different result.
+  Therefore, to compute the effect of a shape systematic, any calculation done an effected object must be recomputed.
+- Multiple Regions: Almost all analyses will have multiple "regions," which correspond to different event level selections.
+  A naive approach is simply to run each region independently.
+  However, generally regions will contain significant overlap and we would like to avoid needlessly redoing computations.
+- Bookkeeping: Though this ties into the previous points, one of the most challenging components of doing a "full-scale" analysis is simply keeping track of what is being done.
+  A Run2+Run3 analysis might contain 8 individual eras, each with 10 datasets, each with many samples, hundreds possible signal MC files, all run over multiple selections with dozens of systematic uncertainties and a large number of configuration parameters.
+  The analysis team may have different scale factors and ML models that need to be loaded for eras and selections.
+  It gets very challenging to manage this information, let alone use it effectively.
+
+
+A final higher level point is that of speed.
+Any framework must be capable of giving results in a reasonable time-frame.
+Iteration time is a major challenge, especially in CMS where analyses are often spearheaded by graduate students who need guidance from an advisor, and the iteration time includes both the time to produce results and the time to get feedback. 
+Speed ties into  aforementioned challenges -- if one is not careful the inclusion of multiple regions and systematics can linearly increase the execution time.
+
+** Analyzer Architecture
+
+Let us discuss now how the above considerations shape the architecture of the analyzer.
+
+Bookkeeping is handled by always keeping the metadata associated with a given input coupled to the output, and allowing for flexible queries of this metadata.
+When a sample is processed, the output contains the complete metadata corresponding to said sample, including the information associated with its era, the exact chunks it ran over, which correction files that were used, etc.
+This means the results file contains extensive information that can be used in postprocessing steps, without relying on ad-hoc file-name matching or after the fact lookups.
+
+Systematics and multiple regions are handled through the use of analysis modules, that encapsulate some manipulation of the data and/or the production of some result.
+A given data "pipeline" simply consists of a chain of modules through which the events are passed.
+
+The question of systematics is handled through the use of /dynamic parameters/.
+A module can declare that is has any number of dynamic parameters.
+A downstream module can then declare that it wants to do a "multi-run," where it can receive as input not a single event collection, but a collection of events corresponding to executions of multiple executions of the proceeding modules but with different dynamic parameters.
+In practice, this means that a histogram production module can say, please provide me with $N$ event  collections corresponding to $N$ possible systematic uncertainties.
+
+Of course this has the potential to be highly inefficient.
+This inefficiency is removed through heavy use of caching.
+Each module declares its inputs and output columns, and does caching based on these.
+This means that a module runs only if needed.
+
+
+* Code Structure
+The first thing to understand in the structure of the code.
+The directory [[file:analyzer_resources/]] contains resources used by the framework, such as dataset definitions, era descriptions, and fonts.
+The [[file:analyzer]] is the framework code itself.
+It contains the following directories:
+- [[file:analyzer/core/]]: Core analyzer runtime and interfaces
+- [[file:analyzer/cli/]]: The command line interface and other CLI tools
+- [[file:analyzer/utils/]]: Common utilities
+- [[file:analyzer/static/]]: Logging configurations
+- [[file:analyzer/modules/]]: Analysis modules
+
+A user will generally interact only with  [[file:analyzer/modules/]] as they develop custom modules to suit their needs.
+For the development of the framework, [[file:analyzer/core/]] is the most important location, as it provides nearly all of the general functionality of the system.
+
+
+
+* Data Flow Details
+Consider the following user-specified pipeline
+
+- Selection1: Creates a mask some selection on events
+- Selection2: Creates another mask on events
+- SelectOnColumns: Uses the previously created masks to filter events
+- Jet Correction: Does some correction on Jets, it declares on dynamic parameters called "systematic" with possible values central, up, and down.
+- JetFilter: filter jets with some parameters
+- PileupScaleFactor: adds some weight to the events
+- JetPTHistogram: creates a histogram of Jet pt.
+
+Lets examine how a single chunk of events is processed.
+- The first module in the pipeline is always a =LoadColumns= module.
+  It is added implicitly by the framework to any user specified pipeline, the user does not need to add it.
+  It has dynamic parameters =chunk= and =metadata=.
+  Unlike other modules, it has no event input.
+  When it is run it loads the requested chunk and creates a =TrackedColumn= object.
+- Each of the selections runs. In the backend, each selection adds a column to events which is the boolean mask the requested selection.
+- SelectOnColumns runs, which actually filters the events.
+- JetCorrection runs using the default systematic "central".
+- JetFilter runs, changing the shape of jets
+- PileupScaleFactor runs, adding a column =Weight.pileup_sf=.
+- JetPtHistogram runs it returns a =ModuleAddition= result, with a certain =RunBuilder= and a certain module =HistogramBuilder=
+- This =ModuleAddition= requests a multi-run with systematics on the JetCorrections. This starts a new pipeline for each systematic $S$:
+  - We start from the beginning with the =LoadColumns=, however since the chunk is the same, we can use the cached result.
+  - The holds true for Selection1, Selection2, and SelectOnColumns, where we can use the cached result.
+  - The dynamic parameter =systematic= of =JetCorrection= changes to $S$, so the =JetCorrection= module is re-run.
+  - =JetFilter= is re-run, since it depends on the column Jet, which was changed.
+  - =PileupScaleFactor= uses the cached result, since it does not depend on Jet.
+  - =JetPtHistogram=  reruns, and produces another =ModuleAddition=, but this is ignored
+  - The 3 sets of events corresponding to the up, down, and central systematics are passed to the =HistogramBuilder= module, which returns a single histogram containing an axis called systematic, and any number of other data axes.
+  - This ends the multi-run
+- The results are returned
+    
+  
+#+begin_src plantuml :export nil
+skinparam monochrome true
+skinparam DefaultFontName Arial
+
+|Main Run|
+start
+:LoadColumns (chunk, metadata);
+note right: Implicitly added
+:Selection1;
+:Selection2;
+:SelectOnColumns;
+:JetCorrection (systematic="central");
+:JetFilter;
+:PileupScaleFactor;
+:JetPtHistogram;
+note right: Outputs ModuleAddition
+
+split
+  |Multi-Run: Up|
+  :LoadColumns\n[Cached];
+  :Selection1\n[Cached];
+  :Selection2\n[Cached];
+  :SelectOnColumns\n[Cached];
+  :JetCorrection (S="up")\n[Re-run];
+  :JetFilter\n[Re-run];
+  :PileupScaleFactor\n[Cached];
+  :JetPtHistogram\n[Re-run, Ignored];
+
+split again
+  |Multi-Run: Central|
+  :LoadColumns\n[Cached];
+  :Selection1\n[Cached];
+  :Selection2\n[Cached];
+  :SelectOnColumns\n[Cached];
+  :JetCorrection (S="central")\n[Re-run];
+  :JetFilter\n[Re-run];
+  :PileupScaleFactor\n[Cached];
+  :JetPtHistogram\n[Re-run, Ignored];
+
+split again
+  |Multi-Run: Down|
+  :LoadColumns\n[Cached];
+  :Selection1\n[Cached];
+  :Selection2\n[Cached];
+  :SelectOnColumns\n[Cached];
+  :JetCorrection (S="down")\n[Re-run];
+  :JetFilter\n[Re-run];
+  :PileupScaleFactor\n[Cached];
+  :JetPtHistogram\n[Re-run, Ignored];
+end split
+
+|Main Run|
+:HistogramBuilder;
+note right: Aggregates {up, central, down}
+stop
+#+end_src
+
+[[file:devnotes/images/flow.svg]]
+
+** How Caching Works
+
+You can see from the previous discussion how important caching is.
+Without it we would be doing a huge amount of pointless execution.
+A significant portion of the core framework is devoted to implementing this caching functionality.
+
+At a basic level we can treat each module as a function that takes as arguments the events and the dynamic parameters, and outputs some potentially modified set of events, and some results.
+If a function's inputs can easily be compared, caching can be implemented easily.
+The standard procedure is to simply hash the inputs and use that as a key in some dictionary that stores the results.
+Before executing the function, we hash the inputs and check of the results are in the cache, and if so return the cached values.
+
+The dynamic params are passed in as a dictionary, which is not hashable, but can easily be "frozen" into a hashable form.
+The much more challenging problem is how to generate a "hash" for the events.
+The most naive way would be to simply hash the underlying buffers, but since these buffers could potentially correspond to millions of floating point numbers, and a given module may need dozens of these buffers, this could be a lot of wasted computation.
+
+A first improvement is to require the user to specify the input and output columns.
+This immediately reduces the overhead of caching, since rather than dealing with the entire event collection, we need to concern ourselves only with the columns that are actually used, often just a small subset.
+However, we still to would like to avoid need to read and cache the entire column.
+
+To handle this, we instead use an abstraction called TrackedColumns.
+TrackedColumns wrap a standard coffea NanoEvents array, but add functionality to track changes in response to use reads and writes.
+TrackedColumns always have a current key.
+Anytime a user write a column, TrackedColumn stores that the specified column was modified with the current key, which we call the provenance key.
+
+This provides us a scheme for determining for determining if two executions of a module have the same input:
+Two executions of a module M are the same if they have the same dynamic parameters and all the input columns have the same provenance key.
+We can form a key from the dynamic parameters and all of the provenance keys of the input columns to get an /execution key/ for the module, and use this execution key for caching.
+Additionally, this key is set to the current key for the TrackedColumns, so any column modified in the module has its provenance key set to the execution key of the module.
+
+
+
+** Run Building
+
+We stated earlier that systematics are handled using dynamic parameters.
+To run a systematic we simply set the dynamic parameters of the all the modules to their values, and then run the pipeline.
+By aggregating the different runs into a single histogram we can produce the standard systematic-variation histograms used in many analyses.
+
+The question is then how we should construct these different runs.
+This is answered by the RunBuilder class, which is responsible to determining how we should do MultiRuns.
+
+A RunBuilder simplements a single =__call__= method, which receives the ModuleParameterSpec from the pipeline and the metadata of the executing sample, and returns a list of tuples, where the first element is the "name" of the run and the second element is the dynamic parameters.
+
+There are several built in run builders, including those for doing only weight variations, doing variations only for signal, and doing combinations of multiple other builders.
+
+An important note is on "driven parameters," whose value is not free but is instead determined by the value of some other parameters.
+An example of this is found in b-tagging shape systematics, where some systematics are to be used only when examining a certain JES systematic.
+
+
+* Results Data Format

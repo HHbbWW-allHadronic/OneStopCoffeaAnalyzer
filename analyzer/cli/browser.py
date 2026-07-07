@@ -17,6 +17,9 @@ from analyzer.core.results import ResultGroup, Histogram
 from textual.widget import Widget
 import numpy as np
 import hist
+import io
+import sys
+from contextlib import redirect_stdout
 
 
 def formatSize(size_in_bytes: int) -> str:
@@ -129,9 +132,6 @@ class ResultBrowser(App):
                 if out is not None:
                     log_widget.write(repr(out))
             except SyntaxError:
-                import io
-                import sys
-                from contextlib import redirect_stdout
 
                 f = io.StringIO()
                 with redirect_stdout(f):

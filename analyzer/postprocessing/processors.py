@@ -1,18 +1,12 @@
 from __future__ import annotations
 
 import abc
-from cattrs.strategies import (
-    include_subclasses,
-    configure_tagged_union,
-)
-
+from cattrs.strategies import include_subclasses, configure_tagged_union
 import functools as ft
 from .plots.common import PlotConfiguration
 from .style import StyleSet
-from analyzer.utils.structure_tools import (
-    ItemWithMeta,
-)
-from .grouping import GroupBuilder
+from analyzer.utils.structure_tools import ItemWithMeta
+from analyzer.postprocessing.grouping import GroupBuilder
 from analyzer.utils.structure_tools import globWithMeta
 from attrs import define, field
 

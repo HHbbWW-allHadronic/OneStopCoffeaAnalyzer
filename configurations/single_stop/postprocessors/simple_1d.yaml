@@ -2,7 +2,7 @@
 - name: Histogram1D
   inputs: {{ inputs | tojson }}
   structure:
-    group: {era.name: "*",dataset_name: "*", pipeline: "*"}
+    group: {era.name: "*", dataset_name: "*", pipeline: "*"}
     transforms:
       - name: NormalizeSystematicByProjection
         normalize_within: ["HT_Cat"]

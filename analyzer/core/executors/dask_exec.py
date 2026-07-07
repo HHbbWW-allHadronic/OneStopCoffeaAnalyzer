@@ -55,6 +55,29 @@ def configureDask():
         dask.config.update(dask.config.config, defaults, priority="new")
 
 
+def _unpickleAndCall(payload):
+    import cloudpickle
+
+    func, args, kwargs = cloudpickle.loads(payload)
+    res = func(*args, **kwargs)
+    return cloudpickle.dumps(res)
+
+
+def callTimeoutCloud(process_timeout, function, *args, **kwargs):
+    import cloudpickle
+
+    payload = cloudpickle.dumps((function, args, kwargs))
+    with ProcessPoolExecutor(max_workers=1) as executor:
+        try:
+            future = executor.submit(_unpickleAndCall, payload)
+            res_payload = future.result(timeout=process_timeout)
+            return cloudpickle.loads(res_payload)
+        except TimeoutError:
+            for _, process in executor._processes.items():
+                process.terminate()
+            raise
+
+
 def callTimeout(process_timeout, function, *args, **kwargs):
     with ProcessPoolExecutor(max_workers=1) as executor:
         try:
@@ -154,12 +177,19 @@ def runWithFinalize(analyzer, *args, **kwargs):
 
 
 def getAnalyzerRunFunc(analyzer, task, timeout=120):
+    from analyzer.utils.load import DYNAMIC_MODULES_LOADED
+
+    if DYNAMIC_MODULES_LOADED:
+        run_func = callTimeoutCloud
+    else:
+        run_func = callTimeout
+
     def inner(chunk):
         try:
             if timeout is None:
                 ret = runWithFinalize(analyzer, chunk, task.metadata, task.pipelines)
             else:
-                ret = callTimeout(
+                ret = run_func(
                     timeout,
                     runWithFinalize,
                     analyzer,
@@ -167,12 +197,8 @@ def getAnalyzerRunFunc(analyzer, task, timeout=120):
                     task.metadata,
                     task.pipelines,
                 )
-            # get_worker().log_event(
-            #     "chunk_completed", {"chunk": chunk, "nevents": chunk.nevents}
-            # )
             return DaskRunResult(ret, [], chunk.nevents)
         except Exception as e:
-            # get_worker().log_event("chunk_failed", {"chunk": chunk, "error": e})
             return DaskRunResult(None, [DaskRunException(chunk, e)], chunk.nevents)
 
     return inner
@@ -396,7 +422,7 @@ class LocalDaskExecutor(Executor):
     client: Any = None
     reduction_factor: int = 2
     target_final_count: int = 1
-    timeout: int = 120
+    timeout: int = 600
 
     def setup(self, needed_resources):
         configureDask()
@@ -440,7 +466,7 @@ class LPCCondorDask(Executor):
     adapt: bool = True
     chunk_size: int | None = 100000
     reduction_factor: int = 5
-    timeout: int = 600
+    timeout: int = 1200
     cluster: Any = None
     client: Any = None
     target_final_count: int = 1

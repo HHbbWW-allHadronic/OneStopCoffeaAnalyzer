@@ -563,19 +563,16 @@ def plotRatioOfRatios(
 
     fig, ax, ratio_ax = makeRatioAxes(ratio_height)
 
-    # Assume all share the same axis
     ref_hist = num_denominator.item.histogram
     x_values = ref_hist.axes[0].centers
     left_edge = ref_hist.axes.edges[0][0]
     right_edge = ref_hist.axes.edges[-1][-1]
 
-    # Calculate 4 components
     h_num_num = num_numerator.item.histogram
     h_num_den = num_denominator.item.histogram
     h_den_num = den_numerator.item.histogram
     h_den_den = den_denominator.item.histogram
 
-    # Calculate Ratios
     r1, r1_unc = computeRatio(
         h_num_num.values(),
         h_num_den.values(),
@@ -633,6 +630,159 @@ def plotRatioOfRatios(
     ]
 
     ax.set_yscale(scale)
+
+    common_meta = commonDict(all_meta, key=lambda x: x)
+
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
+    plt.close(fig)
+
+
+def plotModel(
+    data,
+    backgrounds,
+    signal,
+    output_path,
+    style_set,
+    normalize=False,
+    ratio_ylim=(0, 2),
+    ratio_type="poisson",
+    scale="linear",
+    plot_configuration=None,
+    ratio_hlines=(1.0,),
+    ratio_height=0.3,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+
+    fig, ax, ratio_ax = makeRatioAxes(ratio_height)
+
+    bg_total = plotStackedDenominators(
+        ax,
+        backgrounds,
+        styler,
+        normalize=normalize,
+    )
+    largest_bg = max(backgrounds, key=lambda x: x.item.histogram.sum().value)
+    largest_bg_style = styler.getStyle(largest_bg.metadata)
+    style_kwargs = largest_bg_style.get()
+    largest_bg_color = style_kwargs.get("color")
+    bg_color = largest_bg_color
+
+    sig_item, sig_meta = signal
+    sig_style = styler.getStyle(sig_meta)
+    sig_hist = sig_item.histogram
+
+    sig_hist.plot1d(
+        ax=ax,
+        label=sig_meta.get("title") or sig_meta["dataset_title"],
+        density=normalize,
+        yerr=sig_style.yerr,
+        **sig_style.get(),
+    )
+    sig_color = sig_style.get().get("color")
+
+    bg_sig_hist = bg_total + sig_hist
+    bg_sig_hist.plot1d(
+        ax=ax,
+        label=f"B + {sig_meta.get('title') or sig_meta.get('dataset_title', '')}",
+        density=normalize,
+        color=sig_color or "red",
+        linestyle="--",
+    )
+
+    data_item, data_meta = data
+    data_style = styler.getStyle(data_meta)
+    data_hist = data_item.histogram
+
+    data_hist.plot1d(
+        ax=ax,
+        label=data_meta.get("title") or data_meta["dataset_title"],
+        density=normalize,
+        yerr=True,
+        **data_style.get(),
+    )
+
+    ratio_func = computeSignificance if ratio_type == "significance" else computeRatio
+
+    x_values = bg_total.axes[0].centers
+    left_edge = bg_total.axes.edges[0][0]
+    right_edge = bg_total.axes.edges[-1][-1]
+
+    n_vals = data_hist.values()
+
+    ratio, unc = ratio_func(
+        n_vals,
+        bg_total.values(),
+        normalize=normalize,
+        ratio_type=ratio_type,
+    )
+    plotRatioErrorBars(ratio_ax, x_values, ratio, unc, data_style)
+
+    bs_ratio, bs_unc = ratio_func(
+        n_vals,
+        bg_sig_hist.values(),
+        normalize=normalize,
+        ratio_type=ratio_type,
+    )
+
+    ratio_ax.errorbar(
+        x_values,
+        bs_ratio,
+        yerr=bs_unc,
+        linestyle="none",
+        marker="o",
+        color=sig_color or bg_color,
+        label=f"Ratio w/ {sig_meta.get('title', 'Signal')}",
+        markerfacecolor="none",
+    )
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        den_scaled_uncertainties = np.where(
+            bg_total.values() != 0,
+            np.sqrt(bg_total.variances()) / bg_total.values(),
+            np.nan,
+        )
+        ratio_ax.bar(
+            x=bg_total.axes[0].centers,
+            bottom=np.nan_to_num(1 - den_scaled_uncertainties, nan=0),
+            height=np.nan_to_num(2 * den_scaled_uncertainties, nan=0),
+            width=np.diff(bg_total.axes[0].edges),
+            edgecolor="dimgrey",
+            hatch="////",
+            fill=False,
+            lw=0,
+        )
+
+    for y in ratio_hlines:
+        ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
+
+    ratio_ax.set_xlim(left_edge, right_edge)
+    ratio_ax.set_ylim(*ratio_ylim)
+
+    rylabel = "Significance" if ratio_type == "significance" else "Ratio"
+    ratio_ax.set_ylabel(rylabel)
+
+    labelAxis(
+        ax,
+        "y",
+        data_hist.axes,
+        label="Normalized Events" if normalize else None,
+    )
+    labelAxis(ratio_ax, "x", data_hist.axes)
+    ax.set_xlabel("")
+
+    addLegend(ax, pc)
+
+    all_meta = [data_meta, sig_meta] + [x.metadata for x in backgrounds]
+    ax.set_yscale(scale)
+    scaleYAxis(ax)
 
     common_meta = commonDict(all_meta, key=lambda x: x)
 

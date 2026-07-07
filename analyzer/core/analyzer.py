@@ -195,7 +195,7 @@ class Analyzer:
                             complete_pipeline.append(module)
                         params = ChainMap(params, res.this_module_parameters)
                     else:
-                        logger.debug("Running multi-parameter pipeline")
+                        logger.debug("RUNNING MULTI PARAMETER PIPELINE!!")
                         if res.run_builder is DEFAULT_RUN_BUILDER:
                             run_builder = self.default_run_builder
                         else:
@@ -220,6 +220,7 @@ class Analyzer:
                         )
                         r = module(everything, res.this_module_parameters or {})
                         results.extendleft(r)
+                        logger.debug("FINISHED RUNNING MULTIPARAMETER PIPELINE!")
                 else:
                     raise RuntimeError(
                         f"Invalid object type returned from analyzer module. {res}"

@@ -1,0 +1,139 @@
+{% import 'singlestop_base.yaml' as base %}
+{% import 'postprocessors/visualize_variations.yaml' as post %}
+{% import 'postprocessors/simple_1d.yaml' as post1d %}
+
+analyzer:
+  default_run_builder:
+    strategy_name: MultiRunBuilder
+    components:
+      - strategy_name: NoSystematics
+      - strategy_name: UnscaledOnly
+
+  Signal312:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
+      should_run:
+        sample_type: Data
+    {{ base.event_level_cleanup() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    {{ base.jec_jer_corrections() | indent(4) }}
+    {{ base.singlestop_objects() | indent(4) }}
+    {{ base.weights() | indent(4) }}
+    - module_name: TriggerBNNCorrection
+      base_path: postprocessing/newtriggereffs/
+      correction_pattern: "{era}.json.gz"
+    - module_name: NObjFilter
+      input_col: MedB
+      selection_name: 2bjet
+      min_count: 2
+    - module_name: NObjFilter
+      input_col: TightB
+      selection_name: 1tightbjet
+      min_count: 1
+    - module_name: VecDRSelection
+      input_col: MedB
+      selection_name: b_dr
+      min_dr: 1.0
+    {{ base.singlestop_common_selection() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: selection
+    {{ base.ht_cat() | indent(4) }}
+    {{ base.singlestop_common_histograms() | indent(4) }}
+
+  Signal313:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
+      should_run:
+        sample_type: Data
+    {{ base.event_level_cleanup() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    {{ base.jec_jer_corrections() | indent(4) }}
+    {{ base.singlestop_objects() | indent(4) }}
+    {{ base.weights() | indent(4) }}
+    - module_name: TriggerBNNCorrection
+      base_path: postprocessing/newtriggereffs/
+      correction_pattern: "{era}.json.gz"
+    - module_name: NObjFilter
+      input_col: TightB
+      selection_name: 3tightbjet
+      min_count: 3
+    - module_name: VecDRSelection
+      input_col: MedB
+      selection_name: b_dr
+      min_dr: 1.0
+    {{ base.singlestop_common_selection() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: selection
+    {{ base.ht_cat() | indent(4) }}
+    {{ base.singlestop_common_histograms() | indent(4) }}
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  # DO NOT UNCOMMENT!!!!!!!
+  # - dataset: 'data_JetHT_*'
+  #   pipelines: [Signal312, Signal313]
+
+  # Data samples
+  - dataset: 'signal_*_312_*_official'
+    pipelines: [Signal312]
+  - dataset: 'signal_*_313_*_official'
+    pipelines: [Signal313]
+  
+  # Background MC Samples
+  - dataset: 'qcd*'
+    pipelines: [Signal312, Signal313]
+  - dataset: 'diboson*'
+    pipelines: [Signal312, Signal313]
+  - dataset: 'tt_to_hadronic*'
+    pipelines: [Signal312, Signal313]
+  - dataset: 'zjets_to_qq*'
+    pipelines: [Signal312, Signal313]
+  - dataset: 'wjets_to_qq*'
+    pipelines: [Signal312, Signal313]
+  - dataset: 'single_top*hadronic*'
+    pipelines: [Signal312, Signal313]
+
+  
+extra_executors:
+  test:
+    executor_name: ImmediateExecutor
+    chunk_size: 10000
+
+  test2:
+    executor_name: LocalDaskExecutor
+    chunk_size: 100000
+    min_workers: 1
+    max_workers: 3
+    reduction_factor: 2
+  
+  testcondor:
+    executor_name: LPCCondorDask
+    container: /cvmfs/unpacked.cern.ch/registry.hub.docker.com/coffeateam/coffea-dask-almalinux9:2025.10.2-py3.12
+    venv_path: .venv
+    chunk_size: 80000
+    min_workers: 40
+    max_workers: 200
+    worker_memory: 4GB
+    reduction_factor: 5
+
+
+Postprocessing:
+  processors:
+    {{ post.handle2D([ "*/*/*/uncomp_mStop_vs_mChi",  "*/*/*/uncomp_mStop_vs_mChiRatio"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/uncomp_mStop",  "*/*/*/uncomp_mChi"]) | indent(4) }}
+    {{ post.handle2D([ "*/*/*/comp_mStop_vs_mChi",  "*/*/*/comp_mStop_vs_mChiRatio"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/comp_mStop",  "*/*/*/comp_mChi"]) | indent(4) }}
+    {{ post1d.handle1D([ "*/*/*/composite_13_m",  "*/*/*/composite_14_m", "*/*/*/composite_24_m"]) | indent(4) }}
+    # {{ post.ratio_variation("bsf",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["b*hf*"]) | indent(4) }}
+    # {{ post.ratio_variation("jesrel",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jes*Rel*"]) | indent(4) }}
+    # {{ post.ratio_variation("jer",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["jer*"]) | indent(4) }}
+    # {{ post.ratio_variation("trigger",["*/*/*/uncomp_mChi", "*/*/*/uncomp_mStop"], ["trigger*"]) | indent(4) }}
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1

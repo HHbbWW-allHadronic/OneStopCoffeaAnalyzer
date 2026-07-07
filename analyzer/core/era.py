@@ -28,6 +28,9 @@ class EraRepo:
 
     def addFromDirectory(self, path):
         directory = Path(path)
-        files = list(directory.rglob("*.yaml"))
-        for f in files:
-            self.addFromFile(f)
+        if directory.is_file():
+            self.addFromFile(directory)
+        else:
+            files = list(directory.rglob("*.yaml"))
+            for f in files:
+                self.addFromFile(f)

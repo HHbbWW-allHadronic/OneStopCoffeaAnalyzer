@@ -98,7 +98,11 @@ class SaveEventsH5(AnalyzerModule):
             with h5py.File(local_filename, "w") as f:
                 # Per-jet datasets: (n_events, n_jets)
                 for v in self.jet_vars:
-                    field_name = v if (v!="btag") else columns.metadata["era"]["btag_scale_factors"]["tagger"]
+                    field_name = (
+                        v
+                        if (v != "btag")
+                        else columns.metadata["era"]["btag_scale_factors"]["tagger"]
+                    )
                     arr = jets[field_name][:, : self.n_jets]
                     data = ak.to_numpy(arr)
                     f.create_dataset(

@@ -11,6 +11,7 @@ analyzer:
     #     - "bjetshapesf*disabled"
     #     - "trigger*"
     strategy_name: SignalOnlySysts
+    # strategy_name: NoSystematics
 
   Signal312:
     - module_name: SimpleHLT
@@ -42,7 +43,8 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     {{ base.ht_cat() | indent(4) }}
-    {{ base.singlestop_common_histograms() | indent(4) }}
+    {# {{ base.singlestop_common_histograms() | indent(4) }} #}
+    {{ base.singlestop_high_res_histograms() | indent(4) }}
 
   Signal313:
     - module_name: SimpleHLT
@@ -70,14 +72,40 @@ analyzer:
     - module_name: SelectOnColumns
       sel_name: selection
     {{ base.ht_cat() | indent(4) }}
-    {{ base.singlestop_common_histograms() | indent(4) }}
+    {# {{ base.singlestop_common_histograms() | indent(4) }} #}
+    {{ base.singlestop_high_res_histograms() | indent(4) }}
+
+  Control:
+    - module_name: SimpleHLT
+      triggers: [HT,AK8SingleJetPtNoTrim, AK8SingleJetPt]
+      should_run:
+        sample_type: Data
+    {{ base.event_level_cleanup() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: pre_selection
+    {{ base.jec_jer_corrections() | indent(4) }}
+    {{ base.singlestop_objects() | indent(4) }}
+    {{ base.weights() | indent(4) }}
+    - module_name: TriggerBNNCorrection
+      base_path: postprocessing/newtriggereffs/
+      correction_pattern: "{era}.json.gz"
+    - module_name: NObjFilter
+      input_col: LooseB
+      selection_name: 0bjet
+      max_count: 0
+    {{ base.singlestop_common_selection() | indent(4) }}
+    - module_name: SelectOnColumns
+      sel_name: selection
+    {{ base.ht_cat() | indent(4) }}
+    {# {{ base.singlestop_common_histograms() | indent(4) }} #}
+    {{ base.singlestop_high_res_histograms() | indent(4) }}
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
   # DO NOT UNCOMMENT!!!!!!!
-  # - dataset: 'data_JetHT_*'
-  #   pipelines: [Signal312, Signal313]
+  - dataset: 'data_JetHT_*'
+    pipelines: [Signal312, Signal313, Control]
 
   # Data samples
   - dataset: 'signal_*_312_*_official'
@@ -87,17 +115,17 @@ event_collections:
   
   # Background MC Samples
   - dataset: 'qcd*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
   - dataset: 'diboson*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
   - dataset: 'tt_to_hadronic*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
   - dataset: 'zjets_to_qq*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
   - dataset: 'wjets_to_qq*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
   - dataset: 'single_top*hadronic*'
-    pipelines: [Signal312, Signal313]
+    pipelines: [Signal312, Signal313, Control]
 
   
 extra_executors:

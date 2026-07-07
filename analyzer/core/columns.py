@@ -26,6 +26,7 @@ def coerceFields(data):
 EVENTS = object()
 
 
+# Poorly handled right now.
 class EventBackend(str, enum.Enum):
     coffea_virtual = "coffea_virtual"
     coffea_dask = "coffea_dask"
@@ -35,16 +36,22 @@ class EventBackend(str, enum.Enum):
 
 @define(frozen=True)
 class Column:
+    """
+    Simple wrapper for a "path" in events.
+    Stores a single tuple representing the path to the desired field.
+    Automatically converts "dot" delimited paths.
+    """
+    
     fields: tuple[str, ...] = field(converter=coerceFields)
 
-    def contains(self, other):
+    def contains(self, other: Column | str | tuple[str,...]):
         if not isinstance(other, Column):
             other = Column(other)
         if len(self.fields) > len(other.fields):
             return False
         return other.fields[: len(self.fields)] == self.fields
 
-    def extract(self, events):
+    def extract(self, events: ak.Array):
         for f in self.fields:
             events = events[f]
         return events
@@ -58,10 +65,10 @@ class Column:
     def __len__(self):
         return len(self.fields)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: int):
         return Column(self.fields.__getitem__(key))
 
-    def __add__(self, other):
+    def __add__(self, other: Column):
         return Column(self.fields + Column(other).fields)
 
     def __radd__(self, other):
@@ -89,18 +96,26 @@ class Column:
         return [Column(self.fields[: i + 1]) for i in range(len(self.fields) - 1)]
 
 
-def setColumn(events, column, value):
+def setColumn(events: ak.Array, column: Column, value: ak.Array)->ak.Array:
+    """
+    Set a potentially column in an array.
+    Automatically creates intermediate fields if needed.
+    """
+    
     if not isinstance(column, Column):
         column = Column(column)
     if len(column) == 1:
         return ak.with_field(events, value, column.fields)
+    # If column has more than two parts, we must potentially create the intermediates.
     head = column.fields[0]
     rest = column.fields[1:]
     if head not in events.fields:
+        # If the top level field is not present, we create a nested arraay with zip
         for c in reversed(rest):
             value = ak.zip({c: value}, depth_limit=1)
         return ak.with_field(events, value, head)
     else:
+        # If top level is present, recurse
         return ak.with_field(events, setColumn(events[head], Column(rest), value), head)
 
 
@@ -112,6 +127,10 @@ class ColumnCollection:
         return iter(self.columns)
 
     def contains(self, other: Column):
+        """
+        Check if any of the columns in the set is a parent of other.
+        """
+        
         if not isinstance(other, Column):
             other = Column(other)
         f = other.fields
@@ -130,6 +149,10 @@ class ColumnCollection:
 
 
 def getAllColumns(events, cur_col=None, cur_depth=0, max_depth=None) -> set[Column]:
+    """
+    Extract all columns from a potentially nested layout.
+    """
+    
     if fields := getattr(events, "fields"):
         ret = set()
         for f in fields:
@@ -163,6 +186,7 @@ class TrackedColumns:
     _allow_filter: bool = True
     metadata: Any | None = None
     pipeline_data: dict[str, Any] = field(factory=dict)
+    # Temporary store to avoid excessive "syncing" to the main array
     _lazy_columns: dict[Column, Any] = field(factory=dict)
 
     @property
@@ -189,6 +213,10 @@ class TrackedColumns:
         return list(s)
 
     def updatedColumns(self, old, limit=None):
+        """
+        Determine which in the current TrackedColumns have been updated from old by comparing their provenance.
+        """
+        
         ans = []
         for x, y in self._column_provenance.items():
             if limit is not None and not limit.contains(x):
@@ -218,7 +246,8 @@ class TrackedColumns:
                 for x in getAllColumns(
                     events.layout, max_depth=events.layout.minmax_depth[1] - 2
                 )
-            },
+            }, # Do try to recurse into leaves when finding all columns
+
             current_provenance=provenance,
             backend=backend,
             metadata=metadata,
@@ -250,6 +279,10 @@ class TrackedColumns:
         return hash((freeze(self.metadata), freeze(self.pipeline_data), tuple(ret)))
 
     def __setitem__(self, column, value):
+        """
+        Set a column, potentially lazy.
+        """
+        
         if not isinstance(column, Column):
             column = Column(column)
         if (
@@ -291,6 +324,10 @@ class TrackedColumns:
             )
 
     def __getitem__(self, column):
+        """
+        Get a column. May use the lazy cache.
+        """
+        
         if not isinstance(column, Column):
             column = Column(column)
         if self._allowed_inputs is not None and not self._allowed_inputs.contains(
@@ -317,6 +354,10 @@ class TrackedColumns:
         return column.extract(self._events)
 
     def addColumnsFrom(self, other, columns):
+        """
+        Merge in columns from another TrackedColumns.
+        """
+        
         for column in columns:
             with self.useKey(other._column_provenance[column]):
                 self[column] = other[column]
@@ -325,6 +366,10 @@ class TrackedColumns:
             # )
 
     def filter(self, mask):
+        """
+        Filter at the event level.
+        """
+        
         if not self._allow_filter:
             raise RuntimeError()
         self._events = self._events[mask]
