@@ -65,6 +65,7 @@ Postprocessing:
       plot_configuration:
         cms_text_color: "black"
         <<: *default_plot_config
+        extra_text: "{dataset_name}"
       structure:
         select: {dataset_name: "*"}
         group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
