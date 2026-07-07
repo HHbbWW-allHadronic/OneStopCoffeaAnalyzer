@@ -176,7 +176,7 @@ analyzer:
       hist_name: Jet_pt_{}_2d
       input_col: goodJet.pt
       axis:
-        name: Jet $p_{T}$
+        name: Jet $p_{T,idx}$
         start: 0
         stop: 1000
         bins: 20
@@ -201,7 +201,7 @@ analyzer:
       hist_name: Jet_eta_{}_2d
       input_col: goodJet.eta
       axis:
-        name: Jet $\\eta$
+        name: Jet $\\eta_{idx}$
         start: -4
         stop: 4
         bins: 20
@@ -225,7 +225,7 @@ analyzer:
       hist_name: Jet_phi_{}_2d
       input_col: goodJet.phi
       axis:
-        name: Jet $\\phi$
+        name: Jet $\\phi_{idx}$
         start: -4
         stop: 4
         bins: 20
@@ -249,7 +249,7 @@ analyzer:
       hist_name: Jet_mass_{}_2d
       input_col: goodJet.mass
       axis:
-        name: Jet $m$
+        name: Jet $m_{idx}$
         start: 0
         stop: 500
         bins: 20

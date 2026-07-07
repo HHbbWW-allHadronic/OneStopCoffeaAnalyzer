@@ -5,9 +5,6 @@ from ..common.axis import RegularAxis
 from ..common.histogram_builder import makeHistogram
 import awkward as ak
 
-import correctionlib
-import logging
-
 
 @define
 class FourVecHistograms(AnalyzerModule):
@@ -92,11 +89,11 @@ class JetVarRankHistograms(AnalyzerModule):
     Parameters
     ----------
     hist_name: str
-        Name of column to be used in histogram. Can be formatted for 2D histograms with second variable names.
+        Name of column to be used in histogram. Must be formatted for 2D histograms for second variable names.
     input_col : Column
         Column containing the object collection (e.g. jets).
     axis: RegularAxis
-        Axis for the variable to be plotted.
+        Axis for the variable to be plotted. Axis name must contain a placeholder for the jet index as "idx".
     second_names: list[str]
         Names of the second variable to be plotted in 2D histograms (for hist name).
     second_cols: list[Column]
@@ -122,11 +119,9 @@ class JetVarRankHistograms(AnalyzerModule):
         for i in range(0, self.max_idx):
             mask = ak.num(var, axis=1) > i
             jet_individual = padded[:, i]
-            rank_label = f"$_{{{i + 1}}}$"
-            new_name = f"{self.axis.name} {rank_label}"
+            new_name = self.axis.name.replace("idx", str(i + 1))
 
             axis = evolve(self.axis, name=new_name)
-            # Generate the histogram for Jet [i+1]
             if not self.second_names:
                 ret.append(
                     makeHistogram(
@@ -134,7 +129,7 @@ class JetVarRankHistograms(AnalyzerModule):
                         columns,
                         axis,
                         jet_individual,
-                        description=f"{self.axis.name} of jet {i + 1}",
+                        description=f"{new_name} of jet {i + 1}",
                         mask=mask,
                     )
                 )
@@ -149,7 +144,7 @@ class JetVarRankHistograms(AnalyzerModule):
                             columns,
                             [axis, second_axis],
                             [jet_individual, second_var],
-                            description=f"2d {self.axis.name} of jet {i + 1} and {second_axis.name}",
+                            description=f"2d {new_name} of jet {i + 1} and {second_axis.name}",
                             mask=mask,
                         )
                     )

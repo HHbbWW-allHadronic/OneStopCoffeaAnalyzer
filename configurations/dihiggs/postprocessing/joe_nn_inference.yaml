@@ -61,9 +61,9 @@ Postprocessing:
 
     - name: RatioPlot
       inputs:
-        - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_fourjet_14_m"
-        - "*/*/*/JetN"
+        - "*/*/*/Disc1_sig"
+        - "*/*/*/Disc1_tt"
+        - "*/*/*/Disc1_qcd"
       ratio_type: "significance"
       show_den_unc: True
       scale: log
