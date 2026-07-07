@@ -91,6 +91,9 @@ class ABCDiHiggsInference(AnalyzerModule):
             columns[col + Column("tt")] = outputs[f"Disc{i}"][:, 2]
         return columns, []
 
+    def neededResources(self, metadata):
+        return [self.model_path, self.scaler_path]
+
     def outputs(self, metadata):
         return self.output_cols
 
