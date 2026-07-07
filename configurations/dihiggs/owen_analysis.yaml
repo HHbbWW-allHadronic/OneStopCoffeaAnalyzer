@@ -1,0 +1,171 @@
+{% import 'core.yaml' as core %}
+
+{%- macro signalmc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+{%- endmacro %}
+
+{%- macro mc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - noHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+{%- endmacro %}
+
+{%- macro data_pipelines() %}
+      - withHLT_NoSelection
+      - withHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+{%- endmacro %}
+
+
+common_histograms: &common_histograms
+    
+
+  - module_name: SimpleHistogram
+    hist_name: gJetCvsBtag
+    input_cols: [goodJet.btagUParTAK4CvB]
+    axes:
+      - name: "Jet CvsB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+
+  - module_name: SimpleHistogram
+    hist_name: JetCvsLtag
+    input_cols: [goodJet.btagUParTAK4CvL]
+    axes:
+      - name: "Jet CvsL Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+
+  - module_name: SimpleHistogram
+    hist_name: JetCvsnBtag
+    input_cols: [goodJet.btagUParTAK4CvNotB]
+    axes:
+      - name: "Jet CvsnB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: MedC
+    hist_name: MedC
+
+
+
+  - module_name: SimpleHistogram
+    hist_name: MedCN
+    input_cols: [NMedC]
+    axes:
+      - name: "$N_{c}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: JetVarRankHistograms
+    hist_name: MedC_pt
+    input_col: MedC.pt 
+    axis: 
+      name: "$Pt_{c}$"
+      start: 0
+      stop: 1000
+      bins: 20
+
+  - module_name: JetVarRankHistograms
+    hist_name: gJetCvsBtag
+    input_col: goodJet.btagUParTAK4CvB
+    axis:
+      name: "Jet CvsB Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+  - module_name: JetVarRankHistograms
+    hist_name: JetCvsLtag
+    input_col: goodJet.btagUParTAK4CvL
+    axis:
+      name: "Jet CvsL Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+
+
+
+
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: MultiRunBuilder
+    components:
+      - strategy_name: NoSystematics
+      - strategy_name: UnscaledOnly
+
+  withHLT_NoSelection:
+    - *withHLT_NoSelection
+    - *common_histograms
+
+  NoSelection:
+    - *NoSelection
+    - *common_histograms
+
+  withHLT_ObjDef1:
+    - *withHLT_ObjDef1
+    - *common_histograms
+
+  noHLT_ObjDef1:
+    - *noHLT_ObjDef1
+    - *common_histograms
+
+  withHLT_ObjDef2:
+    - *withHLT_ObjDef2
+    - *common_histograms
+
+  withHLT_ObjDef3:
+    - *withHLT_ObjDef3
+    - *common_histograms
+
+  withHLT_ObjDef4:
+    - *withHLT_ObjDef4
+    - *common_histograms 
+
+
+
+
+
+location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'data_HHParking_2024*'
+    pipelines:
+    {{ data_pipelines() }}
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+    {{ signalmc_pipelines() }}
+  - dataset: 'qcd*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+    {{ mc_pipelines() }}
