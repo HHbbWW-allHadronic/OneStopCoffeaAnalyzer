@@ -48,135 +48,135 @@ analyzer:
 
     - module_name: SimpleHistogram
       hist_name: Disc1_sig_b_dijet_mass_2d
-      input_cols: [Disc1.sig, b_dijet.mass]
+      input_cols: [b_dijet.mass, Disc1.sig]
       axes:
-        - name: Disc. 1 (sig)
-          start: 0
-          stop: 1
-          bins: 20
         - name: b_dijet $m_{01}$
           start: 0
           stop: 500
           bins: 20
           unit: GeV
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
 
     - module_name: SimpleHistogram
       hist_name: Disc1_tt_b_dijet_mass_2d
-      input_cols: [Disc1.tt, b_dijet.mass]
+      input_cols: [b_dijet.mass, Disc1.tt]
       axes:
-        - name: Disc. 1 (tt)
-          start: 0
-          stop: 1
-          bins: 20
         - name: b_dijet $m_{01}$
           start: 0
           stop: 500
           bins: 20
           unit: GeV
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
 
     - module_name: SimpleHistogram
       hist_name: Disc1_qcd_b_dijet_mass_2d
-      input_cols: [Disc1.qcd, b_dijet.mass]
+      input_cols: [b_dijet.mass, Disc1.qcd]
       axes:
-        - name: Disc. 1 (qcd)
-          start: 0
-          stop: 1
-          bins: 20
         - name: b_dijet $m_{01}$
           start: 0
           stop: 500
           bins: 20
           unit: GeV
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20
 
     - module_name: SimpleHistogram
       hist_name: Disc1_sig_nontop2b_fourjet_mass_2d
-      input_cols: [Disc1.sig, nontop2b_fourjet.mass]
+      input_cols: [nontop2b_fourjet.mass, Disc1.sig]
       axes:
-        - name: Disc. 1 (sig)
-          start: 0
-          stop: 1
-          bins: 20
         - name: nontop2b_fourjet $m_{0123}$
           start: 0
           stop: 500
           bins: 20
           unit: GeV
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
 
     - module_name: SimpleHistogram
       hist_name: Disc1_tt_nontop2b_fourjet_mass_2d
-      input_cols: [Disc1.tt, nontop2b_fourjet.mass]
+      input_cols: [nontop2b_fourjet.mass, Disc1.tt]
       axes:
+        - name: nontop2b_fourjet $m_{0123}$
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
         - name: Disc. 1 (tt)
           start: 0
           stop: 1
           bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd_nontop2b_fourjet_mass_2d
+      input_cols: [nontop2b_fourjet.mass, Disc1.qcd]
+      axes:
         - name: nontop2b_fourjet $m_{0123}$
           start: 0
           stop: 500
           bins: 20
           unit: GeV
-
-    - module_name: SimpleHistogram
-      hist_name: Disc1_qcd_nontop2b_fourjet_mass_2d
-      input_cols: [Disc1.qcd, nontop2b_fourjet.mass]
-      axes:
         - name: Disc. 1 (qcd)
           start: 0
           stop: 1
           bins: 20
-        - name: nontop2b_fourjet $m_{0123}$
-          start: 0
-          stop: 500
-          bins: 20
-          unit: GeV
 
     - module_name: SimpleHistogram
       hist_name: Disc1_sig_HT_2d
-      input_cols: [Disc1.sig, HT]
+      input_cols: [HT, Disc1.sig]
       axes:
+        - name: HT
+          start: 0
+          stop: 3000
+          bins: 60
+          unit: GeV
         - name: Disc. 1 (sig)
           start: 0
           stop: 1
           bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_tt_HT_2d
+      input_cols: [HT, Disc1.tt]
+      axes:
         - name: HT
           start: 0
           stop: 3000
           bins: 60
           unit: GeV
-
-    - module_name: SimpleHistogram
-      hist_name: Disc1_tt_HT_2d
-      input_cols: [Disc1.tt, HT]
-      axes:
         - name: Disc. 1 (tt)
           start: 0
           stop: 1
           bins: 20
+
+    - module_name: SimpleHistogram
+      hist_name: Disc1_qcd_HT_2d
+      input_cols: [HT, Disc1.qcd]
+      axes:
         - name: HT
           start: 0
           stop: 3000
           bins: 60
           unit: GeV
-
-    - module_name: SimpleHistogram
-      hist_name: Disc1_qcd_HT_2d
-      input_cols: [Disc1.qcd, HT]
-      axes:
         - name: Disc. 1 (qcd)
           start: 0
           stop: 1
           bins: 20
-        - name: HT
-          start: 0
-          stop: 3000
-          bins: 60
-          unit: GeV
 
     - module_name: JetVarRankHistograms
       hist_name: Jet_pt_{}_2d
       input_col: goodJet.pt
       axis:
-        name: Jet $p_{T,idx}$
+        name: "Jet $p_{T,idx}$"
         start: 0
         stop: 1000
         bins: 20
@@ -201,7 +201,7 @@ analyzer:
       hist_name: Jet_eta_{}_2d
       input_col: goodJet.eta
       axis:
-        name: Jet $\\eta_{idx}$
+        name: "Jet $\\eta_{idx}$"
         start: -4
         stop: 4
         bins: 20
@@ -225,7 +225,7 @@ analyzer:
       hist_name: Jet_phi_{}_2d
       input_col: goodJet.phi
       axis:
-        name: Jet $\\phi_{idx}$
+        name: "Jet $\\phi_{idx}$"
         start: -4
         stop: 4
         bins: 20
@@ -249,11 +249,35 @@ analyzer:
       hist_name: Jet_mass_{}_2d
       input_col: goodJet.mass
       axis:
-        name: Jet $m_{idx}$
+        name: "Jet $m_{idx}$"
         start: 0
         stop: 500
         bins: 20
         unit: GeV
+      second_names: [Disc1_sig, Disc1_tt, Disc1_qcd]
+      second_cols: [Disc1.sig, Disc1.tt, Disc1.qcd]
+      second_axes:
+        - name: Disc. 1 (sig)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: Disc. 1 (tt)
+          start: 0
+          stop: 1
+          bins: 20
+        - name: Disc. 1 (qcd)
+          start: 0
+          stop: 1
+          bins: 20 
+
+    - module_name: JetVarRankHistograms
+      hist_name: Jet_btag_{}_2d
+      input_col: goodJet.btagUParTAK4B
+      axis:
+        name: "Jet UParTB$_{idx}$"
+        start: 0
+        stop: 1
+        bins: 20
       second_names: [Disc1_sig, Disc1_tt, Disc1_qcd]
       second_cols: [Disc1.sig, Disc1.tt, Disc1.qcd]
       second_axes:

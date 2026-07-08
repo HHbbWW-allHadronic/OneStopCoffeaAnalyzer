@@ -65,7 +65,7 @@ Postprocessing:
       plot_configuration:
         cms_text_color: "black"
         <<: *default_plot_config
-        extra_text: "{dataset_name}"
+        extra_text: "{dataset_title}"
       structure:
         select: {dataset_name: "*"}
         group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
@@ -104,8 +104,9 @@ Postprocessing:
 
     - name: RatioPlot
       inputs:
-        - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_fourjet_14_m"
+        - "*/*/*/b_dijet_mass"
+        - "*/*/*/nontop2b_fourjet_mass"
+        - "*/*/*/nontop2b_threejet_mass"
         - "*/*/*/JetN"
       ratio_type: "significance"
       show_den_unc: True
