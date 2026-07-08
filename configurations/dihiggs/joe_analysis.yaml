@@ -274,10 +274,7 @@ common_histograms: &common_histograms
 
 analyzer:
   default_run_builder:
-    strategy_name: MultiRunBuilder
-    components:
-      - strategy_name: NoSystematics
-      - strategy_name: UnscaledOnly
+    strategy_name: NoSystematics
 
   withHLT_NoSelection:
     - *withHLT_NoSelection
