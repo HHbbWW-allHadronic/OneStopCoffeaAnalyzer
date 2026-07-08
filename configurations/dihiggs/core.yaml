@@ -260,31 +260,106 @@ looselep_tightb_selection: &looselep_tightb_selection
     selection_name: 2b
     min_count: 2
 
+fivejet_medb_selection: &fivejet_medb_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 5
+    max_count: 5
+
+  - module_name: NObjFilter
+    input_col: MedB
+    selection_name: 2b
+    min_count: 2
+
+fivejet_tightb_selection: &fivejet_tightb_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 5
+    max_count: 5
+
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
 medb_obj: &medb_obj
   - module_name: JetCombos
     input_cols:
       - MedB
       - nontop2b_med
+      - nontop2b_med
     jet_combos:
       - [0, 1]
       - [0, 1, 2, 3]
+      - [0, 1, 2]
     output_cols:
       - "b_dijet"
       - "nontop2b_fourjet"
+      - "nontop2b_threejet"
 
 tightb_obj: &tightb_obj
     - module_name: JetCombos
       input_cols:
         - TightB
         - nontop2b_tight
+        - nontop2b_tight
       jet_combos:
         - [0, 1]
         - [0, 1, 2, 3]
+        - [0, 1, 2]
       output_cols:
         - "b_dijet"
         - "nontop2b_fourjet"
+        - "nontop2b_threejet"
 
-     
+withHLT_ObjDef6: &withHLT_ObjDef6
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *fivejet_tightb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *tightb_obj
+
+withHLT_ObjDef5: &withHLT_ObjDef5
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *fivejet_medb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *medb_obj
+
 withHLT_ObjDef4: &withHLT_ObjDef4
   - *common_objects
   - *hlt_selection

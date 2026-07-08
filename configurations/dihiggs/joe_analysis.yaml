@@ -5,9 +5,9 @@
       - NoSelection
       - withHLT_ObjDef1
       - noHLT_ObjDef1
-      - withHLT_ObjDef2
       - withHLT_ObjDef3
-      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
       - SignalOnly
 {%- endmacro %}
 
@@ -16,17 +16,17 @@
       - NoSelection
       - withHLT_ObjDef1
       - noHLT_ObjDef1
-      - withHLT_ObjDef2
       - withHLT_ObjDef3
-      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
 {%- endmacro %}
 
 {%- macro data_pipelines() %}
       - withHLT_NoSelection
       - withHLT_ObjDef1
-      - withHLT_ObjDef2
       - withHLT_ObjDef3
-      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
 {%- endmacro %}
 
 common_histograms: &common_histograms
@@ -134,7 +134,7 @@ common_histograms: &common_histograms
     input_col: b_dijet
     hist_name: b_dijet
     mass_axis:
-      name: "nontop2b_fourjet"
+      name: "b_dijet"
       start: 0
       stop: 500
       bins: 20
@@ -144,6 +144,15 @@ common_histograms: &common_histograms
     hist_name: nontop2b_fourjet
     mass_axis:
       name: "nontop2b_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_threejet
+    hist_name: nontop2b_threejet
+    mass_axis:
+      name: "nontop2b_threejet"
       start: 0
       stop: 500
       bins: 20
@@ -286,17 +295,17 @@ analyzer:
     - *noHLT_ObjDef1
     - *common_histograms
 
-  withHLT_ObjDef2:
-    - *withHLT_ObjDef2
-    - *common_histograms
-
   withHLT_ObjDef3:
     - *withHLT_ObjDef3
     - *common_histograms
 
-  withHLT_ObjDef4:
-    - *withHLT_ObjDef4
+  withHLT_ObjDef5:
+    - *withHLT_ObjDef5
     - *common_histograms 
+
+  withHLT_ObjDef6:
+    - *withHLT_ObjDef6
+    - *common_histograms
 
   SignalOnly:
     - module_name: SelectAllTriggers
