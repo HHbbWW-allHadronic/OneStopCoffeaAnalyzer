@@ -104,8 +104,9 @@ Postprocessing:
 
     - name: RatioPlot
       inputs:
-        - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_fourjet_14_m"
+        - "*/*/*/b_dijet_mass"
+        - "*/*/*/nontop2b_fourjet_mass"
+        - "*/*/*/nontop2b_threejet_mass"
         - "*/*/*/JetN"
       ratio_type: "significance"
       show_den_unc: True
