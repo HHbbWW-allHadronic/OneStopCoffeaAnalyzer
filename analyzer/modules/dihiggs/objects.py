@@ -1,29 +1,12 @@
 from analyzer.core.analysis_modules import AnalyzerModule
-import re
-
-from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
-from analyzer.utils.structure_tools import flatten
-from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
-import itertools as it
-from attrs import define, field, evolve
-from ..common.axis import RegularAxis
-from ..common.histogram_builder import makeHistogram
+from attrs import define, field
 from ..common.electrons import CutBasedWPs, cut_mapping as electron_cut_mapping
 from ..common.muons import IdWps, IsoWps, cut_mapping as muon_cut_mapping
-import enum
+import numpy as np
 
-import correctionlib
 import logging
-
-
-from analyzer.core.analysis_modules import (
-    MetadataExpr,
-    MetadataAnd,
-    IsRun,
-    IsSampleType,
-)
 
 logger = logging.getLogger("analyzer.modules")
 
@@ -388,10 +371,18 @@ class JetCombos(AnalyzerModule):
 
             summed = padded[:, combo].sum()
             summed = ak.mask(summed, ~msk)
-            columns[self.output_cols[i] + Column("mass")] = summed.mass
-            columns[self.output_cols[i] + Column("pt")] = summed.pt
-            columns[self.output_cols[i] + Column("eta")] = summed.eta
-            columns[self.output_cols[i] + Column("phi")] = summed.phi
+            columns[self.output_cols[i] + Column("mass")] = ak.fill_none(
+                summed.mass, np.nan
+            )
+            columns[self.output_cols[i] + Column("pt")] = ak.fill_none(
+                summed.pt, np.nan
+            )
+            columns[self.output_cols[i] + Column("eta")] = ak.fill_none(
+                summed.eta, np.nan
+            )
+            columns[self.output_cols[i] + Column("phi")] = ak.fill_none(
+                summed.phi, np.nan
+            )
 
         return columns, []
 
