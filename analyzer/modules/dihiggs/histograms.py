@@ -31,8 +31,8 @@ class FourVecHistograms(AnalyzerModule):
     def run(self, columns, params):
         jets = columns[self.input_col]
         ret = []
-        if axis.name:
-            new_name = axis.name
+        if self.mass_axis.name:
+            new_name = self.mass_axis.name
         else:
             new_name = f"{self.hist_name} $m$"
         mass_axis = evolve(self.mass_axis, name=new_name)
