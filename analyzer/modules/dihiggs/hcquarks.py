@@ -26,7 +26,7 @@ class HCQuarkMaker(AnalyzerModule):
     -----
     - C-tagging thresholds are loaded from the correction file specified
       in ``metadata["era"]["btag_scale_factors"]["file"]``.
-    - Desired tagger and path to correction thresholds are specified using 
+    - Desired tagger and path to correction thresholds are specified using
       the "tagger" and "correction_name" fields in above metadata path.
     """
 
@@ -41,7 +41,7 @@ class HCQuarkMaker(AnalyzerModule):
         jets = columns[self.input_col]
         mask1 = jets[taggers["CvB"]] > wps["CvB"][self.working_point]
         mask2 = jets[taggers["CvL"]] > wps["CvL"][self.working_point]
-        mask = mask1&mask2
+        mask = mask1 & mask2
 
         bjets = jets[mask]
         columns[self.output_col] = bjets
@@ -57,7 +57,10 @@ class HCQuarkMaker(AnalyzerModule):
         if file_path in self.__corrections:
             return tagger, self.__corrections[file_path]
         cset = correctionlib.CorrectionSet.from_file(file_path)
-        ret ={"CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")}, "CvB":  {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")}} 
+        ret = {
+            "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+            "CvB": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+        }
         self.__corrections[file_path] = ret
         return taggers, ret
 
