@@ -46,7 +46,7 @@ analyzer:
           stop: 1
           bins: 20
 
-- module_name: SimpleHistogram
+    - module_name: SimpleHistogram
       hist_name: Disc1_sig_b_dijet_mass_2d
       input_cols: [b_dijet.mass, Disc1.sig]
       axes:
