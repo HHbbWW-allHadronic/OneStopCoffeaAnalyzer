@@ -251,7 +251,7 @@ analyzer:
       axis:
         name: "Jet $m_{idx}$"
         start: 0
-        stop: 500
+        stop: 250
         bins: 20
         unit: GeV
       second_names: [Disc1_sig, Disc1_tt, Disc1_qcd]
