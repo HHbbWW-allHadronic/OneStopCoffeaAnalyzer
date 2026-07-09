@@ -269,11 +269,29 @@ sixjet_plots: &sixjet_plots
     prefix: "Jet"
     input_col: goodJet
     max_idx: 6
+  - module_name: JetVarRankHistograms
+    hist_name: Jetbtag_
+    input_col: goodJet.btagUParTAK4B
+    axis:
+      name: "Jet UParT$B_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
+    max_idx: 6
 
 fivejet_plots: &fivejet_plots
   - module_name: TopVecHistograms
     prefix: "Jet"
     input_col: goodJet
+    max_idx: 5
+  - module_name: JetVarRankHistograms
+    hist_name: Jetbtag_
+    input_col: goodJet.btagUParTAK4B
+    axis:
+      name: "Jet UParTB$_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
     max_idx: 5
 
 {{ core.objects() }}

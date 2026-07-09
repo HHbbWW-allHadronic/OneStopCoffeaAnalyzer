@@ -101,7 +101,8 @@ class JetVarRankHistograms(AnalyzerModule):
     second_axes: list[RegularAxis]
         Axes for the second variable to be plotted in 2D histograms.
     max_idx: int
-        Largest jet index to be plotted (default is 6).
+        Maximum number of leading objects for which histograms are
+        produced. Default is 6.
     """
 
     hist_name: str
