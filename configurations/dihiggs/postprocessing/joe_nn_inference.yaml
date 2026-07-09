@@ -36,7 +36,7 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
 
     - name: Histogram1D
@@ -56,7 +56,7 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
     - name: RatioPlot
@@ -87,5 +87,5 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
