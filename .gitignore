@@ -63,6 +63,7 @@ oldpkl/
 
 /trained_bnns/
 /knn_models/
+/nn_models/
 /*export*/
 /*postprocessing*/
 /*compressed*/
