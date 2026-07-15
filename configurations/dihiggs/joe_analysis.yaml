@@ -59,7 +59,7 @@ common_histograms: &common_histograms
         bins: 14
 
   - module_name: SimpleHistogram
-    hist_name: JetQvG
+    hist_name: Jet_QvG
     input_cols: [goodJet.btagUParTAK4QvG]
     axes:
       - name: "Jet PNetQvG Score"
@@ -163,7 +163,7 @@ common_histograms: &common_histograms
         bins: 21
 
   - module_name: SimpleHistogram
-    hist_name: AK4JetQvG
+    hist_name: AK4Jet_QvG
     input_cols: [Jet.btagPNetQvG]
     axes:
       - name: "AK4Jet PNetQvG Score"
@@ -172,7 +172,7 @@ common_histograms: &common_histograms
         bins: 20
 
   - module_name: SimpleHistogram
-    hist_name: AK4Jetbtag
+    hist_name: AK4Jet_btag
     input_cols: [Jet.btagUParTAK4B]
     axes:
       - name: "AK4Jet UParTB Score"
@@ -283,7 +283,7 @@ sixjet_plots: &sixjet_plots
     input_col: goodJet
     max_idx: 6
   - module_name: JetVarRankHistograms
-    hist_name: Jetbtag_
+    hist_name: Jet_btag_
     input_col: goodJet.btagUParTAK4B
     axis:
       name: "Jet UParT$B_{idx}$"
@@ -298,7 +298,7 @@ fivejet_plots: &fivejet_plots
     input_col: goodJet
     max_idx: 5
   - module_name: JetVarRankHistograms
-    hist_name: Jetbtag_
+    hist_name: Jet_btag_
     input_col: goodJet.btagUParTAK4B
     axis:
       name: "Jet UParTB$_{idx}$"
