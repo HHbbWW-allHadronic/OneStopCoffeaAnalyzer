@@ -93,7 +93,11 @@ def saveFigVariants(
 
         removeCMSAnnotations(ax)
         pc_extra = getattr(pc, "extra_text", None)
-        extra = extra_text if pc_extra is None else f"{extra_text}\n{pc_extra}"
+        extra = (
+            extra_text
+            if pc_extra is None
+            else pc_extra if extra_text is None else f"{extra_text}\n{pc_extra}"
+        )
         addCMSBits(
             ax,
             all_meta,
