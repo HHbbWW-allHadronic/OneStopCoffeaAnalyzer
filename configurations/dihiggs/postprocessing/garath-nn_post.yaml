@@ -1,0 +1,34 @@
+Postprocessing:
+  processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: log
+      normalize: False
+      show_info: True
+      structure:
+        select: {dataset_name: "*", name: "*_1d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-spanet/{era.name}/{pipeline}/{name}"
+
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      structure:
+        select: {name: "m_Hbb_m_HWW_*_2d"}
+        group: {era.name: "*", pipeline: "*", name: "*", dataset_name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: ["variation"]
+      output_name: "plots-2024-spanet/{era.name}/{pipeline}/{dataset_name}/{name}.png"
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
