@@ -18,6 +18,7 @@ from analyzer.utils.structure_tools import (
 )
 from .processors import BasePostprocessor
 
+
 def flatten_if_2d(h, axis_name="gpr_bin", order="C"):
     """
     If h is 2D, flatten all bins into a 1D hist.Hist with linear edges.

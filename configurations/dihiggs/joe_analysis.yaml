@@ -30,11 +30,6 @@
 {%- endmacro %}
 
 common_histograms: &common_histograms
-  - module_name: TopVecHistograms
-    prefix: "Jet"
-    input_col: goodJet
-    max_idx: 6
-
   - module_name: FourVecHistograms
     input_col: goodJet
     hist_name: Jet
@@ -64,7 +59,7 @@ common_histograms: &common_histograms
         bins: 14
 
   - module_name: SimpleHistogram
-    hist_name: JetQvG
+    hist_name: Jet_QvG
     input_cols: [goodJet.btagUParTAK4QvG]
     axes:
       - name: "Jet PNetQvG Score"
@@ -116,16 +111,16 @@ common_histograms: &common_histograms
     hist_name: nontop2b_tight
 
   - module_name: SimpleHistogram
-    hist_name: dijet_fourjet_m2d
+    hist_name: dijet_threejet_m2d
     input_cols:
       - b_dijet.mass
-      - nontop2b_fourjet.mass
+      - nontop2b_threejet.mass
     axes:
       - name: "b_dijet $m_{12}$"
         start: 0
         stop: 500
         bins: 20
-      - name: "nontop2b_fourjet $m_{1234}$"
+      - name: "nontop2b_threejet $m_{1234}$"
         start: 0
         stop: 800
         bins: 20
@@ -135,15 +130,6 @@ common_histograms: &common_histograms
     hist_name: b_dijet
     mass_axis:
       name: "b_dijet"
-      start: 0
-      stop: 500
-      bins: 20
-
-  - module_name: FourVecHistograms
-    input_col: nontop2b_fourjet
-    hist_name: nontop2b_fourjet
-    mass_axis:
-      name: "nontop2b_fourjet"
       start: 0
       stop: 500
       bins: 20
@@ -177,7 +163,7 @@ common_histograms: &common_histograms
         bins: 21
 
   - module_name: SimpleHistogram
-    hist_name: AK4JetQvG
+    hist_name: AK4Jet_QvG
     input_cols: [Jet.btagPNetQvG]
     axes:
       - name: "AK4Jet PNetQvG Score"
@@ -186,7 +172,7 @@ common_histograms: &common_histograms
         bins: 20
 
   - module_name: SimpleHistogram
-    hist_name: AK4Jetbtag
+    hist_name: AK4Jet_btag
     input_cols: [Jet.btagUParTAK4B]
     axes:
       - name: "AK4Jet UParTB Score"
@@ -269,6 +255,58 @@ common_histograms: &common_histograms
         bins: 30
         unit: GeV
 
+sixjet_plots: &sixjet_plots
+  - module_name: SimpleHistogram
+    hist_name: dijet_fourjet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_fourjet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_fourjet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+  - module_name: FourVecHistograms
+    input_col: nontop2b_fourjet
+    hist_name: nontop2b_fourjet
+    mass_axis:
+      name: "nontop2b_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
+  - module_name: TopVecHistograms
+    prefix: "Jet"
+    input_col: goodJet
+    max_idx: 6
+  - module_name: JetVarRankHistograms
+    hist_name: Jet_btag_
+    input_col: goodJet.btagUParTAK4B
+    axis:
+      name: "Jet UParT$B_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
+    max_idx: 6
+
+fivejet_plots: &fivejet_plots
+  - module_name: TopVecHistograms
+    prefix: "Jet"
+    input_col: goodJet
+    max_idx: 5
+  - module_name: JetVarRankHistograms
+    hist_name: Jet_btag_
+    input_col: goodJet.btagUParTAK4B
+    axis:
+      name: "Jet UParTB$_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
+    max_idx: 5
+
 {{ core.objects() }}
 {{ core.regions() }}
 
@@ -279,30 +317,37 @@ analyzer:
   withHLT_NoSelection:
     - *withHLT_NoSelection
     - *common_histograms
+    - *sixjet_plots
 
   NoSelection:
     - *NoSelection
     - *common_histograms
+    - *sixjet_plots
 
   withHLT_ObjDef1:
     - *withHLT_ObjDef1
     - *common_histograms
+    - *sixjet_plots
 
   noHLT_ObjDef1:
     - *noHLT_ObjDef1
     - *common_histograms
+    - *sixjet_plots
 
   withHLT_ObjDef3:
     - *withHLT_ObjDef3
     - *common_histograms
+    - *sixjet_plots
 
   withHLT_ObjDef5:
     - *withHLT_ObjDef5
     - *common_histograms 
+    - *fivejet_plots
 
   withHLT_ObjDef6:
     - *withHLT_ObjDef6
     - *common_histograms
+    - *fivejet_plots
 
   SignalOnly:
     - module_name: SelectAllTriggers
