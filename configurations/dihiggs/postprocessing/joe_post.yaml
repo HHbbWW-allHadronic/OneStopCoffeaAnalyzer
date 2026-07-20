@@ -102,6 +102,21 @@ Postprocessing:
               dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/nontop2b_fourjet_mass"
+        - "*/*/*/nontop2b_threejet_mass"
+      normalize: False
+      show_info: False
+      style_set: *default_style_set
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "plots/{era.name}/{pipeline}/signal_{name}"
+
     - name: RatioPlot
       inputs:
         - "*/*/*/b_dijet_mass"
@@ -228,6 +243,7 @@ Postprocessing:
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
+
 
     - name: CutflowTable
       output_name: signal_yield
