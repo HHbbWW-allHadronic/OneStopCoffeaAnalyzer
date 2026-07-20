@@ -16,6 +16,41 @@ Postprocessing:
 
 
   processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: False
+      plot_configuration:
+        <<: *default_plot_config
+        x_axis_label: "Jet Combo m [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          name: "re:^(nontop2b_threejet_mass|nontop2b_fourjet_mass)$"
+        group:
+          era.name: "*"
+          pipeline: "*"
+          dataset_name: "*"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_threejet"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_fourjet_mass"}
+            new_meta_fields:
+              title: "nontop2b_fourjet"
+          - name:  SetAxisLabels
+            axis_labels:
+              nontop2b_fourjet: "Jet Combo $m$ [GeV]"
+              nontop2b_threejet: "Jet Combo $m$ [GeV]"
+      output_name: "plots/{era.name}/{pipeline}/mass_compare_{dataset_name}.png"
+
     - name: PlotSelectionFlow
       inputs:
         - "*/*/*/*selection"

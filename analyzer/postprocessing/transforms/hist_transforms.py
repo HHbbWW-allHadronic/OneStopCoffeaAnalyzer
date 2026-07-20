@@ -14,6 +14,7 @@ from analyzer.utils.structure_tools import ItemWithMeta, commonDict, addChain
 from attrs import define, field, asdict
 from .registry import TransformHistogram
 
+
 @define
 class SelectAxesValues(TransformHistogram):
     select_axes_values: dict[str, list[int] | list[str] | list[float]]
@@ -106,6 +107,7 @@ class SplitAxes(TransformHistogram):
 
         return ret
 
+
 @define
 class SumHistograms(TransformHistogram):
     sum_match_pattern: BasePattern
@@ -135,6 +137,7 @@ class SumHistograms(TransformHistogram):
             )
 
         return ret
+
 
 @define
 class SumSelectionFlow(TransformHistogram):
@@ -495,4 +498,23 @@ class ABCDTransformer(TransformHistogram):
                 )
             )
 
+        return ret
+
+
+@define
+class SetAxisLabels(TransformHistogram):
+    axis_labels: dict[str, str]  # {axis_name: "New label"}
+
+    def __call__(self, items):
+        ret = []
+        for ph, meta in items:
+            h = ph.histogram
+            for ax_name, new_label in self.axis_labels.items():
+                if ax_name in h.axes.name:
+                    h.axes[ax_name].label = new_label
+            ret.append(
+                ItemWithMeta(
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                )
+            )
         return ret
