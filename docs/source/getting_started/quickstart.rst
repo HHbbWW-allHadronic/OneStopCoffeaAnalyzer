@@ -2,12 +2,14 @@ Quick Start
 ===========
 
 This tutorial walks through a complete analysis workflow -- from configuration to plots -- using a simple example.
-By the end, you will have run an analysis, inspected the results, and produced a histogram.
+By the end, barring any complications, you will have run an analysis, inspected the results, and produced a histogram.
 
 
 Step 1: The Example Configuration
 ---------------------------------
 
+
+We are doing to work with a very simple 
 Let us start by looking at the example configuration at ``configurations/example.yaml``:
 
 .. code-block:: yaml
@@ -42,6 +44,9 @@ Let us start by looking at the example configuration at ``configurations/example
           selection_name: njets
           min_count: 4
 
+        - module_name: SelectOnColumns
+          sel_name: "selection"
+
         - module_name: SimpleHistogram
           hist_name: HT
           input_cols: [HT]
@@ -70,9 +75,7 @@ Let us break this down:
   6. Produces a histogram of HT.
 - **``event_collections``**: Processes signal datasets matching the pattern ``signal_2018_312_*15*0``.
 
-Notice that there is no explicit :class:`~analyzer.modules.common.selection.SelectOnColumns` module -- the :class:`~analyzer.modules.common.selection.NObjFilter` creates a selection mask, but it is not applied.
-The histogram is filled with all events.
-To actually cut events, you would add a :class:`~analyzer.modules.common.selection.SelectOnColumns` module before the histogram.
+The histogram is filled with all events passing the selection.
 
 
 Step 2: Run the Analysis
@@ -109,13 +112,13 @@ Browse them interactively:
 
     ./osca browse 'test_output/*.result'
 
-This opens a  TUI where you can navigate the result tree and inspect the HT histogram.
-
+This opens a TUI where you can navigate the result tree and inspect the HT histogram.
 
 .. note::
     
     The histogram rendering in the browser is quite rough, and should not be used for real analysis decisions.
     The browser should be used for quickly checking that outputs look roughtly as you expect.
+    Making "real" plots should be done using the postprocessing configuration explained below.
     
 
 Step 4: Write a Postprocessing Configuration
@@ -149,6 +152,14 @@ This configuration tells the postprocessing system to:
 5. Produce a 1D histogram plot saved as a PNG.
 
 
+.. note::
+    
+    The variation axis is added by default even for situations where no systematic variations exist.
+    It is therefore advisable to always select the "central" variation byd efault.
+
+
+
+
 Step 5: Produce the Plot
 ------------------------
 
@@ -172,7 +183,7 @@ You should see a plot file like ``HT_2018.png``.
 What's Next
 -----------
 
-- Read the :doc:`../user_guide/analysis_configuration` page for a comprehensive guide to writing configurations.
+- See the :doc:`../user_guide/analysis_configuration` page for a comprehensive guide to writing configurations.
 - See the :doc:`../concepts/architecture` page to understand how the framework processes data.
-- Check the :doc:`../developer_guide/writing_modules` page when you need custom analysis logic.
-- Explore the :doc:`../postprocessing/postprocessing_config` page for more postprocessing options.
+- See the :doc:`../developer_guide/writing_modules` page when you need custom analysis logic.
+- See the :doc:`../postprocessing/postprocessing_config` page for more postprocessing options.

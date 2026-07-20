@@ -160,7 +160,7 @@ def plotOne(
         all_meta,
         plot_configuration=pc,
         metadata=common_metadata,
-        extra_text=f"{common_metadata['pipeline']}",
+        extra_text=f"{common_metadata.get('pipeline', '')}",
     )
     plt.close(fig)
 

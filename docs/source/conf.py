@@ -20,7 +20,10 @@ extensions = [
     "sphinx_autodoc_typehints",
     "yaml_links",
     "sphinx.ext.graphviz",
+    "postprocessing_gallery",
 ]
+
+postprocess_gallery_root = str(Path(__file__).parent.parent.parent)
 
 autodoc_default_options = {
     "members": True,
@@ -35,6 +38,7 @@ exclude_patterns = []
 
 html_theme = "furo"
 html_static_path = ["_static"]
+html_logo = "_static/logo.png"
 
 html_theme_options = {
     "footer_icons": [
@@ -54,13 +58,13 @@ html_theme_options = {
     "source_directory": "docs/source/",
 }
 
-autoapi_dirs = [str(Path(__file__).parent.parent.parent / 'analyzer')]
+autoapi_dirs = [str(Path(__file__).parent.parent.parent / "analyzer")]
 autoapi_options = [
-    'members',
-    'undoc-members',
-    'show-inheritance',
-    'show-module-summary',
-    'special-members',
-    'imported-members',
+    "members",
+    "undoc-members",
+    "show-inheritance",
+    "show-module-summary",
+    "special-members",
+    "imported-members",
 ]
 suppress_warnings = ["autoapi.python_import_resolution"]

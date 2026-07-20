@@ -2,7 +2,6 @@ import itertools as it
 import io
 import csv
 
-
 from rich.table import Table
 
 
@@ -33,7 +32,7 @@ def createSampleTable(manager, pattern=None, as_csv=False):
     if not as_csv:
         return table
     else:
-        d = {x.header:x.cells for x in table.columns}
+        d = {x.header: x.cells for x in table.columns}
         output = output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC)
         headers = list(d)
@@ -63,7 +62,7 @@ def createDatasetTable(manager, pattern=None, as_csv=False):
     if not as_csv:
         return table
     else:
-        d = {x.header:x.cells for x in table.columns}
+        d = {x.header: x.cells for x in table.columns}
         output = output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_NONNUMERIC)
         headers = list(d)
@@ -72,4 +71,3 @@ def createDatasetTable(manager, pattern=None, as_csv=False):
         for r in vals:
             writer.writerow(r)
         return output.getvalue()
-

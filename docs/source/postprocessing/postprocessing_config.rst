@@ -215,18 +215,12 @@ Multiple input patterns can be specified to combine different result types:
 
 Each pattern selects a set of results, and all matched results are passed together to the ``structure`` for grouping and processing.
 
-Patterns can also be specified as strings with ``/`` separators instead of tuples:
-
-.. code-block:: yaml
-
-    inputs:
-      - "*/*/HT"           # Equivalent to ["*", "*", "HT"]
-
 
 The ``structure`` Field (GroupBuilder)
 --------------------------------------
 
 The ``structure`` field configures how results are organized before being passed to the processor.
+It implements a SQL-esque system for querying and manipulating results.
 It is a :class:`~analyzer.postprocessing.grouping.GroupBuilder` with the following sub-fields:
 
 ``select``

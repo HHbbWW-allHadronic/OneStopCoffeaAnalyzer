@@ -374,7 +374,7 @@ elif command -v apptainer &> /dev/null && [ -d "/cvmfs/unpacked.cern.ch/gitlab-r
 
     function run_combine() {
        IMAGE="/cvmfs/unpacked.cern.ch/gitlab-registry.cern.ch/cms-analysis/general/combine-container:latest"
-       apptainer exec -B /cvmfs  $IMAGE /bin/bash -c 'source /cvmfs/cms.cern.ch/cmsset_default.sh && pushd $PWD && cd /home/cmsusr/CMSSW_14_1_0_pre4/ && eval $(scramv1 runtime -sh) && popd && exec \"$@\"' -- $@
+       apptainer exec -B $(pwd -P) -B /cvmfs --pwd $(pwd -P)  $IMAGE /bin/bash -c 'source /cvmfs/cms.cern.ch/cmsset_default.sh && pushd $PWD && cd /home/cmsusr/CMSSW_14_1_0_pre4/ && eval $(scramv1 runtime -sh) && popd && exec \"$@\"' -- $@
     }
     RUN_CMD="run_combine"
 

@@ -3,6 +3,7 @@ Writing Modules
 
 This page walks through how to write custom analysis modules.
 If the built-in modules do not cover your use case, writing a custom module is the primary way to extend the framework.
+You will almost certainly need to write at least a couple modules for your analysis, so it is good to undestand how this is done.
 
 
 Module Basics
@@ -107,8 +108,8 @@ Common operations:
         # Read a column
         jets = columns[self.input_col]
 
-        # Access individual fields
-        jet_pt = columns[Column("GoodJet.pt")]
+        # Access individual fields, note that this must be declared as an input
+        jet_pt = columns["GoodJet.pt"]
 
         # Metadata
         is_mc = columns.metadata["sample_type"].value == "MC"
@@ -183,9 +184,9 @@ To produce a histogram from your module, use the :func:`~analyzer.modules.common
 :func:`~analyzer.modules.common.histogram_builder.makeHistogram` returns a :class:`~analyzer.core.analysis_modules.ModuleAddition` that tells the framework to create a :class:`~analyzer.modules.common.histogram_builder.HistogramBuilder` sub-pipeline.
 The histogram will automatically include:
 
-- A ``variation`` axis with entries for each systematic variation.
+- A ``variation`` axis with entries for each systematic variation (even no systematics are present, there is always a "central" systematic).
 - Any category axes defined in ``pipeline_data["categories"]``.
-- Proper weighting from ``Weights`` columns.
+- Proper weighting from ``Weights`` columns, based on weights added by previous modules.
 
 
 Conditional Execution
@@ -265,13 +266,14 @@ The fastest way to test a module is with the :class:`~analyzer.core.executors.im
 
     ./osca run -e imm-10000 \
       --max-sample-events 1000 \
-      --filter-dataset 'qcd_ht_2018' \
+      --filter-dataset 'qcd*2018*' \
       --log-level DEBUG \
       config/analysis.yaml test_output/
 
 With ``--log-level DEBUG``, you can see exactly which modules are executing, what their cache keys are, and when cache hits occur.
 
 You can also use standard Python debugging tools (``breakpoint()``, ``print()``) since the immediate executor runs in a single process.
+This is super helpful for debuggging!!
 
 
 Common Patterns
@@ -285,6 +287,7 @@ Common Patterns
         era = columns.metadata["era"]
         correction_file = era["corrections"]["pileup_sf"]
         # Load and apply correction...
+        # See existing modules for examples of how you can cache things to multi-runs don't reload the data.
 
 **Producing multiple results:**
 
@@ -294,19 +297,3 @@ Common Patterns
         result1 = makeHistogram("hist1", columns, axis1, data1)
         result2 = makeHistogram("hist2", columns, axis2, data2)
         return columns, [result1, result2]
-
-**Working with multiple jet collections:**
-
-.. code-block:: python
-
-    @define
-    class DijetMass(AnalyzerModule):
-        jet_col: Column
-        output_col: Column
-
-        def run(self, columns, params):
-            jets = columns[self.jet_col]
-            j1, j2 = jets[:, 0], jets[:, 1]
-            mass = (j1 + j2).mass
-            columns[self.output_col] = mass
-            return columns, []
