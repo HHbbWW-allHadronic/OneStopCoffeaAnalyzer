@@ -46,10 +46,11 @@ class RegularAxis(Axis):
 class IntCategoryAxis(Axis):
     name: str
     categories: list[int]
+    growth: bool = False
     unit: str | None = None
 
     def toHist(self):
-        a = hist.axis.IntCategory(self.categories, name=self.name)
+        a = hist.axis.IntCategory(self.categories, name=self.name, growth=self.growth)
         if self.unit:
             a.unit = self.unit
         return a
