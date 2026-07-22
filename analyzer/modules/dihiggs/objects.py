@@ -391,3 +391,24 @@ class JetCombos(AnalyzerModule):
 
     def inputs(self, metadata):
         return self.input_cols
+
+
+@define
+class AbsoluteValue(AnalyzerModule):
+    """
+    This simple module takes the absolute value of a specified input column and
+    stores the result in a new output column.
+    """
+
+    input_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        columns[self.output_col] = abs(columns[self.input_col])
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
