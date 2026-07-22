@@ -286,7 +286,7 @@ sixjet_plots: &sixjet_plots
     hist_name: Jet_btag_
     input_col: goodJet.btagUParTAK4B
     axis:
-      name: "Jet UParT$B_{idx}$"
+      name: "Jet UParTB$_{idx}$"
       start: 0
       stop: 1
       bins: 20
