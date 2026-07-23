@@ -253,6 +253,8 @@ class HJetFilter(AnalyzerModule):
         Column where the filtered jet collection will be stored.
     min_pt : float, optional
         Minimum transverse momentum (pT) threshold for jets, by default 30.0.
+    min_btagPNetQvG : float, optional
+        Minimum QvG discriminator value for jets, by default 0.0.
     max_abs_eta : float, optional
         Maximum absolute pseudorapidity allowed for jets, by default 2.4.
     include_pu_id : bool, optional
@@ -271,6 +273,7 @@ class HJetFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     min_pt: float = 30.0
+    min_btagPNetQvG: float = 0.0
     max_abs_eta: float = 2.4
     include_pu_id: bool = False
     include_jet_id: bool = False
@@ -278,7 +281,11 @@ class HJetFilter(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         jets = columns[self.input_col]
-        good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
+        good_jets = jets[
+            (jets.pt > self.min_pt)
+            & (abs(jets.eta) < self.max_abs_eta)
+            & (jets.btagPNetQvG > self.min_btagPNetQvG)
+        ]
 
         if self.include_jet_id:
             good_jets = good_jets[((good_jets.jetId & 0b010) != 0)]
@@ -355,16 +362,24 @@ class JetCombos(AnalyzerModule):
         two jets). Number of jet combos should be equal to input columns.
     output_names : list[Column]
         Ordered list of Columns for Jets to be stored.
+    order_by: list of Column, optional
+        List of columns to order the jets by before combining.
+        Should be a member of the respective input column.
     """
 
     input_cols: list[Column]
     jet_combos: list[list[int]]
     output_cols: list[Column]
+    order_by: list[Column] = []
+    ascending: bool = False
 
     def run(self, columns, params):
         for i, input_col in enumerate(self.input_cols):
             combo = self.jet_combos[i]
             jets = columns[input_col]
+            if self.order_by:
+                order_col = columns[self.order_by[i]]
+                jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
             max_idx = max(combo)
             padded = ak.pad_none(jets, max_idx + 1, axis=1)
             msk = ak.num(jets, axis=1) < max_idx + 1
@@ -390,7 +405,7 @@ class JetCombos(AnalyzerModule):
         return self.output_cols
 
     def inputs(self, metadata):
-        return self.input_cols
+        return self.input_cols + self.order_by
 
 
 @define
