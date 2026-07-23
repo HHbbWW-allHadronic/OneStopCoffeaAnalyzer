@@ -139,6 +139,7 @@ Postprocessing:
         - "*/*/*/b_dijet_mass"
         - "*/*/*/nontop2b_fourjet_mass"
         - "*/*/*/nontop2b_threejet_mass"
+        - "*/*/*/nontop2b_qvg_threejet_mass"
         - "*/*/*/JetN"
       ratio_type: "significance"
       show_den_unc: True

@@ -117,7 +117,7 @@ genpart_histograms: &genpart_histograms
     hist_name: nonh_mother_zero_idx
     input_cols: [nonh_mother_zero_idx]
     axes:
-      - name: "$p_{T} index of nonh_mother_zero$"
+      - name: "$p_{T}$ index of nonh_mother_zero"
         start: -0.5
         stop: 6.5
         bins: 7
