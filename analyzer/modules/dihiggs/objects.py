@@ -21,7 +21,6 @@ from attrs import define
 import correctionlib
 import logging
 
-
 from analyzer.core.analysis_modules import (
     MetadataExpr,
     MetadataAnd,
@@ -425,95 +424,86 @@ class JetCombos(AnalyzerModule):
     Build composite objects from specified combinations
     of jets (by index). Events missing the required number
     of jets are filled with None (i.e. excluded/ignored).
-    For NN training only.
 
     Parameters
     ----------
     input_cols : list of Column
-        Column containing the jet collection.
-    jet_combos : list of list of int
-        List of jet index combinations. Each inner list specifies the
-        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
-        two jets). Number of jet combos should be equal to input columns.
-    output_names : list[Column]
+        Column containing the jet collections.
+    jet_combos : list of dict[int: list[int]]
+        List of jet combinations. Each entry in the list is a dictionary
+        specifying the indices of jets to combine for the corresponding input column.
+    output_cols : list[Column]
         Ordered list of Columns for Jets to be stored.
+    order_by: list of Column, optional
+        List of columns to order the jets by before combining.
+        Should be a member of the respective input column.
+    ascending: bool, optional
+        Whether to sort the jets in ascending order before combining.
     """
 
     input_cols: list[Column]
-    jet_combos: list[list[int]]
+    jet_combos: list[dict[int, list[int]]]
     output_cols: list[Column]
+    order_by: list[Column] = []
+    ascending: bool = False
 
     def run(self, columns, params):
-        for i, input_col in enumerate(self.input_cols):
-            combo = self.jet_combos[i]
-            jets = columns[input_col]
-            max_idx = max(combo)
-            padded = ak.pad_none(jets, max_idx + 1, axis=1)
-            msk = ak.num(jets, axis=1) < max_idx + 1
+        for i, combo in enumerate(self.jet_combos):
+            sum_cols = []
+            combined_msk = None
+            for col_idx, rank_idxs in combo.items():
+                input_col = self.input_cols[col_idx]
+                jets = columns[input_col]
+                if self.order_by:
+                    order_col = columns[input_col + self.order_by[col_idx]]
+                    jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
+                max_idx = max(rank_idxs)
+                padded = ak.pad_none(jets, max_idx + 1, axis=1)
+                msk = ak.num(jets, axis=1) < max_idx + 1
+                sum_cols.append(padded[:, rank_idxs])
+                if combined_msk is None:
+                    combined_msk = msk
+                else:
+                    combined_msk = combined_msk | msk
 
-            summed = ak.sum(padded[:, combo], axis=1)
-            summed = ak.mask(summed, ~msk)
-            columns[self.output_cols[i] + Column("mass")] = ak.fill_none(summed.mass, np.nan)
-            columns[self.output_cols[i] + Column("pt")] = ak.fill_none(summed.pt, np.nan)
-            columns[self.output_cols[i] + Column("eta")] = ak.fill_none(summed.eta, np.nan)
-            columns[self.output_cols[i] + Column("phi")] = ak.fill_none(summed.phi, np.nan)
-
+            combined_col = ak.concatenate(sum_cols, axis=1)
+            summed = combined_col.sum()
+            summed = ak.mask(summed, ~combined_msk)
+            columns[self.output_cols[i]] = ak.with_name(
+                ak.zip(
+                    {
+                        "pt": ak.fill_none(summed.pt, np.nan),
+                        "eta": ak.fill_none(summed.eta, np.nan),
+                        "phi": ak.fill_none(summed.phi, np.nan),
+                        "mass": ak.fill_none(summed.mass, np.nan),
+                    }
+                ),
+                "PtEtaPhiMLorentzVector",
+            )
         return columns, []
 
     def outputs(self, metadata):
         return self.output_cols
 
     def inputs(self, metadata):
-        return self.input_cols
+        return self.input_cols + self.order_by
 
 @define
-class SortJetsByField(AnalyzerModule):
-    r"""
-    Re-sorts an existing jet collection, descending, by one of its own
-    fields (e.g. pt). Purely a re-ordering step -- doesn't touch,
-    truncate, or exclude anything.
- 
-    Needed before JetCombos can give a meaningful "leading N" truncation
-    on a collection that isn't already ordered by something physical.
-    SPANet's own H2_jets is the motivating case: its 4 slots are ordered
-    by the network's own internal assignment-tensor axis semantics, not
-    by pt/qvg/anything physical, so a null-slot pick (if the network
-    makes one) can land in ANY of the 4 positions, not necessarily last.
-    Verified directly: without this re-sort, JetCombos([0,1,2]) on
-    SPANet's raw H2_jets can silently sum a real jet + the null slot +
-    another real jet while excluding a genuine 4th real jet sitting at
-    position 3 -- giving a wrong mass. Re-sorting by pt first pushes the
-    null slot (pt=0) to the end regardless of where it started,
-    verified this then makes JetCombos([0,1,2])/([0,1,2,3]) agree
-    exactly with directly summing the real (pt != 0) jets.
- 
-    Baseline's and NonTop2B's H2 collections don't need this: they're
-    already sorted by their own secondary_order_field (qvg or pt) as
-    part of how BaselineDiHiggsMasses builds them, and are naturally
-    ragged (no null-slot placeholder to worry about at all).
- 
-    Parameters
-    ----------
-    jet_col : Column
-        The jet collection to re-sort.
-    sort_field : str
-        Field to sort by, descending (e.g. "pt").
-    output_col : Column
-        Column the re-sorted collection is written to.
+class AbsoluteValue(AnalyzerModule):
     """
- 
-    jet_col: Column
-    sort_field: str
+    This simple module takes the absolute value of a specified input column and
+    stores the result in a new output column.
+    """
+
+    input_col: Column
     output_col: Column
- 
+
     def run(self, columns, params):
-        jets = columns[self.jet_col]
-        sort_idx = ak.argsort(jets[self.sort_field], axis=1, ascending=False)
-        columns[self.output_col] = jets[sort_idx]
+        columns[self.output_col] = abs(columns[self.input_col])
         return columns, []
- 
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
     def outputs(self, metadata):
         return [self.output_col]
- 
-    def inputs(self, metadata):
-        return [self.jet_col]
