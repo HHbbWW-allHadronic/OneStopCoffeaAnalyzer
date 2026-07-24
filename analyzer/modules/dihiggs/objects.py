@@ -5,9 +5,6 @@ from attrs import define, field
 from ..common.electrons import CutBasedWPs, cut_mapping as electron_cut_mapping
 from ..common.muons import IdWps, IsoWps, cut_mapping as muon_cut_mapping
 import numpy as np
-import vector
-
-vector.register_awkward()
 
 import logging
 
@@ -407,7 +404,7 @@ class JetCombos(AnalyzerModule):
                         "mass": ak.fill_none(summed.mass, np.nan),
                     }
                 ),
-                "Momentum4D",
+                "PtEtaPhiMLorentzVector",
             )
         return columns, []
 
