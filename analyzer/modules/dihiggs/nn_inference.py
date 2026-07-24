@@ -119,20 +119,30 @@ def _make_mask(jet_counts, n_real_jets, n_null_jets):
     ], dtype=bool)
 
 
-def _order_fields_btag_then_qvg(field_arrays):
+def _order_fields_btag_then_secondary(field_arrays, secondary_key):
     """
     Sort jets: btag descending for the first 2 slots (H1/bb candidates),
-    then PNet quark-vs-gluon descending for the remaining slots (H2/WW
-    candidates) -- the ordering SPANet was trained on, chosen to suppress
-    ISR contamination in the H2 assignment. Every array in field_arrays is
-    reordered consistently per event.
+    then field_arrays[secondary_key] descending for the remaining slots
+    (H2/WW candidates). secondary_key selects which ALREADY-FETCHED field
+    ("qvg" or "pt") determines the order -- it does not change which
+    fields get fetched or fed to the model as features. This matters:
+    a variant training convention may reorder jets by pt instead of QvG
+    while still using the genuine QvG score as its own separate input
+    feature (confirmed this is the case here, not a hypothetical) --
+    conflating "what determines the order" with "what gets stacked as a
+    feature" would silently feed the wrong numbers into the qvg feature
+    slot. Every entry in field_arrays, including whichever one ISN'T the
+    secondary_key, still gets consistently reordered and still gets fed
+    to the model as its own real, untouched feature.
     """
     btag_sort_idx = ak.argsort(field_arrays["btag"], axis=1, ascending=False)
     partially_sorted = {k: v[btag_sort_idx] for k, v in field_arrays.items()}
-
-    qvg_indices = ak.argsort(partially_sorted["qvg"][:, 2:], axis=1, ascending=False) + 2
+ 
+    secondary_indices = (
+        ak.argsort(partially_sorted[secondary_key][:, 2:], axis=1, ascending=False) + 2
+    )
     return {
-        k: ak.concatenate([v[:, :2], v[qvg_indices]], axis=1)
+        k: ak.concatenate([v[:, :2], v[secondary_indices]], axis=1)
         for k, v in partially_sorted.items()
     }
 
@@ -195,34 +205,33 @@ def _extract_pairs_exclusive(H1_assign, H2_assign, reco_mode="full_hww"):
     return H1_pred, H2_pred
 
 
-def _masses_from_predictions(pt, eta, phi, e, H1_pred, H2_pred):
-    """Build H1 (Hbb) / H2 (HWW) invariant masses from predicted jet indices."""
-    fourvec = np.stack([pt, eta, phi, e], axis=-1)
-    n_events = len(fourvec)
-    m_H1 = np.full(n_events, np.nan)
-    m_H2 = np.full(n_events, np.nan)
+def _gather_assigned_jets(pt, eta, phi, e, H1_pred, H2_pred):
+    """
+    Gather H1 (Hbb, 2 jets) and H2 (HWW, up to 4 jets) collections from the
+    padded 7-slot source arrays, using the network's predicted indices.
 
-    for i in range(n_events):
-        h1_idx = [j for j in H1_pred[i] if j >= 0]
-        jets = [vector.obj(pt=fourvec[i, j, 0], eta=fourvec[i, j, 1],
-                            phi=fourvec[i, j, 2], e=fourvec[i, j, 3]) for j in h1_idx]
-        if len(jets) >= 2:
-            total = jets[0]
-            for j in jets[1:]:
-                total = total + j
-            m_H1[i] = total.m
+    Uses ak.from_regular to convert the numpy index arrays to the jagged
+    ("var") form -- verified this is required: a regular (fixed-width)
+    awkward index array silently applies the WRONG (flattened) indexing
+    semantics against a jagged content array rather than erroring, so the
+    from_regular conversion is not optional cosmetic cleanup, it is what
+    makes the per-event gather correct at all.
 
-        h2_idx = [j for j in H2_pred[i] if j >= 0]
-        jets = [vector.obj(pt=fourvec[i, j, 0], eta=fourvec[i, j, 1],
-                            phi=fourvec[i, j, 2], e=fourvec[i, j, 3]) for j in h2_idx]
-        if len(jets) >= 2:
-            total = jets[0]
-            for j in jets[1:]:
-                total = total + j
-            m_H2[i] = total.m
-
-    return m_H1, m_H2
-
+    If H2's predicted assignment includes the null slot (index n_real_jets,
+    zero-padded), that slot's four-vector is exactly (0,0,0,0) and
+    contributes nothing to a sum -- confirmed this reproduces the exact
+    same masses as the original per-event-loop implementation (which also
+    implicitly included any null-slot pick in its sum) to float32
+    precision, so this is a drop-in numerical replacement, not a behavior
+    change.
+    """
+    p4 = ak.zip(
+        {"pt": ak.Array(pt), "eta": ak.Array(eta), "phi": ak.Array(phi), "energy": ak.Array(e)},
+        with_name="Momentum4D",
+    )
+    h1_idx = ak.from_regular(ak.Array(H1_pred), axis=1)
+    h2_idx = ak.from_regular(ak.Array(H2_pred), axis=1)
+    return p4[h1_idx], p4[h2_idx]
 
 @define
 class SPANetDiHiggsInference(AnalyzerModule):
@@ -232,11 +241,11 @@ class SPANetDiHiggsInference(AnalyzerModule):
     SPANet was trained on, prepares padded Source inputs, runs the ONNX
     model, and adds the reconstructed H1 (Hbb) / H2 (HWW) masses to the
     columns.
-
+ 
     Separate module from ABCDiHiggsInference (the ABCD background
     discriminant) -- different model, different purpose. Does not modify
     or depend on that class.
-
+ 
     Parameters
     ----------
     jet_col : Column
@@ -257,7 +266,7 @@ class SPANetDiHiggsInference(AnalyzerModule):
     batch_size : int, optional
         Batched ONNX inference chunk size, default 256.
     """
-
+ 
     jet_col: Column
     pt_field: str
     eta_field: str
@@ -271,7 +280,8 @@ class SPANetDiHiggsInference(AnalyzerModule):
     n_null_jets: int = 1
     reco_mode: str = "full_hww"
     batch_size: int = 256
-
+    secondary_order_field: str = "qvg"
+ 
     def prepare_inputs(self, columns):
         btag_col = Column(
             self.btag_field
@@ -282,14 +292,8 @@ class SPANetDiHiggsInference(AnalyzerModule):
         eta = columns[self.jet_col + Column(self.eta_field)]
         phi = columns[self.jet_col + Column(self.phi_field)]
         mass = columns[self.jet_col + Column(self.mass_field)]
-
-        # SPANet's model was trained on energy, not mass. OSCA's jet objects
-        # expose mass (see jet_vars: [pt, eta, phi, mass, btag] in the ABCD
-        # config), not a raw energy column, so compute it here rather than
-        # assume one exists: E = sqrt((pt*cosh(eta))^2 + m^2), verified
-        # against a direct four-vector construction before use.
         e = np.sqrt((pt * np.cosh(eta)) ** 2 + mass ** 2)
-
+ 
         raw_fields = {
             "pt":   pt,
             "eta":  eta,
@@ -298,29 +302,53 @@ class SPANetDiHiggsInference(AnalyzerModule):
             "btag": columns[self.jet_col + btag_col],
             "qvg":  columns[self.jet_col + Column(self.qvg_field)],
         }
-        sorted_fields = _order_fields_btag_then_qvg(raw_fields)
-
+        if self.secondary_order_field not in ("qvg", "pt"):
+            raise ValueError(
+                f"secondary_order_field must be 'qvg' or 'pt', got "
+                f"{self.secondary_order_field!r} -- these are the only two "
+                f"fields genuinely fetched into raw_fields; anything else "
+                f"would silently KeyError deep inside the sort."
+            )
+        sorted_fields = _order_fields_btag_then_secondary(raw_fields, self.secondary_order_field)
+ 
         mask = _make_mask(ak.num(sorted_fields["pt"]), self.n_real_jets, self.n_null_jets)
         source = {"MASK": mask}
         for key in ("pt", "eta", "phi", "e", "btag", "qvg"):
             source[key] = _pad_and_convert(sorted_fields[key], self.n_real_jets, self.n_null_jets)
         return source
-
+ 
     def run(self, columns, params):
         source = self.prepare_inputs(columns)
         n_events = len(source["pt"])
-
+ 
         m_Hbb_col = self.output_prefix + Column("m_Hbb_SPANet")
         m_HWW_col = self.output_prefix + Column("m_HWW_SPANet")
-
+        h1_jets_col = self.output_prefix + Column("H1_jets")
+        h2_jets_col = self.output_prefix + Column("H2_jets")
+ 
         if n_events == 0:
             empty = np.array([], dtype="float32")
             columns[m_Hbb_col] = ak.Array(empty)
             columns[m_HWW_col] = ak.Array(empty)
+            empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
+            empty_h1_idx = ak.from_regular(ak.Array(np.zeros((0, 2), dtype=int)), axis=1)
+            empty_h2_idx_width = 2 if self.reco_mode == "onshell_w" else 4
+            empty_h2_idx = ak.from_regular(
+                ak.Array(np.zeros((0, empty_h2_idx_width), dtype=int)), axis=1
+            )
+            empty_p4 = ak.zip(
+                {
+                    "pt": ak.Array(empty_2d), "eta": ak.Array(empty_2d),
+                    "phi": ak.Array(empty_2d), "energy": ak.Array(empty_2d),
+                },
+                with_name="Momentum4D",
+            )
+            columns[h1_jets_col] = empty_p4[empty_h1_idx]
+            columns[h2_jets_col] = empty_p4[empty_h2_idx]
             return columns, []
-
+ 
         session = onnxruntime.InferenceSession(self.model_path)
-
+ 
         source_data = _build_source_data(
             source["pt"], source["eta"], source["phi"],
             source["e"], source["btag"], source["qvg"],
@@ -329,56 +357,66 @@ class SPANetDiHiggsInference(AnalyzerModule):
             session, source_data, source["MASK"], batch_size=self.batch_size
         )
         H1_pred, H2_pred = _extract_pairs_exclusive(H1_assign, H2_assign, reco_mode=self.reco_mode)
-        m_H1, m_H2 = _masses_from_predictions(
+        H1_jets, H2_jets = _gather_assigned_jets(
             source["pt"], source["eta"], source["phi"], source["e"], H1_pred, H2_pred
         )
-
-        columns[m_Hbb_col] = ak.Array(m_H1)
-        columns[m_HWW_col] = ak.Array(m_H2)
+ 
+        columns[m_Hbb_col] = ak.sum(H1_jets, axis=1).mass
+        columns[m_HWW_col] = ak.sum(H2_jets, axis=1).mass
+        columns[h1_jets_col] = H1_jets
+        columns[h2_jets_col] = H2_jets
         return columns, []
 
     def neededResources(self, metadata):
         return [self.model_path]
-
+ 
     def outputs(self, metadata):
         return [
             self.output_prefix + Column("m_Hbb_SPANet"),
             self.output_prefix + Column("m_HWW_SPANet"),
+            self.output_prefix + Column("H1_jets"),
+            self.output_prefix + Column("H2_jets"),
         ]
-
+ 
     def inputs(self, metadata):
         return [self.jet_col]
 
 vector.register_awkward()
 
+
 @define
 class BaselineDiHiggsMasses(AnalyzerModule):
     r"""
-    Computes H1 (Hbb) and H2 (HWW) invariant masses using the SAME
-    btag-then-PNet-QvG jet ordering SPANet's inputs are built from, but
-    WITHOUT running any neural network: H1 = sum of the 2 highest-btag
-    jets (ordering slots 0-1), H2 = sum of the remaining 4 jets in
-    qvg-sorted order (slots 2-5). This is the naive/rule-based assignment
-    SPANet is meant to improve on -- an important result to have alongside
-    the SPANet masses for comparison, not a replacement for them.
-
-    Mirrors SPANetDiHiggsInference's field resolution, era-dependent btag
-    tagger resolution, and mass->energy computation exactly, so the two
-    are directly comparable -- differing only in whether a trained
-    assignment network refines the ordering-based guess versus taking the
-    ordering itself as the assignment.
-
-    H2/HWW mass gracefully degrades to fewer jets for events with exactly
-    5 jets (allowed by the >=5 jet selection): p4 is a ragged array, not
-    padded, so summing 3 available jets instead of 4 for those events --
+    Orders jets using the SAME btag-then-secondary convention SPANet's
+    inputs are built from, but WITHOUT running any neural network:
+    H1 = the 2 highest-btag jets (ordering slots 0-1), H2 = the
+    remaining jets in secondary-sorted order (slots 2-5). This is the
+    naive/rule-based assignment SPANet is meant to improve on.
+ 
+    Despite the class name, this module does NOT itself compute
+    m_Hbb_baseline/m_HWW_baseline (or any other mass) -- it ONLY does
+    the ordering and exposes H1_jets/H2_jets as real jet collections.
+    Confirmed directly that computing mass here duplicated exactly what
+    JetCombos already does on the same collections (bit-for-bit
+    identical results) -- so mass computation for H1/H2 (and anything
+    else derived from these collections, e.g. a leading-N truncation)
+    is left entirely to JetCombos downstream, giving ONE mechanism for
+    "sum some jets into mass/pt/eta/phi" used consistently everywhere,
+    instead of two parallel implementations of the same sum.
+ 
+    Mirrors SPANetDiHiggsInference's field resolution, era-dependent
+    btag tagger resolution, and mass->energy computation exactly, so
+    the resulting H1_jets/H2_jets are directly comparable to SPANet's
+    own -- differing only in whether a trained assignment network
+    refines the ordering-based guess versus taking the ordering itself
+    as the assignment.
+ 
+    H2 naturally degrades to fewer jets for events with exactly 5 jets
+    (allowed by the >=5 jet selection): p4 is a ragged array, not
+    padded, so H2_jets has 3 elements instead of 4 for those events --
     matching SPANet's own graceful handling of fewer real jets via its
-    null-jet-slot mechanism, rather than artificially NaN-ing those events
-    out. (An earlier version of this module did NaN them out via an
-    n>=6 gate; that was removed after it was found to poison downstream
-    plotting's axis-range calculation on full-statistics runs, and it also
-    made this module *less* permissive than SPANet for no good reason --
-    both now degrade gracefully in the same way.)
-
+    null-jet-slot mechanism.
+ 
     Parameters
     ----------
     jet_col : Column
@@ -388,9 +426,9 @@ class BaselineDiHiggsMasses(AnalyzerModule):
     pt_field, eta_field, phi_field, mass_field, btag_field, qvg_field : str
         Same meaning as in SPANetDiHiggsInference.
     output_prefix : Column
-        Column prefix under which m_Hbb_baseline / m_HWW_baseline are written.
+        Column prefix under which H1_jets / H2_jets are written.
     """
-
+ 
     jet_col: Column
     pt_field: str
     eta_field: str
@@ -399,7 +437,8 @@ class BaselineDiHiggsMasses(AnalyzerModule):
     btag_field: str
     qvg_field: str
     output_prefix: Column
-
+    secondary_order_field: str = "qvg"
+ 
     def run(self, columns, params):
         btag_col = Column(
             self.btag_field
@@ -413,57 +452,113 @@ class BaselineDiHiggsMasses(AnalyzerModule):
         e = np.sqrt((pt * np.cosh(eta)) ** 2 + mass ** 2)  # verified against a direct 4-vector construction
         btag = columns[self.jet_col + btag_col]
         qvg  = columns[self.jet_col + Column(self.qvg_field)]
-
-        # Same btag-then-qvg ordering used for SPANet's own inputs (see
-        # spanet_dihiggs_inference.py's _order_fields_btag_then_qvg).
+ 
+        if self.secondary_order_field not in ("qvg", "pt"):
+            raise ValueError(
+                f"secondary_order_field must be 'qvg' or 'pt', got "
+                f"{self.secondary_order_field!r}."
+            )
+        secondary = qvg if self.secondary_order_field == "qvg" else pt
+ 
         btag_sort_idx = ak.argsort(btag, axis=1, ascending=False)
-        pt2, eta2, phi2, e2, qvg2 = (
-            arr[btag_sort_idx] for arr in (pt, eta, phi, e, qvg)
+        pt2, eta2, phi2, e2, secondary2 = (
+            arr[btag_sort_idx] for arr in (pt, eta, phi, e, secondary)
         )
-        qvg_indices = ak.argsort(qvg2[:, 2:], axis=1, ascending=False) + 2
-
+        secondary_indices = ak.argsort(secondary2[:, 2:], axis=1, ascending=False) + 2
+ 
         def reorder(arr):
-            return ak.concatenate([arr[:, :2], arr[qvg_indices]], axis=1)
-
+            return ak.concatenate([arr[:, :2], arr[secondary_indices]], axis=1)
+ 
         pt3, eta3, phi3, e3 = (reorder(arr) for arr in (pt2, eta2, phi2, e2))
-
+ 
         p4 = ak.zip(
             {"pt": pt3, "eta": eta3, "phi": phi3, "energy": e3},
             with_name="Momentum4D",
         )
-
-        n = ak.num(p4, axis=1)
-
-        h1_sum = ak.sum(p4[:, 0:2], axis=1)
-        h2_sum = ak.sum(p4[:, 2:6], axis=1)
-
-        # H1 always has >=2 jets available (guaranteed by the upstream >=5
-        # jet selection), and H2 naturally degrades to fewer jets on its
-        # own -- p4 is a ragged/jagged array, not padded, so p4[:, 2:6]
-        # already clips to whatever's actually there (3 jets for a 5-jet
-        # event, 4 for 6+), and ak.sum handles that correctly with no
-        # special-casing needed. No NaN gate required: matches SPANet's
-        # own graceful degradation for events with fewer real jets, and
-        # avoids poisoning downstream plotting's axis-range calculation
-        # with NaN values (confirmed this was happening: full-statistics
-        # m_HWW_baseline plots came back with a corrupted axis range while
-        # m_Hbb_baseline, which never had this gate's failure mode, did not).
-        
-	m_h1 = h1_sum.mass
-        m_h2 = h2_sum.mass
-
-        columns[self.output_prefix + Column("m_Hbb_baseline")] = m_h1
-        columns[self.output_prefix + Column("m_HWW_baseline")] = m_h2
+ 
+        columns[self.output_prefix + Column("H1_jets")] = p4[:, 0:2]
+        columns[self.output_prefix + Column("H2_jets")] = p4[:, 2:6]
         return columns, []
-
+ 
     def neededResources(self, metadata):
         return []
+ 
+    def outputs(self, metadata):
+        return [
+            self.output_prefix + Column("H1_jets"),
+            self.output_prefix + Column("H2_jets"),
+        ]
+ 
+    def inputs(self, metadata):
+        return [self.jet_col]
+
+vector.register_awkward()
+
+@define
+class DiHiggsMassMultiplicitySplit(AnalyzerModule):
+    """
+    Splits an assigned H2 (HWW) jet collection's invariant mass into
+    "threejet" and "fourjet" variants, based on how many REAL jets (as
+    opposed to a null/missing slot) actually went into the assignment --
+    mirroring `nontop2b_threejet`/`nontop2b_fourjet`
+    variables (built the same way, minus the top-2-b jets), but computed
+    from H2's own assignment for each method rather than a separately
+    re-sorted leftover pool, since our jet collection is capped at 6 (the
+    SPANet input-size constraint) -- H2 already *is* the complete leftover
+    set, there is nothing further to select from a larger pool the way
+    ABCD's unbounded goodJet collection needs.
+
+    Works identically, with no branching, on either of the two H2 shapes
+    this analysis produces (verified both give identical n_real/mass
+    results on matched test data):
+      - SPANetDiHiggsInference's H2_jets: always exactly 4 gathered slots,
+        one of which may be the network's null-slot pick (a genuine
+        (0,0,0,0) four-vector, not a sentinel to special-case).
+      - BaselineDiHiggsMasses's H2_jets: naturally ragged, 3 jets for a
+        5-jet event or 4 for a 6-jet event, never padded.
+    In both cases "count jets with pt != 0" gives the correct real-jet
+    count: for the ragged case there's nothing to exclude (real jets are
+    never exactly pt==0), and for the padded case it correctly excludes
+    the null slot.
+
+    Parameters
+    ----------
+    h2_jet_col : Column
+        The H2 (HWW) jet collection column -- SPANetDiHiggsInference's or
+        BaselineDiHiggsMasses's `<prefix>.H2_jets` output.
+    output_prefix : Column
+        Column prefix under which m_HWW_threejet / m_HWW_fourjet /
+        n_real_H2_jets are written.
+    """
+
+    h2_jet_col: Column
+    output_prefix: Column
+
+    def run(self, columns, params):
+        jets = columns[self.h2_jet_col]
+
+        real_mask = jets.pt != 0
+        n_real = ak.sum(real_mask, axis=1)
+        mass = ak.sum(jets[real_mask], axis=1).mass
+
+        is_three = n_real == 3
+        is_four = n_real == 4
+
+        columns[self.output_prefix + Column("m_HWW_threejet")] = ak.where(
+            is_three, mass, np.nan
+        )
+        columns[self.output_prefix + Column("m_HWW_fourjet")] = ak.where(
+            is_four, mass, np.nan
+        )
+        columns[self.output_prefix + Column("n_real_H2_jets")] = n_real
+        return columns, []
 
     def outputs(self, metadata):
         return [
-            self.output_prefix + Column("m_Hbb_baseline"),
-            self.output_prefix + Column("m_HWW_baseline"),
+            self.output_prefix + Column("m_HWW_threejet"),
+            self.output_prefix + Column("m_HWW_fourjet"),
+            self.output_prefix + Column("n_real_H2_jets"),
         ]
 
     def inputs(self, metadata):
-        return [self.jet_col]
+        return [self.h2_jet_col]

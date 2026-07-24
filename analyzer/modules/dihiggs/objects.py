@@ -6,6 +6,7 @@ from analyzer.core.columns import Column
 from analyzer.utils.structure_tools import flatten
 from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
+import numpy as np
 import itertools as it
 from attrs import define, field, evolve
 from ..common.axis import RegularAxis
@@ -450,12 +451,12 @@ class JetCombos(AnalyzerModule):
             padded = ak.pad_none(jets, max_idx + 1, axis=1)
             msk = ak.num(jets, axis=1) < max_idx + 1
 
-            summed = padded[:, combo].sum()
+            summed = ak.sum(padded[:, combo], axis=1)
             summed = ak.mask(summed, ~msk)
-            columns[self.output_cols[i] + Column("mass")] = summed.mass
-            columns[self.output_cols[i] + Column("pt")] = summed.pt
-            columns[self.output_cols[i] + Column("eta")] = summed.eta
-            columns[self.output_cols[i] + Column("phi")] = summed.phi
+            columns[self.output_cols[i] + Column("mass")] = ak.fill_none(summed.mass, np.nan)
+            columns[self.output_cols[i] + Column("pt")] = ak.fill_none(summed.pt, np.nan)
+            columns[self.output_cols[i] + Column("eta")] = ak.fill_none(summed.eta, np.nan)
+            columns[self.output_cols[i] + Column("phi")] = ak.fill_none(summed.phi, np.nan)
 
         return columns, []
 
@@ -464,3 +465,55 @@ class JetCombos(AnalyzerModule):
 
     def inputs(self, metadata):
         return self.input_cols
+
+@define
+class SortJetsByField(AnalyzerModule):
+    r"""
+    Re-sorts an existing jet collection, descending, by one of its own
+    fields (e.g. pt). Purely a re-ordering step -- doesn't touch,
+    truncate, or exclude anything.
+ 
+    Needed before JetCombos can give a meaningful "leading N" truncation
+    on a collection that isn't already ordered by something physical.
+    SPANet's own H2_jets is the motivating case: its 4 slots are ordered
+    by the network's own internal assignment-tensor axis semantics, not
+    by pt/qvg/anything physical, so a null-slot pick (if the network
+    makes one) can land in ANY of the 4 positions, not necessarily last.
+    Verified directly: without this re-sort, JetCombos([0,1,2]) on
+    SPANet's raw H2_jets can silently sum a real jet + the null slot +
+    another real jet while excluding a genuine 4th real jet sitting at
+    position 3 -- giving a wrong mass. Re-sorting by pt first pushes the
+    null slot (pt=0) to the end regardless of where it started,
+    verified this then makes JetCombos([0,1,2])/([0,1,2,3]) agree
+    exactly with directly summing the real (pt != 0) jets.
+ 
+    Baseline's and NonTop2B's H2 collections don't need this: they're
+    already sorted by their own secondary_order_field (qvg or pt) as
+    part of how BaselineDiHiggsMasses builds them, and are naturally
+    ragged (no null-slot placeholder to worry about at all).
+ 
+    Parameters
+    ----------
+    jet_col : Column
+        The jet collection to re-sort.
+    sort_field : str
+        Field to sort by, descending (e.g. "pt").
+    output_col : Column
+        Column the re-sorted collection is written to.
+    """
+ 
+    jet_col: Column
+    sort_field: str
+    output_col: Column
+ 
+    def run(self, columns, params):
+        jets = columns[self.jet_col]
+        sort_idx = ak.argsort(jets[self.sort_field], axis=1, ascending=False)
+        columns[self.output_col] = jets[sort_idx]
+        return columns, []
+ 
+    def outputs(self, metadata):
+        return [self.output_col]
+ 
+    def inputs(self, metadata):
+        return [self.jet_col]

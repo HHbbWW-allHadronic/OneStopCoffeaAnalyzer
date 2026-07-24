@@ -12,7 +12,21 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots-2024-spanet/{era.name}/{pipeline}/{name}"
+      output_name: "plots-2024-spanet-version8/{era.name}/{pipeline}/{name}.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: false
+      show_info: True
+      structure:
+        select: {dataset_name: "*", name: "*_1d"}
+        group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-spanet-version8/{era.name}/{pipeline}/{dataset_name}/{name}.png"
 
     - name: Histogram2D
       inputs:
@@ -25,7 +39,73 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: ["variation"]
-      output_name: "plots-2024-spanet/{era.name}/{pipeline}/{dataset_name}/{name}.png"
+      output_name: "plots-2024-spanet-version8/{era.name}/{pipeline}/{dataset_name}/{name}.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: True
+      plot_configuration:
+        x_axis_label: "m(bb) SPANet [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          pipeline: "re:^withHLT_SPANet_(v123|v122_pt)$"
+          name: "m_Hbb_SPANet_1d"
+        group: {era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: FormatTitle
+            title_format: "{pipeline}"
+      output_name: "plots-2024-spanet-version8/{era.name}/{dataset_name}/m_Hbb_SPANet_v123_vs_v122pt.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: True
+      plot_configuration:
+        x_axis_label: "m(HWW) SPANet [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          pipeline: "re:^withHLT_SPANet_(v123|v122_pt)$"
+          name: "m_HWW_SPANet_1d"
+        group: {era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: FormatTitle
+            title_format: "{pipeline}"
+      output_name: "plots-2024-spanet-version8/{era.name}/{dataset_name}/m_HWW_SPANet_v123_vs_v122pt.png"
+
+#    - name: RatioPlot
+#      inputs:
+#        - "*/*/*/*"
+#      ratio_type: "significance"
+#      show_den_unc: True
+#      scale: log
+#      ratio_ylim: null
+#      ratio_hlines: []
+#      structure:
+#        select: {dataset_name: "*", name: "*_1d"}
+#        group: {era.name: "*", pipeline: "*", name: "*"}
+#        subgroups:
+#          numerator:
+#            select: {dataset_name: "ggHH2b2V6q*"}
+#          denominator:
+#            select: {dataset_name: "!ggHH2b2V6q*"}
+#        transforms:
+#          - name: SplitAxes
+#            split_axis_names: {"variation": "central"}
+#      output_name: "plots-2024-spanet-version8/{era.name}/{pipeline}/significance_{name}"
+#
 
   default_plot_config:
     cms_text: "Preliminary"
