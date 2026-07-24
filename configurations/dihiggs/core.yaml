@@ -390,11 +390,10 @@ medb_obj: &medb_obj
     input_cols:
       - MedB
       - nontop2b_med
-      - nontop2b_med
     jet_combos:
-      - [0, 1]
-      - [0, 1, 2, 3]
-      - [0, 1, 2]
+      - {0: [0, 1]}
+      - {1: [0, 1, 2, 3]}
+      - {1: [0, 1, 2]}
     output_cols:
       - "b_dijet"
       - "nontop2b_fourjet"
@@ -403,13 +402,11 @@ medb_obj: &medb_obj
   - module_name: JetCombos
     input_cols:
       - nontop2b_med
-      - nontop2b_med
     order_by:
-      - nontop2b_med.btagPNetQvG
-      - nontop2b_med.btagPNetQvG
+      - btagPNetQvG
     jet_combos:
-      - [0, 1, 2, 3]
-      - [0, 1, 2]
+      - {0: [0, 1, 2, 3]}
+      - {0: [0, 1, 2]}
     output_cols:
       - "nontop2b_qvg_fourjet"
       - "nontop2b_qvg_threejet"
@@ -419,11 +416,10 @@ tightb_obj: &tightb_obj
       input_cols:
         - TightB
         - nontop2b_tight
-        - nontop2b_tight
       jet_combos:
-        - [0, 1]
-        - [0, 1, 2, 3]
-        - [0, 1, 2]
+        - {0: [0, 1]}
+        - {1: [0, 1, 2, 3]}
+        - {1: [0, 1, 2]}
       output_cols:
         - "b_dijet"
         - "nontop2b_fourjet"
@@ -432,13 +428,11 @@ tightb_obj: &tightb_obj
     - module_name: JetCombos
       input_cols:
         - nontop2b_tight
-        - nontop2b_tight
       order_by:
-        - nontop2b_tight.btagPNetQvG
-        - nontop2b_tight.btagPNetQvG
+        - btagPNetQvG
       jet_combos:
-        - [0, 1, 2, 3]
-        - [0, 1, 2]
+        - {0: [0, 1, 2, 3]}
+        - {0: [0, 1, 2]}
       output_cols:
         - "nontop2b_qvg_fourjet"
         - "nontop2b_qvg_threejet"
