@@ -187,7 +187,7 @@ class Histogram2D(BasePostprocessor):
         output_path = dotFormat(
             self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
         )
-        self.plot_configuration.makeFormatted(common_meta)
+        pc = self.plot_configuration.makeFormatted(common_meta)
         yield ft.partial(
             plot2D,
             hist,
@@ -195,7 +195,7 @@ class Histogram2D(BasePostprocessor):
             output_path,
             style_set=self.style_set,
             normalize=self.normalize,
-            plot_configuration=self.plot_configuration,
+            plot_configuration=pc,
             color_scale=self.scale,
             vline=self.vline,
             hline=self.hline,

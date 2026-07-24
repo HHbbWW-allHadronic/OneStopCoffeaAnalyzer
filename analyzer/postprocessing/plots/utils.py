@@ -9,7 +9,6 @@ import mplhep
 from .common import PlotConfiguration
 from .annotations import addCMSBits, removeCMSAnnotations
 
-
 INCLUDE_SIDECAR = True
 
 
@@ -27,7 +26,8 @@ def addAxesToHist(ax, size=0.1, pad=0.1, position="bottom", extend=False, share=
 def scaleYAxis(ax):
     children = ax.get_children()
     text_children = [
-        x for x in children 
+        x
+        for x in children
         if isinstance(x, mpl.text.Text | mpl.legend.Legend)
         and not getattr(x, "_is_yield_label", False)
     ]
@@ -75,7 +75,6 @@ def saveFigVariants(
 ):
 
     pc = plot_configuration or PlotConfiguration()
-
     cms_texts = pc.cms_text if isinstance(pc.cms_text, list) else [pc.cms_text or ""]
     suffix_text = len(cms_texts) > 1
 
@@ -93,10 +92,16 @@ def saveFigVariants(
         variant_pc.cms_text = variant
 
         removeCMSAnnotations(ax)
+        pc_extra = getattr(pc, "extra_text", None)
+        extra = (
+            extra_text
+            if pc_extra is None
+            else pc_extra if extra_text is None else f"{extra_text}\n{pc_extra}"
+        )
         addCMSBits(
             ax,
             all_meta,
-            extra_text=extra_text,
+            extra_text=extra,
             text_color=text_color,
             plot_configuration=variant_pc,
         )

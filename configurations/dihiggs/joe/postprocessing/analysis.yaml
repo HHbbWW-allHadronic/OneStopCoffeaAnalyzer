@@ -65,6 +65,7 @@ Postprocessing:
       plot_configuration:
         cms_text_color: "black"
         <<: *default_plot_config
+        extra_text: "{dataset_title}"
       structure:
         select: {dataset_name: "*"}
         group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
@@ -75,7 +76,7 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
 
     - name: Histogram1D
@@ -98,13 +99,80 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: False
+      plot_configuration:
+        <<: *default_plot_config
+        x_axis_label: "Jet Combo m [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          name: "re:^(nontop2b_threejet_mass|nontop2b_fourjet_mass)$"
+        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_threejet"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_fourjet_mass"}
+            new_meta_fields:
+              title: "nontop2b_fourjet"
+          - name:  SetAxisLabels
+            axis_labels:
+              nontop2b_fourjet: "Jet Combo $m$ [GeV]"
+              nontop2b_threejet: "Jet Combo $m$ [GeV]"
+      output_name: "plots/{era.name}/{pipeline}/signal_4jv3j_mass.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: False
+      plot_configuration:
+        <<: *default_plot_config
+        x_axis_label: "Jet Combo m [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          name: "re:^(nontop2b_threejet_mass|nontop2b_qvg_threejet_mass)$"
+        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_threejet"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_qvg_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_qvg_threejet"
+          - name:  SetAxisLabels
+            axis_labels:
+              nontop2b_qvg_threejet: "Jet Combo $m$ [GeV]"
+              nontop2b_threejet: "Jet Combo $m$ [GeV]"
+      output_name: "plots/{era.name}/{pipeline}/signal_3jv3jqvg_mass.png"
 
     - name: RatioPlot
       inputs:
-        - "*/*/*/b_dijet_12_m"
-        - "*/*/*/nontop2b_fourjet_14_m"
+        - "*/*/*/b_dijet_mass"
+        - "*/*/*/nontop2b_fourjet_mass"
+        - "*/*/*/nontop2b_threejet_mass"
+        - "*/*/*/nontop2b_qvg_threejet_mass"
+        - "*/*/*/nontop2b_qvg_fourjet_mass"
         - "*/*/*/JetN"
       ratio_type: "significance"
       show_den_unc: True
@@ -129,7 +197,7 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
 
     - name: RatioPlot
@@ -226,6 +294,7 @@ Postprocessing:
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
+
 
     - name: CutflowTable
       output_name: signal_yield

@@ -657,3 +657,92 @@ class GenQuarkPairDRByIndex(AnalyzerModule):
     def outputs(self, metadata):
         pair_names = self.PAIR_NAMES_15 if self.b_col is not None else self.PAIR_NAMES_6
         return [Column((f"{self.output_prefix}_{name}",)) for name in pair_names]
+
+
+@define
+class JoeHHGenParticles(AnalyzerModule):
+    """
+    This module organizes the gen-level particles for the HH->bbWW analysis.
+    It takes the GenPart collection and produces columns for:
+    - b1, b2: the two b quarks from the Higgs decay
+    - q1, q2: the two quarks from the on-shell W decay
+    - q3, q4: the two quarks from the off-shell W decay
+    - nonh_mother_zero: GenPart with genPartIdxMother == 0 and pdgId != 25
+    - nonh_mother_zero_idx: where the above particle lies with respect to the pt of b1-q4 in the event
+    Parameters
+    ----------
+    input_col: Column
+        Column containing the GenPart collection.
+    output_cols: dict[str, Column]
+        Dictionary mapping particle names to output columns.
+    """
+
+    input_col: Column
+    output_cols: dict[str, Column]
+
+    def run(self, columns, params):
+        gen = columns[self.input_col]
+        mother_zero = gen[gen.genPartIdxMother == 0]
+        nonh_mother_zero = mother_zero[mother_zero.pdgId != 25][:, 0:1]
+
+        def is_higgs_child(gp):
+            parent = gp.distinctParent
+            is_higgs_child = (parent.pdgId == 25) & parent.hasFlags(
+                ["isLastCopy", "fromHardProcess"]
+            )
+            return ak.fill_none(is_higgs_child, False)
+
+        W = gen[
+            (abs(gen.pdgId) == 24)
+            & gen.hasFlags(["isLastCopy", "fromHardProcess"])
+            & is_higgs_child(gen)
+        ]
+        W_mass_ordered = W[ak.argsort(abs(W.mass - 80.36), axis=1, ascending=True)]
+        onshell_W = W_mass_ordered[:, 0]
+        offshell_W = W_mass_ordered[:, 1]
+
+        b = gen[
+            (abs(gen.pdgId) == 5)
+            & gen.hasFlags(["isFirstCopy", "fromHardProcess"])
+            & is_higgs_child(gen)
+        ]
+        onshell_W_children = onshell_W.distinctChildren[
+            onshell_W.distinctChildren.hasFlags(["isFirstCopy", "fromHardProcess"])
+        ]
+        offshell_W_children = offshell_W.distinctChildren[
+            offshell_W.distinctChildren.hasFlags(["isFirstCopy", "fromHardProcess"])
+        ]
+
+        b_pt_ordered = b[ak.argsort(b.pt, axis=1, ascending=False)]
+        onshell_W_children_pt_ordered = onshell_W_children[
+            ak.argsort(onshell_W_children.pt, axis=1, ascending=False)
+        ]
+        offshell_W_children_pt_ordered = offshell_W_children[
+            ak.argsort(offshell_W_children.pt, axis=1, ascending=False)
+        ]
+
+        particles = {
+            "b1": b_pt_ordered[:, 0:1],
+            "b2": b_pt_ordered[:, 1:2],
+            "q1": onshell_W_children_pt_ordered[:, 0:1],
+            "q2": onshell_W_children_pt_ordered[:, 1:2],
+            "q3": offshell_W_children_pt_ordered[:, 0:1],
+            "q4": offshell_W_children_pt_ordered[:, 1:2],
+        }
+
+        nonh_pt = nonh_mother_zero[:, 0].pt
+        nonh_mother_zero_idx = sum(p[:, 0].pt > nonh_pt for p in particles.values())
+
+        outputs = particles | {
+            "nonh_mother_zero": nonh_mother_zero,
+            "nonh_mother_zero_idx": nonh_mother_zero_idx,
+        }
+        for name, col in self.output_cols.items():
+            columns[col] = outputs[name]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return list(self.output_cols.values())

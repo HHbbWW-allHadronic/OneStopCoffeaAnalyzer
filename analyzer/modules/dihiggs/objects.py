@@ -1,32 +1,12 @@
 from analyzer.core.analysis_modules import AnalyzerModule
-import re
-
-from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
-from analyzer.utils.structure_tools import flatten
-from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
-import numpy as np
-import itertools as it
-from attrs import define, field, evolve
-from ..common.axis import RegularAxis
-from ..common.histogram_builder import makeHistogram
+from attrs import define, field
 from ..common.electrons import CutBasedWPs, cut_mapping as electron_cut_mapping
 from ..common.muons import IdWps, IsoWps, cut_mapping as muon_cut_mapping
-import enum
+import numpy as np
 
-from analyzer.core.analysis_modules import AnalyzerModule
-from attrs import define
-
-import correctionlib
 import logging
-
-from analyzer.core.analysis_modules import (
-    MetadataExpr,
-    MetadataAnd,
-    IsRun,
-    IsSampleType,
-)
 
 logger = logging.getLogger("analyzer.modules")
 
@@ -273,6 +253,8 @@ class HJetFilter(AnalyzerModule):
         Column where the filtered jet collection will be stored.
     min_pt : float, optional
         Minimum transverse momentum (pT) threshold for jets, by default 30.0.
+    min_btagPNetQvG : float, optional
+        Minimum QvG discriminator value for jets, by default 0.0.
     max_abs_eta : float, optional
         Maximum absolute pseudorapidity allowed for jets, by default 2.4.
     include_pu_id : bool, optional
@@ -291,6 +273,7 @@ class HJetFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     min_pt: float = 30.0
+    min_btagPNetQvG: float = 0.0
     max_abs_eta: float = 2.4
     include_pu_id: bool = False
     include_jet_id: bool = False
@@ -298,7 +281,11 @@ class HJetFilter(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         jets = columns[self.input_col]
-        good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
+        good_jets = jets[
+            (jets.pt > self.min_pt)
+            & (abs(jets.eta) < self.max_abs_eta)
+            & (jets.btagPNetQvG > self.min_btagPNetQvG)
+        ]
 
         if self.include_jet_id:
             good_jets = good_jets[((good_jets.jetId & 0b010) != 0)]
