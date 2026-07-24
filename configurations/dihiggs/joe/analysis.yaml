@@ -361,8 +361,6 @@ sixjet_plots: &sixjet_plots
       stop: 1
       bins: 20
     max_idx: 6
-
-sixqvgjet_plots: &sixjet_qvg_plots
   - module_name: SimpleHistogram
     hist_name: dijet_qvg_fourjet_m2d
     input_cols:
@@ -380,6 +378,13 @@ sixqvgjet_plots: &sixjet_qvg_plots
   - module_name: FourVecHistograms
     input_col: nontop2b_qvg_fourjet
     hist_name: nontop2b_qvg_fourjet
+    mass_axis:
+      name: "nontop2b_qvg_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
+
+sixqvgjet_plots: &sixjet_qvg_plots
   - module_name: TopVecHistograms
     prefix: "QvGJet"
     input_col: goodQvGJet
