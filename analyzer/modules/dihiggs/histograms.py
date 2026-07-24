@@ -1,7 +1,7 @@
 from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 from attrs import define, field, evolve
-from ..common.axis import RegularAxis
+from ..common.axis import RegularAxis, IntCategoryAxis
 from ..common.histogram_builder import makeHistogram
 import awkward as ak
 
@@ -107,7 +107,7 @@ class JetVarRankHistograms(AnalyzerModule):
 
     hist_name: str
     input_col: Column
-    axis: RegularAxis
+    axis: RegularAxis | IntCategoryAxis
     second_names: list[str] = []
     second_cols: list[Column] = []
     second_axes: list[RegularAxis] = []
