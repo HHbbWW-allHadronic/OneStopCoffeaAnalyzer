@@ -54,48 +54,53 @@ analyzer:
       selection_name: 2b
       min_count: 2
 
-  baseline_variables: &baseline_variables
+  baseline_variables_qvg: &baseline_variables_qvg
     - module_name: JetCombos
       input_cols:
         - MedBTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+      order_by:
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
       jet_combos:
-        - [0, 1]
+        - {0: [0, 1]}
+        - {1: [0, 1]}
+        - {2: [0, 1, 2]}
+        - {3: [0, 1, 2, 3]}
       output_cols:
         - Baseline.H1_combo
-
-    - module_name: JetCombos
-      input_cols:
-        - NonTop2BTiered
-        - NonTop2BTiered
-        - NonTop2BTiered
-      jet_combos:
-        - [0, 1]
-        - [0, 1, 2]
-        - [0, 1, 2, 3]
-      order_by:
-        - NonTop2BTiered.btagPNetQvG
-        - NonTop2BTiered.btagPNetQvG
-        - NonTop2BTiered.btagPNetQvG
-      output_cols:
         - Baseline.W_on_combo
-        - Baseline.H2_threejet
-        - Baseline.H2_fourjet
+        - Baseline.H2_qvg_threejet
+        - Baseline.H2_qvg_fourjet
 
+  baseline_variables_pt: &baseline_variables_pt
     - module_name: JetCombos
       input_cols:
+        - MedBTiered
         - NonTop2BTiered
         - NonTop2BTiered
-      jet_combos:
-        - [0, 1, 2]
-        - [0, 1, 2, 3]
+        - NonTop2BTiered
       order_by:
-        - NonTop2BTiered.pt
-        - NonTop2BTiered.pt
+        - pt
+        - pt
+        - pt
+        - pt
+      jet_combos:
+        - {0: [0, 1]}
+        - {1: [0, 1]}
+        - {2: [0, 1, 2]}
+        - {3: [0, 1, 2, 3]}
       output_cols:
-        - NonTop2B.H2_threejet
-        - NonTop2B.H2_fourjet
+        - Baseline.H1_combo
+        - Baseline.W_on_combo
+        - Baseline.H2_pt_threejet
+        - Baseline.H2_pt_fourjet
 
-  baseline_histograms: &baseline_histograms
+  baseline_histograms_qvg: &baseline_histograms_qvg
     - module_name: SimpleHistogram
       hist_name: m_Hbb_baseline_1d
       input_cols: [Baseline.H1_combo.mass]
@@ -107,40 +112,71 @@ analyzer:
           unit: GeV
 
     - module_name: SimpleHistogram
-      hist_name: m_HWW_baseline_threejet_1d
-      input_cols: [Baseline.H2_threejet.mass]
+      hist_name: m_HWW_baseline_qvg_threejet_1d
+      input_cols: [Baseline.H2_qvg_threejet.mass]
       axes:
-        - name: nontop2b_threejet (baseline)
+        - name: nontop2b_threejet, qvg-ordered (baseline)
           start: 0
           stop: 600
           bins: 50
           unit: GeV
 
     - module_name: SimpleHistogram
-      hist_name: m_HWW_baseline_fourjet_1d
-      input_cols: [Baseline.H2_fourjet.mass]
+      hist_name: m_HWW_baseline_qvg_fourjet_1d
+      input_cols: [Baseline.H2_qvg_fourjet.mass]
       axes:
-        - name: nontop2b_fourjet (baseline)
+        - name: nontop2b_fourjet, qvg-ordered (baseline)
           start: 0
           stop: 600
           bins: 50
           unit: GeV
 
     - module_name: SimpleHistogram
-      hist_name: nontop2b_pre_inference_threejet_1d
-      input_cols: [NonTop2B.H2_threejet.mass]
+      hist_name: W_on_SPANet_1d
+      input_cols: [SPANet.W_on_combo.mass]
       axes:
-        - name: nontop2b_threejet (SPANet)
+        - name: W_on mass, q1+q2 (SPANet assignment)
           start: 0
           stop: 600
           bins: 50
           unit: GeV
 
     - module_name: SimpleHistogram
-      hist_name: nontop2b_pre_inference_fourjet_1d
-      input_cols: [NonTop2B.H2_fourjet.mass]
+      hist_name: W_on_baseline_1d
+      input_cols: [Baseline.W_on_combo.mass]
       axes:
-        - name: nontop2b_fourjet (SPANet)
+        - name: W_on mass, q1+q2 (baseline)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  baseline_histograms_pt: &baseline_histograms_pt
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_baseline_1d
+      input_cols: [Baseline.H1_combo.mass]
+      axes:
+        - name: m(bb) baseline
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_baseline_pt_threejet_1d
+      input_cols: [Baseline.H2_pt_threejet.mass]
+      axes:
+        - name: nontop2b_threejet, pt-ordered (baseline)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_baseline_pt_fourjet_1d
+      input_cols: [Baseline.H2_pt_fourjet.mass]
+      axes:
+        - name: nontop2b_fourjet, pt-ordered (baseline)
           start: 0
           stop: 600
           bins: 50
@@ -198,7 +234,7 @@ analyzer:
       input_cols:
         - SPANet.H2_jets
       jet_combos:
-        - [0, 1]
+        - {0: [0, 1]}
       output_cols:
         - SPANet.W_on_combo
 
@@ -261,8 +297,8 @@ analyzer:
           bins: 50
           unit: GeV
 
-    - *baseline_variables
-    - *baseline_histograms
+    - *baseline_variables_qvg
+    - *baseline_histograms_qvg
 
   withHLT_SPANet_v122_pt: &withHLT_SPANet_v122_pt
     - *spanet_common_prefix
@@ -296,7 +332,7 @@ analyzer:
       input_cols:
         - SPANet.H2_jets
       jet_combos:
-        - [0, 1]
+        - {0: [0, 1]}
       output_cols:
         - SPANet.W_on_combo
 
@@ -359,8 +395,8 @@ analyzer:
           bins: 50
           unit: GeV
 
-    - *baseline_variables
-    - *baseline_histograms
+    - *baseline_variables_pt
+    - *baseline_histograms_pt
 
   withHLT_SPANet_comparison: &withHLT_SPANet_comparison
     - module_name: SimpleHLT
@@ -409,7 +445,7 @@ analyzer:
       input_cols:
         - SPANet.H2_jets
       jet_combos:
-        - [0, 1]
+        - {0: [0, 1]}
       output_cols:
         - SPANet.W_on_combo
 
@@ -423,25 +459,21 @@ analyzer:
     - module_name: JetCombos
       input_cols:
         - MedBTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+      order_by:
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
       jet_combos:
-        - [0, 1]
+        - {0: [0, 1]}
+        - {1: [0, 1]}
+        - {2: [0, 1, 2]}
+        - {3: [0, 1, 2, 3]}
       output_cols:
         - Baseline.H1_combo
-
-    - module_name: JetCombos
-      input_cols:
-        - NonTop2BTiered
-        - NonTop2BTiered
-        - NonTop2BTiered
-      jet_combos:
-        - [0, 1]
-        - [0, 1, 2]
-        - [0, 1, 2, 3]
-      order_by:
-        - NonTop2BTiered.btagPNetQvG
-        - NonTop2BTiered.btagPNetQvG
-        - NonTop2BTiered.btagPNetQvG
-      output_cols:
         - Baseline.W_on_combo
         - Baseline.H2_threejet
         - Baseline.H2_fourjet
@@ -547,17 +579,18 @@ event_collections:
     pipelines:
       - withHLT_SPANet_v123
       - withHLT_SPANet_v122_pt
-      - withHLT_SPANet_comparison
+      #- withHLT_SPANet_comparison
 
-  #- dataset: 'qcd*2024*'
-  #  pipelines:
-  #    - withHLT_SPANet_v123
-  #    - withHLT_SPANet_v122_pt
-  #- dataset: 'tt_hadronic*2024*'
-  #  pipelines:
-  #    - withHLT_SPANet_v123
-  #    - withHLT_SPANet_v122_pt
-  #- dataset: 'tt_semilep*2024'
-  #  pipelines:
-  #    - withHLT_SPANet_v123
-  #    - withHLT_SPANet_v122_pt
+#  - dataset: 'qcd*2024*'
+#    pipelines:
+#      - withHLT_SPANet_v123
+#      - withHLT_SPANet_v122_pt
+#  - dataset: 'tt_hadronic*2024*'
+#    pipelines:
+#      - withHLT_SPANet_v123
+#      - withHLT_SPANet_v122_pt
+#  - dataset: 'tt_semilep*2024'
+#    pipelines:
+#      - withHLT_SPANet_v123
+#      - withHLT_SPANet_v122_pt
+#      - withHLT_SPANet_v122_pt
