@@ -281,19 +281,20 @@ class SPANetDiHiggsInference(AnalyzerModule):
     reco_mode: str = "full_hww"
     batch_size: int = 256
     secondary_order_field: str = "qvg"
- 
+    
     def prepare_inputs(self, columns):
         btag_col = Column(
             self.btag_field
             if self.btag_field != "btag"
             else columns.metadata["era"]["btag_scale_factors"]["tagger"]
         )
-        pt  = columns[self.jet_col + Column(self.pt_field)]
-        eta = columns[self.jet_col + Column(self.eta_field)]
-        phi = columns[self.jet_col + Column(self.phi_field)]
+        pt   = columns[self.jet_col + Column(self.pt_field)]
+        eta  = columns[self.jet_col + Column(self.eta_field)]
+        phi  = columns[self.jet_col + Column(self.phi_field)]
         mass = columns[self.jet_col + Column(self.mass_field)]
-        e = np.sqrt((pt * np.cosh(eta)) ** 2 + mass ** 2)
- 
+        p4 = ak.zip({"pt": pt, "eta": eta, "phi": phi, "mass": mass}, with_name="Momentum4D")
+        e = p4.energy
+
         raw_fields = {
             "pt":   pt,
             "eta":  eta,
