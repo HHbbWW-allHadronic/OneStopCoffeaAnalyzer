@@ -21,7 +21,7 @@ Postprocessing:
     - name: Histogram1D
       inputs:
         - "*/*/*/*"
-      scale: log
+      scale: linear 
       normalize: True
       show_info: False
       style_set: *default_style_set

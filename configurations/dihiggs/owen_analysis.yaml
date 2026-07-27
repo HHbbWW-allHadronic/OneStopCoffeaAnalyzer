@@ -65,7 +65,11 @@ common_histograms: &common_histograms
     input_col: MedC
     hist_name: MedC
 
-
+  - module_name: HCQuarkMaker
+    input_col: goodJet
+    output_col: MedC
+    output_mask_col: goodJet.isMedC
+    working_point: "M"
 
   - module_name: SimpleHistogram
     hist_name: MedCN
@@ -77,19 +81,57 @@ common_histograms: &common_histograms
         bins: 14
 
   - module_name: JetVarRankHistograms
+    hist_name: Jet_isMedC_Ranked
+    input_col: goodJet.isMedC
+    axis:
+      name: "Is C-Jet_{idx}"
+      start: -0.5
+      stop: 1.5
+      bins: 2
+
+
+  - module_name: FractionHC
+    input_col_num: NMedC
+    input_col_den: NJet
+    output_col: MyFractionCol
+ 
+  - module_name: SimpleHistogram
+    hist_name: FractionofC
+    input_cols: [MyFractionCol]
+    axes:
+      - name: "$Frac_{c}$"
+        start: 0
+        stop: 1
+        bins: 10
+
+  - module_name: JetVarRankHistograms
     hist_name: MedC_pt
     input_col: MedC.pt 
     axis: 
-      name: "$Pt_{c}$"
+      name: "Jet $Pt_{c,idx}$"
       start: 0
       stop: 1000
       bins: 20
+
+
+  - module_name: FourVecHistograms
+    input_col: TightC
+    hist_name: TightC
+
+  - module_name: SimpleHistogram
+    hist_name: TightCN
+    input_cols: [NTightC]
+    axes:
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: JetVarRankHistograms
     hist_name: gJetCvsBtag
     input_col: goodJet.btagUParTAK4CvB
     axis:
-      name: "Jet CvsB Score"
+      name: "Jet $CvsB Score_{idx}$"
       start: 0
       stop: 1
       bins: 20
@@ -98,11 +140,10 @@ common_histograms: &common_histograms
     hist_name: JetCvsLtag
     input_col: goodJet.btagUParTAK4CvL
     axis:
-      name: "Jet CvsL Score"
+      name: "Jet $CvsL Score_{idx}$"
       start: 0
       stop: 1
       bins: 20
-
 
 
 
@@ -114,10 +155,7 @@ common_histograms: &common_histograms
 
 analyzer:
   default_run_builder:
-    strategy_name: MultiRunBuilder
-    components:
-      - strategy_name: NoSystematics
-      - strategy_name: UnscaledOnly
+    strategy_name: NoSystematics
 
   withHLT_NoSelection:
     - *withHLT_NoSelection

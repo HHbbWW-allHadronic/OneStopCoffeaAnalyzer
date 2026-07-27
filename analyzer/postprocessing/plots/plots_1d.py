@@ -96,6 +96,7 @@ def plotOne(
         mplhep.histplot(
             hists,
             ax=ax,
+            density=normalize,
             stack=True,
             **style_kwargs,
             label=titles,  # sort="yield"
@@ -107,6 +108,7 @@ def plotOne(
             mplhep.histplot(
                 stacked_total,
                 ax=ax,
+                density=normalize,
                 label="Stacked Unc.",
                 histtype="band",
                 yerr=yerr
