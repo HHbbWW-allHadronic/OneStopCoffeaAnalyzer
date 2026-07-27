@@ -350,55 +350,62 @@ class JetCombos(AnalyzerModule):
     Build composite objects from specified combinations
     of jets (by index). Events missing the required number
     of jets are filled with None (i.e. excluded/ignored).
-    For NN training only.
 
     Parameters
     ----------
     input_cols : list of Column
-        Column containing the jet collection.
-    jet_combos : list of list of int
-        List of jet index combinations. Each inner list specifies the
-        indices of jets to be combined (e.g. ``[0, 1]`` for the leading
-        two jets). Number of jet combos should be equal to input columns.
-    output_names : list[Column]
+        Column containing the jet collections.
+    jet_combos : list of dict[int: list[int]]
+        List of jet combinations. Each entry in the list is a dictionary
+        specifying the indices of jets to combine for the corresponding input column.
+    output_cols : list[Column]
         Ordered list of Columns for Jets to be stored.
     order_by: list of Column, optional
         List of columns to order the jets by before combining.
         Should be a member of the respective input column.
+    ascending: bool, optional
+        Whether to sort the jets in ascending order before combining.
     """
 
     input_cols: list[Column]
-    jet_combos: list[list[int]]
+    jet_combos: list[dict[int, list[int]]]
     output_cols: list[Column]
     order_by: list[Column] = []
     ascending: bool = False
 
     def run(self, columns, params):
-        for i, input_col in enumerate(self.input_cols):
-            combo = self.jet_combos[i]
-            jets = columns[input_col]
-            if self.order_by:
-                order_col = columns[self.order_by[i]]
-                jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
-            max_idx = max(combo)
-            padded = ak.pad_none(jets, max_idx + 1, axis=1)
-            msk = ak.num(jets, axis=1) < max_idx + 1
+        for i, combo in enumerate(self.jet_combos):
+            sum_cols = []
+            combined_msk = None
+            for col_idx, rank_idxs in combo.items():
+                input_col = self.input_cols[col_idx]
+                jets = columns[input_col]
+                if self.order_by:
+                    order_col = columns[input_col + self.order_by[col_idx]]
+                    jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
+                max_idx = max(rank_idxs)
+                padded = ak.pad_none(jets, max_idx + 1, axis=1)
+                msk = ak.num(jets, axis=1) < max_idx + 1
+                sum_cols.append(padded[:, rank_idxs])
+                if combined_msk is None:
+                    combined_msk = msk
+                else:
+                    combined_msk = combined_msk | msk
 
-            summed = padded[:, combo].sum()
-            summed = ak.mask(summed, ~msk)
-            columns[self.output_cols[i] + Column("mass")] = ak.fill_none(
-                summed.mass, np.nan
+            combined_col = ak.concatenate(sum_cols, axis=1)
+            summed = combined_col.sum()
+            summed = ak.mask(summed, ~combined_msk)
+            columns[self.output_cols[i]] = ak.with_name(
+                ak.zip(
+                    {
+                        "pt": ak.fill_none(summed.pt, np.nan),
+                        "eta": ak.fill_none(summed.eta, np.nan),
+                        "phi": ak.fill_none(summed.phi, np.nan),
+                        "mass": ak.fill_none(summed.mass, np.nan),
+                    }
+                ),
+                "PtEtaPhiMLorentzVector",
             )
-            columns[self.output_cols[i] + Column("pt")] = ak.fill_none(
-                summed.pt, np.nan
-            )
-            columns[self.output_cols[i] + Column("eta")] = ak.fill_none(
-                summed.eta, np.nan
-            )
-            columns[self.output_cols[i] + Column("phi")] = ak.fill_none(
-                summed.phi, np.nan
-            )
-
         return columns, []
 
     def outputs(self, metadata):

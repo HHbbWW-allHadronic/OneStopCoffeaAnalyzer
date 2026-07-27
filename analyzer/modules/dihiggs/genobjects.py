@@ -690,7 +690,7 @@ class JoeHHGenParticles(AnalyzerModule):
     def run(self, columns, params):
         gen = columns[self.input_col]
         mother_zero = gen[gen.genPartIdxMother == 0]
-        nonh_mother_zero = mother_zero[mother_zero.pdgId != 25][:, 0]
+        nonh_mother_zero = mother_zero[mother_zero.pdgId != 25][:, 0:1]
 
         def is_higgs_child(gp):
             parent = gp.distinctParent
@@ -729,16 +729,16 @@ class JoeHHGenParticles(AnalyzerModule):
         ]
 
         particles = {
-            "b1": b_pt_ordered[:, 0],
-            "b2": b_pt_ordered[:, 1],
-            "q1": onshell_W_children_pt_ordered[:, 0],
-            "q2": onshell_W_children_pt_ordered[:, 1],
-            "q3": offshell_W_children_pt_ordered[:, 0],
-            "q4": offshell_W_children_pt_ordered[:, 1],
+            "b1": b_pt_ordered[:, 0:1],
+            "b2": b_pt_ordered[:, 1:2],
+            "q1": onshell_W_children_pt_ordered[:, 0:1],
+            "q2": onshell_W_children_pt_ordered[:, 1:2],
+            "q3": offshell_W_children_pt_ordered[:, 0:1],
+            "q4": offshell_W_children_pt_ordered[:, 1:2],
         }
 
-        nonh_pt = nonh_mother_zero.pt
-        nonh_mother_zero_idx = sum(p.pt > nonh_pt for p in particles.values())
+        nonh_pt = nonh_mother_zero[:, 0].pt
+        nonh_mother_zero_idx = sum(p[:, 0].pt > nonh_pt for p in particles.values())
 
         outputs = particles | {
             "nonh_mother_zero": nonh_mother_zero,

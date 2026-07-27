@@ -50,6 +50,25 @@ genpart_histograms: &genpart_histograms
       nonh_mother_zero: nonh_mother_zero
       nonh_mother_zero_idx: nonh_mother_zero_idx
 
+  - module_name: JetCombos
+    input_cols:
+      - b1
+      - b2
+      - q1
+      - q2
+      - q3
+      - q4
+    jet_combos:
+      - {0: [0], 1: [0]}
+      - {2: [0], 3: [0]}
+      - {4: [0], 5: [0]}
+      - {2: [0], 3: [0], 4: [0], 5: [0]}
+    output_cols: 
+      - gen_b_dijet
+      - gen_onshell_w
+      - gen_offshell_w
+      - gen_ww_fourjet
+
   - module_name: SimpleHistogram
     hist_name: b1_pt
     input_cols: [b1.pt]
@@ -121,6 +140,39 @@ genpart_histograms: &genpart_histograms
         start: -0.5
         stop: 6.5
         bins: 7
+  
+  - module_name: SimpleHistogram
+    hist_name: gen_b_dijet_mass
+    input_cols: [gen_b_dijet.mass]
+    axes:
+      - name: "gen_b_dijet $m_{12}$"
+        start: 0
+        stop: 180
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_onshell_w_mass
+    input_cols: [gen_onshell_w.mass]
+    axes:
+      - name: "gen_onshell_w $m_{12}$"
+        start: 0
+        stop: 100
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_offshell_w_mass
+    input_cols: [gen_offshell_w.mass]
+    axes:
+      - name: "gen_offshell_w $m_{12}$"
+        start: 0
+        stop: 100
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_ww_fourjet_mass
+    input_cols: [gen_ww_fourjet.mass]
+    axes:
+      - name: "gen_ww_fourjet $m_{1234}$"
+        start: 0
+        stop: 180
+        bins: 20
 
 {{ core.objects() }}
 {{ core.regions() }}
