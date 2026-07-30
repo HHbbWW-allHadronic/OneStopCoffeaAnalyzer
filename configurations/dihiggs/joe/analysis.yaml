@@ -6,10 +6,12 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef3
-      - withHLT_ObjDef5
+      {# - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8
+      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef9
+      - withHLT_ObjDef10
       - SignalOnly
 {%- endmacro %}
 
@@ -19,20 +21,24 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef3
-      - withHLT_ObjDef5
+      {# - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8
+      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef9
+      - withHLT_ObjDef10
 {%- endmacro %}
 
 {%- macro data_pipelines() %}
       - withHLT_NoSelection
       - withHLT_ObjDef1
       - withHLT_ObjDef3
-      - withHLT_ObjDef5
+      {# - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8
+      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef9
+      - withHLT_ObjDef10
 {%- endmacro %}
 
 common_histograms: &common_histograms
@@ -432,6 +438,367 @@ fivejet_plots: &fivejet_plots
       bins: 20
     max_idx: 5
 
+# --- LOWJET PLOTS, TO BE REMOVED WHEN DECISION IS MADE ON WHETHER TO KEEP LOWJET PLOTS OR NOT --- #
+
+lowjet_histograms: &lowjet_histograms
+  - module_name: FourVecHistograms
+    input_col: lowJet
+    hist_name: lowJet
+    mass_axis:
+      name: "lowJet $m$"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: SimpleHistogram
+    hist_name: lowJetHT
+    input_cols: [lowJetHT]
+    axes:
+      - name: lowJetHT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: lowJetN
+    input_cols: [NlowJet]
+    axes:
+      - name: "$N_{lowJet}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: SimpleHistogram
+    hist_name: lowJet_QvG
+    input_cols: [lowJet.btagPNetQvG]
+    axes:
+      - name: "lowJet PNetQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: lowJetbtag
+    input_cols: [lowJet.btagUParTAK4B]
+    axes:
+      - name: "lowJet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: goodJet
+    hist_name: Jet
+    mass_axis:
+      name: "Jet $m$"
+      start: 0
+      stop: 500
+      bins: 50
+
+  - module_name: SimpleHistogram
+    hist_name: JetHT
+    input_cols: [HT]
+    axes:
+      - name: HT
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: JetN
+    input_cols: [NJet]
+    axes:
+      - name: "$N_{jets}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: SimpleHistogram
+    hist_name: Jet_QvG
+    input_cols: [goodJet.btagPNetQvG]
+    axes:
+      - name: "Jet PNetQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: Jetbtag
+    input_cols: [goodJet.btagUParTAK4B]
+    axes:
+      - name: "Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: MedB_low
+    hist_name: lowJet_MedB
+
+  - module_name: SimpleHistogram
+    hist_name: lowJet_MedBN
+    input_cols: [NMedB_low]
+    axes:
+      - name: "$N_{b,lowJet}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_med_low
+    hist_name: lowJet_nontop2b_med
+
+  - module_name: FourVecHistograms
+    input_col: TightB_low
+    hist_name: lowJet_TightB
+
+  - module_name: SimpleHistogram
+    hist_name: lowJet_TightBN
+    input_cols: [NTightB_low]
+    axes:
+      - name: "$N_{b,lowJet}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_tight_low
+    hist_name: lowJet_nontop2b_tight
+
+  - module_name: SimpleHistogram
+    hist_name: dijet_threejet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_threejet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_threejet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: b_dijet
+    hist_name: b_dijet
+    mass_axis:
+      name: "b_dijet"
+      start: 0
+      stop: 500
+      bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_threejet
+    hist_name: nontop2b_threejet
+    mass_axis:
+      name: "nontop2b_threejet"
+      start: 0
+      stop: 500
+      bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_qvg_threejet
+    hist_name: nontop2b_qvg_threejet
+    mass_axis:
+      name: "nontop2b_qvg_threejet"
+      start: 0
+      stop: 500
+      bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: Jet
+    hist_name: AK4Jet
+    mass_axis:
+      name: "AK4Jet"
+      start: 0
+      stop: 500
+      bins: 50
+      unit: "GeV"
+
+  - module_name: SimpleHistogram
+    hist_name: AK4NJet
+    input_cols: [NAK4Jet]
+    axes:
+      - name: "$N_{AK4Jets}$"
+        start: -0.5
+        stop: 20.5
+        bins: 21
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jet_QvG
+    input_cols: [Jet.btagPNetQvG]
+    axes:
+      - name: "AK4Jet PNetQvG Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4Jet_btag
+    input_cols: [Jet.btagUParTAK4B]
+    axes:
+      - name: "AK4Jet UParTB Score"
+        start: 0
+        stop: 1
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: AK4JetID
+    input_cols: [Jet.jetId]
+    axes:
+      - name: "AK4Jet JetID"
+        start: -0.5
+        stop: 6.5
+        bins: 7
+
+  - module_name: SimpleHistogram
+    hist_name: AK4HT
+    input_cols: [AK4HT]
+    axes:
+      - name: "AK4Jet $H_{T}$"
+        start: 0
+        stop: 3000
+        bins: 60
+        unit: "GeV"
+
+  - module_name: SimpleHistogram
+    hist_name: looseElectronN
+    input_cols: [NlooseElectron]
+    axes:
+      - name: "$N_{\\text{loose},e}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: tightElectronN
+    input_cols: [NtightElectron]
+    axes:
+      - name: "$N_{\\text{tight},e}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: looseMuonN
+    input_cols: [NlooseMuon]
+    axes:
+      - name: "$N_{\\text{loose},\\mu}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: tightMuonN
+    input_cols: [NtightMuon]
+    axes:
+      - name: "$N_{\\text{tight},\\mu}$"
+        start: -0.5
+        stop: 4.5
+        bins: 5
+
+  - module_name: SimpleHistogram
+    hist_name: puppiMET_pt
+    input_cols: [PuppiMET.pt]
+    axes:
+      - name: "$p_{T}^{\\text{PUPPI MET}}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+
+  - module_name: SimpleHistogram
+    hist_name: pfMET_pt
+    input_cols: [PFMET.pt]
+    axes:
+      - name: "$p_{T}^{\\text{PF MET}}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+
+lowjet_sixjet_plots: &lowjet_sixjet_plots
+  - module_name: SimpleHistogram
+    hist_name: dijet_fourjet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_fourjet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_fourjet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_fourjet
+    hist_name: nontop2b_fourjet
+    mass_axis:
+      name: "nontop2b_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
+
+  - module_name: TopVecHistograms
+    prefix: "lowJet"
+    input_col: lowJet
+    max_idx: 6
+
+  - module_name: JetVarRankHistograms
+    hist_name: lowJet_btag_
+    input_col: lowJet.btagUParTAK4B
+    axis:
+      name: "lowJet UParTB$_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
+    max_idx: 6
+
+  - module_name: JetVarRankHistograms
+    hist_name: lowJet_qvg_
+    input_col: lowJet.btagPNetQvG
+    axis:
+      name: "lowJet PNet QvG$_{idx}$"
+      start: 0
+      stop: 1
+      bins: 20
+    max_idx: 6
+
+  - module_name: SimpleHistogram
+    hist_name: dijet_qvg_fourjet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_qvg_fourjet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_qvg_fourjet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: FourVecHistograms
+    input_col: nontop2b_qvg_fourjet
+    hist_name: nontop2b_qvg_fourjet
+    mass_axis:
+      name: "nontop2b_qvg_fourjet"
+      start: 0
+      stop: 500
+      bins: 20
+
+
+
+
+
 {{ core.objects() }}
 {{ core.regions() }}
 
@@ -486,6 +853,16 @@ analyzer:
     - *sixjet_plots
     - *sixjet_qvg_plots
 
+  withHLT_ObjDef9:
+    - *withHLT_ObjDef9
+    - *lowjet_histograms
+    - *lowjet_sixjet_plots
+  
+  withHLT_ObjDef10:
+    - *withHLT_ObjDef10
+    - *lowjet_histograms
+    - *lowjet_sixjet_plots
+
   SignalOnly:
     - module_name: SelectAllTriggers
       sel_name: all_triggers
@@ -493,12 +870,12 @@ analyzer:
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'data_HHParking_2024*'
-    pipelines:
-    {{ data_pipelines() }}
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
+  - dataset: 'data_HHParking_2024*'
+    pipelines:
+    {{ data_pipelines() }}
   - dataset: 'qcd*2024*'
     pipelines:
     {{ mc_pipelines() }}
