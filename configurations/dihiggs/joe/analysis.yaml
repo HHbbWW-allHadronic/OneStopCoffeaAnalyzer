@@ -183,6 +183,21 @@ common_histograms: &common_histograms
         stop: 800
         bins: 20
 
+  - module_name: SimpleHistogram
+    hist_name: dijet_qvg_threejet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_qvg_threejet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_qvg_threejet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
   - module_name: FourVecHistograms
     input_col: b_dijet
     hist_name: b_dijet
@@ -337,6 +352,7 @@ sixjet_plots: &sixjet_plots
         start: 0
         stop: 800
         bins: 20
+
   - module_name: FourVecHistograms
     input_col: nontop2b_fourjet
     hist_name: nontop2b_fourjet
@@ -345,10 +361,12 @@ sixjet_plots: &sixjet_plots
       start: 0
       stop: 500
       bins: 20
+
   - module_name: TopVecHistograms
     prefix: "Jet"
     input_col: goodJet
     max_idx: 6
+
   - module_name: JetVarRankHistograms
     hist_name: Jet_btag_
     input_col: goodJet.btagUParTAK4B
@@ -358,6 +376,7 @@ sixjet_plots: &sixjet_plots
       stop: 1
       bins: 20
     max_idx: 6
+
   - module_name: JetVarRankHistograms
     hist_name: Jet_qvg_
     input_col: goodJet.btagPNetQvG
@@ -367,6 +386,7 @@ sixjet_plots: &sixjet_plots
       stop: 1
       bins: 20
     max_idx: 6
+
   - module_name: SimpleHistogram
     hist_name: dijet_qvg_fourjet_m2d
     input_cols:
@@ -381,6 +401,7 @@ sixjet_plots: &sixjet_plots
         start: 0
         stop: 800
         bins: 20
+
   - module_name: FourVecHistograms
     input_col: nontop2b_qvg_fourjet
     hist_name: nontop2b_qvg_fourjet
@@ -395,6 +416,7 @@ sixqvgjet_plots: &sixjet_qvg_plots
     prefix: "QvGJet"
     input_col: goodQvGJet
     max_idx: 6
+
   - module_name: JetVarRankHistograms
     hist_name: QvGJet_btag_
     input_col: goodQvGJet.btagUParTAK4B
@@ -404,6 +426,7 @@ sixqvgjet_plots: &sixjet_qvg_plots
       stop: 1
       bins: 20
     max_idx: 6
+
   - module_name: JetVarRankHistograms
     hist_name: QvGJet_qvg_
     input_col: goodQvGJet.btagPNetQvG
@@ -419,6 +442,7 @@ fivejet_plots: &fivejet_plots
     prefix: "Jet"
     input_col: goodJet
     max_idx: 5
+
   - module_name: JetVarRankHistograms
     hist_name: Jet_btag_
     input_col: goodJet.btagUParTAK4B
@@ -428,6 +452,7 @@ fivejet_plots: &fivejet_plots
       stop: 1
       bins: 20
     max_idx: 5
+
   - module_name: JetVarRankHistograms
     hist_name: Jet_qvg_
     input_col: goodJet.btagPNetQvG
@@ -578,6 +603,21 @@ lowjet_histograms: &lowjet_histograms
         stop: 500
         bins: 20
       - name: "nontop2b_threejet $m_{1234}$"
+        start: 0
+        stop: 800
+        bins: 20
+
+  - module_name: SimpleHistogram
+    hist_name: dijet_qvg_threejet_m2d
+    input_cols:
+      - b_dijet.mass
+      - nontop2b_qvg_threejet.mass
+    axes:
+      - name: "b_dijet $m_{12}$"
+        start: 0
+        stop: 500
+        bins: 20
+      - name: "nontop2b_qvg_threejet $m_{1234}$"
         start: 0
         stop: 800
         bins: 20
