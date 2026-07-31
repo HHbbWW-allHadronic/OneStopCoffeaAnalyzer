@@ -427,7 +427,7 @@ lowjet_tightb_selection: &lowjet_tightb_selection
 
   - module_name: NObjFilter
     input_col: lowJet
-    selection_name: njets
+    selection_name: njets_low
     min_count: 6
 
   - module_name: NObjFilter
@@ -455,7 +455,7 @@ lowjet_medb_selection: &lowjet_medb_selection
 
   - module_name: NObjFilter
     input_col: lowJet
-    selection_name: njets
+    selection_name: njets_low
     min_count: 6
 
   - module_name: NObjFilter
