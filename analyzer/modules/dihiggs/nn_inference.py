@@ -11,7 +11,7 @@ import vector
 
 @define
 class ABCDiHiggsInference(AnalyzerModule):
-    r"""
+    """
     Inference module for the ABCDiHiggs neural network.
     This module takes in jet-like columns and global event features,
     prepares the inputs for the neural network, performs inference,
@@ -155,60 +155,114 @@ def _build_source_data(pt, eta, phi, e, btag, qvg):
     ).astype(np.float32)
 
 
-def _run_onnx_inference(session, source_data, mask, batch_size=256):
-    """Batched ONNX call. Fixed output order: H1_assign, H2_assign, H1_detect, H2_detect."""
+def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=256,
+                         assign_suffix="_assignment_probability",
+                         detect_suffix="_detection_probability"):
+    """
+    Batched ONNX call. Looks up each particle's assignment/detection
+    output BY NAME (via session.get_outputs()), not by fixed position --
+    more robust than a hardcoded positional order, and self-documenting
+    if a name doesn't match what's expected.
+
+    Returns: dict mapping particle_name -> (assign_array, detect_array).
+    """
+    output_names = [o.name for o in session.get_outputs()]
+    expected_names = [f"{name}{assign_suffix}" for name in particle_names] + \
+                      [f"{name}{detect_suffix}" for name in particle_names]
+    missing = [n for n in expected_names if n not in output_names]
+    if missing:
+        raise KeyError(
+            f"Expected ONNX output names not found: {missing}. "
+            f"Actual model output names: {output_names}. "
+            f"The assumed '<Name>{assign_suffix}'/'<Name>{detect_suffix}' naming "
+            f"convention may not match this model -- check session.get_outputs() directly."
+        )
+
     n = len(source_data)
-    all_outputs = [[] for _ in range(4)]
+    collected = {name: [] for name in output_names}
     for i in range(0, n, batch_size):
-        out = session.run(None, {
+        out = session.run(output_names, {
             "Source_data": source_data[i:i + batch_size],
             "Source_mask": mask[i:i + batch_size],
         })
-        for j in range(4):
-            all_outputs[j].append(out[j])
-    return [np.concatenate(a, axis=0) for a in all_outputs]
+        for name, arr in zip(output_names, out):
+            collected[name].append(arr)
+
+    results = {}
+    for name in particle_names:
+        assign = np.concatenate(collected[f"{name}{assign_suffix}"], axis=0)
+        detect = np.concatenate(collected[f"{name}{detect_suffix}"], axis=0)
+        results[name] = (assign, detect)
+    return results
 
 
-def _extract_pairs_exclusive(H1_assign, H2_assign, reco_mode="full_hww"):
+def _zero_index_all_axes(tensor, jet_index):
+    """Zero out every slice of `tensor` where ANY axis equals jet_index --
+    generalizes the original H1/H2 zeroing (which hand-wrote each axis
+    explicitly) to work on a tensor of ANY rank, including ISR's rank-1
+    (single-jet) case, without a separate branch per particle."""
+    for axis in range(tensor.ndim):
+        idx = [slice(None)] * tensor.ndim
+        idx[axis] = jet_index
+        tensor[tuple(idx)] = 0
+
+
+def _extract_pairs_exclusive(assign_tensors):
     """
-    Exclusive jet assignment: whichever of H1/H2 has the higher-confidence
-    argmax gets first pick of jets; those indices are zeroed out of the
-    other tensor before it's argmax'd, so no jet is double-assigned.
+    Exclusive jet assignment, generalized from the original 2-particle
+    (H1-vs-H2) version to an arbitrary number of particles: at each
+    round, whichever REMAINING particle currently has the highest max
+    confidence gets assigned next (via its own argmax); its claimed jet
+    indices are then zeroed out of every OTHER remaining tensor
+    (regardless of that tensor's rank) before the next round. Confirmed
+    to exactly reproduce the original 2-particle algorithm's output when
+    given only 2 tensors, and confirmed exclusive (no jet claimed by
+    more than one particle) and exact-recovery-correct on synthetic
+    3-particle test data with realistic, self-consistent target peaks.
+
+    Parameters
+    ----------
+    assign_tensors : list of np.ndarray
+        One array per particle, each shape (n_events,) + (n_jets,)*rank,
+        where rank is that particle's number of daughter slots (H1=2,
+        H2=4 for full_hww, ISR=1).
+
+    Returns
+    -------
+    list of np.ndarray, one per particle, each shape (n_events, rank),
+    in the SAME order as assign_tensors.
     """
-    n_events = H1_assign.shape[0]
-    H1_pred = np.full((n_events, 2), -1)
-    H2_pred = np.full((n_events, 2 if reco_mode == "onshell_w" else 4), -1)
+    n_events = assign_tensors[0].shape[0]
+    n_particles = len(assign_tensors)
+    preds = [
+        np.full((n_events, assign_tensors[k].ndim - 1), -1, dtype=int)
+        for k in range(n_particles)
+    ]
 
     for i in range(n_events):
-        h1 = H1_assign[i].copy()
-        h2 = H2_assign[i].copy()
+        tensors = [a[i].copy() for a in assign_tensors]
+        remaining = list(range(n_particles))
 
-        if np.max(h1) >= np.max(h2):
-            H1_pred[i] = np.unravel_index(np.argmax(h1), h1.shape)
-            for jet_index in H1_pred[i]:
-                if reco_mode == "onshell_w":
-                    h2[jet_index, :] = 0
-                    h2[:, jet_index] = 0
-                else:
-                    h2[jet_index, :, :, :] = 0
-                    h2[:, jet_index, :, :] = 0
-                    h2[:, :, jet_index, :] = 0
-                    h2[:, :, :, jet_index] = 0
-            H2_pred[i] = np.unravel_index(np.argmax(h2), h2.shape)
-        else:
-            H2_pred[i] = np.unravel_index(np.argmax(h2), h2.shape)
-            for jet_index in H2_pred[i]:
-                h1[jet_index, :] = 0
-                h1[:, jet_index] = 0
-            H1_pred[i] = np.unravel_index(np.argmax(h1), h1.shape)
+        while remaining:
+            confidences = [np.max(tensors[k]) for k in remaining]
+            winner = remaining.pop(int(np.argmax(confidences)))
 
-    return H1_pred, H2_pred
+            pred_idx = np.unravel_index(np.argmax(tensors[winner]), tensors[winner].shape)
+            preds[winner][i] = pred_idx
+
+            for jet_index in pred_idx:
+                for k in remaining:
+                    _zero_index_all_axes(tensors[k], jet_index)
+
+    return preds
 
 
-def _gather_assigned_jets(pt, eta, phi, e, H1_pred, H2_pred):
+def _gather_assigned_jets(pt, eta, phi, e, preds):
     """
-    Gather H1 (Hbb, 2 jets) and H2 (HWW, up to 4 jets) collections from the
-    padded 7-slot source arrays, using the network's predicted indices.
+    Gather each particle's jet collection from the padded source arrays,
+    using the network's predicted indices -- generalized from the
+    original H1(2)/H2(4) version to accept any number of particles with
+    any daughter count, including ISR's single-jet (rank-1) case.
 
     Uses ak.from_regular to convert the numpy index arrays to the jagged
     ("var") form -- verified this is required: a regular (fixed-width)
@@ -217,35 +271,55 @@ def _gather_assigned_jets(pt, eta, phi, e, H1_pred, H2_pred):
     from_regular conversion is not optional cosmetic cleanup, it is what
     makes the per-event gather correct at all.
 
-    If H2's predicted assignment includes the null slot (index n_real_jets,
+    If a predicted assignment includes the null slot (index n_real_jets,
     zero-padded), that slot's four-vector is exactly (0,0,0,0) and
     contributes nothing to a sum -- confirmed this reproduces the exact
-    same masses as the original per-event-loop implementation (which also
-    implicitly included any null-slot pick in its sum) to float32
-    precision, so this is a drop-in numerical replacement, not a behavior
-    change.
+    same masses as the original per-event-loop implementation to
+    float32 precision, so this is a drop-in numerical replacement, not a
+    behavior change.
+
+    Parameters
+    ----------
+    preds : list of np.ndarray
+        One array per particle, each shape (n_events, rank), in the SAME
+        order the caller wants results back in.
+
+    Returns
+    -------
+    list of ak.Array, one Momentum4D jet collection per particle, in the
+    SAME order as preds.
     """
     p4 = ak.zip(
         {"pt": ak.Array(pt), "eta": ak.Array(eta), "phi": ak.Array(phi), "energy": ak.Array(e)},
         with_name="Momentum4D",
     )
-    h1_idx = ak.from_regular(ak.Array(H1_pred), axis=1)
-    h2_idx = ak.from_regular(ak.Array(H2_pred), axis=1)
-    return p4[h1_idx], p4[h2_idx]
+    p4 = ak.zip(
+        {"pt": p4.pt, "eta": p4.eta, "phi": p4.phi, "energy": p4.energy, "mass": p4.mass},
+        with_name="Momentum4D",
+    )
+    return [p4[ak.from_regular(ak.Array(pred), axis=1)] for pred in preds]
 
 @define
 class SPANetDiHiggsInference(AnalyzerModule):
     """
-    Inference module for the SPANet HH->bbWW jet-assignment network.
-    Takes jet-like columns, applies the btag-then-PNet-QvG jet ordering
+    Inference module for the SPANet HH->bbWW(+ISR) jet-assignment network.
+    Takes jet-like columns, applies the btag-then-secondary jet ordering
     SPANet was trained on, prepares padded Source inputs, runs the ONNX
-    model, and adds the reconstructed H1 (Hbb) / H2 (HWW) masses to the
-    columns.
- 
+    model, and adds each particle's reconstructed jet collection (and,
+    for H1/H2, summed mass) to the columns.
+
+    Generalized to N particles via particle_names (default ["H1", "H2",
+    "ISR"], matching the current 3-particle Hbb/HWW/ISR training) --
+    outputs for EVERY name in particle_names get written, e.g. with the
+    default list: H1_jets, H2_jets, ISR_jets, plus m_Hbb_SPANet (summed
+    from H1_jets) and m_HWW_SPANet (summed from H2_jets). ISR has no
+    analogous summed-mass output -- it's a single jet, not a pair/quad,
+    so its own mass is just ISR_jets.mass directly, nothing to sum.
+
     Separate module from ABCDiHiggsInference (the ABCD background
     discriminant) -- different model, different purpose. Does not modify
     or depend on that class.
- 
+
     Parameters
     ----------
     jet_col : Column
@@ -258,15 +332,28 @@ class SPANetDiHiggsInference(AnalyzerModule):
     model_path : str
         Path to the SPANet .onnx model.
     output_prefix : Column
-        Column prefix under which m_Hbb_SPANet / m_HWW_SPANet are written.
+        Column prefix under which m_Hbb_SPANet / m_HWW_SPANet / H*_jets
+        are written.
+    particle_names : list[str], optional
+        Names of the particles the model was trained to predict, in
+        whatever order the model's own ONNX outputs use internally
+        (order here only affects the greedy exclusive-assignment
+        priority resolution, not correctness -- see
+        _extract_pairs_exclusive). Default ["H1", "H2", "ISR"].
+    daughter_counts : dict[str, int], optional
+        Number of daughter slots per particle name, needed to build
+        correctly-shaped empty placeholders for the n_events==0 case.
+        Default {"H1": 2, "H2": 4, "ISR": 1}.
     n_real_jets, n_null_jets : int, optional
-        Must match the values the model was trained with (default 6, 1).
+        Must match the values the model was trained with.
     reco_mode : str, optional
-        "full_hww" or "onshell_w" -- must match the loaded model.
+        Kept for compatibility with older 2-particle configs; unused by
+        the current N-particle assignment logic itself (rank is read
+        directly from each ONNX output tensor's own shape instead).
     batch_size : int, optional
         Batched ONNX inference chunk size, default 256.
     """
- 
+
     jet_col: Column
     pt_field: str
     eta_field: str
@@ -281,7 +368,15 @@ class SPANetDiHiggsInference(AnalyzerModule):
     reco_mode: str = "full_hww"
     batch_size: int = 256
     secondary_order_field: str = "qvg"
-    
+    particle_names: list = None
+    daughter_counts: dict = None
+
+    def __attrs_post_init__(self):
+        if self.particle_names is None:
+            self.particle_names = ["H1", "H2", "ISR"]
+        if self.daughter_counts is None:
+            self.daughter_counts = {"H1": 2, "H2": 4, "ISR": 1}
+
     def prepare_inputs(self, columns):
         btag_col = Column(
             self.btag_field
@@ -321,64 +416,64 @@ class SPANetDiHiggsInference(AnalyzerModule):
     def run(self, columns, params):
         source = self.prepare_inputs(columns)
         n_events = len(source["pt"])
- 
+
         m_Hbb_col = self.output_prefix + Column("m_Hbb_SPANet")
         m_HWW_col = self.output_prefix + Column("m_HWW_SPANet")
-        h1_jets_col = self.output_prefix + Column("H1_jets")
-        h2_jets_col = self.output_prefix + Column("H2_jets")
- 
+        jets_cols = {name: self.output_prefix + Column(f"{name}_jets") for name in self.particle_names}
+
         if n_events == 0:
             empty = np.array([], dtype="float32")
             columns[m_Hbb_col] = ak.Array(empty)
             columns[m_HWW_col] = ak.Array(empty)
             empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
-            empty_h1_idx = ak.from_regular(ak.Array(np.zeros((0, 2), dtype=int)), axis=1)
-            empty_h2_idx_width = 2 if self.reco_mode == "onshell_w" else 4
-            empty_h2_idx = ak.from_regular(
-                ak.Array(np.zeros((0, empty_h2_idx_width), dtype=int)), axis=1
-            )
             empty_p4 = ak.zip(
                 {
                     "pt": ak.Array(empty_2d), "eta": ak.Array(empty_2d),
                     "phi": ak.Array(empty_2d), "energy": ak.Array(empty_2d),
+                    "mass": ak.Array(empty_2d),
                 },
                 with_name="Momentum4D",
             )
-            columns[h1_jets_col] = empty_p4[empty_h1_idx]
-            columns[h2_jets_col] = empty_p4[empty_h2_idx]
+            for name in self.particle_names:
+                width = self.daughter_counts[name]
+                empty_idx = ak.from_regular(ak.Array(np.zeros((0, width), dtype=int)), axis=1)
+                columns[jets_cols[name]] = empty_p4[empty_idx]
             return columns, []
- 
+
         session = onnxruntime.InferenceSession(self.model_path)
- 
+
         source_data = _build_source_data(
             source["pt"], source["eta"], source["phi"],
             source["e"], source["btag"], source["qvg"],
         )
-        H1_assign, H2_assign, H1_detect, H2_detect = _run_onnx_inference(
-            session, source_data, source["MASK"], batch_size=self.batch_size
+        assign_detect = _run_onnx_inference(
+            session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
         )
-        H1_pred, H2_pred = _extract_pairs_exclusive(H1_assign, H2_assign, reco_mode=self.reco_mode)
-        H1_jets, H2_jets = _gather_assigned_jets(
-            source["pt"], source["eta"], source["phi"], source["e"], H1_pred, H2_pred
+        assign_tensors = [assign_detect[name][0] for name in self.particle_names]
+        preds = _extract_pairs_exclusive(assign_tensors)
+        jets = _gather_assigned_jets(
+            source["pt"], source["eta"], source["phi"], source["e"], preds
         )
- 
-        columns[m_Hbb_col] = ak.sum(H1_jets, axis=1).mass
-        columns[m_HWW_col] = ak.sum(H2_jets, axis=1).mass
-        columns[h1_jets_col] = H1_jets
-        columns[h2_jets_col] = H2_jets
+        jets_by_name = dict(zip(self.particle_names, jets))
+
+        for name, jet_col in jets_by_name.items():
+            columns[jets_cols[name]] = jet_col
+
+        columns[m_Hbb_col] = ak.sum(jets_by_name["H1"], axis=1).mass
+        columns[m_HWW_col] = ak.sum(jets_by_name["H2"], axis=1).mass
         return columns, []
 
     def neededResources(self, metadata):
         return [self.model_path]
- 
+
     def outputs(self, metadata):
-        return [
+        outs = [
             self.output_prefix + Column("m_Hbb_SPANet"),
             self.output_prefix + Column("m_HWW_SPANet"),
-            self.output_prefix + Column("H1_jets"),
-            self.output_prefix + Column("H2_jets"),
         ]
- 
+        outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
+        return outs
+
     def inputs(self, metadata):
         return [self.jet_col]
 
@@ -399,8 +494,7 @@ class DiHiggsMassMultiplicitySplit(AnalyzerModule):
     ABCD's unbounded goodJet collection needs.
 
     Works identically, with no branching, on either of the two H2 shapes
-    this analysis produces (verified both give identical n_real/mass
-    results on matched test data):
+    this analysis produces:
       - SPANetDiHiggsInference's H2_jets: always exactly 4 gathered slots,
         one of which may be the network's null-slot pick (a genuine
         (0,0,0,0) four-vector, not a sentinel to special-case).

@@ -12,7 +12,7 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots-2024-spanet-version9/{era.name}/{pipeline}/{name}.png"
+      output_name: "plots-2024-spanet-version10/{era.name}/{pipeline}/{name}.png"
 
     - name: Histogram1D
       inputs:
@@ -26,7 +26,7 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: {"variation": "central"}
-      output_name: "plots-2024-spanet-version9/{era.name}/{pipeline}/{dataset_name}/{name}.png"
+      output_name: "plots-2024-spanet-version10/{era.name}/{pipeline}/{dataset_name}/{name}.png"
 
     - name: Histogram2D
       inputs:
@@ -39,7 +39,7 @@ Postprocessing:
         transforms:
           - name: SplitAxes
             split_axis_names: ["variation"]
-      output_name: "plots-2024-spanet-version9/{era.name}/{pipeline}/{dataset_name}/{name}.png"
+      output_name: "plots-2024-spanet-version10/{era.name}/{pipeline}/{dataset_name}/{name}.png"
 
     - name: Histogram1D
       inputs:
@@ -61,7 +61,7 @@ Postprocessing:
             select_axes_values: {"variation": "central"}
           - name: FormatTitle
             title_format: "{pipeline}"
-      output_name: "plots-2024-spanet-version9/{era.name}/{dataset_name}/m_Hbb_SPANet_v123_vs_v122pt.png"
+      output_name: "plots-2024-spanet-version10/{era.name}/{dataset_name}/m_Hbb_SPANet_v123_vs_v122pt.png"
 
     - name: Histogram1D
       inputs:
@@ -83,7 +83,7 @@ Postprocessing:
             select_axes_values: {"variation": "central"}
           - name: FormatTitle
             title_format: "{pipeline}"
-      output_name: "plots-2024-spanet-version9/{era.name}/{dataset_name}/m_HWW_SPANet_v123_vs_v122pt.png"
+      output_name: "plots-2024-spanet-version10/{era.name}/{dataset_name}/m_HWW_SPANet_v123_vs_v122pt.png"
 
 #    - name: RatioPlot
 #      inputs:
@@ -104,7 +104,7 @@ Postprocessing:
 #        transforms:
 #          - name: SplitAxes
 #            split_axis_names: {"variation": "central"}
-#      output_name: "plots-2024-spanet-version9/{era.name}/{pipeline}/significance_{name}"
+#      output_name: "plots-2024-spanet-version10/{era.name}/{pipeline}/significance_{name}"
 #
 
   default_plot_config:
