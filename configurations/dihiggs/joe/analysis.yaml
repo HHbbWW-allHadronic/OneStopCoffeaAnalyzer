@@ -295,6 +295,10 @@ common_histograms: &common_histograms
         stop: 4.5
         bins: 5
 
+  - module_name: FourVecHistograms
+    input_col: looseElectron
+    hist_name: looseElectron
+
   - module_name: SimpleHistogram
     hist_name: tightElectronN
     input_cols: [NtightElectron]
@@ -303,6 +307,10 @@ common_histograms: &common_histograms
         start: -0.5
         stop: 4.5
         bins: 5
+
+  - module_name: FourVecHistograms
+    input_col: tightElectron
+    hist_name: tightElectron
 
   - module_name: SimpleHistogram
     hist_name: looseMuonN
@@ -313,6 +321,10 @@ common_histograms: &common_histograms
         stop: 4.5
         bins: 5
 
+  - module_name: FourVecHistograms
+    input_col: looseMuon
+    hist_name: looseMuon
+
   - module_name: SimpleHistogram
     hist_name: tightMuonN
     input_cols: [NtightMuon]
@@ -321,6 +333,10 @@ common_histograms: &common_histograms
         start: -0.5
         stop: 4.5
         bins: 5
+
+  - module_name: FourVecHistograms
+    input_col: tightMuon
+    hist_name: tightMuon
 
   - module_name: SimpleHistogram
     hist_name: puppiMET_pt
