@@ -69,8 +69,63 @@ analyzer:
 
     - module_name: SPANetGenMatch
       jet_col: goodJetTiered
-      genpart_col: GenPart         
+      genpart_col: GenPart          
       genjet_col: GenJet            
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/08-03-2026_TRAINING-7_REAL_JETS-1_NULL_JET
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+
+  withHLT_SPANet_training_h5_comparison: &withHLT_SPANet_training_h5_comparison
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetLoose
+      include_pu_id: False
+      include_jet_id: False
+      min_btagPNetQvG: 0.0
+      min_pt: 15
+      max_abs_eta: 2.4
+
+    - module_name: TieredPtJetFilter
+      input_col: goodJetLoose
+      output_col: goodJetTiered
+      n_hard_jets: 4
+      hard_pt_cut: 25.0
+
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 5
+
+    - module_name: SelectOnColumns
+      sel_name: selection
+
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
       output_prefix: SPANet
       reco_mode: full_hww
       n_real_jets: 9
@@ -78,11 +133,16 @@ analyzer:
       dr_threshold: 0.4
       genjet_eta_cut: 2.4
       genjet_pt_cut: 15.0
-      secondary_order_field: pt 
+      secondary_order_field: pt
+
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
 
     - module_name: SaveSPANetH5
-      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/07-31-26
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/08-02-2026_COMPARISON
       source_col: SPANet.Source
+      good_event_col: SPANet.good_event
       targets_cols:
         - SPANet.Targets.H1
         - SPANet.Targets.H2
@@ -94,3 +154,4 @@ event_collections:
   - dataset: 'ggHH2b2V6q_2024_training'
     pipelines:
       - withHLT_SPANet_training_h5
+      #- withHLT_SPANet_training_h5_comparison

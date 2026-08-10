@@ -231,23 +231,25 @@ def make_mask(jet_counts, max_real_jets, n_null_jets):
     ], dtype=bool)
 
 
-def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode):
+def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_target=True):
     n_events = len(signal_arr)
     null_idx = max_real_jets if n_null_jets > 0 else -1
 
     H1 = np.full((n_events, 2), null_idx, dtype=int)
     H2 = np.full((n_events, 4), null_idx, dtype=int)
     W1 = np.full((n_events, 2), null_idx, dtype=int)
-    ISR = np.full((n_events, 1), null_idx, dtype=int)
+    if include_isr_target:
+        ISR = np.full((n_events, 1), null_idx, dtype=int)
 
     for i in range(n_events):
         h1_jets = np.where(signal_arr[i] == 1)[0]
         h2_jets = np.where(signal_arr[i] == 2)[0]
         h3_jets = np.where(signal_arr[i] == 3)[0]
-        h_isr_jets = np.where(signal_arr[i] == 4)[0]
 
         H1[i, :min(len(h1_jets), 2)] = h1_jets[:2]
-        ISR[i, :min(len(h_isr_jets), 1)] = h_isr_jets[:1]
+        if include_isr_target:
+            h_isr_jets = np.where(signal_arr[i] == 4)[0]
+            ISR[i, :min(len(h_isr_jets), 1)] = h_isr_jets[:1]
 
         if reco_mode == "full_hww":
             W1[i, :min(len(h2_jets), 2)] = h2_jets[:2]
@@ -276,23 +278,31 @@ def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode):
                 else:
                     seen.add(int(W1[i, slot]))
 
-        if ISR[i, 0] in seen:
-            ISR[i, 0] = -1
-        else:
-            seen.add(int(ISR[i, 0]))
+        # ISR dedup against H1/H2/W1 only matters (and is only computed at
+        # all) when an ISR target is actually being built -- with
+        # include_isr_target=False, an ISR-matched jet (signal==4) is never
+        # dedup'd out of H1/H2/W1 either, since it was never a candidate for
+        # those in the first place (h1_jets/h2_jets/h3_jets only ever draw
+        # from signal==1/2/3). Nothing here changes H1/H2/W1's own values.
+        if include_isr_target:
+            if ISR[i, 0] in seen:
+                ISR[i, 0] = -1
+            else:
+                seen.add(int(ISR[i, 0]))
 
     if reco_mode == "full_hww":
-        return {
+        out = {
             "H1": {"b1": H1[:, 0], "b2": H1[:, 1]},
             "H2": {"q1": H2[:, 0], "q2": H2[:, 1], "q3": H2[:, 2], "q4": H2[:, 3]},
-            "ISR": {"g1": ISR[:, 0]},
         }
     elif reco_mode == "onshell_w":
-        return {
+        out = {
             "H1": {"b1": H1[:, 0], "b2": H1[:, 1]},
             "W1": {"q1": W1[:, 0], "q2": W1[:, 1]},
-            "ISR": {"g1": ISR[:, 0]},
         }
+    if include_isr_target:
+        out["ISR"] = {"g1": ISR[:, 0]}
+    return out
 
 
 # ============================================================
@@ -326,17 +336,20 @@ class SPANetGenMatch(AnalyzerModule):
     genjet_eta_cut: float = 2.4
     genjet_pt_cut: float = 15.0
     secondary_order_field: str = "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
+    include_isr_target: bool = True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
 
     def inputs(self, metadata):
         return [self.jet_col, self.genpart_col, self.genjet_col]
 
     def outputs(self, metadata):
         p = self.output_prefix
-        outs = [Column(f"{p}.Source"), Column(f"{p}.good_event")]
+        outs = [Column(f"{p}.Source"), Column(f"{p}.good_event"), Column(("Selection", "good_event"))]
         if self.reco_mode == "full_hww":
-            outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2"), Column(f"{p}.Targets.ISR")]
+            outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2")]
         else:
-            outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.W1"), Column(f"{p}.Targets.ISR")]
+            outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.W1")]
+        if self.include_isr_target:
+            outs.append(Column(f"{p}.Targets.ISR"))
         return outs
 
     def run(self, columns, params):
@@ -445,8 +458,6 @@ class SPANetGenMatch(AnalyzerModule):
         # rather than dropped, keeping the jet collection's width intact.
         jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
 
-        good_event = good_event_mask(jets)
-
         # -- btag+secondary ordering, same convention used at inference time --
         btag_sort_idx = ak.argsort(jets.btagUParTAK4B, axis=1, ascending=False)
         jets_partial = jets[btag_sort_idx]
@@ -463,32 +474,59 @@ class SPANetGenMatch(AnalyzerModule):
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
         jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
 
+        # FIXED: good_event was previously evaluated on the full, untruncated
+        # `jets` collection -- but signal_arr (and therefore make_targets)
+        # only ever sees the top n_real_jets after this same sort, via
+        # pad_and_convert's arr[:, :max_real_jets] truncation. A genuine 3rd
+        # q-jet ranked 7th-or-lower by btag+secondary order would pass
+        # good_event (which saw it) but never reach make_targets (which
+        # didn't) -- leaving H2 with only 2 real slots filled, both
+        # remaining slots colliding on the single null_idx, and the second
+        # one forced to -1. Evaluating good_event on the SAME truncated
+        # window signal_arr actually uses closes that gap: any event that
+        # passes genuinely has >=3 real q-jets among the 6 the network will
+        # actually be given, not just somewhere in the full event.
+        good_event = good_event_mask(jets_sorted[:, : self.n_real_jets])
+
         pt_arr = pad_and_convert(jets_sorted.pt, self.n_real_jets, self.n_null_jets)
         eta_arr = pad_and_convert(jets_sorted.eta, self.n_real_jets, self.n_null_jets)
         phi_arr = pad_and_convert(jets_sorted.phi, self.n_real_jets, self.n_null_jets)
         e_arr = pad_and_convert(jets_sorted.energy, self.n_real_jets, self.n_null_jets)
         btag_arr = pad_and_convert(jets_sorted.btagUParTAK4B, self.n_real_jets, self.n_null_jets)
+        pnet_qvg_arr = pad_and_convert(jets_sorted.btagPNetQvG, self.n_real_jets, self.n_null_jets)
+        upart_qvg_arr = pad_and_convert(jets_sorted.btagUParTAK4QvG, self.n_real_jets, self.n_null_jets)
         signal_arr = pad_and_convert(jets_sorted.signal, self.n_real_jets, self.n_null_jets)
 
         jet_counts = ak.num(jets_sorted)
         mask = make_mask(jet_counts, self.n_real_jets, self.n_null_jets)
 
         source = ak.zip(
-            {"MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr, "btag": btag_arr},
-            depth_limit=1,
+            {"MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr, "btag": btag_arr,
+             "pnet_qvg": pnet_qvg_arr, "upart_qvg": upart_qvg_arr},
+             depth_limit=1,
         )
 
-        targets = make_targets(signal_arr, self.n_real_jets, self.n_null_jets, self.reco_mode)
+        targets = make_targets(
+            signal_arr, self.n_real_jets, self.n_null_jets, self.reco_mode,
+            include_isr_target=self.include_isr_target,
+        )
 
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source
         columns[Column(f"{p}.good_event")] = good_event
+        # Also register under the "Selection" namespace SelectOnColumns's
+        # getCol() actually reads from (columns[Column(("Selection", name))]),
+        # confirmed from its real source. The plain Column(f"{p}.good_event")
+        # above stays too -- SaveSPANetH5's good_event_col filtering already
+        # works off that one, and remains a harmless redundant safety net.
+        columns[Column(("Selection", "good_event"))] = good_event
         columns[Column(f"{p}.Targets.H1")] = ak.zip(targets["H1"])
         if self.reco_mode == "full_hww":
             columns[Column(f"{p}.Targets.H2")] = ak.zip(targets["H2"])
         else:
             columns[Column(f"{p}.Targets.W1")] = ak.zip(targets["W1"])
-        columns[Column(f"{p}.Targets.ISR")] = ak.zip(targets["ISR"])
+        if self.include_isr_target:
+            columns[Column(f"{p}.Targets.ISR")] = ak.zip(targets["ISR"])
 
         return columns, []
 
@@ -507,18 +545,29 @@ class SaveSPANetH5(AnalyzerModule):
     Leave `targets_cols` empty for evaluation-only pipelines where
     SPANetGenMatch either isn't run at all, or is run without truth targets
     -- only Source gets written in that case.
+
+    good_event_col : Column, optional
+        If given, events where this Column is False are dropped before
+        writing -- reproducing what nano_to_h5_V2.py originally did (bad
+        events never made it into the H5 at all), applied here rather than
+        via a yaml-level SelectOnColumns step. Leave unset to write every
+        event SPANetGenMatch saw.
     """
 
     prefix: str
     source_col: Column
     targets_cols: List[Column] = field(factory=list)
+    good_event_col: Column = None
     output_format: str = (
         "{dataset_name}__{sample_name}__{file_id}"
         "__{chunk.event_start}_{chunk.event_stop}.h5"
     )
 
     def inputs(self, metadata):
-        return [self.source_col] + list(self.targets_cols)
+        cols = [self.source_col] + list(self.targets_cols)
+        if self.good_event_col is not None:
+            cols.append(self.good_event_col)
+        return cols
 
     def outputs(self, metadata):
         return []
@@ -543,13 +592,21 @@ class SaveSPANetH5(AnalyzerModule):
         base.mkdir(exist_ok=True, parents=True)
         local_filename = base / f"{uid}.h5"
 
+        if self.good_event_col is not None:
+            good_np = ak.to_numpy(columns[self.good_event_col])
+        else:
+            good_np = None
+
         try:
             source = columns[self.source_col]
             with h5py.File(local_filename, "w") as f:
                 for field_name in source.fields:
+                    data = ak.to_numpy(source[field_name])
+                    if good_np is not None:
+                        data = data[good_np]
                     f.create_dataset(
                         f"INPUTS/Source/{field_name}",
-                        data=ak.to_numpy(source[field_name]),
+                        data=data,
                         compression="gzip",
                     )
                 for tcol in self.targets_cols:
@@ -557,9 +614,12 @@ class SaveSPANetH5(AnalyzerModule):
                     # e.g. Column("SPANet.Targets.H2") -> HDF5 group "H2"
                     group_name = str(tcol).split(".")[-1]
                     for field_name in tdata.fields:
+                        data = ak.to_numpy(tdata[field_name])
+                        if good_np is not None:
+                            data = data[good_np]
                         f.create_dataset(
                             f"TARGETS/{group_name}/{field_name}",
-                            data=ak.to_numpy(tdata[field_name]),
+                            data=data,
                             compression="gzip",
                         )
             copyFile(local_filename, target)
