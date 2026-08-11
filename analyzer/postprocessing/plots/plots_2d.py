@@ -35,7 +35,7 @@ def plot2D(
     if color_scale == "log":
         objs = mplhep.hist2dplot(h, norm=matplotlib.colors.LogNorm(), ax=ax)
     else:
-         objs = mplhep.hist2dplot(h, ax=ax)
+        objs = mplhep.hist2dplot(h, ax=ax)
     cbar = objs.cbar
     if cbar_title and cbar is not None:
         cbar.set_label(cbar_title)
@@ -59,6 +59,7 @@ def plot2D(
         text_color=pc.cms_text_color or "white",
     )
     plt.close(fig)
+
 
 def getContour(HH, val):
     total = np.sum(HH)
@@ -142,6 +143,6 @@ def plot2DSigBkg(
         plot_configuration=pc,
         metadata=common_meta,
         extra_text=f"{sp.region_name}\n{bkg_hist.title}",
-        text_color=plot_configuratiton.cms_text_color or "white",
+        text_color=plot_configuration.cms_text_color or "white",
     )
     plt.close(fig)
