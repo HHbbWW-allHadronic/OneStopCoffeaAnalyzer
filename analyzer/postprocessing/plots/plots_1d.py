@@ -12,7 +12,7 @@ from analyzer.postprocessing.style import Styler
 # from ..grouping import doFormatting
 from .annotations import labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig, saveFigVariants, scaleYAxis, addLegend
+from .utils import saveFig, saveFigVariants, addLegend
 import warnings
 
 warnings.filterwarnings("ignore", message="Data has no positive values.*")
@@ -150,7 +150,6 @@ def plotOne(
             ax.set_ylim(bottom=ymin * 0.1)
     addLegend(ax, pc)
 
-    scaleYAxis(ax)
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
     if style.y_min or pc.y_min:
         ax.set_ylim(bottom=style.y_min or pc.y_min)
@@ -169,6 +168,7 @@ def plotOne(
         plot_configuration=pc,
         metadata=common_metadata,
         extra_text=f"{common_metadata['pipeline']}",
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -232,7 +232,6 @@ def plotDictAsBars(
     ax.set_yscale(scale)
     addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
-    scaleYAxis(ax)
     saveFigVariants(
         fig,
         ax,
@@ -240,6 +239,7 @@ def plotDictAsBars(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -522,8 +522,6 @@ def plotRatio(
         if ymin is not None:
             ax.set_ylim(bottom=ymin * 0.1)
 
-    scaleYAxis(ax)
-
     common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
 
     saveFigVariants(
@@ -533,6 +531,7 @@ def plotRatio(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -779,7 +778,6 @@ def plotModel(
 
     all_meta = [data_meta, sig_meta] + [x.metadata for x in backgrounds]
     ax.set_yscale(scale)
-    scaleYAxis(ax)
 
     common_meta = commonDict(all_meta, key=lambda x: x)
 
@@ -790,5 +788,6 @@ def plotModel(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
