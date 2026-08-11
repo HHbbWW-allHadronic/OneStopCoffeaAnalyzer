@@ -28,6 +28,20 @@ Postprocessing:
       structure:
         select: {type: SelectionFlow}
         group: {era.name: "*", pipeline: "*", name: "*", dataset_name: "*"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_{dataset_name}.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/*selection"
+      scale: log
+      show_yields: True
+      normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow,  dataset_name: "tt*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
           - name: SumSelectionFlow
             sum_match_pattern: {dataset_name: "tt*"}
@@ -46,7 +60,7 @@ Postprocessing:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {type: SelectionFlow, sample_type: "MC", dataset_name : "!ggHH2b2V6q"}
+        select: {type: SelectionFlow, sample_type: "MC", dataset_name : "!ggHH2b2V6q*"}
         group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
          - name: SumSelectionFlow
@@ -69,6 +83,24 @@ Postprocessing:
       structure:
         select: {dataset_name: "*"}
         group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
+
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/*2d*"
+      scale: log
+      normalize: False
+      style_set: *default_style_set
+      plot_configuration:
+        cms_text_color: "black"
+        <<: *default_plot_config
+        extra_text: "{dataset_title}"
+      structure:
+        select: {dataset_name: "tt*"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
@@ -110,7 +142,7 @@ Postprocessing:
       show_info: False
       plot_configuration:
         <<: *default_plot_config
-        x_axis_label: "Jet Combo m [GeV]"
+        x_label: "Jet Combo $m$ [GeV]"
       structure:
         select:
           dataset_name: "ggHH2b2V6q*"
@@ -128,10 +160,6 @@ Postprocessing:
             sum_match_pattern: {name: "nontop2b_fourjet_mass"}
             new_meta_fields:
               title: "nontop2b_fourjet"
-          - name:  SetAxisLabels
-            axis_labels:
-              nontop2b_fourjet: "Jet Combo $m$ [GeV]"
-              nontop2b_threejet: "Jet Combo $m$ [GeV]"
       output_name: "plots/{era.name}/{pipeline}/signal_4jv3j_mass.png"
 
     - name: Histogram1D
@@ -142,7 +170,7 @@ Postprocessing:
       show_info: False
       plot_configuration:
         <<: *default_plot_config
-        x_axis_label: "Jet Combo m [GeV]"
+        x_label: "Jet Combo $m$ [GeV]"
       structure:
         select:
           dataset_name: "ggHH2b2V6q*"
@@ -160,10 +188,6 @@ Postprocessing:
             sum_match_pattern: {name: "nontop2b_qvg_threejet_mass"}
             new_meta_fields:
               title: "nontop2b_qvg_threejet"
-          - name:  SetAxisLabels
-            axis_labels:
-              nontop2b_qvg_threejet: "Jet Combo $m$ [GeV]"
-              nontop2b_threejet: "Jet Combo $m$ [GeV]"
       output_name: "plots/{era.name}/{pipeline}/signal_3jv3jqvg_mass.png"
 
     - name: RatioPlot
@@ -174,6 +198,8 @@ Postprocessing:
         - "*/*/*/nontop2b_qvg_threejet_mass"
         - "*/*/*/nontop2b_qvg_fourjet_mass"
         - "*/*/*/JetN"
+        - "*/*/*/HWW_SPANet_mass"
+        - "*/*/*/Hbb_SPANet_mass"
       ratio_type: "significance"
       show_den_unc: True
       scale: log
