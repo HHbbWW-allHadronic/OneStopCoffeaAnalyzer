@@ -767,7 +767,8 @@ noHLT_ObjDef1: &noHLT_ObjDef1
 
 withHLT_NoSelection: &withHLT_NoSelection
   - *common_objects
-  - *hlt_selection
+  - module_name: SimpleHLT
+    triggers: [250HT4J2B]
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
