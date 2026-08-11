@@ -463,6 +463,62 @@ lowjet_medb_selection: &lowjet_medb_selection
     selection_name: 2b
     min_count: 2
 
+seven_lowjet_medb_selection: &seven_lowjet_medb_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 4
+
+  - module_name: NObjFilter
+    input_col: lowJet
+    selection_name: njets_low
+    min_count: 7
+
+  - module_name: NObjFilter
+    input_col: MedB_low
+    selection_name: 2b
+    min_count: 2
+
+seven_lowjet_tightb_selection: &seven_lowjet_tightb_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 4
+
+  - module_name: NObjFilter
+    input_col: lowJet
+    selection_name: njets_low
+    min_count: 7
+
+  - module_name: NObjFilter
+    input_col: TightB_low
+    selection_name: 2b
+    min_count: 2
+
 medb_obj: &medb_obj
   - module_name: JetCombos
     input_cols:
@@ -566,6 +622,28 @@ medb_low_obj: &medb_low_obj
     output_cols:
       - "nontop2b_qvg_fourjet"
       - "nontop2b_qvg_threejet"
+
+withHLT_ObjDef12: &withHLT_ObjDef12
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *seven_lowjet_tightb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *tightb_low_obj
+
+withHLT_ObjDef11: &withHLT_ObjDef11
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *seven_lowjet_medb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *medb_low_obj
 
 withHLT_ObjDef10: &withHLT_ObjDef10
   - *common_objects

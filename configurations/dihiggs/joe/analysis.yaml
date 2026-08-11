@@ -6,10 +6,10 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef3
-      {# - withHLT_ObjDef5
+      - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef8
       - withHLT_ObjDef9
       - withHLT_ObjDef10
       - SignalOnly
@@ -21,10 +21,10 @@
       - withHLT_ObjDef1
       - noHLT_ObjDef1
       - withHLT_ObjDef3
-      {# - withHLT_ObjDef5
+      - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef8
       - withHLT_ObjDef9
       - withHLT_ObjDef10
 {%- endmacro %}
@@ -33,10 +33,10 @@
       - withHLT_NoSelection
       - withHLT_ObjDef1
       - withHLT_ObjDef3
-      {# - withHLT_ObjDef5
+      - withHLT_ObjDef5
       - withHLT_ObjDef6
       - withHLT_ObjDef7
-      - withHLT_ObjDef8 #}
+      - withHLT_ObjDef8
       - withHLT_ObjDef9
       - withHLT_ObjDef10
 {%- endmacro %}
@@ -180,10 +180,12 @@ common_histograms: &common_histograms
         start: 0
         stop: 500
         bins: 20
-      - name: "nontop2b_threejet $m_{1234}$"
+        unit: GeV
+      - name: "nontop2b_threejet $m_{123}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: SimpleHistogram
     hist_name: dijet_qvg_threejet_m2d
@@ -195,10 +197,12 @@ common_histograms: &common_histograms
         start: 0
         stop: 500
         bins: 20
-      - name: "nontop2b_qvg_threejet $m_{1234}$"
+        unit: GeV
+      - name: "nontop2b_qvg_threejet $m_{123}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: FourVecHistograms
     input_col: b_dijet
@@ -214,7 +218,7 @@ common_histograms: &common_histograms
     input_col: nontop2b_threejet
     hist_name: nontop2b_threejet
     mass_axis:
-      name: "nontop2b_threejet $m$"
+      name: "nontop2b_threejet $m_{123}$"
       start: 0
       stop: 500
       bins: 20
@@ -224,7 +228,7 @@ common_histograms: &common_histograms
     input_col: nontop2b_qvg_threejet
     hist_name: nontop2b_qvg_threejet
     mass_axis:
-      name: "nontop2b_qvg_threejet $m$"
+      name: "nontop2b_qvg_threejet $m_{123}$"
       start: 0
       stop: 500
       bins: 20
@@ -369,16 +373,18 @@ sixjet_plots: &sixjet_plots
         start: 0
         stop: 500
         bins: 20
+        unit: GeV
       - name: "nontop2b_fourjet $m_{1234}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: FourVecHistograms
     input_col: nontop2b_fourjet
     hist_name: nontop2b_fourjet
     mass_axis:
-      name: "nontop2b_fourjet $m$"
+      name: "nontop2b_fourjet $m_{1234}$"
       start: 0
       stop: 500
       bins: 20
@@ -419,6 +425,7 @@ sixjet_plots: &sixjet_plots
         start: 0
         stop: 500
         bins: 20
+        unit: GeV
       - name: "nontop2b_qvg_fourjet $m_{1234}$"
         start: 0
         stop: 800
@@ -428,7 +435,7 @@ sixjet_plots: &sixjet_plots
     input_col: nontop2b_qvg_fourjet
     hist_name: nontop2b_qvg_fourjet
     mass_axis:
-      name: "nontop2b_qvg_fourjet $m$"
+      name: "nontop2b_qvg_fourjet $m_{1234}$"
       start: 0
       stop: 500
       bins: 20
@@ -627,10 +634,12 @@ lowjet_histograms: &lowjet_histograms
         start: 0
         stop: 500
         bins: 20
-      - name: "nontop2b_threejet $m_{1234}$"
+        unit: GeV
+      - name: "nontop2b_threejet $m_{123}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: SimpleHistogram
     hist_name: dijet_qvg_threejet_m2d
@@ -642,10 +651,12 @@ lowjet_histograms: &lowjet_histograms
         start: 0
         stop: 500
         bins: 20
-      - name: "nontop2b_qvg_threejet $m_{1234}$"
+        unit: GeV
+      - name: "nontop2b_qvg_threejet $m_{123}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: FourVecHistograms
     input_col: b_dijet
@@ -661,7 +672,7 @@ lowjet_histograms: &lowjet_histograms
     input_col: nontop2b_threejet
     hist_name: nontop2b_threejet
     mass_axis:
-      name: "nontop2b_threejet $m$"
+      name: "nontop2b_threejet $m_{123}$"
       start: 0
       stop: 500
       bins: 20
@@ -671,7 +682,7 @@ lowjet_histograms: &lowjet_histograms
     input_col: nontop2b_qvg_threejet
     hist_name: nontop2b_qvg_threejet
     mass_axis:
-      name: "nontop2b_qvg_threejet $m$"
+      name: "nontop2b_qvg_threejet $m_{123}$"
       start: 0
       stop: 500
       bins: 20
@@ -800,16 +811,18 @@ lowjet_sixjet_plots: &lowjet_sixjet_plots
         start: 0
         stop: 500
         bins: 20
+        unit: GeV
       - name: "nontop2b_fourjet $m_{1234}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: FourVecHistograms
     input_col: nontop2b_fourjet
     hist_name: nontop2b_fourjet
     mass_axis:
-      name: "nontop2b_fourjet $m$"
+      name: "nontop2b_fourjet $m_{1234}$"
       start: 0
       stop: 500
       bins: 20
@@ -850,16 +863,18 @@ lowjet_sixjet_plots: &lowjet_sixjet_plots
         start: 0
         stop: 500
         bins: 20
+        unit: GeV
       - name: "nontop2b_qvg_fourjet $m_{1234}$"
         start: 0
         stop: 800
         bins: 20
+        unit: GeV
 
   - module_name: FourVecHistograms
     input_col: nontop2b_qvg_fourjet
     hist_name: nontop2b_qvg_fourjet
     mass_axis:
-      name: "nontop2b_qvg_fourjet $m$"
+      name: "nontop2b_qvg_fourjet $m_{1234}$"
       start: 0
       stop: 500
       bins: 20
