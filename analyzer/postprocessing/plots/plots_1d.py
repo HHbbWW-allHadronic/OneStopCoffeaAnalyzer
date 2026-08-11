@@ -13,6 +13,9 @@ from analyzer.postprocessing.style import Styler
 from .annotations import labelAxis
 from .common import PlotConfiguration
 from .utils import saveFig, saveFigVariants, scaleYAxis, addLegend
+import warnings
+
+warnings.filterwarnings("ignore", message="Data has no positive values.*")
 
 
 def hist_sum(h):
