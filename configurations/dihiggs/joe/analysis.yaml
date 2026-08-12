@@ -183,7 +183,7 @@ common_histograms: &common_histograms
         unit: GeV
       - name: "nontop2b_threejet $m_{123}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -200,7 +200,7 @@ common_histograms: &common_histograms
         unit: GeV
       - name: "nontop2b_qvg_threejet $m_{123}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -376,7 +376,7 @@ sixjet_plots: &sixjet_plots
         unit: GeV
       - name: "nontop2b_fourjet $m_{1234}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -428,7 +428,7 @@ sixjet_plots: &sixjet_plots
         unit: GeV
       - name: "nontop2b_qvg_fourjet $m_{1234}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
 
   - module_name: FourVecHistograms
@@ -637,7 +637,7 @@ lowjet_histograms: &lowjet_histograms
         unit: GeV
       - name: "nontop2b_threejet $m_{123}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -654,7 +654,7 @@ lowjet_histograms: &lowjet_histograms
         unit: GeV
       - name: "nontop2b_qvg_threejet $m_{123}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -814,7 +814,7 @@ lowjet_sixjet_plots: &lowjet_sixjet_plots
         unit: GeV
       - name: "nontop2b_fourjet $m_{1234}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -866,7 +866,7 @@ lowjet_sixjet_plots: &lowjet_sixjet_plots
         unit: GeV
       - name: "nontop2b_qvg_fourjet $m_{1234}$"
         start: 0
-        stop: 800
+        stop: 500
         bins: 20
         unit: GeV
 
@@ -940,8 +940,24 @@ analyzer:
 
   withHLT_ObjDef9:
     - *withHLT_ObjDef9
-    - *lowjet_histograms
-    - *lowjet_sixjet_plots
+    - module_name: SimpleHistogram
+      hist_name: dijet_qvg_threejet_m2d
+      input_cols:
+        - b_dijet.mass
+        - nontop2b_qvg_threejet.mass
+      axes:
+        - name: "b_dijet $m_{12}$"
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
+        - name: "nontop2b_qvg_threejet $m_{123}$"
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
+    {# - *lowjet_histograms
+    - *lowjet_sixjet_plots #}
   
   withHLT_ObjDef10:
     - *withHLT_ObjDef10
@@ -958,9 +974,9 @@ event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
-  - dataset: 'data_HHParking_2024*'
+  {# - dataset: 'data_HHParking_2024*'
     pipelines:
-    {{ data_pipelines() }}
+    {{ data_pipelines() }} #}
   - dataset: 'qcd*2024*'
     pipelines:
     {{ mc_pipelines() }}
