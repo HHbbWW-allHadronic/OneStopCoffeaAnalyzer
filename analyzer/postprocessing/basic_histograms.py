@@ -12,7 +12,7 @@ from analyzer.utils.structure_tools import (
 )
 from .processors import BasePostprocessor
 from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios, plotModel
-from .plots.plots_2d import plot2D
+from .plots.plots_2d import plot2D, plotRatio2D
 from attrs import define, field
 
 ResultSet = list[list[ItemWithMeta]]
@@ -255,3 +255,53 @@ class ModelPlot(BasePostprocessor):
             ratio_height=self.ratio_height,
             plot_configuration=pc,
         )
+
+
+@define
+class RatioPlot2D(BasePostprocessor):
+    output_name: str
+    scale: Literal["log", "linear"] = "linear"
+    normalize: bool = False
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "poisson"
+    )
+    z_range: tuple[float, float] | None = None
+    center: float | str | None = "auto"
+    cmap: str | None = None
+    cbar_title: str | None = None
+    mask_zeros: bool = False
+    vline: float | None = None
+    hline: float | None = None
+
+    def getRunFuncs(self, group, prefix=None):
+        numerators = group["numerator"]
+        denominator = group["denominator"]
+        if not denominator:
+            raise RuntimeError("Expected at least 1 denominator histogram")
+
+        # One figure per numerator
+        for num in numerators:
+            common_meta = commonDict(it.chain([num], denominator))
+            output_path = dotFormat(
+                self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+            )
+            pc = self.plot_configuration.makeFormatted(common_meta)
+            yield ft.partial(
+                plotRatio2D,
+                denominator,
+                [num],
+                common_meta,
+                output_path,
+                style_set=self.style_set,
+                ratio_type=self.ratio_type,
+                normalize=self.normalize,
+                plot_configuration=pc,
+                color_scale=self.scale,
+                z_range=self.z_range,
+                center=self.center,
+                cmap=self.cmap,
+                cbar_title=self.cbar_title,
+                mask_zeros=self.mask_zeros,
+                vline=self.vline,
+                hline=self.hline,
+            )
