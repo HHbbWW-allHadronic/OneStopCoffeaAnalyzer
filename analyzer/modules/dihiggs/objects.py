@@ -354,7 +354,9 @@ class TieredPtJetFilter(AnalyzerModule):
         n_hard_in_event = ak.sum(sorted_jets.pt > self.hard_pt_cut, axis=1)
         has_enough_hard = n_hard_in_event >= self.n_hard_jets
 
-        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (has_enough_hard & (rank >= self.n_hard_jets))
+        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (
+            has_enough_hard & (rank >= self.n_hard_jets)
+        )
 
         columns[self.output_col] = sorted_jets[passes_tier]
         return columns, []
@@ -441,8 +443,6 @@ class JetCombos(AnalyzerModule):
             for col_idx, rank_idxs in combo.items():
                 input_col = self.input_cols[col_idx]
                 jets = columns[input_col]
-                #print(f"DEBUG JetCombos [{input_col}] total events: {len(jets)}, "
-                #      f"count>=2: {ak.sum(ak.num(jets, axis=1) >= 2)}")
                 if self.order_by:
                     order_col = columns[input_col + self.order_by[col_idx]]
                     jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
@@ -457,10 +457,7 @@ class JetCombos(AnalyzerModule):
 
             combined_col = ak.concatenate(sum_cols, axis=1)
             combined_col = ak.concatenate(sum_cols, axis=1)
-            try:
-                summed = combined_col.sum()
-            except AttributeError:
-                summed = ak.sum(combined_col, axis=1)
+            summed = combined_col.sum()
             summed = ak.mask(summed, ~combined_msk)
             columns[self.output_cols[i]] = ak.with_name(
                 ak.zip(
@@ -480,6 +477,7 @@ class JetCombos(AnalyzerModule):
 
     def inputs(self, metadata):
         return self.input_cols + self.order_by
+
 
 @define
 class AbsoluteValue(AnalyzerModule):
