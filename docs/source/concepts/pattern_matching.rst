@@ -11,6 +11,7 @@ The framework uses a pattern matching system in several places:
 - The ``systs`` field in :class:`~analyzer.core.run_builders.LimitSysts` run builders.
 
 We summarize here the basics of the system. 
+Ideally it would be nice to switch perhaps to a more robust pattern matcher in the future.
 
 Basic Patterns
 --------------

@@ -306,6 +306,67 @@ class HJetFilter(AnalyzerModule):
 
 
 @define
+class TieredPtJetFilter(AnalyzerModule):
+    """
+    Produces a new jet collection (output_col) from an existing one
+    (input_col) using a tiered pt selection: among jets in input_col, the
+    n_hard_jets highest-pt jets must individually clear hard_pt_cut; any
+    additional jets (ranked below n_hard_jets) only need to clear whatever
+    floor input_col already carries. If an event doesn't have n_hard_jets
+    genuinely-hard jets, no soft jets are pulled in either -- it degrades to
+    exactly a flat hard_pt_cut selection for that event (verified against
+    synthetic edge cases; mirrors the tested tiered_pt_selection() in
+    nano_to_h5_V2.py / spanet_inputs.py).
+
+    Structured the same way as HJetFilter: operates on the whole coherent
+    jet record (columns[input_col]), so every field on the input collection
+    -- jetId, puId, hadronFlavour, everything -- carries over automatically,
+    not just an explicitly-enumerated subset.
+
+    input_col is expected to already carry a loose pt floor and any eta/ID
+    cuts (e.g. HJetFilter with min_pt = soft_pt_cut) -- this module only
+    adds the tiered pt logic on top of whatever input_col already contains.
+
+    Parameters
+    ----------
+    input_col : Column
+        The (loosely-selected) input jet collection.
+    output_col : Column
+        The new tiered-selection jet collection to produce.
+    n_hard_jets : int
+        Number of highest-pt jets required to clear hard_pt_cut. Default 4.
+    hard_pt_cut : float
+        pt threshold for the top n_hard_jets. Default 25.0.
+    """
+
+    input_col: Column
+    output_col: Column
+    n_hard_jets: int = 4
+    hard_pt_cut: float = 25.0
+
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+
+        pt_sort_idx = ak.argsort(jets.pt, axis=1, ascending=False)
+        sorted_jets = jets[pt_sort_idx]
+
+        rank = ak.local_index(sorted_jets.pt, axis=1)
+        n_hard_in_event = ak.sum(sorted_jets.pt > self.hard_pt_cut, axis=1)
+        has_enough_hard = n_hard_in_event >= self.n_hard_jets
+
+        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (has_enough_hard & (rank >= self.n_hard_jets))
+
+        columns[self.output_col] = sorted_jets[passes_tier]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+
+@define
 class DRVetoFilter(AnalyzerModule):
     """
     Filters an input collection by removing elements that are within a given
@@ -380,6 +441,8 @@ class JetCombos(AnalyzerModule):
             for col_idx, rank_idxs in combo.items():
                 input_col = self.input_cols[col_idx]
                 jets = columns[input_col]
+                #print(f"DEBUG JetCombos [{input_col}] total events: {len(jets)}, "
+                #      f"count>=2: {ak.sum(ak.num(jets, axis=1) >= 2)}")
                 if self.order_by:
                     order_col = columns[input_col + self.order_by[col_idx]]
                     jets = jets[ak.argsort(order_col, axis=1, ascending=self.ascending)]
@@ -393,7 +456,11 @@ class JetCombos(AnalyzerModule):
                     combined_msk = combined_msk | msk
 
             combined_col = ak.concatenate(sum_cols, axis=1)
-            summed = combined_col.sum()
+            combined_col = ak.concatenate(sum_cols, axis=1)
+            try:
+                summed = combined_col.sum()
+            except AttributeError:
+                summed = ak.sum(combined_col, axis=1)
             summed = ak.mask(summed, ~combined_msk)
             columns[self.output_cols[i]] = ak.with_name(
                 ak.zip(
@@ -413,7 +480,6 @@ class JetCombos(AnalyzerModule):
 
     def inputs(self, metadata):
         return self.input_cols + self.order_by
-
 
 @define
 class AbsoluteValue(AnalyzerModule):

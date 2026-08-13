@@ -1,7 +1,9 @@
+from rich.console import Console
+from rich.style import Style
+from rich.table import Table
+
+
 def renderStatuses(statuses, all_samples, threshold=1.0, only_bad=False):
-    from rich.console import Console
-    from rich.style import Style
-    from rich.table import Table
 
     console = Console()
     present = set((x.dataset_name, x.sample_name) for x in statuses)

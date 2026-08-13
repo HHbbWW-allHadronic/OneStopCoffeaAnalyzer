@@ -313,8 +313,7 @@ class RebinAxes(TransformHistogram):
             else:
                 rebins = {x.name: hist.rebin(self.rebin) for x in h.axes}
             h = h[rebins]
-            provenance = copy.deepcopy(ph.provenance)
-            provenance.axis_params.update(rebins)
+
             newmeta = addChain(
                 meta,
                 {"axis_params": addChain(meta.get("axis_params", {}), rebins)},

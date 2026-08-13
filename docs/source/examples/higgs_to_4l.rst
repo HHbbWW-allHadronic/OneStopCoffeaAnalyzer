@@ -14,7 +14,7 @@ The code is provided in the ``examples/higgs_to_4l/`` directory.
 The Analysis Configuration
 --------------------------
 The top level description of an analysis is declarative.
-This is handled by a central YAML configuration, in thise case ``examples/higgs_to_4l/configuration.yaml``.
+This is handled by a central configuration file. In this example, we provide three equivalents: a standard YAML configuration (``examples/higgs_to_4l/configuration.yaml``), a dictionary-based Python configuration (``examples/higgs_to_4l/configuration.py``), and an object-based Python configuration (``examples/higgs_to_4l/configuration_obj.py``).
 
 Pipelines and Modules
 ^^^^^^^^^^^^^^^^^^^^^

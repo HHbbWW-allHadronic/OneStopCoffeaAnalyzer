@@ -28,6 +28,12 @@ class HistogramBuilder(PureResultModule):
     storage: str = "weight"
     mask_col: Column | None = None
 
+    def __attrs_post_init__(self):
+        if len(self.axes) == 0:
+            raise ValueError(f"HistogramBuilder '{self.product_name}' must have at least one axis defined.")
+        if len(self.axes) != len(self.columns):
+            raise ValueError(f"HistogramBuilder '{self.product_name}' has {len(self.axes)} axes but {len(self.columns)} columns.")
+
     @staticmethod
     def transformToFill(fill_data, per_event_value, mask=None):
         """
@@ -267,6 +273,30 @@ class SimpleHistogram(AnalyzerModule):
     axes: list[RegularAxis]
     replace_none: float | None = None
     mask_cols: list[Column] | None = None
+
+    def __attrs_post_init__(self):
+        if len(self.axes) == 0:
+            raise ValueError(f"SimpleHistogram '{self.hist_name}' must have at least one axis defined.")
+        if len(self.axes) != len(self.input_cols):
+            raise ValueError(f"SimpleHistogram '{self.hist_name}' has {len(self.axes)} axes but {len(self.input_cols)} input columns.")
+
+    def lint(self):
+        from analyzer.core.linting import LintLevel, LintMessage
+
+        total_bins = 1
+        for axis in self.axes:
+            total_bins *= axis.toHist().size
+
+        if total_bins > 2000:
+            return [
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="HistogramDefinition",
+                    message=f"Histogram '{self.hist_name}' has a total of {total_bins} bins across all axes. This may cause memory issues.",
+                    module_name=self.name(),
+                )
+            ]
+        return []
 
     def outputs(self, metadata):
         return []

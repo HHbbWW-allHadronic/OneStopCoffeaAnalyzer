@@ -22,7 +22,7 @@ A postprocessor is a class that inherits from :class:`~analyzer.postprocessing.p
 
         def getRunFuncs(self, group, prefix=None):
             # 'group' is the data structured by the GroupBuilder.
-            # It may be a list of ItemWithMeta, a dict, or nested structure.
+            # It may be a list of ItemWithMeta, a dict, or other nested structure.
             from analyzer.utils.structure_tools import commonDict, dictToDot, dotFormat
 
             common_meta = commonDict(group)
@@ -30,15 +30,18 @@ A postprocessor is a class that inherits from :class:`~analyzer.postprocessing.p
                 self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
             )
 
-            yield ft.partial(self._make_plot, group, output_path)
+            yield ft.partial(self._makePlot, group, output_path)
 
         @staticmethod
-        def _make_plot(group, output_path):
+        def _makePlot(group, output_path):
             import matplotlib.pyplot as plt
 
             # Extract data from group and create your plot
             fig, ax = plt.subplots()
+
             # ... plotting logic ...
+            # matplotlib calls, mplhep, etc
+
             fig.savefig(output_path)
             plt.close(fig)
 
@@ -47,7 +50,7 @@ Key points:
 - :meth:`~analyzer.postprocessing.processors.BasePostprocessor.getRunFuncs` is a generator that yields callables (typically built using ``functools.partial``).
 - Each callable will be executed by the postprocessing framework, potentially in parallel.
 - The ``group`` parameter contains the data structured by the :class:`~analyzer.postprocessing.grouping.GroupBuilder` (selected, grouped, transformed, and sub-grouped).
-- The callables must be picklable if ``--parallel`` is used.
+- Since we use processes for parallelism, the callables must be picklable if ``--parallel`` is used.
 
 Registration
 ^^^^^^^^^^^^
@@ -57,6 +60,10 @@ As long as your class inherits from :class:`~analyzer.postprocessing.processors.
 
 The ``name`` field in the YAML configuration must match the class name.
 The class is resolved via ``cattrs`` tagged union with ``tag_name="name"``.
+
+.. danger::
+
+    If you are implementing your postprocessor in a new file it must be imported by the framework!
 
 
 Custom Transform
@@ -72,7 +79,7 @@ Transforms operate on lists of ``ItemWithMeta`` objects and return modified list
     from analyzer.core.results import Histogram
 
     @define
-    class MyCustomTransform(TransformHistogram):
+    class MakeVariancesBigger(TransformHistogram):
         """Multiply all histogram values by a constant."""
         scale_factor: float
 
@@ -80,7 +87,6 @@ Transforms operate on lists of ``ItemWithMeta`` objects and return modified list
             ret = []
             for item, meta in items:
                 h = item.histogram.copy(deep=True)
-                # WARNING: THIS WILL NOT CORRECTLY SCALE VARIANCES!!!
                 h.view()[...] *= self.scale_factor
                 ret.append(ItemWithMeta(
                     Histogram(name=item.name, axes=item.axes, histogram=h),
@@ -97,8 +103,9 @@ Transform base classes:
 
 Like postprocessors, custom transforms are discovered via subclass resolution and the ``name`` field in YAML.
 
+
 .. code-block:: yaml
 
     transforms:
-      - name: MyCustomTransform
+      - name: MakeVariancesBigger
         scale_factor: 1.5

@@ -51,6 +51,21 @@ class ElectronMaker(AnalyzerModule):
 
     __corrections: dict = field(factory=dict)
 
+    def lint(self):
+        from analyzer.core.linting import LintLevel, LintMessage
+
+        messages = []
+        if self.min_pt is not None and self.min_pt < 5:
+            messages.append(
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="ElectronKinematics",
+                    message=f"Low electron pt cut: {self.min_pt} GeV.",
+                    module_name=self.name(),
+                )
+            )
+        return messages
+
     def run(self, columns, params):
         electrons = columns[self.input_col]
         pass_pt = electrons.pt > self.min_pt
