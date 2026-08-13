@@ -417,14 +417,21 @@ class SPANetDiHiggsInference(AnalyzerModule):
         source = self.prepare_inputs(columns)
         n_events = len(source["pt"])
 
-        m_Hbb_col = self.output_prefix + Column("m_Hbb_SPANet")
-        m_HWW_col = self.output_prefix + Column("m_HWW_SPANet")
+        _MASS_COL_NAMES = {
+            "H1": "m_Hbb_SPANet",
+            "H2": "m_HWW_SPANet",
+            "W1": "m_W1_SPANet",
+        }
+        mass_cols = {
+            name: self.output_prefix + Column(_MASS_COL_NAMES[name])
+            for name in self.particle_names if name in _MASS_COL_NAMES
+        }
         jets_cols = {name: self.output_prefix + Column(f"{name}_jets") for name in self.particle_names}
 
         if n_events == 0:
             empty = np.array([], dtype="float32")
-            columns[m_Hbb_col] = ak.Array(empty)
-            columns[m_HWW_col] = ak.Array(empty)
+            for name in mass_cols:
+                columns[mass_cols[name]] = ak.Array(empty)
             empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
             empty_p4 = ak.zip(
                 {
@@ -458,18 +465,23 @@ class SPANetDiHiggsInference(AnalyzerModule):
 
         for name, jet_col in jets_by_name.items():
             columns[jets_cols[name]] = jet_col
+            if name in mass_cols:
+                columns[mass_cols[name]] = ak.sum(jet_col, axis=1).mass
 
-        columns[m_Hbb_col] = ak.sum(jets_by_name["H1"], axis=1).mass
-        columns[m_HWW_col] = ak.sum(jets_by_name["H2"], axis=1).mass
         return columns, []
 
     def neededResources(self, metadata):
         return [self.model_path]
 
     def outputs(self, metadata):
+        _MASS_COL_NAMES = {
+            "H1": "m_Hbb_SPANet",
+            "H2": "m_HWW_SPANet",
+            "W1": "m_W1_SPANet",
+        }
         outs = [
-            self.output_prefix + Column("m_Hbb_SPANet"),
-            self.output_prefix + Column("m_HWW_SPANet"),
+            self.output_prefix + Column(_MASS_COL_NAMES[name])
+            for name in self.particle_names if name in _MASS_COL_NAMES
         ]
         outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
         return outs

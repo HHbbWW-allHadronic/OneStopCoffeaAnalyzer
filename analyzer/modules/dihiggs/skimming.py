@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 
 import awkward as ak
+import correctionlib
 from attrs import define, field
 
 from analyzer.core.analysis_modules import AnalyzerModule
@@ -338,6 +339,67 @@ class SPANetGenMatch(AnalyzerModule):
     secondary_order_field: str = "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
     include_isr_target: bool = True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
 
+    btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label", resolved via getWPs() -- same official correctionlib source HBQuarkMaker's event-selection cut uses
+    btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Does not affect jet ORDERING, which always uses the continuous score regardless of this setting (see run(), sorting happens before this is applied).
+
+    qvg_mode: str = "label"  # "score" or "label", applied to PNet QvG (the only QvG discriminant kept -- UParT QvG has been removed entirely: not useful, and ROC-curve testing showed its candidate WPs were unreasonable)
+    qvg_label_threshold: float = 0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG as of writing. CONFIRMED for PNet QvG specifically.
+
+    ctag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when ctag_mode="label", resolved via getCTagWPs()
+    ctag_mode: str = "label"  # "score" or "label". SCORE: two independent continuous features (CvB, CvL) are kept, since they're genuinely distinct discriminants. LABEL: collapses to ONE boolean feature, true only if the jet clears BOTH the CvB and CvL working points simultaneously. Because the number of Source columns differs between these two modes (2 vs 1), a single event_info.yaml can't describe both -- use two separate configs, one per mode, matching this project's existing pattern of two-config comparisons.
+
+    __wp_cache: dict = field(factory=dict)
+    __ctag_wp_cache: dict = field(factory=dict)
+
+    def getWPs(self, metadata):
+        """
+        Mirrors HBQuarkMaker.getWPs exactly (same file/tagger/correction_name
+        metadata path, same correctionlib call, same per-file caching) --
+        this module reads its own working-point thresholds from the SAME
+        source HBQuarkMaker's event-selection cut already uses, rather than
+        a second, independently-hardcoded number that could silently drift
+        out of sync with it.
+        """
+        file_path = metadata["era"]["btag_scale_factors"]["file"]
+        tagger = metadata["era"]["btag_scale_factors"]["tagger"]
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__wp_cache:
+            return tagger, self.__wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {p: cset[cname].evaluate(p) for p in ("L", "M", "T")}
+        self.__wp_cache[file_path] = ret
+        return tagger, ret
+
+    def getCTagWPs(self, metadata):
+        """
+        c-tagging analog of getWPs. Follows the same metadata/correctionlib
+        pattern as HCQuarkMaker, resolving TWO independent discriminants
+        (CvB, CvL) rather than one -- each gets its own tagger field name
+        and its own set of L/M/T thresholds, evaluated separately (CvB
+        evaluated as "CvB", CvL evaluated as "CvL" -- these are genuinely
+        different correctionlib queries, not the same query reused twice).
+        """
+        file_path = metadata["era"]["btag_scale_factors"]["c_file"]
+        tagger_cvb = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvB"]
+        tagger_cvl = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvL"]
+        taggers = {"CvB": tagger_cvb, "CvL": tagger_cvl}
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__ctag_wp_cache:
+            return taggers, self.__ctag_wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {
+            "CvB": {p: cset[cname].evaluate(p, "CvB") for p in ("L", "M", "T")},
+            "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+        }
+        self.__ctag_wp_cache[file_path] = ret
+        return taggers, ret
+
+    def preloadForMeta(self, metadata):
+        self.getWPs(metadata)
+        self.getCTagWPs(metadata)
+
     def inputs(self, metadata):
         return [self.jet_col, self.genpart_col, self.genjet_col]
 
@@ -465,7 +527,7 @@ class SPANetGenMatch(AnalyzerModule):
         if self.secondary_order_field == "pt":
             secondary_field = jets_partial[:, 2:].pt
         elif self.secondary_order_field == "qvg":
-            secondary_field = jets_partial[:, 2:].btagUParTAK4QvG
+            secondary_field = jets_partial[:, 2:].btagPNetQvG
         else:
             raise ValueError(
                 f"secondary_order_field must be 'pt' or 'qvg', got {self.secondary_order_field!r}"
@@ -492,19 +554,61 @@ class SPANetGenMatch(AnalyzerModule):
         eta_arr = pad_and_convert(jets_sorted.eta, self.n_real_jets, self.n_null_jets)
         phi_arr = pad_and_convert(jets_sorted.phi, self.n_real_jets, self.n_null_jets)
         e_arr = pad_and_convert(jets_sorted.energy, self.n_real_jets, self.n_null_jets)
-        btag_arr = pad_and_convert(jets_sorted.btagUParTAK4B, self.n_real_jets, self.n_null_jets)
-        pnet_qvg_arr = pad_and_convert(jets_sorted.btagPNetQvG, self.n_real_jets, self.n_null_jets)
-        upart_qvg_arr = pad_and_convert(jets_sorted.btagUParTAK4QvG, self.n_real_jets, self.n_null_jets)
+
+        if self.btag_mode == "label":
+            tagger, wps = self.getWPs(columns.metadata)
+            btag_feature = jets_sorted[tagger] > wps[self.btag_working_point]
+        elif self.btag_mode == "score":
+            btag_feature = jets_sorted.btagUParTAK4B
+        else:
+            raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
+        btag_arr = pad_and_convert(btag_feature, self.n_real_jets, self.n_null_jets)
+
+        if self.qvg_mode == "label":
+            pnet_qvg_feature = jets_sorted.btagPNetQvG > self.qvg_label_threshold
+        elif self.qvg_mode == "score":
+            pnet_qvg_feature = jets_sorted.btagPNetQvG
+        else:
+            raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
+        pnet_qvg_arr = pad_and_convert(pnet_qvg_feature, self.n_real_jets, self.n_null_jets)
+
+        # c-tagging: SCORE mode keeps CvB and CvL as two independent
+        # continuous features (they're genuinely distinct discriminants,
+        # not interchangeable). LABEL mode collapses them into ONE boolean
+        # feature -- true only if the jet clears BOTH working points
+        # simultaneously. This means Source has a DIFFERENT NUMBER of
+        # columns depending on ctag_mode -- intentional, and why this needs
+        # two separate event_info.yaml configs rather than one that tries
+        # to describe both.
+        ctag_source_fields = {}
+        if self.ctag_mode == "label":
+            taggers, wps = self.getCTagWPs(columns.metadata)
+            cvb_pass = jets_sorted[taggers["CvB"]] > wps["CvB"][self.ctag_working_point]
+            cvl_pass = jets_sorted[taggers["CvL"]] > wps["CvL"][self.ctag_working_point]
+            ctag_feature = cvb_pass & cvl_pass
+            ctag_source_fields["ctag"] = pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)
+        elif self.ctag_mode == "score":
+            taggers, _ = self.getCTagWPs(columns.metadata)
+            ctag_source_fields["ctag_cvb"] = pad_and_convert(
+                jets_sorted[taggers["CvB"]], self.n_real_jets, self.n_null_jets
+            )
+            ctag_source_fields["ctag_cvl"] = pad_and_convert(
+                jets_sorted[taggers["CvL"]], self.n_real_jets, self.n_null_jets
+            )
+        else:
+            raise ValueError(f"ctag_mode must be 'score' or 'label', got {self.ctag_mode!r}")
+
         signal_arr = pad_and_convert(jets_sorted.signal, self.n_real_jets, self.n_null_jets)
 
         jet_counts = ak.num(jets_sorted)
         mask = make_mask(jet_counts, self.n_real_jets, self.n_null_jets)
 
-        source = ak.zip(
-            {"MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr, "btag": btag_arr,
-             "pnet_qvg": pnet_qvg_arr, "upart_qvg": upart_qvg_arr},
-             depth_limit=1,
-        )
+        source_fields = {
+            "MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr,
+            "btag": btag_arr, "pnet_qvg": pnet_qvg_arr,
+        }
+        source_fields.update(ctag_source_fields)
+        source = ak.zip(source_fields, depth_limit=1)
 
         targets = make_targets(
             signal_arr, self.n_real_jets, self.n_null_jets, self.reco_mode,
@@ -514,11 +618,6 @@ class SPANetGenMatch(AnalyzerModule):
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source
         columns[Column(f"{p}.good_event")] = good_event
-        # Also register under the "Selection" namespace SelectOnColumns's
-        # getCol() actually reads from (columns[Column(("Selection", name))]),
-        # confirmed from its real source. The plain Column(f"{p}.good_event")
-        # above stays too -- SaveSPANetH5's good_event_col filtering already
-        # works off that one, and remains a harmless redundant safety net.
         columns[Column(("Selection", "good_event"))] = good_event
         columns[Column(f"{p}.Targets.H1")] = ak.zip(targets["H1"])
         if self.reco_mode == "full_hww":
