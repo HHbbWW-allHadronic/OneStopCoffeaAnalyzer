@@ -23,6 +23,8 @@ class SelectAxesValues(TransformHistogram):
         ret = []
         for item, meta in items:
             h = item.histogram
+            axis_names = [ax.name for ax in h.axes]
+            empty = h.sum().value == 0
             keys_vals = list(self.select_axes_values.items())
             keys, vals = list(zip(*keys_vals))
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]
@@ -33,10 +35,15 @@ class SelectAxesValues(TransformHistogram):
                     {"axis_params": addChain(meta.get("axis_params", {}), u)},
                 )
                 u = dict(zip(keys, [hist.loc(x) for x in p]))
-
+                if empty:
+                    remaining = [n for n in axis_names if n not in keys]
+                    sliced = h.project(*remaining)
+                else:
+                    loc_u = dict(zip(keys, [hist.loc(x) for x in p]))
+                    sliced = h[loc_u]
                 ret.append(
                     ItemWithMeta(
-                        Histogram(name=item.name, axes=[], histogram=h[u]), new_meta
+                        Histogram(name=item.name, axes=[], histogram=sliced), new_meta
                     )
                 )
         return ret
