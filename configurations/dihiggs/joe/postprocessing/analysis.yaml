@@ -200,6 +200,7 @@ Postprocessing:
         - "*/*/*/JetN"
         - "*/*/*/HWW_SPANet_mass"
         - "*/*/*/Hbb_SPANet_mass"
+        - "*/*/*/HW_SPANet_mass"
       ratio_type: "significance"
       show_den_unc: True
       scale: log
@@ -225,6 +226,36 @@ Postprocessing:
               dataset_name: "tt"
               dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
+
+    - name: RatioPlot2D
+      inputs:
+        - "*/*/*/dijet_qvg_threejet_m2d"
+        - "*/*/*/dijet_threejet_m2d"
+        - "*/*/*/dijet_qvg_fourjet_m2d"
+        - "*/*/*/dijet_fourjet_m2d"
+        - "*/*/*/spanet_m2d"
+      ratio_type: "significance"
+      scale: linear
+      plot_configuration:
+        <<: *default_plot_config
+        cms_text_color: "white"
+      structure:
+        select: {dataset_name: "*", name: "*", pipeline: "*", sample_type: "MC"}
+        group: {era.name: "*", name: "*", pipeline: "*"}
+        subgroups:
+          denominator:
+            select: {dataset_name: "!ggHH2b2V6q*"}
+          numerator:
+            select: {dataset_name: "ggHH2b2V6q*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              dataset_title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/significance2d_{name}.png"
 
     - name: RatioPlot
       inputs:
