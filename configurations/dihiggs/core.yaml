@@ -120,13 +120,13 @@ common_objects: &common_objects
     input_col: goodJet
     output_col: MedC
     working_point: M
-    nontop2c_col: notC_med
+    notc_col: notC_med
 
   - module_name: HCQuarkMaker
     input_col: goodJet
     output_col: TightC
     working_point: T
-    nontop2c_col: notC_tight
+    notc_col: notC_tight
 
   - module_name: HT
     input_col: Jet
