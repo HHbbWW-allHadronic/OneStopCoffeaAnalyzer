@@ -1,29 +1,12 @@
 from analyzer.core.analysis_modules import AnalyzerModule
-import re
-
-from analyzer.core.columns import addSelection
 from analyzer.core.columns import Column
-from analyzer.utils.structure_tools import flatten
-from analyzer.core.analysis_modules import ParameterSpec, ModuleParameterSpec
 import awkward as ak
-import itertools as it
-from attrs import define, field, evolve
-from ..common.axis import RegularAxis
-from ..common.histogram_builder import makeHistogram
+from attrs import define, field
 from ..common.electrons import CutBasedWPs, cut_mapping as electron_cut_mapping
 from ..common.muons import IdWps, IsoWps, cut_mapping as muon_cut_mapping
-import enum
-
-import correctionlib
-import logging
 import numpy as np
 
-from analyzer.core.analysis_modules import (
-    MetadataExpr,
-    MetadataAnd,
-    IsRun,
-    IsSampleType,
-)
+import logging
 
 logger = logging.getLogger("analyzer.modules")
 
@@ -270,6 +253,8 @@ class HJetFilter(AnalyzerModule):
         Column where the filtered jet collection will be stored.
     min_pt : float, optional
         Minimum transverse momentum (pT) threshold for jets, by default 30.0.
+    min_btagPNetQvG : float, optional
+        Minimum QvG discriminator value for jets, by default 0.0.
     max_abs_eta : float, optional
         Maximum absolute pseudorapidity allowed for jets, by default 2.4.
     include_pu_id : bool, optional
@@ -288,6 +273,7 @@ class HJetFilter(AnalyzerModule):
     input_col: Column
     output_col: Column
     min_pt: float = 30.0
+    min_btagPNetQvG: float = 0.0
     max_abs_eta: float = 2.4
     include_pu_id: bool = False
     include_jet_id: bool = False
@@ -295,7 +281,11 @@ class HJetFilter(AnalyzerModule):
     def run(self, columns, params):
         metadata = columns.metadata
         jets = columns[self.input_col]
-        good_jets = jets[(jets.pt > self.min_pt) & (abs(jets.eta) < self.max_abs_eta)]
+        good_jets = jets[
+            (jets.pt > self.min_pt)
+            & (abs(jets.eta) < self.max_abs_eta)
+            & (jets.btagPNetQvG > self.min_btagPNetQvG)
+        ]
 
         if self.include_jet_id:
             good_jets = good_jets[((good_jets.jetId & 0b010) != 0)]
@@ -306,6 +296,69 @@ class HJetFilter(AnalyzerModule):
                     (good_jets.pt > 50) | ((good_jets.puId & 0b10) != 0)
                 ]
         columns[self.output_col] = good_jets
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
+
+@define
+class TieredPtJetFilter(AnalyzerModule):
+    """
+    Produces a new jet collection (output_col) from an existing one
+    (input_col) using a tiered pt selection: among jets in input_col, the
+    n_hard_jets highest-pt jets must individually clear hard_pt_cut; any
+    additional jets (ranked below n_hard_jets) only need to clear whatever
+    floor input_col already carries. If an event doesn't have n_hard_jets
+    genuinely-hard jets, no soft jets are pulled in either -- it degrades to
+    exactly a flat hard_pt_cut selection for that event (verified against
+    synthetic edge cases; mirrors the tested tiered_pt_selection() in
+    nano_to_h5_V2.py / spanet_inputs.py).
+
+    Structured the same way as HJetFilter: operates on the whole coherent
+    jet record (columns[input_col]), so every field on the input collection
+    -- jetId, puId, hadronFlavour, everything -- carries over automatically,
+    not just an explicitly-enumerated subset.
+
+    input_col is expected to already carry a loose pt floor and any eta/ID
+    cuts (e.g. HJetFilter with min_pt = soft_pt_cut) -- this module only
+    adds the tiered pt logic on top of whatever input_col already contains.
+
+    Parameters
+    ----------
+    input_col : Column
+        The (loosely-selected) input jet collection.
+    output_col : Column
+        The new tiered-selection jet collection to produce.
+    n_hard_jets : int
+        Number of highest-pt jets required to clear hard_pt_cut. Default 4.
+    hard_pt_cut : float
+        pt threshold for the top n_hard_jets. Default 25.0.
+    """
+
+    input_col: Column
+    output_col: Column
+    n_hard_jets: int = 4
+    hard_pt_cut: float = 25.0
+
+    def run(self, columns, params):
+        jets = columns[self.input_col]
+
+        pt_sort_idx = ak.argsort(jets.pt, axis=1, ascending=False)
+        sorted_jets = jets[pt_sort_idx]
+
+        rank = ak.local_index(sorted_jets.pt, axis=1)
+        n_hard_in_event = ak.sum(sorted_jets.pt > self.hard_pt_cut, axis=1)
+        has_enough_hard = n_hard_in_event >= self.n_hard_jets
+
+        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (
+            has_enough_hard & (rank >= self.n_hard_jets)
+        )
+
+        columns[self.output_col] = sorted_jets[passes_tier]
         return columns, []
 
     def inputs(self, metadata):
@@ -423,3 +476,24 @@ class JetCombos(AnalyzerModule):
 
     def inputs(self, metadata):
         return self.input_cols + self.order_by
+
+
+@define
+class AbsoluteValue(AnalyzerModule):
+    """
+    This simple module takes the absolute value of a specified input column and
+    stores the result in a new output column.
+    """
+
+    input_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        columns[self.output_col] = abs(columns[self.input_col])
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]

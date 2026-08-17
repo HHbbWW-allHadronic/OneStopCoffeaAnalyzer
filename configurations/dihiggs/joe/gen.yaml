@@ -1,0 +1,194 @@
+{% import 'core.yaml' as core %}
+
+genjet_histograms: &genjet_histograms
+  - module_name: JetVarRankHistograms
+    hist_name: GenJet_pt_
+    input_col: GenJet.pt
+    axis:
+      name: "GenJet$_{idx}$ $p_{T}$"
+      start: 0
+      stop: 100
+      bins: 50
+    max_idx: 12
+
+  - module_name: AbsoluteValue
+    input_col: GenJet.partonFlavour
+    output_col: GenJet.abs_partonFlavour
+
+  - module_name: JetVarRankHistograms
+    hist_name: GenJet_partonFlavour_
+    input_col: GenJet.abs_partonFlavour
+    axis:
+      name: "GenJet$_{idx}$ partonFlavour"
+      categories: [0, 1, 2, 3, 4, 5, 21]
+      growth: True
+    max_idx: 12
+
+  - module_name: Count
+    input_col: GenJet
+    output_col: NGenJet
+
+  - module_name: SimpleHistogram
+    hist_name: GenNJet
+    input_cols: [NGenJet]
+    axes: 
+      - name: "$N_{GenJets}$"
+        start: -0.5
+        stop: 20.5
+        bins: 21
+
+genpart_histograms: &genpart_histograms
+  - module_name: JoeHHGenParticles
+    input_col: GenPart
+    output_cols:
+      b1: b1
+      b2: b2
+      q1: q1
+      q2: q2
+      q3: q3
+      q4: q4
+      nonh_mother_zero: nonh_mother_zero
+      nonh_mother_zero_idx: nonh_mother_zero_idx
+
+  - module_name: JetCombos
+    input_cols:
+      - b1
+      - b2
+      - q1
+      - q2
+      - q3
+      - q4
+    jet_combos:
+      - {0: [0], 1: [0]}
+      - {2: [0], 3: [0]}
+      - {4: [0], 5: [0]}
+      - {2: [0], 3: [0], 4: [0], 5: [0]}
+    output_cols: 
+      - gen_b_dijet
+      - gen_onshell_w
+      - gen_offshell_w
+      - gen_ww_fourjet
+
+  - module_name: SimpleHistogram
+    hist_name: b1_pt
+    input_cols: [b1.pt]
+    axes:
+      - name: "b1 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: b2_pt
+    input_cols: [b2.pt]
+    axes:
+      - name: "b2 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: q1_pt
+    input_cols: [q1.pt]
+    axes:
+      - name: "q1 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: q2_pt
+    input_cols: [q2.pt]
+    axes:
+      - name: "q2 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: q3_pt
+    input_cols: [q3.pt]
+    axes:
+      - name: "q3 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: q4_pt
+    input_cols: [q4.pt]
+    axes:
+      - name: "q4 $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: nonh_mother_zero_pt
+    input_cols: [nonh_mother_zero.pt]
+    axes:
+      - name: "nonh_mother_zero $p_{T}$"
+        start: 0
+        stop: 500
+        bins: 30
+        unit: GeV
+  - module_name: SimpleHistogram
+    hist_name: nonh_mother_zero_idx
+    input_cols: [nonh_mother_zero_idx]
+    axes:
+      - name: "$p_{T}$ index of nonh_mother_zero"
+        start: -0.5
+        stop: 6.5
+        bins: 7
+  
+  - module_name: SimpleHistogram
+    hist_name: gen_b_dijet_mass
+    input_cols: [gen_b_dijet.mass]
+    axes:
+      - name: "gen_b_dijet $m_{12}$"
+        start: 0
+        stop: 180
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_onshell_w_mass
+    input_cols: [gen_onshell_w.mass]
+    axes:
+      - name: "gen_onshell_w $m_{12}$"
+        start: 0
+        stop: 100
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_offshell_w_mass
+    input_cols: [gen_offshell_w.mass]
+    axes:
+      - name: "gen_offshell_w $m_{12}$"
+        start: 0
+        stop: 100
+        bins: 20
+  - module_name: SimpleHistogram
+    hist_name: gen_ww_fourjet_mass
+    input_cols: [gen_ww_fourjet.mass]
+    axes:
+      - name: "gen_ww_fourjet $m_{1234}$"
+        start: 0
+        stop: 180
+        bins: 20
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  withHLT_NoSelection:
+    - *withHLT_NoSelection
+    - *genjet_histograms
+    - *genpart_histograms
+
+location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+      - withHLT_NoSelection

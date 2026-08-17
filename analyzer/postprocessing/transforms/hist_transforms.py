@@ -14,6 +14,7 @@ from analyzer.utils.structure_tools import ItemWithMeta, commonDict, addChain
 from attrs import define, field, asdict
 from .registry import TransformHistogram
 
+
 @define
 class SelectAxesValues(TransformHistogram):
     select_axes_values: dict[str, list[int] | list[str] | list[float]]
@@ -22,6 +23,8 @@ class SelectAxesValues(TransformHistogram):
         ret = []
         for item, meta in items:
             h = item.histogram
+            axis_names = [ax.name for ax in h.axes]
+            empty = h.sum().value == 0
             keys_vals = list(self.select_axes_values.items())
             keys, vals = list(zip(*keys_vals))
             # new_axes = [x for x in item.axes if x.name not in select_axes_values]
@@ -32,10 +35,15 @@ class SelectAxesValues(TransformHistogram):
                     {"axis_params": addChain(meta.get("axis_params", {}), u)},
                 )
                 u = dict(zip(keys, [hist.loc(x) for x in p]))
-
+                if empty:
+                    remaining = [n for n in axis_names if n not in keys]
+                    sliced = h.project(*remaining)
+                else:
+                    loc_u = dict(zip(keys, [hist.loc(x) for x in p]))
+                    sliced = h[loc_u]
                 ret.append(
                     ItemWithMeta(
-                        Histogram(name=item.name, axes=[], histogram=h[u]), new_meta
+                        Histogram(name=item.name, axes=[], histogram=sliced), new_meta
                     )
                 )
         return ret
@@ -106,6 +114,7 @@ class SplitAxes(TransformHistogram):
 
         return ret
 
+
 @define
 class SumHistograms(TransformHistogram):
     sum_match_pattern: BasePattern
@@ -135,6 +144,7 @@ class SumHistograms(TransformHistogram):
             )
 
         return ret
+
 
 @define
 class SumSelectionFlow(TransformHistogram):
@@ -303,8 +313,7 @@ class RebinAxes(TransformHistogram):
             else:
                 rebins = {x.name: hist.rebin(self.rebin) for x in h.axes}
             h = h[rebins]
-            provenance = copy.deepcopy(ph.provenance)
-            provenance.axis_params.update(rebins)
+
             newmeta = addChain(
                 meta,
                 {"axis_params": addChain(meta.get("axis_params", {}), rebins)},
@@ -495,4 +504,23 @@ class ABCDTransformer(TransformHistogram):
                 )
             )
 
+        return ret
+
+
+@define
+class SetAxisLabels(TransformHistogram):
+    axis_labels: dict[str, str]  # {axis_name: "New label"}
+
+    def __call__(self, items):
+        ret = []
+        for ph, meta in items:
+            h = ph.histogram
+            for ax_name, new_label in self.axis_labels.items():
+                if ax_name in h.axes.name:
+                    h.axes[ax_name].label = new_label
+            ret.append(
+                ItemWithMeta(
+                    Histogram(name=ph.name, axes=ph.axes, histogram=h), metadata=meta
+                )
+            )
         return ret

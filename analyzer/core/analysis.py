@@ -4,10 +4,13 @@ from analyzer.core.serialization import converter, setupConverter
 
 from analyzer.core.analyzer import Analyzer
 from analyzer.core.executors import Executor
+from analyzer.configuration import CONFIG
+from analyzer.utils.config_loading import loadConfigData
 from analyzer.utils.load import loadModuleFromPath
 from analyzer.utils.querying import Pattern
-from analyzer.utils.yamlload import loadTemplateYaml
 
+
+from analyzer.core.linting import LintConfig
 
 @define
 class DatasetDescription:
@@ -30,16 +33,19 @@ class Analysis:
     extra_dataset_paths: list[str] = field(factory=list)
     extra_era_paths: list[str] = field(factory=list)
     extra_executors: dict[str, Executor] = field(factory=dict)
+    lint_config: LintConfig = field(factory=LintConfig)
 
     location_priorities: list[str] | None = None
 
 
-def loadAnalysis(path):
-    data = loadTemplateYaml(path)
-    from rich import print
-    print(data.keys())
-    # We must first load use provided modules so they are registered
-    # with cattrs before attempting deserialization
+def loadAnalysis(path, variable_name=None):
+    if variable_name is None:
+        variable_name = CONFIG.analysis_var
+    data = loadConfigData(path, variable_name)
+
+    if isinstance(data, Analysis):
+        return data
+
     for path in data.get("extra_module_paths", []):
         from pathlib import Path
 

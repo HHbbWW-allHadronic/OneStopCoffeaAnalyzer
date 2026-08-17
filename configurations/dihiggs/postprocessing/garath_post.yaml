@@ -7,7 +7,7 @@ Postprocessing:
       normalize: False
       show_info: True
       structure:
-        select: {dataset_name: "*", name: "!selection"}
+        select: {dataset_name: "*", name: ["!selection", "!2d_*"]}
         group: {pipeline: "*", era.name: "*", name: "*"}
         transforms:
           - name: SplitAxes
@@ -21,7 +21,7 @@ Postprocessing:
       show_den_unc: False
       scale: linear
       structure:
-        select: {dataset_name: "ggHH2b2V6q*", name: "!selection"}
+        select: {dataset_name: "ggHH2b2V6q*", name: ["!selection", "!2d_*"]}
         group: {era.name: "*", name: "*"}
         subgroups:
           denominator:

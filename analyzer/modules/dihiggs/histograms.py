@@ -1,7 +1,7 @@
 from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 from attrs import define, field, evolve
-from ..common.axis import RegularAxis
+from ..common.axis import RegularAxis, IntCategoryAxis
 from ..common.histogram_builder import makeHistogram
 import awkward as ak
 
@@ -101,12 +101,13 @@ class JetVarRankHistograms(AnalyzerModule):
     second_axes: list[RegularAxis]
         Axes for the second variable to be plotted in 2D histograms.
     max_idx: int
-        Largest jet index to be plotted (default is 6).
+        Maximum number of leading objects for which histograms are
+        produced. Default is 6.
     """
 
     hist_name: str
     input_col: Column
-    axis: RegularAxis
+    axis: RegularAxis | IntCategoryAxis
     second_names: list[str] = []
     second_cols: list[Column] = []
     second_axes: list[RegularAxis] = []

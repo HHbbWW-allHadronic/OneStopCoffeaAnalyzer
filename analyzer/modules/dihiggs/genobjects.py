@@ -367,6 +367,7 @@ class GenQuarkPairDRTable(AnalyzerModule):
     w_col: Column
     genpart_col: Column
     output_col: Column
+    output_col_dr: Column
     b_col: Column | None = None
     mode: str = "min"
     w_mass: float = 80.4
@@ -486,9 +487,16 @@ class GenQuarkPairDRTable(AnalyzerModule):
         else:
             raise ValueError(f"Unknown mode: {self.mode}. Must be 'min' or 'max'.")
 
-        result = np.full(len(quarks), -1, dtype=np.int64)
-        result[ak.to_numpy(has_valid)] = pair_idx
-        columns[self.output_col] = ak.Array(result)
+        # Extract the actual dR value for the winning pair
+        pair_dr_value = dr_values[np.arange(len(dr_values)), pair_idx]
+
+        result_idx = np.full(len(quarks), -1, dtype=np.int64)
+        result_dr = np.full(len(quarks), -1.0, dtype=np.float64)
+        result_idx[ak.to_numpy(has_valid)] = pair_idx
+        result_dr[ak.to_numpy(has_valid)] = pair_dr_value
+
+        columns[self.output_col] = ak.Array(result_idx)
+        columns[self.output_col_dr] = ak.Array(result_dr)
         return columns, []
 
     def inputs(self, metadata):
@@ -526,46 +534,28 @@ def _get_quark_assignments(quarks, ws, genpart, w_mass=80.4):
     has_valid = (ak.num(on_quarks, axis=1) >= 2) & (ak.num(off_quarks, axis=1) >= 2)
     return on_quarks, off_quarks, has_valid
 
-
 @define
-class GenQuarkPairDRHistograms(AnalyzerModule):
+class GenQuarkPairDRByIndex(AnalyzerModule):
     """
-    Computes delta R for all unique pairs of gen quarks and stores
-    the dR values as separate columns for histogramming.
-    If b_col is provided, computes all 15 pairs (6q).
-    If b_col is None, computes only the 6 light quark pairs (4q).
+    For each unique pair index, creates a histogram of the dR value
+    for events where that pair gave the min/max dR.
     Parameters
     ----------
-    q_col : Column
-        Column containing the 4 light quarks (GenPart_4q).
-    w_col : Column
-        Column containing the W bosons (Gen_Ws).
-    genpart_col : Column
-        Column containing the full GenPart collection.
+    idx_col : Column
+        Column containing the per-event pair index.
+    dr_col : Column
+        Column containing the per-event dR value of the winning pair.
     output_prefix : str
-        Prefix for output column names.
-    b_col : Column or None, optional
-        Column containing the 2 b quarks. If provided, all 15 pairs
-        are computed. Default is None.
-    w_mass : float, optional
-        W pole mass in GeV. Default is 80.4.
+        Prefix for output histogram names.
+    n_pairs : int
+        Number of pairs (6 for 4q only, 15 for full 6q).
     """
 
     q_col: Column
     w_col: Column
     genpart_col: Column
     output_prefix: str
-    b_col: Column | None = None
-    w_mass: float = 80.4
-
-    PAIR_NAMES_6 = [
-        "q1q2_same_W_on",
-        "q3q4_same_W_off",
-        "q1q3_cross_W",
-        "q1q4_cross_W",
-        "q2q3_cross_W",
-        "q2q4_cross_W",
-    ]
+    n_pairs: int = 15
 
     PAIR_NAMES_15 = [
         "b1b2",
@@ -585,14 +575,20 @@ class GenQuarkPairDRHistograms(AnalyzerModule):
         "q3q4_same_W_off",
     ]
 
-    def run(self, columns, params):
-        quarks = columns[self.q_col]
-        ws = columns[self.w_col]
-        genpart = columns[self.genpart_col]
+    PAIR_NAMES_6 = [
+        "q1q2_same_W_on",
+        "q3q4_same_W_off",
+        "q1q3_cross_W",
+        "q1q4_cross_W",
+        "q2q3_cross_W",
+        "q2q4_cross_W",
+    ]
 
-        on_quarks, off_quarks, has_valid = _get_quark_assignments(
-            quarks, ws, genpart, self.w_mass
-        )
+    def run(self, columns, params):
+        idx_vals = ak.to_numpy(columns[self.idx_col])
+        dr_vals = ak.to_numpy(columns[self.dr_col])
+
+        pair_names = self.PAIR_NAMES_15 if self.n_pairs == 15 else self.PAIR_NAMES_6
 
         if self.b_col is not None:
             b_quarks = columns[self.b_col]
@@ -651,16 +647,102 @@ class GenQuarkPairDRHistograms(AnalyzerModule):
             result = np.full(len(quarks), -1.0)
             result[ak.to_numpy(has_valid)] = dr
             col = Column((f"{self.output_prefix}_{name}",))
-            columns[col] = ak.Array(result)
+            columns[col] = ak.Array(dr_for_pair)
 
         return columns, []
 
     def inputs(self, metadata):
-        inputs = [self.q_col, self.w_col, self.genpart_col]
-        if self.b_col is not None:
-            inputs.append(self.b_col)
-        return inputs
+        return [self.idx_col, self.dr_col]
 
     def outputs(self, metadata):
         pair_names = self.PAIR_NAMES_15 if self.b_col is not None else self.PAIR_NAMES_6
         return [Column((f"{self.output_prefix}_{name}",)) for name in pair_names]
+
+
+@define
+class JoeHHGenParticles(AnalyzerModule):
+    """
+    This module organizes the gen-level particles for the HH->bbWW analysis.
+    It takes the GenPart collection and produces columns for:
+    - b1, b2: the two b quarks from the Higgs decay
+    - q1, q2: the two quarks from the on-shell W decay
+    - q3, q4: the two quarks from the off-shell W decay
+    - nonh_mother_zero: GenPart with genPartIdxMother == 0 and pdgId != 25
+    - nonh_mother_zero_idx: where the above particle lies with respect to the pt of b1-q4 in the event
+    Parameters
+    ----------
+    input_col: Column
+        Column containing the GenPart collection.
+    output_cols: dict[str, Column]
+        Dictionary mapping particle names to output columns.
+    """
+
+    input_col: Column
+    output_cols: dict[str, Column]
+
+    def run(self, columns, params):
+        gen = columns[self.input_col]
+        mother_zero = gen[gen.genPartIdxMother == 0]
+        nonh_mother_zero = mother_zero[mother_zero.pdgId != 25][:, 0:1]
+
+        def is_higgs_child(gp):
+            parent = gp.distinctParent
+            is_higgs_child = (parent.pdgId == 25) & parent.hasFlags(
+                ["isLastCopy", "fromHardProcess"]
+            )
+            return ak.fill_none(is_higgs_child, False)
+
+        W = gen[
+            (abs(gen.pdgId) == 24)
+            & gen.hasFlags(["isLastCopy", "fromHardProcess"])
+            & is_higgs_child(gen)
+        ]
+        W_mass_ordered = W[ak.argsort(abs(W.mass - 80.36), axis=1, ascending=True)]
+        onshell_W = W_mass_ordered[:, 0]
+        offshell_W = W_mass_ordered[:, 1]
+
+        b = gen[
+            (abs(gen.pdgId) == 5)
+            & gen.hasFlags(["isFirstCopy", "fromHardProcess"])
+            & is_higgs_child(gen)
+        ]
+        onshell_W_children = onshell_W.distinctChildren[
+            onshell_W.distinctChildren.hasFlags(["isFirstCopy", "fromHardProcess"])
+        ]
+        offshell_W_children = offshell_W.distinctChildren[
+            offshell_W.distinctChildren.hasFlags(["isFirstCopy", "fromHardProcess"])
+        ]
+
+        b_pt_ordered = b[ak.argsort(b.pt, axis=1, ascending=False)]
+        onshell_W_children_pt_ordered = onshell_W_children[
+            ak.argsort(onshell_W_children.pt, axis=1, ascending=False)
+        ]
+        offshell_W_children_pt_ordered = offshell_W_children[
+            ak.argsort(offshell_W_children.pt, axis=1, ascending=False)
+        ]
+
+        particles = {
+            "b1": b_pt_ordered[:, 0:1],
+            "b2": b_pt_ordered[:, 1:2],
+            "q1": onshell_W_children_pt_ordered[:, 0:1],
+            "q2": onshell_W_children_pt_ordered[:, 1:2],
+            "q3": offshell_W_children_pt_ordered[:, 0:1],
+            "q4": offshell_W_children_pt_ordered[:, 1:2],
+        }
+
+        nonh_pt = nonh_mother_zero[:, 0].pt
+        nonh_mother_zero_idx = sum(p[:, 0].pt > nonh_pt for p in particles.values())
+
+        outputs = particles | {
+            "nonh_mother_zero": nonh_mother_zero,
+            "nonh_mother_zero_idx": nonh_mother_zero_idx,
+        }
+        for name, col in self.output_cols.items():
+            columns[col] = outputs[name]
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return list(self.output_cols.values())

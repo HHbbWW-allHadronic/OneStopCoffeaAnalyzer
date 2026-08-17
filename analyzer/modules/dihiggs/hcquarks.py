@@ -26,7 +26,7 @@ class HCQuarkMaker(AnalyzerModule):
     -----
     - C-tagging thresholds are loaded from the correction file specified
       in ``metadata["era"]["btag_scale_factors"]["file"]``.
-    - Desired tagger and path to correction thresholds are specified using 
+    - Desired tagger and path to correction thresholds are specified using
       the "tagger" and "correction_name" fields in above metadata path.
     """
 

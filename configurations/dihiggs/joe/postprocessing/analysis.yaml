@@ -28,6 +28,20 @@ Postprocessing:
       structure:
         select: {type: SelectionFlow}
         group: {era.name: "*", pipeline: "*", name: "*", dataset_name: "*"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_cutflow_{dataset_name}.png"
+
+    - name: PlotSelectionFlow
+      inputs:
+        - "*/*/*/*selection"
+      scale: log
+      show_yields: True
+      normalize: True
+      plot_configuration:
+        <<: *default_plot_config
+        extra_text: "{pipeline}"
+      structure:
+        select: {type: SelectionFlow,  dataset_name: "tt*"}
+        group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
           - name: SumSelectionFlow
             sum_match_pattern: {dataset_name: "tt*"}
@@ -46,7 +60,7 @@ Postprocessing:
         <<: *default_plot_config
         extra_text: "{pipeline}"
       structure:
-        select: {type: SelectionFlow, sample_type: "MC", dataset_name : "!ggHH2b2V6q"}
+        select: {type: SelectionFlow, sample_type: "MC", dataset_name : "!ggHH2b2V6q*"}
         group: {era.name: "*", pipeline: "*", name: "*"}
         transforms:
          - name: SumSelectionFlow
@@ -72,11 +86,29 @@ Postprocessing:
         transforms:
           - name: SelectAxesValues
             select_axes_values: {"variation": "central"}
+      output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
+
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/*2d*"
+      scale: log
+      normalize: False
+      style_set: *default_style_set
+      plot_configuration:
+        cms_text_color: "black"
+        <<: *default_plot_config
+        extra_text: "{dataset_title}"
+      structure:
+        select: {dataset_name: "tt*"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
           - name: SumHistograms
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
 
     - name: Histogram1D
@@ -99,15 +131,76 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: False
+      plot_configuration:
+        <<: *default_plot_config
+        x_label: "Jet Combo $m$ [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          name: "re:^(nontop2b_threejet_mass|nontop2b_fourjet_mass)$"
+        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_threejet"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_fourjet_mass"}
+            new_meta_fields:
+              title: "nontop2b_fourjet"
+      output_name: "plots/{era.name}/{pipeline}/signal_4jv3j_mass.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: False
+      plot_configuration:
+        <<: *default_plot_config
+        x_label: "Jet Combo $m$ [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          name: "re:^(nontop2b_threejet_mass|nontop2b_qvg_threejet_mass)$"
+        group: {era.name: "*", pipeline: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_threejet"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nontop2b_qvg_threejet_mass"}
+            new_meta_fields:
+              title: "nontop2b_qvg_threejet"
+      output_name: "plots/{era.name}/{pipeline}/signal_3jv3jqvg_mass.png"
 
     - name: RatioPlot
       inputs:
         - "*/*/*/b_dijet_mass"
         - "*/*/*/nontop2b_fourjet_mass"
         - "*/*/*/nontop2b_threejet_mass"
+        - "*/*/*/nontop2b_qvg_threejet_mass"
+        - "*/*/*/nontop2b_qvg_fourjet_mass"
         - "*/*/*/JetN"
+        - "*/*/*/HWW_SPANet_mass"
+        - "*/*/*/Hbb_SPANet_mass"
+        - "*/*/*/HW_SPANet_mass"
       ratio_type: "significance"
       show_den_unc: True
       scale: log
@@ -131,8 +224,38 @@ Postprocessing:
             sum_match_pattern: {dataset_name: "tt*"}
             new_meta_fields:
               dataset_name: "tt"
-              title: "$t\\overline{t}$"
+              dataset_title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/significance_{name}.png"
+
+    - name: RatioPlot2D
+      inputs:
+        - "*/*/*/dijet_qvg_threejet_m2d"
+        - "*/*/*/dijet_threejet_m2d"
+        - "*/*/*/dijet_qvg_fourjet_m2d"
+        - "*/*/*/dijet_fourjet_m2d"
+        - "*/*/*/spanet_m2d"
+      ratio_type: "significance"
+      scale: linear
+      plot_configuration:
+        <<: *default_plot_config
+        cms_text_color: "white"
+      structure:
+        select: {dataset_name: "*", name: "*", pipeline: "*", sample_type: "MC"}
+        group: {era.name: "*", name: "*", pipeline: "*"}
+        subgroups:
+          denominator:
+            select: {dataset_name: "!ggHH2b2V6q*"}
+          numerator:
+            select: {dataset_name: "ggHH2b2V6q*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              dataset_title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/significance2d_{name}.png"
 
     - name: RatioPlot
       inputs:
@@ -228,6 +351,7 @@ Postprocessing:
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef1/trigger_eff_{name}.png"
+
 
     - name: CutflowTable
       output_name: signal_yield

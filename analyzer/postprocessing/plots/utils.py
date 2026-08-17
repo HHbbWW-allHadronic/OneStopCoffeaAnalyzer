@@ -71,6 +71,7 @@ def saveFigVariants(
     metadata=None,
     extra_text=None,
     text_color=None,
+    scale_yaxis=False,
     **save_kwargs,
 ):
 
@@ -87,13 +88,18 @@ def saveFigVariants(
     base_path = Path(out)
     base_path.parent.mkdir(exist_ok=True, parents=True)
 
+    baseline_ylim = ax.get_ylim()
     for variant in cms_texts:
         variant_pc = copy.copy(pc)
         variant_pc.cms_text = variant
 
         removeCMSAnnotations(ax)
         pc_extra = getattr(pc, "extra_text", None)
-        extra = extra_text if pc_extra is None else f"{extra_text}\n{pc_extra}"
+        extra = (
+            extra_text
+            if pc_extra is None
+            else pc_extra if extra_text is None else f"{extra_text}\n{pc_extra}"
+        )
         addCMSBits(
             ax,
             all_meta,
@@ -101,6 +107,9 @@ def saveFigVariants(
             text_color=text_color,
             plot_configuration=variant_pc,
         )
+        if scale_yaxis:
+            ax.set_ylim(baseline_ylim)
+            scaleYAxis(ax)
 
         text_suffix = f"_{variant.lower().replace(' ', '_')}" if suffix_text else ""
         for ext in extensions:

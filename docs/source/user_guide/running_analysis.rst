@@ -12,7 +12,7 @@ Development Workflow
 The recommended workflow for developing an analysis is:
 
 1. **Test Locally**: Run on a single dataset with a small event count to verify your pipeline works.
-2. **Go to production**: Switch to a distributed executor for full processing.
+2. **Run Distributedly**: Switch to a distributed executor for full processing, currently we have only an HTCondor based executor, but any system supported by dask could be easily added.
 3. **Check and patch**: Verify completeness and reprocess any failures.
 4. **Postprocess and Plot**: Run postprocessing to produce plots and tables.
 
@@ -28,14 +28,17 @@ Use the :class:`~analyzer.core.executors.immediate_exec.ImmediateExecutor` with 
 
     ./osca run -e imm-10000 \
       --max-sample-events 10000 \
-      --filter-dataset 'qcd_ht_2018' \
+      --filter-dataset 'qcd*2018*' \
       config/analysis.yaml test_output/
 
 This runs a single dataset locally, processing at most 10000 events.
 It is fast and lets you use standard Python debugging tools, such as breakpoints.
 
+.. note::
+   The configuration file can be either a ``.yaml`` file or a Python script (``.py``). The examples below use ``.yaml``, but the exact same commands apply when using Python configurations (e.g., ``config/analysis.py``).
+
 .. tip::
-   When developing, add ``--log-level DEBUG`` to see detailed information about module execution, caching, and parameter resolution.
+   When developing, add ``--log-level DEBUG`` to see (very) detailed information about module execution, caching, and parameter resolution.
 
 
 Step 2: Larger Local Test
@@ -49,6 +52,7 @@ Increase the event count and use the local Dask executor:
       --max-sample-events 100000 \
       config/analysis.yaml local_output/
 
+This can also help weed out rarer issues related to dask (often arising from pickling problem, such as insufficient brine, lack of salinity, etc).
 
 Step 3: Production
 ^^^^^^^^^^^^^^^^^^
@@ -66,7 +70,7 @@ This distributes work across many workers using dask-condor.
 Step 4: Check Completeness
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-After a production run, check that all samples were fully processed:
+After things are done, check that all samples were fully processed:
 
 .. code-block:: bash
 
@@ -89,6 +93,19 @@ If some samples are incomplete, use ``patch`` to reprocess only the missing port
 
 The ``patch`` command reads the provenance from existing result files, determines which file chunks are missing, and submits only those for processing.
 The new results are written alongside the existing ones.
+
+.. note::
+
+    Generally you do not need to actually have 100% completion. 
+    As long as your histograms have a sufficient sample size to avoid weird statistical effects, you should be ok.
+
+
+
+.. tip::
+
+    You can use different executors for patching.
+    For example, if you just need to do a few jobs, you may not need the full condor excecutor.
+    However, the chunk size should be kept the same.
 
 
 Step 6: Postprocess

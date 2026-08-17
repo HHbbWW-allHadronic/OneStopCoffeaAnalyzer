@@ -401,6 +401,30 @@ class JetFilter(AnalyzerModule):
     include_pu_id: bool = False
     include_jet_id: bool = False
 
+    def lint(self):
+        from analyzer.core.linting import LintLevel, LintMessage
+        
+        messages = []
+        if self.min_pt is not None and self.min_pt < 15:
+            messages.append(
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="JetKinematics",
+                    message=f"Unusually low jet pt cut: {self.min_pt} GeV.",
+                    module_name=self.name()
+                )
+            )
+        if self.max_abs_eta is not None and self.max_abs_eta > 5.0:
+            messages.append(
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="JetKinematics",
+                    message=f"Unusually high jet eta cut: {self.max_abs_eta}.",
+                    module_name=self.name()
+                )
+            )
+        return messages
+
     def run(self, columns, params):
         metadata = columns.metadata
         jets = columns[self.input_col]

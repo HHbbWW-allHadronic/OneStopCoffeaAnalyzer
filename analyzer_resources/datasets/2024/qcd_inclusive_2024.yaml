@@ -6,62 +6,62 @@
     nanoversion: "V15"
   samples:
   - name: QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8
-    n_events: 99957718
+    n_events: 99984691
     das_path: /QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 885700000000.0
   - name: QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8
-    n_events: 99971608
+    n_events: 99972336
     das_path: /QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 415700000000.0
   - name: QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8
-    n_events: 99979672
+    n_events: 99983302 
     das_path: /QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 112300000000.0
   - name: QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8
-    n_events: 97812072
+    n_events: 97814968
     das_path: /QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 16730000000.0
   - name: QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8
-    n_events: 99260672
+    n_events: 99244066
     das_path: /QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 2506000000.0
   - name: QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8
-    n_events: 99962664
+    n_events: 99956202 
     das_path: /QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 439800000.0
   - name: QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8
-    n_events: 99975045
+    n_events: 99860965 
     das_path: /QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 113300000.0
   - name: QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8
-    n_events: 79719012
+    n_events: 79821382
     das_path: /QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 7581000.0
   - name: QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8
-    n_events: 77533268
+    n_events: 77529080 
     das_path: /QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 623300.0
   - name: QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8
-    n_events: 79706438
+    n_events: 79708520 
     das_path: /QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 178700.0
   - name: QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8
-    n_events: 79505640
+    n_events: 79505640 
     das_path: /QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 30620.0
   - name: QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8
-    n_events: 79974618
+    n_events: 79974618 
     das_path: /QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 9306.0
   - name: QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8
-    n_events: 19969715
+    n_events: 19997308 
     das_path: /QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 501.5
   - name: QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8
-    n_events: 19316380
+    n_events: 19311060
     das_path: /QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 42.64
   - name: QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8
-    n_events: 19996070
+    n_events: 19996725 
     das_path: /QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8/RunIII2024Summer24NanoAODv15-150X_mcRun3_2024_realistic_v2-v2/NANOAODSIM
     x_sec: 4.454

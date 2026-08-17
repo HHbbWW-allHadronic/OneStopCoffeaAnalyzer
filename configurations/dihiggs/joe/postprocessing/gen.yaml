@@ -1,0 +1,87 @@
+Postprocessing:
+  default_plot_config: &default_plot_config
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1
+  default_style_set: &default_style_set
+    styles:
+      - pattern:
+          dataset_name: 'data*'
+        style:
+          plottype: errorbar
+          color: black
+          linestyle: null
+          marker: 'o'
+
+
+  processors:
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      normalize: True
+      show_info: False
+      style_set: *default_style_set
+      plot_configuration:
+        <<: *default_plot_config
+        y_label: "Normalized Events"
+      structure:
+        select: {name: "re:^(?!.*selection$|all_triggers$|.*2d).*"}
+        group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              dataset_title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      normalize: True
+      show_info: False
+      style_set: *default_style_set
+      plot_configuration:
+        <<: *default_plot_config
+        y_label: "Normalized Events"
+        x_label: "GenPart $p_T$ [GeV]"
+        x_max: 250
+        y_max: 0.04
+      structure:
+        select: {name: "re:\\b(q[1-4]|b[1-2]|nonh_mother_zero)_pt\\b"}
+        group: {pipeline: "*", era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {name: "b1_pt"}
+            new_meta_fields:
+              title: "b1"
+          - name: SumHistograms
+            sum_match_pattern: {name: "b2_pt"}
+            new_meta_fields:
+              title: "b2"
+          - name: SumHistograms
+            sum_match_pattern: {name: "q1_pt"}
+            new_meta_fields:
+              title: "q1"
+          - name: SumHistograms
+            sum_match_pattern: {name: "q2_pt"}
+            new_meta_fields:
+              title: "q2"
+          - name: SumHistograms
+            sum_match_pattern: {name: "q3_pt"}
+            new_meta_fields:
+              title: "q3"
+          - name: SumHistograms
+            sum_match_pattern: {name: "q4_pt"}
+            new_meta_fields:
+              title: "q4"
+          - name: SumHistograms
+            sum_match_pattern: {name: "nonh_mother_zero_pt"}
+            new_meta_fields:
+              title: "nonh_mother_zero"
+      output_name: "plots/{era.name}/{pipeline}/genpart_pts"

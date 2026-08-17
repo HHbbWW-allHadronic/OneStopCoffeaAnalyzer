@@ -158,11 +158,11 @@ wheels = [
 
 [[package]]
 name = "astroid"
-version = "4.1.2"
+version = "4.3.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/da/fd/24475b7cfb70298e8921bc077adb46a3fe77887422545d8a061573e130ee/astroid-4.1.2.tar.gz", hash = "sha256:d6c4a52bfcda4bbeb7359dead642b0248b90f7d9a07e690230bd86fefd6d37f1", size = 414896, upload-time = "2026-03-22T19:16:42.075Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/a0/fc1c9f396c354456d859eb09fa13186bda34cb5b000f47a7103fcf84fe66/astroid-4.3.0.tar.gz", hash = "sha256:2b5b5048d6edc40e748e2728790e444b81c3d358e19cc89db6e973236192362f", size = 438804, upload-time = "2026-08-07T20:28:28.363Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/97/4ee9b0438e85bf0a808a89ef0be357319252ab27e1b313ae0aef7aeaa5a6/astroid-4.1.2-py3-none-any.whl", hash = "sha256:21312e682c0866dc5a309ee57e4b88ea92751b9955a58b1c31371cbbeb088707", size = 279956, upload-time = "2026-03-22T19:16:40.062Z" },
+    { url = "https://files.pythonhosted.org/packages/00/0a/f277a39699ac334e332c991b6ce9e47a30bb2bdac6d2141fdbd2d39835a9/astroid-4.3.0-py3-none-any.whl", hash = "sha256:47f329c1f4709c479f84f824c4f3a132816603a749cd4aa6ee9030e69951491a", size = 286532, upload-time = "2026-08-07T20:28:26.602Z" },
 ]
 
 [[package]]
@@ -408,7 +408,7 @@ wheels = [
 
 [[package]]
 name = "coffea"
-version = "2026.5.0"
+version = "2026.7.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiohttp" },
@@ -416,9 +416,6 @@ dependencies = [
     { name = "cachetools" },
     { name = "cloudpickle" },
     { name = "correctionlib" },
-    { name = "dask", extra = ["array"] },
-    { name = "dask-awkward" },
-    { name = "dask-histogram" },
     { name = "fsspec" },
     { name = "hist" },
     { name = "ipywidgets" },
@@ -440,12 +437,21 @@ dependencies = [
     { name = "uproot" },
     { name = "vector" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cf/99/d42f57bf88cd7b03935aee949dda9c86550d8bcc88488e15804fe4efc422/coffea-2026.5.0.tar.gz", hash = "sha256:1bcee0c4fefb05a1a7e1942dca71c14d2715fa2eaa558ab540d55f36d85545db", size = 27629005, upload-time = "2026-05-25T08:08:40.991Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/89/19/4567450f8593e6293c601d08a6dae30f5f6d97bfc5849f7f6c9692fc6000/coffea-2026.7.0.tar.gz", hash = "sha256:2d4850edf1447e7d4e5c29d181b7e241ff7a56ddee235e4b059a7516c69c5a6a", size = 27719400, upload-time = "2026-07-06T19:13:35.207Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9c/e3/4c603b753613f9c1abde16de325d401093b33ae008d00f3c37ab636c6fc2/coffea-2026.5.0-py3-none-any.whl", hash = "sha256:355d0b94bde3bf42f2439769d7447d1599f33eeb59d5f9e0d130224758a9d0d1", size = 309170, upload-time = "2026-05-25T08:08:37.272Z" },
+    { url = "https://files.pythonhosted.org/packages/ea/4d/5f0e2af635e623bef6ed56190b45267f43aac7c24893505582f9e4b6d992/coffea-2026.7.0-py3-none-any.whl", hash = "sha256:a36244e7a55e8132db1739991ab95084d2fa0b738e53021fc1f44c1fe83816b3", size = 317286, upload-time = "2026-07-06T19:13:33.428Z" },
 ]
 
 [package.optional-dependencies]
+dask = [
+    { name = "bokeh" },
+    { name = "dask", extra = ["dataframe"] },
+    { name = "distributed" },
+]
+dask-awkward = [
+    { name = "dask-awkward" },
+    { name = "dask-histogram" },
+]
 rucio = [
     { name = "rucio-clients" },
 ]
@@ -565,8 +571,10 @@ wheels = [
 ]
 
 [package.optional-dependencies]
-array = [
+dataframe = [
     { name = "numpy" },
+    { name = "pandas" },
+    { name = "pyarrow" },
 ]
 
 [[package]]
@@ -1799,7 +1807,7 @@ dependencies = [
     { name = "cattrs" },
     { name = "click" },
     { name = "cloudpickle" },
-    { name = "coffea", extra = ["rucio", "xrootd"] },
+    { name = "coffea", extra = ["dask", "dask-awkward", "rucio", "xrootd"] },
     { name = "dask" },
     { name = "diskcache" },
     { name = "distributed" },
@@ -1854,7 +1862,7 @@ requires-dist = [
     { name = "cattrs", specifier = ">=25.3.0" },
     { name = "click", specifier = ">=8.3.0" },
     { name = "cloudpickle", specifier = ">=3.1.2" },
-    { name = "coffea", extras = ["xrootd", "rucio"], specifier = ">=2026.5.0" },
+    { name = "coffea", extras = ["xrootd", "dask", "dask-awkward", "rucio"], specifier = ">=2026.7.0" },
     { name = "dask", specifier = ">=2025.3.0" },
     { name = "diskcache", specifier = ">=5.6.3" },
     { name = "distributed", specifier = ">=2025.3.0" },
