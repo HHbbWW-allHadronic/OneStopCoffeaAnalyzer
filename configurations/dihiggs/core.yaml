@@ -90,6 +90,7 @@ common_objects: &common_objects
     input_col: goodJet
     output_col: MedC
     working_point: M
+    notc_col: notC_med
     nontop2b: True
     nontop2b_col: nontop2c_med
 
@@ -97,6 +98,7 @@ common_objects: &common_objects
     input_col: goodJet
     output_col: TightC
     working_point: T
+    notc_col: notC_tight
     nontop2b: True
     nontop2b_col: nontop2c_tight
 
@@ -308,35 +310,217 @@ fivejet_tightb_selection: &fivejet_tightb_selection
     selection_name: 2b
     min_count: 2
 
+
+
+
+tightlep_2medc_selection: &tightlep_2medc_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedC
+    selection_name: 2c
+    min_count: 2
+    
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+tightlep_1medc_selection: &tightlep_1medc_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedC
+    selection_name: 1c
+    min_count: 1
+    max_count: 1
+ 
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+
+
+
 medb_obj: &medb_obj
   - module_name: JetCombos
     input_cols:
       - MedB
       - nontop2b_med
-      - nontop2b_med
     jet_combos:
-      - [0, 1]
-      - [0, 1, 2, 3]
-      - [0, 1, 2]
+      - {0: [0, 1]}
+      - {1: [0, 1, 2, 3]}
+      - {1: [0, 1, 2]}
     output_cols:
       - "b_dijet"
       - "nontop2b_fourjet"
       - "nontop2b_threejet"
+
+  - module_name: JetCombos
+    input_cols:
+      - nontop2b_med
+    order_by:
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0, 1, 2, 3]}
+      - {0: [0, 1, 2]}
+    output_cols:
+      - "nontop2b_qvg_fourjet"
+      - "nontop2b_qvg_threejet"
+
+
+
+
+
+
+medc_obj: &medc_obj
+  - module_name: JetCombos
+    input_cols:
+      - MedC
+      - notC_med
+    jet_combos:
+      - {0: [0, 1]}         
+      - {1: [0, 1, 2, 3]}    
+      - {1: [0, 1, 2]}       
+    output_cols:
+      - "c_dijet"
+      - "notc_fourjet"
+      - "notc_threejet"
+
+  - module_name: JetCombos
+    input_cols:
+      - notC_med
+    order_by:
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0, 1, 2, 3]}   
+      - {0: [0, 1, 2]}       
+    output_cols:
+      - "notc_qvg_fourjet"
+      - "notc_qvg_threejet"
+
+
+
 
 tightb_obj: &tightb_obj
     - module_name: JetCombos
       input_cols:
         - TightB
         - nontop2b_tight
-        - nontop2b_tight
       jet_combos:
-        - [0, 1]
-        - [0, 1, 2, 3]
-        - [0, 1, 2]
+        - {0: [0, 1]}
+        - {1: [0, 1, 2, 3]}
+        - {1: [0, 1, 2]}
       output_cols:
         - "b_dijet"
         - "nontop2b_fourjet"
         - "nontop2b_threejet"
+
+    - module_name: JetCombos
+      input_cols:
+        - nontop2b_tight
+      order_by:
+        - btagPNetQvG
+      jet_combos:
+        - {0: [0, 1, 2, 3]}
+        - {0: [0, 1, 2]}
+      output_cols:
+        - "nontop2b_qvg_fourjet"
+        - "nontop2b_qvg_threejet"
+
+
+
+1c_medc_obj: &1c_medc_obj
+
+  - module_name: JetCombos
+    input_cols:
+      - MedC
+      - notC_med
+    order_by:
+      - pt
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0], 1:[0,1,2]}         
+      - {0: [0], 1:[0,1]}    
+    output_cols:
+      - "c_nonc_4jet"
+      - "c_nonc_3jet"
+
+
+
+2c_medc_obj: &2c_medc_obj
+
+  - module_name: JetCombos
+    input_cols:
+      - MedC
+      - notC_med
+    order_by:
+      - pt
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0,1], 1:[0,1]}         
+      - {0: [0,1], 1:[0]}    
+    output_cols:
+      - "c_nonc_4jet"
+      - "c_nonc_3jet"
+
+withHLT_ObjDef13: &withHLT_ObjDef13
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_2medc_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *2c_medc_obj
+  - *medb_obj
+
+withHLT_ObjDef14: &withHLT_ObjDef14
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_1medc_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *1c_medc_obj
+  - *medb_obj
+
+
+
 
 withHLT_ObjDef6: &withHLT_ObjDef6
   - *common_objects

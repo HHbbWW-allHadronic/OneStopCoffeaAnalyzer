@@ -36,7 +36,8 @@ class Analysis:
 
 def loadAnalysis(path):
     data = loadTemplateYaml(path)
-
+    from rich import print
+    print(data.keys())
     # We must first load use provided modules so they are registered
     # with cattrs before attempting deserialization
     for path in data.get("extra_module_paths", []):

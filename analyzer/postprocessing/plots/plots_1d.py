@@ -797,3 +797,142 @@ def plotModel(
         metadata=common_meta,
     )
     plt.close(fig)
+
+import matplotlib.pyplot as plt
+
+def plotEfficiency(
+    denominator,
+    numerators,
+    output_path,
+    style_set,
+    normalize=False,
+    ratio_ylim=(0, 0.3),  # Desired max y-limit
+    ratio_type="efficiency",
+    scale="linear",
+    plot_configuration=None,
+    no_stack=False,
+    ratio_hlines=(),
+    ratio_height=0.3,
+    show_errorbars=False,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+
+    # 1. Create a dummy top axis (hidden) and ratio_ax for the main plot
+    fig, (ax_dummy, ratio_ax) = plt.subplots(
+        2, 1, figsize=(8, 6), gridspec_kw={"height_ratios": [0.001, 1]}
+    )
+    ax_dummy.set_visible(False)
+
+    den_hist0 = denominator[0].item.histogram
+    x_values = den_hist0.axes[0].centers
+    left_edge = den_hist0.axes.edges[0][0]
+    right_edge = den_hist0.axes.edges[-1][-1]
+
+    ratio_func = computeSignificance if ratio_type == "significance" else computeRatio
+
+    # 2. Map denominators by dataset_name so each sample is divided ONLY by itself
+    den_by_dataset = {}
+    for d in denominator:
+        if hasattr(d, "metadata") and "dataset_name" in d.metadata:
+            den_by_dataset[d.metadata["dataset_name"]] = d
+
+    # 3. Plot efficiency per dataset sample
+    for i, num in enumerate(numerators):
+        ds_name = num.metadata.get("dataset_name") if hasattr(num, "metadata") else None
+        den = den_by_dataset.get(ds_name, denominator[i] if i < len(denominator) else None)
+        if den is None:
+            continue
+
+        den_hist = den.item.histogram if hasattr(den, "item") and hasattr(den.item, "histogram") else den.item
+        # Temporary sanity print
+        num_vals = num.item.histogram.values()
+        den_vals = den_hist.values()
+        eff_vals = num_vals / den_vals
+    
+        print(f"Dataset: {ds_name}")
+        print(f"Numerator (Pass)   : {num_vals}")
+        print(f"Denominator (Total): {den_vals}")
+        print(f"Calculated Ratio   : {eff_vals}")
+        plotMultiNumerators(
+            ax_dummy,
+            ratio_ax,
+            [num],
+            den_hist,
+            styler,
+            normalize=normalize,
+            ratio_type=ratio_type,
+            x_values=x_values,
+            ratio_func=ratio_func,
+        )
+
+    # 4. REMOVE the hatched band at y=1.0 drawn by plotMultiNumerators
+    for col in list(ratio_ax.collections):
+        if col.get_hatch():
+            col.remove()
+    for patch in list(ratio_ax.patches):
+        if patch.get_hatch():
+            patch.remove()
+
+    # 5. Remove error bar vertical lines and caps if desired
+    if not show_errorbars:
+        for container in ratio_ax.containers:
+            if hasattr(container, "lines") and len(container.lines) > 1:
+                for cap in container.lines[1]:
+                    cap.set_visible(False)
+                for bar in container.lines[2]:
+                    bar.set_visible(False)
+
+    # 6. Axes formatting & DISABLE AUTOSCALE so framework can't override limits
+    for y in ratio_hlines:
+        ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
+
+    ratio_ax.set_xlim(left_edge, right_edge)
+    
+    # Lock y-limits directly
+    ratio_ax.set_autoscale_on(False)
+    ratio_ax.set_ylim(ratio_ylim[0], ratio_ylim[1])
+
+    rylabel = "Significance" if ratio_type == "significance" else "c-Tag Efficiency"
+    ratio_ax.set_ylabel(rylabel)
+
+    labelAxis(ratio_ax, "x", den_hist0.axes)
+
+    # 7. Harvest legend handles & labels
+    handles_dummy, labels_dummy = ax_dummy.get_legend_handles_labels()
+    handles_ratio, labels_ratio = ratio_ax.get_legend_handles_labels()
+
+    all_handles = handles_dummy + handles_ratio
+    all_labels = labels_dummy + labels_ratio
+
+    by_label = {}
+    for h, l in zip(all_handles, all_labels):
+        if l and not l.startswith("_") and l not in by_label:
+            by_label[l] = h
+
+    if by_label:
+        ratio_ax.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper right",
+            frameon=False,
+        )
+    else:
+        addLegend(ratio_ax, pc)
+
+    # Re-enforce y-limits one last time before saving
+    ratio_ax.set_ylim(ratio_ylim[0], ratio_ylim[1])
+
+    # 8. Save figure
+    all_meta = [x.metadata for x in numerators] + [x.metadata for x in denominator]
+    common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
+
+    saveFigVariants(
+        fig,
+        ratio_ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
+    plt.close(fig)

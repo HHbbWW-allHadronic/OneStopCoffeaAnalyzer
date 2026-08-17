@@ -965,3 +965,46 @@ class PileupJetIdSF(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Column(("Weights", self.weight_name))]
+
+
+@define
+class JetIndexPass2D(AnalyzerModule):
+    """2D histogram of Jet Rank/Index vs Pass/Fail Flag."""
+
+    mask_input: Column
+    prefix: str
+    max_rank: int = 10
+
+    def run(self, columns, params):
+        mask = columns[self.mask_input]
+        
+        
+        rank = ak.local_index(mask, axis=1)
+
+        hist = makeHistogram(
+            f"{self.prefix}C_by_rank",
+            columns,
+            [
+                RegularAxis(
+                    self.max_rank,
+                    0,
+                    self.max_rank,
+                    r"Jet Rank",
+                ),
+                RegularAxis(
+                    2,
+                    -0.5,
+                    1.5,
+                    r"Pass Flag",
+                ),
+            ],
+            [rank, mask],  
+        )
+
+        return columns, [hist]
+
+    def inputs(self, metadata):
+        return [self.mask_input]
+
+    def outputs(self, metadata):
+        return []

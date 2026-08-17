@@ -32,6 +32,7 @@ class HCQuarkMaker(AnalyzerModule):
 
     input_col: Column
     output_col: Column
+    notc_col: Column
     working_point: str                        # Mandatory: No default
     __corrections: dict = field(factory=dict)
 
@@ -41,8 +42,12 @@ class HCQuarkMaker(AnalyzerModule):
         mask1 = jets[taggers["CvB"]] > wps["CvB"][self.working_point]
         mask2 = jets[taggers["CvL"]] > wps["CvL"][self.working_point]
         mask = mask1&mask2
+        notmask= ~mask 
         jets["isMedC"] = ak.values_astype(mask, "float64")
+        jets["NotMedC"] = ak.values_astype(notmask, "float64")
         bjets = jets[mask]
+        notbjets = jets[notmask]
+        columns[self.notc_col] = notbjets
         columns[self.output_col] = bjets
         
         return columns, []
@@ -68,13 +73,10 @@ class HCQuarkMaker(AnalyzerModule):
         return [self.input_col]
 
     def outputs(self, metadata):
-        return [self.output_col]
-
-
-
-
-
-
+        cols = [self.output_col]
+        if getattr(self, "notc_col", None):
+            cols.append(self.notc_col)
+        return cols
 
 
 
@@ -105,3 +107,5 @@ class FractionHC(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+

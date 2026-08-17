@@ -127,7 +127,6 @@ def loadPostprocessor(path):
     loadStyles()
 
     data = loadTemplateYaml(path)
-
     if "Postprocessing" in data:
         data = data["Postprocessing"]
 
