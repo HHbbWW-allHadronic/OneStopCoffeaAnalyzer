@@ -104,8 +104,6 @@ class ABCDiHiggsInference(AnalyzerModule):
         return [self.jet_col] + self.global_cols
 
 
-"""SPANet HH->bbWW(+ISR) jet-assignment inference."""
-
 _BEHAVIOR = coffea_vector.behavior
 _ASSIGN_SUFFIX = "_assignment_probability"
 
