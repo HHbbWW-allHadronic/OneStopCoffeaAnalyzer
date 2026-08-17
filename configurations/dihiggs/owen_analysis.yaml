@@ -1,31 +1,22 @@
 {% import 'core.yaml' as core %}
 
 {%- macro signalmc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - withHLT_ObjDef3
-      - withHLT_ObjDef4
+
+      - withHLT_ObjDef13
+      - withHLT_ObjDef14
 {%- endmacro %}
 
 {%- macro mc_pipelines() %}
-      - withHLT_NoSelection
-      - NoSelection
-      - withHLT_ObjDef1
-      - noHLT_ObjDef1
-      - withHLT_ObjDef2
-      - withHLT_ObjDef3
-      - withHLT_ObjDef4
+
+      - withHLT_ObjDef13
+      - withHLT_ObjDef14
 {%- endmacro %}
 
 {%- macro data_pipelines() %}
-      - withHLT_NoSelection
-      - withHLT_ObjDef1
-      - withHLT_ObjDef2
-      - withHLT_ObjDef3
-      - withHLT_ObjDef4
+
+
+      - withHLT_ObjDef13
+      - withHLT_ObjDef14
 {%- endmacro %}
 
 
@@ -65,6 +56,12 @@ common_histograms: &common_histograms
     input_col: MedC
     hist_name: MedC
 
+  - module_name: HCQuarkMaker
+    input_col: goodJet
+    output_col: MedC
+    notc_col: notC_med
+    output_mask_col: goodJet.isMedC
+    working_point: "M"
 
 
   - module_name: SimpleHistogram
@@ -76,20 +73,59 @@ common_histograms: &common_histograms
         stop: 13.5
         bins: 14
 
+
   - module_name: JetVarRankHistograms
-    hist_name: MedC_pt
-    input_col: MedC.pt 
-    axis: 
-      name: "$Pt_{c}$"
-      start: 0
-      stop: 1000
-      bins: 20
+    hist_name: Jet_isMedC_Ranked
+    input_col: goodJet.isMedC
+    axis:
+      name: "Is C-Jet_{idx}"
+      start: -0.5
+      stop: 1.5
+      bins: 2
+
+
+  - module_name: FractionHC
+    input_col_num: NMedC
+    input_col_den: NJet
+    output_col: MyFractionCol
+ 
+  - module_name: SimpleHistogram
+    hist_name: FractionofC
+    input_cols: [MyFractionCol]
+    axes:
+      - name: "$Frac_{c}$"
+        start: 0
+        stop: 1
+        bins: 10
+
+#  - module_name: JetVarRankHistograms
+#    hist_name: MedC_pt
+#    input_col: MedC.pt 
+#    axis: 
+#      name: "Jet $Pt_{c,idx}$"
+#      start: 0
+#      stop: 1000
+#      bins: 20
+
+
+  - module_name: FourVecHistograms
+    input_col: TightC
+    hist_name: TightC
+
+  - module_name: SimpleHistogram
+    hist_name: TightCN
+    input_cols: [NTightC]
+    axes:
+      - name: "$N_{b}$"
+        start: -0.5
+        stop: 13.5
+        bins: 14
 
   - module_name: JetVarRankHistograms
     hist_name: gJetCvsBtag
     input_col: goodJet.btagUParTAK4CvB
     axis:
-      name: "Jet CvsB Score"
+      name: "Jet $CvsB Score_{idx}$"
       start: 0
       stop: 1
       bins: 20
@@ -98,26 +134,49 @@ common_histograms: &common_histograms
     hist_name: JetCvsLtag
     input_col: goodJet.btagUParTAK4CvL
     axis:
-      name: "Jet CvsL Score"
+      name: "Jet $CvsL Score_{idx}$"
       start: 0
       stop: 1
       bins: 20
 
+  - module_name: FourVecHistograms
+    input_col: nontop2b_qvg_threejet
+    hist_name: nontop2b_qvg_threejet
+    mass_axis:
+      name: "nontop2b_qvg_threejet $m_{123}$"
+      start: 0
+      stop: 500
+      bins: 20
+      unit: "GeV"
+
+  - module_name: FourVecHistograms
+    input_col: c_nonc_4jet
+    hist_name: c_nonc_4jet
+    mass_axis:
+      name: "cnotc_qvg_fourjet $m$"
+      start: 0
+      stop: 500
+      bins: 20
+      unit: "GeV"
 
 
 
-
-
+  - module_name: FourVecHistograms
+    input_col: c_nonc_3jet
+    hist_name: c_nonc_3jet
+    mass_axis:
+      name: "cnotc_qvg_threejet $m$"
+      start: 0
+      stop: 500
+      bins: 20
+      unit: "GeV"
 
 {{ core.objects() }}
 {{ core.regions() }}
 
 analyzer:
   default_run_builder:
-    strategy_name: MultiRunBuilder
-    components:
-      - strategy_name: NoSystematics
-      - strategy_name: UnscaledOnly
+    strategy_name: NoSystematics
 
   withHLT_NoSelection:
     - *withHLT_NoSelection
@@ -148,24 +207,18 @@ analyzer:
     - *common_histograms 
 
 
+  withHLT_ObjDef13:
+    - *withHLT_ObjDef13
+    - *common_histograms
 
+  withHLT_ObjDef14:
+    - *withHLT_ObjDef14
+    - *common_histograms
 
 
 location_priorities: [".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'data_HHParking_2024*'
-    pipelines:
-    {{ data_pipelines() }}
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
     {{ signalmc_pipelines() }}
-  - dataset: 'qcd*2024*'
-    pipelines:
-    {{ mc_pipelines() }}
-  - dataset: 'tt_hadronic*2024*'
-    pipelines:
-    {{ mc_pipelines() }}
-  - dataset: 'tt_semilep*2024'
-    pipelines:
-    {{ mc_pipelines() }}

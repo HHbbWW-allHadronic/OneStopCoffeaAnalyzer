@@ -11,7 +11,7 @@ from analyzer.utils.structure_tools import (
     dotFormat,
 )
 from .processors import BasePostprocessor
-from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios, plotModel
+from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios, plotModel, plotEfficiency
 from .plots.plots_2d import plot2D, plotRatio2D
 from attrs import define, field
 
@@ -90,6 +90,44 @@ class RatioPlot(BasePostprocessor):
             ratio_height=self.ratio_height,
             no_stack=self.no_stack,
             show_den_unc=self.show_den_unc,
+            plot_configuration=pc,
+        )
+
+
+@define
+class EfficiencyPlot(BasePostprocessor):
+    output_name: str
+    scale: Literal["log", "linear"] = "linear"
+    normalize: bool = False
+    ratio_ylim: tuple[float, float] = (0, 1.05)  # Set default efficiency axis range
+    ratio_hlines: list[float] = field(factory=lambda: [])  # No dashed line at 1.0 by default
+    ratio_height: float = 0.5
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "efficiency"
+    )
+    no_stack: bool = False
+
+    def getRunFuncs(self, group, prefix=None):
+        numerator = group["numerator"]
+        denominator = group["denominator"]
+        common_meta = commonDict(it.chain(numerator, denominator))
+        output_path = dotFormat(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
+        pc = self.plot_configuration.makeFormatted(common_meta)
+        yield ft.partial(
+            plotEfficiency,  
+            denominator,
+            numerator,
+            output_path,
+            self.style_set,
+            normalize=self.normalize,
+            ratio_ylim=self.ratio_ylim,
+            ratio_type=self.ratio_type,
+            scale=self.scale,
+            ratio_hlines=self.ratio_hlines,
+            ratio_height=self.ratio_height,
+            no_stack=self.no_stack,
             plot_configuration=pc,
         )
 

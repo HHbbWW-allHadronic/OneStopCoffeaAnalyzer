@@ -21,12 +21,12 @@ Postprocessing:
     - name: Histogram1D
       inputs:
         - "*/*/*/*"
-      scale: log
-      normalize: True
+      scale: log 
+      normalize: False
       show_info: False
       style_set: *default_style_set
       structure:
-        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$|.*2d).*"}
+        select: {dataset_name: "*", name: "re:^(?!.*selection$|all_triggers$|.*2d|.*goodJet_isMedC_C_by_rank).*"}
         group: {pipeline: "*", era.name: "*", name: "*"}
         subgroups:
           unstacked: {select: {dataset_name: "re:^(data.*|ggHH2b2V6q.*)$"}}
@@ -41,4 +41,67 @@ Postprocessing:
               title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/{name}"
 
+    - name: Histogram2D
+      inputs:
+        - "*/*/*/goodJet_isMedC_C_by_rank"
+      scale: linear
+      normalize: False
+      style_set: *default_style_set
+      plot_configuration:
+        cms_text_color: "black"
+        <<: *default_plot_config
+        extra_text: "{dataset_title}"
+      structure:
+        select: {dataset_name: "*"}
+        group: {pipeline: "*", era.name: "*", name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SumHistograms
+            sum_match_pattern: {dataset_name: "tt*"}
+            new_meta_fields:
+              dataset_name: "tt"
+              title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/{name}_{dataset_name}"
 
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/goodJet_isMedC_C_by_rank"
+      structure:
+        group: {era.name: "*", name: "*",pipeline: "*"}
+        subgroups:
+          numerator:
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"Pass Flag": [1]}
+          denominator:
+            transforms:
+              - name: MergeAxes
+                merge_axis_names: ["Pass Flag"]
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values:
+              variation: [central]
+      output_name: "plots/{era.name}/{pipeline}/ratio_{name}"
+
+
+    - name: EfficiencyPlot
+      ratio_ylim: [0, 0.3]
+      inputs:
+        - "*/*/*/goodJet_isMedC_C_by_rank"
+      structure:
+        group: {era.name: "*", name: "*",pipeline: "*"}
+        subgroups:
+          numerator:
+            transforms:
+              - name: SelectAxesValues
+                select_axes_values: {"Pass Flag": [1]}
+          denominator:
+            transforms:
+              - name: MergeAxes
+                merge_axis_names: ["Pass Flag"]
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values:
+              variation: [central]
+      output_name: "plots/{era.name}/{pipeline}/Efficiency_{name}"

@@ -456,7 +456,6 @@ class JetCombos(AnalyzerModule):
                     combined_msk = combined_msk | msk
 
             combined_col = ak.concatenate(sum_cols, axis=1)
-            combined_col = ak.concatenate(sum_cols, axis=1)
             summed = combined_col.sum()
             summed = ak.mask(summed, ~combined_msk)
             columns[self.output_cols[i]] = ak.with_name(

@@ -519,6 +519,94 @@ seven_lowjet_tightb_selection: &seven_lowjet_tightb_selection
     selection_name: 2b
     min_count: 2
 
+
+tightlep_2medc_selection: &tightlep_2medc_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedC
+    selection_name: 2c
+    min_count: 2
+    
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+tightlep_1medc_selection: &tightlep_1medc_selection
+  - module_name: NObjFilter
+    input_col: tightElectron
+    selection_name: zero_electron
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: tightMuon
+    selection_name: zero_muon
+    min_count: 0
+    max_count: 0
+
+  - module_name: NObjFilter
+    input_col: goodJet
+    selection_name: njets
+    min_count: 6
+
+  - module_name: NObjFilter
+    input_col: MedC
+    selection_name: 1c
+    min_count: 1
+    max_count: 1
+ 
+  - module_name: NObjFilter
+    input_col: TightB
+    selection_name: 2b
+    min_count: 2
+
+1c_medc_obj: &1c_medc_obj
+  - module_name: JetCombos
+    input_cols:
+      - MedC
+      - notC_med
+    order_by:
+      - pt
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0], 1:[0,1,2]}         
+      - {0: [0], 1:[0,1]}    
+    output_cols:
+      - "c_nonc_4jet"
+      - "c_nonc_3jet"
+
+2c_medc_obj: &2c_medc_obj
+  - module_name: JetCombos
+    input_cols:
+      - MedC
+      - notC_med
+    order_by:
+      - pt
+      - btagPNetQvG
+    jet_combos:
+      - {0: [0,1], 1:[0,1]}         
+      - {0: [0,1], 1:[0]}    
+    output_cols:
+      - "c_nonc_4jet"
+      - "c_nonc_3jet"
+
 medb_obj: &medb_obj
   - module_name: JetCombos
     input_cols:
@@ -622,6 +710,30 @@ medb_low_obj: &medb_low_obj
     output_cols:
       - "nontop2b_qvg_fourjet"
       - "nontop2b_qvg_threejet"
+
+withHLT_ObjDef14: &withHLT_ObjDef14
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_1medc_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *1c_medc_obj
+  - *medb_obj
+
+withHLT_ObjDef13: &withHLT_ObjDef13
+  - *common_objects
+  - *hlt_selection
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *tightlep_2medc_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *2c_medc_obj
+  - *medb_obj
 
 withHLT_ObjDef12: &withHLT_ObjDef12
   - *common_objects
