@@ -327,8 +327,8 @@ class SPANetGenMatch(AnalyzerModule):
     """
 
     jet_col: Column
-    genpart_col: Column = field(factory=lambda: Column("GenPart"))  # ASSUMPTION -- confirm
-    genjet_col: Column = field(factory=lambda: Column("GenJet"))    # ASSUMPTION -- confirm
+    genpart_col: Column = field(factory=lambda: Column("GenPart"))
+    genjet_col: Column = field(factory=lambda: Column("GenJet"))
     output_prefix: str = "SPANet"
     reco_mode: str = "full_hww"  # "full_hww" or "onshell_w"
     n_real_jets: int = 9
@@ -338,7 +338,6 @@ class SPANetGenMatch(AnalyzerModule):
     genjet_pt_cut: float = 15.0
     secondary_order_field: str = "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
     include_isr_target: bool = True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
-
     btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label", resolved via getWPs() -- same official correctionlib source HBQuarkMaker's event-selection cut uses
     btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Does not affect jet ORDERING, which always uses the continuous score regardless of this setting (see run(), sorting happens before this is applied).
 
@@ -348,6 +347,7 @@ class SPANetGenMatch(AnalyzerModule):
     ctag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when ctag_mode="label", resolved via getCTagWPs()
     ctag_mode: str = "label"  # "score" or "label". SCORE: two independent continuous features (CvB, CvL) are kept, since they're genuinely distinct discriminants. LABEL: collapses to ONE boolean feature, true only if the jet clears BOTH the CvB and CvL working points simultaneously. Because the number of Source columns differs between these two modes (2 vs 1), a single event_info.yaml can't describe both -- use two separate configs, one per mode, matching this project's existing pattern of two-config comparisons.
 
+    strip_bjets: bool = False  
     __wp_cache: dict = field(factory=dict)
     __ctag_wp_cache: dict = field(factory=dict)
 
@@ -550,58 +550,67 @@ class SPANetGenMatch(AnalyzerModule):
         # actually be given, not just somewhere in the full event.
         good_event = good_event_mask(jets_sorted[:, : self.n_real_jets])
 
-        pt_arr = pad_and_convert(jets_sorted.pt, self.n_real_jets, self.n_null_jets)
-        eta_arr = pad_and_convert(jets_sorted.eta, self.n_real_jets, self.n_null_jets)
-        phi_arr = pad_and_convert(jets_sorted.phi, self.n_real_jets, self.n_null_jets)
-        e_arr = pad_and_convert(jets_sorted.energy, self.n_real_jets, self.n_null_jets)
+        if self.strip_bjets:
+            top2_signal = jets_sorted[:, :2].signal
+            bjet_slot_violation = ak.any((top2_signal == 2) | (top2_signal == 3), axis=1)
+            good_event = good_event & ~bjet_slot_violation
+
+            jets_for_features = jets_sorted[:, 2:]
+            effective_n_real_jets = self.n_real_jets - 2
+        else:
+            jets_for_features = jets_sorted
+            effective_n_real_jets = self.n_real_jets
+
+        pt_arr = pad_and_convert(jets_for_features.pt, effective_n_real_jets, self.n_null_jets)
+        eta_arr = pad_and_convert(jets_for_features.eta, effective_n_real_jets, self.n_null_jets)
+        phi_arr = pad_and_convert(jets_for_features.phi, effective_n_real_jets, self.n_null_jets)
+        e_arr = pad_and_convert(jets_for_features.energy, effective_n_real_jets, self.n_null_jets)
 
         if self.btag_mode == "label":
             tagger, wps = self.getWPs(columns.metadata)
-            btag_feature = jets_sorted[tagger] > wps[self.btag_working_point]
+            btag_feature = jets_for_features[tagger] > wps[self.btag_working_point]
         elif self.btag_mode == "score":
-            btag_feature = jets_sorted.btagUParTAK4B
+            btag_feature = jets_for_features.btagUParTAK4B
         else:
             raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
-        btag_arr = pad_and_convert(btag_feature, self.n_real_jets, self.n_null_jets)
+        btag_arr = pad_and_convert(btag_feature, effective_n_real_jets, self.n_null_jets)
 
         if self.qvg_mode == "label":
-            pnet_qvg_feature = jets_sorted.btagPNetQvG > self.qvg_label_threshold
+            pnet_qvg_feature = jets_for_features.btagPNetQvG > self.qvg_label_threshold
         elif self.qvg_mode == "score":
-            pnet_qvg_feature = jets_sorted.btagPNetQvG
+            pnet_qvg_feature = jets_for_features.btagPNetQvG
         else:
             raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
-        pnet_qvg_arr = pad_and_convert(pnet_qvg_feature, self.n_real_jets, self.n_null_jets)
+        pnet_qvg_arr = pad_and_convert(pnet_qvg_feature, effective_n_real_jets, self.n_null_jets)
 
         # c-tagging: SCORE mode keeps CvB and CvL as two independent
         # continuous features (they're genuinely distinct discriminants,
         # not interchangeable). LABEL mode collapses them into ONE boolean
         # feature -- true only if the jet clears BOTH working points
         # simultaneously. This means Source has a DIFFERENT NUMBER of
-        # columns depending on ctag_mode -- intentional, and why this needs
-        # two separate event_info.yaml configs rather than one that tries
-        # to describe both.
+        # columns depending on ctag_mode -- intentional
         ctag_source_fields = {}
         if self.ctag_mode == "label":
             taggers, wps = self.getCTagWPs(columns.metadata)
-            cvb_pass = jets_sorted[taggers["CvB"]] > wps["CvB"][self.ctag_working_point]
-            cvl_pass = jets_sorted[taggers["CvL"]] > wps["CvL"][self.ctag_working_point]
+            cvb_pass = jets_for_features[taggers["CvB"]] > wps["CvB"][self.ctag_working_point]
+            cvl_pass = jets_for_features[taggers["CvL"]] > wps["CvL"][self.ctag_working_point]
             ctag_feature = cvb_pass & cvl_pass
-            ctag_source_fields["ctag"] = pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)
+            ctag_source_fields["ctag"] = pad_and_convert(ctag_feature, effective_n_real_jets, self.n_null_jets)
         elif self.ctag_mode == "score":
             taggers, _ = self.getCTagWPs(columns.metadata)
             ctag_source_fields["ctag_cvb"] = pad_and_convert(
-                jets_sorted[taggers["CvB"]], self.n_real_jets, self.n_null_jets
+                jets_for_features[taggers["CvB"]], effective_n_real_jets, self.n_null_jets
             )
             ctag_source_fields["ctag_cvl"] = pad_and_convert(
-                jets_sorted[taggers["CvL"]], self.n_real_jets, self.n_null_jets
+                jets_for_features[taggers["CvL"]], effective_n_real_jets, self.n_null_jets
             )
         else:
             raise ValueError(f"ctag_mode must be 'score' or 'label', got {self.ctag_mode!r}")
 
-        signal_arr = pad_and_convert(jets_sorted.signal, self.n_real_jets, self.n_null_jets)
+        signal_arr = pad_and_convert(jets_for_features.signal, effective_n_real_jets, self.n_null_jets)
 
-        jet_counts = ak.num(jets_sorted)
-        mask = make_mask(jet_counts, self.n_real_jets, self.n_null_jets)
+        jet_counts = ak.num(jets_for_features)
+        mask = make_mask(jet_counts, effective_n_real_jets, self.n_null_jets)
 
         source_fields = {
             "MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr,
@@ -611,7 +620,7 @@ class SPANetGenMatch(AnalyzerModule):
         source = ak.zip(source_fields, depth_limit=1)
 
         targets = make_targets(
-            signal_arr, self.n_real_jets, self.n_null_jets, self.reco_mode,
+            signal_arr, effective_n_real_jets, self.n_null_jets, self.reco_mode,
             include_isr_target=self.include_isr_target,
         )
 

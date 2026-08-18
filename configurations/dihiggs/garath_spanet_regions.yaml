@@ -1,0 +1,837 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  spanet_common_prefix_tiered: &spanet_common_prefix_tiered
+    - *common_objects
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - *eventlevel_selection
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: NObjFilter
+      input_col: tightElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: tightMuon
+      selection_name: zero_muon
+      min_count: 0
+      max_count: 0
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetLoose
+      include_pu_id: False
+      include_jet_id: True
+      min_pt: 15
+      max_abs_eta: 2.4
+
+    - module_name: TieredPtJetFilter
+      input_col: goodJetLoose
+      output_col: goodJetTiered
+      n_hard_jets: 4
+      hard_pt_cut: 25.0
+
+  spanet_medb_requirement_tiered: &spanet_medb_requirement_tiered
+    - module_name: HBQuarkMaker
+      input_col: goodJetTiered
+      output_col: MedBTiered
+      working_point: M
+      nontop2b: True
+      nontop2b_col: NonTop2BTiered
+
+    - module_name: NObjFilter
+      input_col: MedBTiered
+      selection_name: 2b
+      min_count: 2
+
+  # ============================================================
+  # FLAT pt-cut variant: every jet must satisfy pt >= 25 GeV
+  # directly, applied uniformly via HJetFilter's own min_pt --
+  # no TieredPtJetFilter step, since there's no tiering left to do
+  # once the cut is flat. This is the ONLY thing that differs from
+  # the *_tiered blocks above; every downstream module, parameter,
+  # and target definition is a byte-for-byte mirror of its tiered
+  # counterpart, just fed goodJetFlat instead of goodJetTiered.
+  # ============================================================
+  spanet_common_prefix_flat: &spanet_common_prefix_flat
+    - *common_objects
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - *eventlevel_selection
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: NObjFilter
+      input_col: tightElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: tightMuon
+      selection_name: zero_muon
+      min_count: 0
+      max_count: 0
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetFlat
+      include_pu_id: False
+      include_jet_id: True
+      min_pt: 25
+      max_abs_eta: 2.4
+
+  spanet_medb_requirement_flat: &spanet_medb_requirement_flat
+    - module_name: HBQuarkMaker
+      input_col: goodJetFlat
+      output_col: MedBFlat
+      working_point: M
+      nontop2b: True
+      nontop2b_col: NonTop2BFlat
+
+    - module_name: NObjFilter
+      input_col: MedBFlat
+      selection_name: 2b
+      min_count: 2
+
+  # ============================================================
+  # Region 1: H1(bb) + H2(WW->qqqq) + ISR, all three as explicit targets
+  # ============================================================
+  region1_6jet_tiered: &region1_6jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region1_6jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region1_7jet_tiered: &region1_7jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region1_7jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  # ============================================================
+  # Region 2: H1(bb) + H2(WW->qqqq), ISR not a target
+  # ============================================================
+  region2_6jet_tiered: &region2_6jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region2_6jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+
+  region2_7jet_tiered: &region2_7jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region2_7jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+
+  # ============================================================
+  # Region 3: H2(WW->qqqq) + ISR, H1(bb) not a target
+  # ============================================================
+  region3_6jet_tiered: &region3_6jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region3_6jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region3_7jet_tiered: &region3_7jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region3_7jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  # ============================================================
+  # Region 4: H2(WW->qqqq) only, neither H1(bb) nor ISR a target
+  # ============================================================
+  region4_6jet_tiered: &region4_6jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region4_6jet_tiered-TEST
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+
+  region4_7jet_tiered: &region4_7jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region4_7jet_tiered-TEST
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+
+  region5_6jet_tiered: &region5_6jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: onshell_w
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region5_6jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.W1
+
+  region5_7jet_tiered: &region5_7jet_tiered
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: onshell_w
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region5_7jet_tiered
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.W1
+
+  # ============================================================
+  # FLAT pt-cut mirrors of all 10 regions above. Every field is
+  # identical to its *_tiered counterpart -- only the jet
+  # collection feeding in changes (goodJetFlat instead of
+  # goodJetTiered), via spanet_common_prefix_flat /
+  # spanet_medb_requirement_flat defined above. Output paths are
+  # named region*_flat so they land alongside the tiered H5s
+  # without overwriting anything.
+  #
+  # NOTE: region4's *_tiered blocks above carry a "-TEST" suffix
+  # on their output path, left over from tonight's region4
+  # debugging. That suffix is deliberately NOT carried over here --
+  # these flat-cut pipelines are meant as clean, direct comparisons
+  # against the tiered baseline, named consistently with regions
+  # 1/2/3/5.
+  # ============================================================
+
+  region1_6jet_flat: &region1_6jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region1_6jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region1_7jet_flat: &region1_7jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region1_7jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region2_6jet_flat: &region2_6jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region2_6jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+
+  region2_7jet_flat: &region2_7jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region2_7jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.H2
+
+  region3_6jet_flat: &region3_6jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region3_6jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region3_7jet_flat: &region3_7jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: true
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region3_7jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+        - SPANet.Targets.ISR
+
+  region4_6jet_flat: &region4_6jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region4_6jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+
+  region4_7jet_flat: &region4_7jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: full_hww
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+      strip_bjets: true
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region4_7jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H2
+
+  region5_6jet_flat: &region5_6jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: onshell_w
+      n_real_jets: 6
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region5_6jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.W1
+
+  region5_7jet_flat: &region5_7jet_flat
+    - *spanet_common_prefix_flat
+    - module_name: NObjFilter
+      input_col: goodJetFlat
+      selection_name: njets
+      min_count: 7
+    - *spanet_medb_requirement_flat
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetFlat
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: onshell_w
+      n_real_jets: 7
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/region5_7jet_flat
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.W1
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024_training'
+    pipelines:
+      #- region1_6jet_tiered
+      #- region1_7jet_tiered
+
+      #- region2_6jet_tiered
+      #- region2_7jet_tiered
+
+      - region3_6jet_tiered
+      - region3_7jet_tiered
+
+      - region4_6jet_tiered
+      - region4_7jet_tiered
+
+      #- region5_6jet_tiered
+      #- region5_7jet_tiered
+
+      #- region1_6jet_flat
+      #- region1_7jet_flat
+
+      #- region2_6jet_flat
+      #- region2_7jet_flat
+
+      - region3_6jet_flat
+      - region3_7jet_flat
+
+      - region4_6jet_flat
+      - region4_7jet_flat
+
+      #- region5_6jet_flat
+      #- region5_7jet_flat
