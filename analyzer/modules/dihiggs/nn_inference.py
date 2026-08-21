@@ -1,11 +1,13 @@
+
 from coffea.ml_tools.torch_wrapper import torch_wrapper
 from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
-from attrs import define
+from attrs import define, field
 import awkward as ak
 import numpy as np
 import torch
 import onnxruntime
+import correctionlib
 import vector
 
 
@@ -128,8 +130,7 @@ def _order_fields_btag_then_secondary(field_arrays, secondary_key):
     fields get fetched or fed to the model as features. This matters:
     a variant training convention may reorder jets by pt instead of QvG
     while still using the genuine QvG score as its own separate input
-    feature (confirmed this is the case here, not a hypothetical) --
-    conflating "what determines the order" with "what gets stacked as a
+    feature -- conflating "what determines the order" with "what gets stacked as a
     feature" would silently feed the wrong numbers into the qvg feature
     slot. Every entry in field_arrays, including whichever one ISN'T the
     secondary_key, still gets consistently reordered and still gets fed
@@ -147,12 +148,25 @@ def _order_fields_btag_then_secondary(field_arrays, secondary_key):
     }
 
 
-def _build_source_data(pt, eta, phi, e, btag, qvg):
-    """Exact transform the model expects: pt/e log1p'd, 6 features total."""
-    return np.stack(
-        [np.log(pt + 1), eta, phi, np.log(e + 1), btag, qvg],
-        axis=-1,
-    ).astype(np.float32)
+def _build_source_data(pt, eta, phi, e, btag, qvg, extra_features=None):
+    """Exact transform the model expects: pt/e log1p'd, btag/qvg/ctag fed
+    as-is (no log transform -- they're already O(1) scores or labels, not
+    physical quantities benefiting from log-compression the way pt/e do).
+
+    extra_features, if given, is a list of arrays appended AFTER qvg, in
+    the SAME order they were written into the training Source array by
+    skimming.py -- for c-tagging: one array (ctag) in label mode, two
+    arrays (ctag_cvb, ctag_cvl) in score mode, matching
+    source_fields.update(ctag_source_fields)'s insertion order exactly.
+    Column count varies with mode (7 vs 8 total features) -- this MUST
+    match whichever mode the specific .onnx model was actually trained
+    with, or the stacked array will silently be fed to the wrong input
+    slots.
+    """
+    base = [np.log(pt + 1), eta, phi, np.log(e + 1), btag, qvg]
+    if extra_features:
+        base.extend(extra_features)
+    return np.stack(base, axis=-1).astype(np.float32)
 
 
 def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=256,
@@ -371,11 +385,61 @@ class SPANetDiHiggsInference(AnalyzerModule):
     particle_names: list = None
     daughter_counts: dict = None
 
+    btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label"
+    btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Must match whichever mode the .onnx model was actually trained with.
+    qvg_mode: str = "label"  # "score" or "label", applied to whichever qvg_field is configured (PNet QvG for any model trained after UParT QvG was removed from skimming.py)
+    qvg_label_threshold: float = 0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG. Must match skimming.py's value exactly for label-mode models.
+    ctag_working_point: str = "M"  # official WP used when ctag_mode="label"
+    ctag_mode: str = "label"  # "score" (2 independent columns: CvB, CvL), "label" (1 boolean column: CvB AND CvL both pass), or "none" (no ctag columns at all, and c-tagging metadata is never even resolved -- safe for checkpoints trained before c-tagging existed, e.g. the original region1-5 study). Changes Source WIDTH -- must match the specific .onnx model's actual trained shape, not just its physics content.
+
+    __wp_cache: dict = field(factory=dict)
+    __ctag_wp_cache: dict = field(factory=dict)
+
     def __attrs_post_init__(self):
         if self.particle_names is None:
             self.particle_names = ["H1", "H2", "ISR"]
         if self.daughter_counts is None:
             self.daughter_counts = {"H1": 2, "H2": 4, "ISR": 1}
+
+    def getWPs(self, metadata):
+        """Mirrors HBQuarkMaker.getWPs / skimming.py's SPANetGenMatch.getWPs
+        exactly -- same metadata path, same correctionlib call, same
+        per-file caching, so inference reads WP thresholds from the SAME
+        source training-time skimming.py used, not a second,
+        independently-hardcoded number that could silently drift."""
+        file_path = metadata["era"]["btag_scale_factors"]["file"]
+        tagger = metadata["era"]["btag_scale_factors"]["tagger"]
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__wp_cache:
+            return tagger, self.__wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {p: cset[cname].evaluate(p) for p in ("L", "M", "T")}
+        self.__wp_cache[file_path] = ret
+        return tagger, ret
+
+    def getCTagWPs(self, metadata):
+        """c-tagging analog of getWPs, mirroring skimming.py's
+        SPANetGenMatch.getCTagWPs exactly."""
+        file_path = metadata["era"]["btag_scale_factors"]["c_file"]
+        tagger_cvb = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvB"]
+        tagger_cvl = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvL"]
+        taggers = {"CvB": tagger_cvb, "CvL": tagger_cvl}
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__ctag_wp_cache:
+            return taggers, self.__ctag_wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {
+            "CvB": {p: cset[cname].evaluate(p, "CvB") for p in ("L", "M", "T")},
+            "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+        }
+        self.__ctag_wp_cache[file_path] = ret
+        return taggers, ret
+
+    def preloadForMeta(self, metadata):
+        self.getWPs(metadata)
+        self.getCTagWPs(metadata)
 
     def prepare_inputs(self, columns):
         btag_col = Column(
@@ -398,6 +462,21 @@ class SPANetDiHiggsInference(AnalyzerModule):
             "btag": columns[self.jet_col + btag_col],
             "qvg":  columns[self.jet_col + Column(self.qvg_field)],
         }
+
+        # ctag_mode="none": for checkpoints trained before c-tagging existed
+        # (e.g. the original region1-5 study). This must not touch
+        # c-tagging metadata AT ALL -- resolving it unconditionally would
+        # fail outright on an era config that predates c-tagging support,
+        # which is exactly the situation this mode exists to handle safely.
+        if self.ctag_mode != "none":
+            ctag_taggers, _ = self.getCTagWPs(columns.metadata)
+            # Fetched into raw_fields alongside everything else so
+            # _order_fields_btag_then_secondary reorders them with the SAME
+            # sort permutation as pt/eta/phi/e/btag/qvg -- it iterates
+            # field_arrays.items() generically, no changes needed there.
+            raw_fields["ctag_cvb"] = columns[self.jet_col + Column(ctag_taggers["CvB"])]
+            raw_fields["ctag_cvl"] = columns[self.jet_col + Column(ctag_taggers["CvL"])]
+
         if self.secondary_order_field not in ("qvg", "pt"):
             raise ValueError(
                 f"secondary_order_field must be 'qvg' or 'pt', got "
@@ -406,9 +485,43 @@ class SPANetDiHiggsInference(AnalyzerModule):
                 f"would silently KeyError deep inside the sort."
             )
         sorted_fields = _order_fields_btag_then_secondary(raw_fields, self.secondary_order_field)
- 
+
+        # btag/qvg/ctag FEATURES fed to the model can each independently be
+        # the continuous score or a boolean WP decision, per
+        # btag_mode/qvg_mode/ctag_mode -- deliberately separate from the
+        # sort above, which always used the continuous scores regardless
+        # of mode. Only the copy AFTER sorting is touched here; mirrors
+        # skimming.py's identical discipline exactly.
+        if self.btag_mode == "label":
+            _, wps = self.getWPs(columns.metadata)
+            sorted_fields["btag"] = sorted_fields["btag"] > wps[self.btag_working_point]
+        elif self.btag_mode != "score":
+            raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
+
+        if self.qvg_mode == "label":
+            sorted_fields["qvg"] = sorted_fields["qvg"] > self.qvg_label_threshold
+        elif self.qvg_mode != "score":
+            raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
+
+        extra_features = []
+        if self.ctag_mode == "none":
+            pass  # no ctag columns at all -- matches pre-ctagging checkpoints' 6-column Source exactly
+        elif self.ctag_mode == "label":
+            _, ctag_wps = self.getCTagWPs(columns.metadata)
+            cvb_pass = sorted_fields["ctag_cvb"] > ctag_wps["CvB"][self.ctag_working_point]
+            cvl_pass = sorted_fields["ctag_cvl"] > ctag_wps["CvL"][self.ctag_working_point]
+            ctag_feature = cvb_pass & cvl_pass
+            extra_features = [_pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)]
+        elif self.ctag_mode == "score":
+            extra_features = [
+                _pad_and_convert(sorted_fields["ctag_cvb"], self.n_real_jets, self.n_null_jets),
+                _pad_and_convert(sorted_fields["ctag_cvl"], self.n_real_jets, self.n_null_jets),
+            ]
+        else:
+            raise ValueError(f"ctag_mode must be 'score', 'label', or 'none', got {self.ctag_mode!r}")
+
         mask = _make_mask(ak.num(sorted_fields["pt"]), self.n_real_jets, self.n_null_jets)
-        source = {"MASK": mask}
+        source = {"MASK": mask, "_extra_features": extra_features}
         for key in ("pt", "eta", "phi", "e", "btag", "qvg"):
             source[key] = _pad_and_convert(sorted_fields[key], self.n_real_jets, self.n_null_jets)
         return source
@@ -452,6 +565,7 @@ class SPANetDiHiggsInference(AnalyzerModule):
         source_data = _build_source_data(
             source["pt"], source["eta"], source["phi"],
             source["e"], source["btag"], source["qvg"],
+            extra_features=source["_extra_features"],
         )
         assign_detect = _run_onnx_inference(
             session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
