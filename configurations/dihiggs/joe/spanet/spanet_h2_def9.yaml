@@ -1,0 +1,71 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  withHLT_ObjDef9:
+    - *withHLT_ObjDef9
+
+    - module_name: SPANetDiHiggsInference
+      jet_col: lowJet
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: nn_models/spanet_v161-region4-H2_target_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      secondary_order_field: qvg
+      particle_names: [H2]
+      mass_outputs: {H2: m_HWW_SPANet}
+
+
+    - module_name: SimpleHistogram
+      hist_name: HWW_SPANet_mass
+      input_cols: [SPANet.m_HWW_SPANet]
+      axes:
+        - name: SPANet v161 $m_{WW}$
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: spanet_ww_m2d
+      input_cols:
+        - nontop2b_qvg_threejet.mass
+        - SPANet.m_HWW_SPANet
+      axes:
+        - name: "nontop2b_qvg_threejet $m_{123}$"
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
+        - name: SPANet v161 $m_{WW}$
+          start: 0
+          stop: 500
+          bins: 20
+          unit: GeV
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_eval_2024*'
+    pipelines: 
+      - withHLT_ObjDef9
+  - dataset: 'qcd*2024*'
+    pipelines:
+      - withHLT_ObjDef9
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+      - withHLT_ObjDef9
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+      - withHLT_ObjDef9
