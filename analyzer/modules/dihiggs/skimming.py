@@ -144,13 +144,6 @@ class SaveEventsH5(AnalyzerModule):
 
 W_MASS_PDG = 80.377  # GeV
 
-# ============================================================
-# Matching + target-construction helpers
-# Ported verbatim (logic unchanged) from nano_to_h5_V2.py's
-# greedy_match / pad_and_convert / make_mask / make_targets.
-# Only the calling convention around them changes to fit AnalyzerModule.
-# ============================================================
-
 def greedy_match(objects_a, objects_b, signal_field, dr_threshold=0.4, store_pt=False):
     max_a = int(ak.max(ak.num(objects_a)))
     max_b = int(ak.max(ak.num(objects_b)))
@@ -306,6 +299,293 @@ def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_
     return out
 
 
+def make_random_permutations(n_events, n_real, rng):
+    """One INDEPENDENT random permutation of range(n_real) per event, as
+    an (n_events, n_real) array. perms[i, k] = j means 'new position k
+    gets whatever was at old position j, for event i'. Verified via
+    direct test against a full source+target consistency check before
+    ever being wired into the real pipeline."""    
+    perms = np.tile(np.arange(n_real), (n_events, 1))
+    for i in range(n_events):
+        rng.shuffle(perms[i])
+    return perms
+
+
+def apply_perm_to_source_field(arr, perms, n_real):
+    """arr has shape (n_events, n_real + n_null). Only the first n_real
+    columns (the REAL jet slots) get shuffled, per event; the null-slot
+    column(s) at the end are left completely untouched -- they are not
+    real jets, and null_idx's meaning as a fixed position depends on
+    them staying put."""
+    out = arr.copy()
+    out[:, :n_real] = np.take_along_axis(arr[:, :n_real], perms, axis=1)
+    return out
+
+
+def remap_target_indices(target_arr, inv_perms, null_idx):
+    """target_arr has shape (n_events,), values are either a real
+    position in [0, n_real), OR null_idx, OR -1 (dedup conflict
+    sentinel from make_targets). Only real positions get remapped
+    through inv_perms; null_idx/-1 are sentinels, not real positions,
+    and must pass through completely unchanged -- confirmed by direct
+    test, since silently remapping a sentinel would corrupt the target
+    in a way that's easy to miss."""
+    out = target_arr.copy()
+    for i in range(len(target_arr)):
+        v = target_arr[i]
+        if v != null_idx and v != -1:
+            out[i] = inv_perms[i, v]
+    return out
+
+
+# ============================================================
+# Debug tracing: per-parton gen-matching diagnosis + full target
+# resolution trace, for debug_trace_events. Inlined here directly
+# (rather than imported from a separate module) so this file has no
+# external dependency beyond what's already imported above -- a
+# previous version imported this from trace_target_construction.py,
+# which failed at runtime with ModuleNotFoundError since that file was
+# never actually placed anywhere on OSCA's import path. Everything
+# needed now lives in this one file.
+#
+# signal value -> particle/daughter mapping, confirmed directly from
+# make_targets' own logic above (full_hww mode):
+#     signal == 1  ->  H1 (Hbb),  fills H1.b1, H1.b2
+#     signal == 2  ->  H2 (HWW),  fills H2.q1, H2.q2 (one W's daughters)
+#     signal == 3  ->  H2 (HWW),  fills H2.q3, H2.q4 (the other W's daughters)
+#     signal == 4  ->  ISR (if include_isr_target)
+# ============================================================
+
+_TRACE_PDGID_NAMES = {1: "d", 2: "u", 3: "s", 4: "c", 5: "b"}
+# Confirmed directly from make_targets' own source: H1 is ALWAYS
+# computed and returned regardless of strip_bjets -- there is no
+# strip_bjets check anywhere in make_targets at all. The strip_bjets
+# exclusion of H1 from the final H5 happens downstream, at
+# SaveSPANetH5's targets_cols, a separate module. This tracer shows
+# everything make_targets itself actually produces for the given
+# reco_mode/include_isr_target, dynamically -- not a fixed H1+H2
+# assumption -- so it correctly handles full_hww, onshell_w, with or
+# without ISR, without needing separate hardcoded code paths. Verified
+# directly against both structures before being wired in here.
+#
+# Per-particle signal-group mapping, confirmed from make_targets' own
+# logic: H1 always signal==1. For full_hww, H2 pools signal 2+3 --
+# packing is shared across BOTH groups (confirmed earlier: an empty H2
+# slot can't be attributed to one specific parton once one sub-group
+# falls short, so failures are shown pooled, at the first empty H2
+# slot). For onshell_w, W1 is ONLY ever signal==2 -- onshell_w never
+# touches h3_jets at all, so there's no such ambiguity there. ISR is
+# always signal==4.
+_TRACE_PARTICLE_SIGNAL_GROUPS = {"H1": [1], "H2": [2, 3], "W1": [2], "ISR": [4]}
+
+
+def _trace_quark_label(pdg_id):
+    """Human-readable flavor from a PDG ID -- standard, stable PDG
+    numbering (1=d, 2=u, 3=s, 4=c, 5=b), sign indicates antiparticle."""
+    sign = "-" if pdg_id < 0 else ""
+    name = _TRACE_PDGID_NAMES.get(abs(pdg_id), f"pdgId={pdg_id}")
+    return f"{sign}{name}"
+
+
+def _trace_dr_matrix(eta_a, phi_a, eta_b, phi_b):
+    deta = eta_a[:, None] - eta_b[None, :]
+    dphi = phi_a[:, None] - phi_b[None, :]
+    dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
+    return np.sqrt(deta**2 + dphi**2)
+
+
+def _trace_greedy_match_with_indices(eta_a, phi_a, eta_b, phi_b, dr_threshold):
+    n_a, n_b = len(eta_a), len(eta_b)
+    if n_a == 0 or n_b == 0:
+        return {}
+    dr = _trace_dr_matrix(eta_a, phi_a, eta_b, phi_b)
+    assigned_a, assigned_b, matches = set(), set(), {}
+    while True:
+        dr_masked = dr.copy()
+        if assigned_a:
+            dr_masked[list(assigned_a), :] = np.inf
+        if assigned_b:
+            dr_masked[:, list(assigned_b)] = np.inf
+        if dr_masked.min() > dr_threshold:
+            break
+        ia, ib = np.unravel_index(dr_masked.argmin(), dr_masked.shape)
+        matches[int(ia)] = int(ib)
+        assigned_a.add(ia)
+        assigned_b.add(ib)
+    return matches
+
+
+def _trace_diagnose_partons(chs, gen_gj, jets, event_idx, dr_threshold, pt_ratio_bounds=(0.5, 2.0)):
+    partons = chs[event_idx]
+    genjets = gen_gj[event_idx]
+    recojets = jets[event_idx]
+    n_partons = len(partons)
+
+    stage1 = _trace_greedy_match_with_indices(
+        ak.to_numpy(genjets.eta), ak.to_numpy(genjets.phi),
+        ak.to_numpy(partons.eta), ak.to_numpy(partons.phi), dr_threshold,
+    )
+    parton_to_genjet = {p: gj for gj, p in stage1.items()}
+
+    stage2 = _trace_greedy_match_with_indices(
+        ak.to_numpy(recojets.eta), ak.to_numpy(recojets.phi),
+        ak.to_numpy(genjets.eta), ak.to_numpy(genjets.phi), dr_threshold,
+    )
+    genjet_to_recojet = {gj: r for r, gj in stage2.items()}
+
+    recojet_pt = ak.to_numpy(recojets.pt)
+    genjet_pt = ak.to_numpy(genjets.pt)
+
+    results = []
+    for p_idx in range(n_partons):
+        signal_val = int(partons.signal[p_idx])
+        pdg_id = int(partons.pdgId[p_idx])
+        base = {"parton": p_idx, "signal": signal_val, "pdg_id": pdg_id}
+
+        if p_idx not in parton_to_genjet:
+            results.append({**base, "outcome": "FAIL",
+                             "detail": "FAILED: did not pass GenPart-to-GenJet dr matching"})
+            continue
+        gj_idx = parton_to_genjet[p_idx]
+        if gj_idx not in genjet_to_recojet:
+            results.append({**base, "outcome": "FAIL",
+                             "detail": f"FAILED: GenJet {gj_idx} found, but no reco Jet within dr<{dr_threshold}"})
+            continue
+        reco_idx = genjet_to_recojet[gj_idx]
+        ratio = recojet_pt[reco_idx] / genjet_pt[gj_idx]
+        lo, hi = pt_ratio_bounds
+        if not (lo < ratio < hi):
+            results.append({**base, "outcome": "FAIL",
+                             "detail": f"FAILED: reco jet {reco_idx} found, pt_ratio={ratio:.2f} outside ({lo},{hi})"})
+            continue
+        if abs(pdg_id) == 5:
+            qtype = "b quark"
+        elif abs(pdg_id) == 21:
+            qtype = "gluon"
+        else:
+            qtype = f"{_trace_quark_label(pdg_id)} quark"
+        results.append({**base, "outcome": "SUCCESS", "reco_idx": reco_idx, "pt_ratio": ratio,
+                         "detail": f"PASSED: matched to a {qtype}\n-> reco jet {reco_idx}, pt_ratio={ratio:.2f}"})
+    return results
+
+
+def _trace_wrap_multiline(text, width=18):
+    """Wraps EACH existing line separately, so an intentional newline
+    isn't just treated as another character by textwrap. Confirmed
+    directly: the unwrapped version overflowed several boxes' edges."""
+    import textwrap
+    lines = text.split("\n")
+    wrapped = []
+    for line in lines:
+        wrapped.extend(textwrap.wrap(line, width=width) or [""])
+    return "\n".join(wrapped)
+
+
+def _trace_draw_box(ax, x, y, w, h, text, color, edge, fontsize=7.5):
+    import matplotlib.patches as patches
+    text = _trace_wrap_multiline(text)
+    box = patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.03",
+                                   linewidth=1.3, edgecolor=edge, facecolor=color)
+    ax.add_patch(box)
+    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fontsize)
+
+
+def trace_event(chs, gen_gj, jets, event_idx, reco_mode, n_real_jets=6, n_null_jets=1,
+                 include_isr_target=False, dr_threshold=0.4, outdir="."):
+    """Generalized across ALL region structures (full_hww, onshell_w,
+    with or without ISR, regardless of strip_bjets) -- builds its slot
+    list dynamically from whatever the REAL make_targets() actually
+    returns for this reco_mode/include_isr_target, rather than a fixed
+    H1+H2 assumption. Verified directly against both full_hww and
+    onshell_w+ISR structures before being wired in here -- produced the
+    correct 6-slot and 5-slot layouts respectively, with no separate
+    code path needed per region type.
+    """
+    # matplotlib is a heavy, optional dependency -- imported HERE, not at
+    # module top, so a normal OSCA run that never sets debug_trace_events
+    # never pays the import cost or needs matplotlib installed at all.
+    import os
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    parton_results = _trace_diagnose_partons(chs, gen_gj, jets, event_idx, dr_threshold)
+
+    signal_arr_event = np.full(n_real_jets, -1)
+    by_reco_idx = {}
+    for r in parton_results:
+        if r["outcome"] == "SUCCESS" and r["reco_idx"] < n_real_jets:
+            signal_arr_event[r["reco_idx"]] = r["signal"]
+            by_reco_idx[r["reco_idx"]] = r
+
+    # Calls the REAL make_targets() directly -- not a separate
+    # reimplementation -- so this can never disagree with what the
+    # actual production pipeline computes. Batch dim of 1 for one event.
+    targets_dict = make_targets(signal_arr_event[None, :], n_real_jets, n_null_jets, reco_mode, include_isr_target)
+    null_idx = n_real_jets if n_null_jets > 0 else -1
+
+    slots = []
+    for particle in targets_dict:
+        for daughter in targets_dict[particle]:
+            slots.append((particle, daughter))
+
+    fails_by_signal = {}
+    for r in parton_results:
+        if r["outcome"] != "SUCCESS":
+            fails_by_signal.setdefault(r["signal"], []).append(r["detail"])
+
+    os.makedirs(outdir, exist_ok=True)
+    n_slots = len(slots)
+    col_w, gap = 1.95, 0.25
+    fig_w = max(13, n_slots * (col_w + gap) + 1)
+    fig, ax = plt.subplots(figsize=(fig_w, 5.5))
+    ax.axis("off")
+    total_w = n_slots * col_w + (n_slots - 1) * gap
+    start_x = (fig_w - total_w) / 2
+    top_y, top_h = 3.8, 0.8
+    bot_y, bot_h = 1.5, 1.6
+
+    ax.text(fig_w / 2, 5.0, "TARGETS", ha="center", fontsize=13, weight="bold")
+
+    shown_pooled = set()
+    for i, (particle, daughter) in enumerate(slots):
+        x = start_x + i * (col_w + gap)
+        _trace_draw_box(ax, x, top_y, col_w, top_h, "[empty]", "#e8e7e2", "#5f5e5a", fontsize=9)
+        ax.annotate("", xy=(x + col_w / 2, bot_y + bot_h), xytext=(x + col_w / 2, top_y),
+                    arrowprops=dict(arrowstyle="->", color="#444441", lw=1.3))
+
+        value = int(targets_dict[particle][daughter][0])
+        if value != null_idx and value != -1:
+            text = by_reco_idx[value]["detail"]
+            color, edge = "#d7ecdf", "#1f7a4d"
+        else:
+            groups = _TRACE_PARTICLE_SIGNAL_GROUPS.get(particle, [])
+            all_reasons = [d for sig in groups for d in fails_by_signal.get(sig, [])]
+            if len(groups) == 1:
+                reason = all_reasons[0] if all_reasons else "?"
+            else:
+                if all_reasons and particle not in shown_pooled:
+                    reason = " | ".join(all_reasons)
+                    shown_pooled.add(particle)
+                elif all_reasons:
+                    reason = f"(see first empty {particle} slot)"
+                else:
+                    reason = "?"
+            text = reason
+            color, edge = ("#e8e7e2", "#5f5e5a") if value == null_idx else ("#fbe3d6", "#993c1d")
+        _trace_draw_box(ax, x, bot_y, col_w, bot_h, text, color, edge)
+
+        ax.text(x + col_w / 2, bot_y - 0.35, f"{particle}.{daughter}", ha="center", fontsize=9, weight="bold")
+
+    ax.set_xlim(0, fig_w)
+    ax.set_ylim(0.8, 5.4)
+    ax.set_title(f"Event {event_idx}: target resolution ({reco_mode}, ISR={include_isr_target})", fontsize=10, pad=10)
+    out_path = os.path.join(outdir, f"target_trace_event{event_idx}.png")
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {out_path}")
+    return out_path
+
 # ============================================================
 # Module 1: gen-level matching + target/source construction
 # ============================================================
@@ -348,8 +628,16 @@ class SPANetGenMatch(AnalyzerModule):
     ctag_mode: str = "label"  # "score" or "label". SCORE: two independent continuous features (CvB, CvL) are kept, since they're genuinely distinct discriminants. LABEL: collapses to ONE boolean feature, true only if the jet clears BOTH the CvB and CvL working points simultaneously. Because the number of Source columns differs between these two modes (2 vs 1), a single event_info.yaml can't describe both -- use two separate configs, one per mode, matching this project's existing pattern of two-config comparisons.
 
     strip_bjets: bool = False  
+
+    randomize_jet_order: bool = False  # For directly testing whether jet ORDER carries information the network learns from: after Source features AND Targets are both fully built (btag+qvg sort, strip_bjets if active, target index computation -- all completely unchanged), apply an independent per-event random permutation to the REAL jet slots only (never the null slot(s)), then remap every target index through the exact inverse of that permutation so it still points at the same physical jet, just at its new shuffled position. If a model trained this way performs comparably to one trained on the normal btag+qvg order, that's real evidence order itself isn't what the network is learning from -- performance would come from the underlying jet content, not position. Leaves the normal (non-shuffled) path completely untouched when False (the default).
+    randomize_seed: int = 42  # Seed for the per-event shuffle above. The underlying RNG is created ONCE (see __shuffle_rng_holder below) and persists across every call to run() for this module instance, so successive chunks draw genuinely different permutations rather than each chunk restarting from the same seed. This guarantee holds only if the SAME module instance processes every chunk sequentially -- if chunks are ever processed by separate instances/workers, each would restart from this same seed, which would not fully defeat the purpose (each individual event still gets an independent per-event shuffle) but could correlate shuffles ACROSS chunk boundaries. Good enough for this study's purpose (a coarse ablation on whether order matters at all), not a cryptographically rigorous randomization -- worth knowing the difference if the result is used as anything more precise.
+
+    debug_trace_events: list = field(factory=list)  # Event indices (within each chunk) to save a detailed per-parton gen-matching + target-resolution trace PNG for, via trace_event() defined earlier in this same file. Empty by default -- does nothing unless explicitly populated. Deliberately a list, not a single int or a bare 'object', so it stays a concrete, cattrs-friendly type (an object-typed field previously broke cattrs' structure-hook generation at OSCA startup for every AnalyzerModule subclass, confirmed directly earlier -- worth not repeating that mistake here).
+    debug_trace_outdir: str = "./target_trace_plots"  # Where debug_trace_events' output PNGs get saved.
+
     __wp_cache: dict = field(factory=dict)
     __ctag_wp_cache: dict = field(factory=dict)
+    __shuffle_rng_holder: dict = field(factory=dict)  # Holds {"rng": <generator>} once lazily initialized -- MUST be dict-typed, not object-typed: cattrs (OSCA's YAML-to-class converter) generates a structure hook for every AnalyzerModule subclass at startup, regardless of which pipelines are actually enabled, and cannot handle a plain `object` type annotation. Confirmed directly: object-typed field reproduces the exact "Unsupported type: <class 'object'>" error; dict-typed (matching __wp_cache/__ctag_wp_cache, already proven working) resolves it.
 
     def getWPs(self, metadata):
         """
@@ -520,6 +808,16 @@ class SPANetGenMatch(AnalyzerModule):
         # rather than dropped, keeping the jet collection's width intact.
         jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
 
+        if self.debug_trace_events:
+            # trace_event is defined directly above in this same file --
+            for event_idx in self.debug_trace_events:
+                trace_event(
+                    chs, gen_gj, jets, event_idx,
+                    reco_mode=self.reco_mode, n_real_jets=self.n_real_jets,
+                    n_null_jets=self.n_null_jets, include_isr_target=self.include_isr_target,
+                    dr_threshold=self.dr_threshold, outdir=self.debug_trace_outdir,
+                )
+
         # -- btag+secondary ordering, same convention used at inference time --
         btag_sort_idx = ak.argsort(jets.btagUParTAK4B, axis=1, ascending=False)
         jets_partial = jets[btag_sort_idx]
@@ -623,6 +921,43 @@ class SPANetGenMatch(AnalyzerModule):
             signal_arr, effective_n_real_jets, self.n_null_jets, self.reco_mode,
             include_isr_target=self.include_isr_target,
         )
+
+        if self.randomize_jet_order:
+            # Deliberately placed AFTER both Source and Targets are fully,
+            # normally built -- the entire construction above is completely
+            # untouched by this flag. Only the REAL jet slots get shuffled,
+            # independently per event; the null slot(s) never move, since
+            # null_idx's meaning depends on it staying at a fixed position.
+            if "rng" not in self.__shuffle_rng_holder:
+                self.__shuffle_rng_holder["rng"] = np.random.default_rng(self.randomize_seed)
+
+            n_events = len(pt_arr)
+            perms = make_random_permutations(n_events, effective_n_real_jets, self.__shuffle_rng_holder["rng"])
+            inv_perms = np.argsort(perms, axis=1)
+            null_idx = effective_n_real_jets if self.n_null_jets > 0 else -1
+
+            # MASK is included here deliberately, not just the physical
+            # features -- it records which real-jet-range positions hold
+            # actual jets vs padding for events with fewer than
+            # effective_n_real_jets real jets, and that has to move WITH
+            # its jet, not stay fixed at its original position.
+            shuffled_source_fields = {
+                key: apply_perm_to_source_field(np.asarray(value), perms, effective_n_real_jets)
+                for key, value in source_fields.items()
+            }
+            source = ak.zip(shuffled_source_fields, depth_limit=1)
+
+            # Remap every target's daughter-slot indices through the SAME
+            # inverse permutation, so each one still points at the same
+            # physical jet, just at its new shuffled position. null_idx/-1
+            # are sentinels, not real positions, and pass through unchanged.
+            targets = {
+                particle: {
+                    daughter: remap_target_indices(np.asarray(indices), inv_perms, null_idx)
+                    for daughter, indices in daughters.items()
+                }
+                for particle, daughters in targets.items()
+            }
 
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source

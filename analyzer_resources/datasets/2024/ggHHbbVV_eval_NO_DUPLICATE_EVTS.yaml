@@ -1,0 +1,10 @@
+- name: ggHH2b2V6q_2024_eval_deduped
+  sample_type: MC
+  title: "ggHH2b2V6q"
+  n_events: 48054
+  x_sec: 3.5
+  era: '2024'
+  other_data:
+    nanoversion: "V15"
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output29.root

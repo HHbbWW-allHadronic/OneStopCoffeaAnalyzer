@@ -1,0 +1,37 @@
+- name: ggHH2b2V6q_2024_training_deduped
+  sample_type: MC
+  title: "ggHH2b2V6q"
+  n_events: 1059247
+  x_sec: 3.5
+  era: '2024'
+  other_data:
+    nanoversion: "V15"
+  files:
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output1.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output2.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output3.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output4.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output5.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output6.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output7.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output8.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output9.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output10.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output11.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output12.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output13.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output14.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output15.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output16.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output17.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output18.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output19.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output20.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output21.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output22.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output23.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output24.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output25.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output26.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output27.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output28.root

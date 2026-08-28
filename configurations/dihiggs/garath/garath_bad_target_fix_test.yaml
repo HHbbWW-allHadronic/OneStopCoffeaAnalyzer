@@ -1,0 +1,178 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  spanet_common_prefix_tiered: &spanet_common_prefix_tiered
+    - *common_objects
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - *eventlevel_selection
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: NObjFilter
+      input_col: tightElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: tightMuon
+      selection_name: zero_muon
+      min_count: 0
+      max_count: 0
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetLoose
+      include_pu_id: False
+      include_jet_id: True
+      min_pt: 15
+      max_abs_eta: 2.4
+
+    - module_name: TieredPtJetFilter
+      input_col: goodJetLoose
+      output_col: goodJetTiered
+      n_hard_jets: 4
+      hard_pt_cut: 25.0
+
+  spanet_medb_requirement_tiered: &spanet_medb_requirement_tiered
+    - module_name: HBQuarkMaker
+      input_col: goodJetTiered
+      output_col: MedBTiered
+      working_point: M
+      nontop2b: True
+      nontop2b_col: NonTop2BTiered
+
+    - module_name: NObjFilter
+      input_col: MedBTiered
+      selection_name: 2b
+      min_count: 2
+
+  # ============================================================
+  # Pre/post malformed-H2-target-fix comparison. Both checkpoints
+  # predate the tagging-mode work entirely (no LABEL/SCORE suffix
+  # in either filename) -- both were trained on the ORIGINAL,
+  # continuous-score, no-c-tagging Source layout. btag_mode/qvg_mode
+  # set to "score" and ctag_mode to "none" accordingly; using the
+  # current label/label/label defaults would silently feed both
+  # models a shape neither was ever trained on.
+  #
+  # NOTE (explicitly, per discussion): v140 and v154 were trained on
+  # DIFFERENT underlying samples, not just "same data, bug fixed" --
+  # this is not a perfectly isolated single-variable comparison.
+  # Evaluating both on the same eval sample controls what can be
+  # controlled; treat the result as "before vs. after in practice,"
+  # not a clean ablation.
+  # ============================================================
+
+  region2_6jet_v140_prefix: &region2_6jet_v140_prefix
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v140-region2-H1_H2_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: full_hww
+      secondary_order_field: qvg
+      particle_names: [H1, H2]
+      daughter_counts:
+        H1: 2
+        H2: 4
+      btag_mode: score
+      qvg_mode: score
+      ctag_mode: none
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_SPANet_1d
+      input_cols: [SPANet.m_HWW_SPANet]
+      axes:
+        - name: m(HWW) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  region2_6jet_v154_postfix: &region2_6jet_v154_postfix
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v154-region2-H1_H2_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: full_hww
+      secondary_order_field: qvg
+      particle_names: [H1, H2]
+      daughter_counts:
+        H1: 2
+        H2: 4
+      btag_mode: score
+      qvg_mode: score
+      ctag_mode: none
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_SPANet_1d
+      input_cols: [SPANet.m_HWW_SPANet]
+      axes:
+        - name: m(HWW) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024_eval'
+    pipelines:
+      - region2_6jet_v140_prefix
+      - region2_6jet_v154_postfix
