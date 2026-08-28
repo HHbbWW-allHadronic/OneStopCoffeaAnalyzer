@@ -308,6 +308,9 @@ class HJetFilter(AnalyzerModule):
 @define
 class TieredPtJetFilter(AnalyzerModule):
     """
+    Note: This is equivalent to just doing two HJetFilter modules with
+    appropriate selections.
+
     Produces a new jet collection (output_col) from an existing one
     (input_col) using a tiered pt selection: among jets in input_col, the
     n_hard_jets highest-pt jets must individually clear hard_pt_cut; any
@@ -483,6 +486,13 @@ class AbsoluteValue(AnalyzerModule):
     """
     This simple module takes the absolute value of a specified input column and
     stores the result in a new output column.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input values to be processed.
+    output_col : Column
+        Column where the absolute values will be stored.
     """
 
     input_col: Column
