@@ -13,10 +13,14 @@ analyzer:
 
   withHLT_ObjDef9:
     - *withHLT_ObjDef9
+    - module_name: PromoteAttributeToBracket
+      input_col: lowJet
+      nest_col: storedE
+      attribute_name: e
     - module_name: SaveEventsH5
       prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef9
       jet_col: lowJet
-      jet_vars: [pt, eta, phi, e, btag, btagPNetQvG, btagUParTAK4CvB, btagUParTAK4CvL]
+      jet_vars: [pt, eta, phi, storedE, btag, btagPNetQvG, btagUParTAK4CvB, btagUParTAK4CvL]
       n_jets: 6
       event_vars: [HT, b_dijet.mass, nontop2b_qvg_threejet.mass]
 
