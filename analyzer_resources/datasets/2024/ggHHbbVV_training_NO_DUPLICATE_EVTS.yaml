@@ -1,7 +1,7 @@
 - name: ggHH2b2V6q_2024_training_deduped
   sample_type: MC
   title: "ggHH2b2V6q"
-  n_events: 1059247
+  n_events: 1228627
   x_sec: 3.5
   era: '2024'
   other_data:
@@ -35,3 +35,7 @@
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output26.root
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output27.root
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output28.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED_NO_DUPLICATE_EVENTS/output29.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output30.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output31.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_MERGED/output32.root
