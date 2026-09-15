@@ -668,7 +668,7 @@ def mergeAndScale(results, drop_sample_pattern=None):
             if s_meta["sample_type"] == "MC":
                 lumi = s_meta["era"]["lumi"]
                 xs = s_meta["x_sec"]
-                scale = lumi * xs / processed_events
+                scale = 1 #lumi * xs / processed_events
                 sample_data.iscale(scale)
             elif s_meta["sample_type"] == "Data":
                 expected_nevents = s_meta["n_events"]
