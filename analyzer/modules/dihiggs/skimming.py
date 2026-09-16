@@ -587,7 +587,7 @@ def trace_event(chs, gen_gj, jets, event_idx, reco_mode, n_real_jets=6, n_null_j
     return out_path
 
 
-def _measure_truncation_loss(jets, jets_sorted, n_real_jets, outdir=".", chunk_label="chunk"):
+def _measure_truncation_loss(jets, jets_sorted, n_real_jets, reco_mode, outdir=".", chunk_label="chunk"):
     """Measures how often a genuinely gen-matched signal jet exists in
     an event but gets truncated away before ever reaching the final
     Source array -- NOT detectable from an already-built H5 file, since
@@ -611,12 +611,26 @@ def _measure_truncation_loss(jets, jets_sorted, n_real_jets, outdir=".", chunk_l
     full_signal = jets.signal
     truncated_signal = jets_sorted[:, :n_real_jets].signal
 
-    # H1=1 only (unambiguous); H2 pools 2+3 (same packing ambiguity
-    # established for trace_event -- can't attribute loss to one
-    # specific slot once truncation reshuffles which daughter lands
-    # where); ISR=4 alone.
-    groups = {"H1": [1], "H2": [2, 3], "ISR": [4]}
-    n_daughters_expected = {"H1": 2, "H2": 4, "ISR": 1}
+    # FIXED: this used to hardcode an "H2" group (pooling signal==2 and
+    # signal==3, expecting 4 daughters) regardless of reco_mode. In
+    # onshell_w mode, signal==3 is never assigned at all (there's no
+    # offshell-W branch there), so that pooled group could never
+    # legitimately reach 4 -- it silently, always reported "0 events had
+    # all 4 daughters matched," which isn't a real finding, just a
+    # groups dict describing the wrong particle for this mode. Branch
+    # groups/n_daughters_expected on reco_mode, same split good_event_mask
+    # and make_targets already use, so onshell_w runs report on W1 (2
+    # daughters, signal==2 only) instead of a meaningless "H2".
+    if reco_mode == "full_hww":
+        # H1=1 only (unambiguous); H2 pools 2+3 (same packing ambiguity
+        # established for trace_event -- can't attribute loss to one
+        # specific slot once truncation reshuffles which daughter lands
+        # where); ISR=4 alone.
+        groups = {"H1": [1], "H2": [2, 3], "ISR": [4]}
+        n_daughters_expected = {"H1": 2, "H2": 4, "ISR": 1}
+    else:  # onshell_w
+        groups = {"H1": [1], "W1": [2], "ISR": [4]}
+        n_daughters_expected = {"H1": 2, "W1": 2, "ISR": 1}
 
     os.makedirs(outdir, exist_ok=True)
     summary_path = os.path.join(outdir, "truncation_loss_running_totals.txt")
@@ -734,12 +748,15 @@ def _audit_n_real_jets_recovery(jets, jets_sorted, reco_mode, n_values, outdir="
             # matched jets rank -- direct, per-event evidence rather than
             # just an aggregate count.
             recovered_idx = np.where(ak.to_numpy(recovered))[0]
+            second_group_label = "H2" if reco_mode == "full_hww" else "W1"
+            second_group_values = (2, 3) if reco_mode == "full_hww" else (2,)
             for idx in recovered_idx[:n_sample_events]:
                 event_signal_sorted = ak.to_numpy(jets_sorted[idx].signal)
                 h1_ranks = [r for r, s in enumerate(event_signal_sorted) if s == 1]
-                h2_ranks = [r for r, s in enumerate(event_signal_sorted) if s in (2, 3)]
+                second_group_ranks = [r for r, s in enumerate(event_signal_sorted) if s in second_group_values]
                 detail = (f"  event[{idx}]: H1 matched jets at ranks {h1_ranks}, "
-                          f"H2 matched jets at ranks {h2_ranks} (0-indexed, post btag+secondary sort)")
+                          f"{second_group_label} matched jets at ranks {second_group_ranks} "
+                          f"(0-indexed, post btag+secondary sort)")
                 print(detail)
                 f.write(detail + "\n")
 
@@ -860,7 +877,12 @@ class SPANetGenMatch(AnalyzerModule):
 
     def outputs(self, metadata):
         p = self.output_prefix
-        outs = [Column(f"{p}.Source"), Column(f"{p}.good_event"), Column(("Selection", "good_event"))]
+        outs = [
+            Column(f"{p}.Source"),
+            Column(f"{p}.good_event"),
+            Column(f"{p}.good_event_pre_truncation"),
+            Column(("Selection", "good_event")),
+        ]
         if self.reco_mode == "full_hww":
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2")]
         else:
@@ -1035,7 +1057,7 @@ class SPANetGenMatch(AnalyzerModule):
             # module carries an actual filename or chunk index, worth
             # swapping that in here instead.
             _measure_truncation_loss(
-                jets, jets_sorted, self.n_real_jets,
+                jets, jets_sorted, self.n_real_jets, self.reco_mode,
                 outdir=self.truncation_loss_outdir, chunk_label=f"chunk_{id(columns)}",
             )
 
@@ -1057,15 +1079,32 @@ class SPANetGenMatch(AnalyzerModule):
         # window signal_arr actually uses closes that gap: any event that
         # passes genuinely has >=3 real q-jets among the 6 the network will
         # actually be given, not just somewhere in the full event.
+        # Two versions of good_event, computed and saved separately:
+        # "pre-truncation" checks the full, untruncated jets_sorted -- does
+        # this event have enough matched jets ANYWHERE in the event, not
+        # just within the window that survives truncation. "good_event"
+        # (unchanged, still the primary gate) checks only the same
+        # top-n_real_jets window the saved Source/Targets are actually built
+        # from -- this is what genuinely decides what makes it into the H5
+        # file. Pre-truncation is a strict superset of good_event by
+        # construction: a wider window can only ever see the same matches
+        # or more, never fewer.
         if self.reco_mode == "full_hww":
+            good_event_pre_truncation = good_event_mask_full_hww(jets_sorted)
             good_event = good_event_mask_full_hww(jets_sorted[:, : self.n_real_jets])
         else:
+            good_event_pre_truncation = good_event_mask_onshell_w(jets_sorted)
             good_event = good_event_mask_onshell_w(jets_sorted[:, : self.n_real_jets])
 
         if self.strip_bjets:
             top2_signal = jets_sorted[:, :2].signal
             bjet_slot_violation = ak.any((top2_signal == 2) | (top2_signal == 3), axis=1)
+            # Applied to both versions identically -- this check is about
+            # the top-2 btag slots specifically, independent of n_real_jets
+            # truncation entirely, so it isn't part of the before/after
+            # distinction at all.
             good_event = good_event & ~bjet_slot_violation
+            good_event_pre_truncation = good_event_pre_truncation & ~bjet_slot_violation
 
             jets_for_features = jets_sorted[:, 2:]
             effective_n_real_jets = self.n_real_jets - 2
@@ -1176,6 +1215,7 @@ class SPANetGenMatch(AnalyzerModule):
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source
         columns[Column(f"{p}.good_event")] = good_event
+        columns[Column(f"{p}.good_event_pre_truncation")] = good_event_pre_truncation
         columns[Column(("Selection", "good_event"))] = good_event
         columns[Column(f"{p}.Targets.H1")] = ak.zip(targets["H1"])
         if self.reco_mode == "full_hww":
@@ -1209,12 +1249,46 @@ class SaveSPANetH5(AnalyzerModule):
         events never made it into the H5 at all), applied here rather than
         via a yaml-level SelectOnColumns step. Leave unset to write every
         event SPANetGenMatch saw.
+
+    good_event_pre_truncation_col : Column, optional
+        If given, a SECOND H5 file is written alongside the primary one --
+        same Source/Targets, but filtered by this column instead of
+        good_event_col. Meant to pair with SPANetGenMatch's
+        good_event_pre_truncation output: the primary file reflects the
+        current, truncation-aware gate; this second file reflects the
+        wider, pre-truncation gate, letting the two be compared directly
+        rather than only inferred from aggregate diagnostics. Leave unset
+        (default) to write only the single, primary file -- existing
+        pipelines that don't set this see no change in behavior at all.
+
+    pre_truncation_suffix : str
+        Inserted before the file extension to distinguish the second
+        file's name from the primary one, e.g. "..._0_1000.h5" becomes
+        "..._0_1000_pretrunc.h5". Only used when
+        good_event_pre_truncation_col is set. Kept even though the two
+        files now also live in separate directories (below) -- makes the
+        pair unambiguous even if the files are ever copied or moved
+        somewhere the directory structure doesn't survive.
+
+    pre_truncation_prefix : str, optional
+        Output directory for the second (pre-truncation) file -- kept
+        separate from `prefix` so concatenating "all the primary files"
+        or "all the pre-truncation files" is a plain directory-level
+        hadd/glob, not a filename-suffix filter mixed in with everything
+        else. If unset (default), automatically derived as
+        f"{prefix}_pretrunc" -- a sibling directory next to the primary
+        one, no extra yaml configuration needed. Set explicitly to send
+        the second file somewhere unrelated to the primary output
+        entirely.
     """
 
     prefix: str
     source_col: Column
     targets_cols: List[Column] = field(factory=list)
     good_event_col: Column = None
+    good_event_pre_truncation_col: Column = None
+    pre_truncation_suffix: str = "_pretrunc"
+    pre_truncation_prefix: str = None
     output_format: str = (
         "{dataset_name}__{sample_name}__{file_id}"
         "__{chunk.event_start}_{chunk.event_stop}.h5"
@@ -1224,35 +1298,37 @@ class SaveSPANetH5(AnalyzerModule):
         cols = [self.source_col] + list(self.targets_cols)
         if self.good_event_col is not None:
             cols.append(self.good_event_col)
+        if self.good_event_pre_truncation_col is not None:
+            cols.append(self.good_event_pre_truncation_col)
         return cols
 
     def outputs(self, metadata):
         return []
 
-    def run(self, columns, params):
+    def _write_h5(self, columns, target_path, good_event_col):
+        """Writes one H5 file, filtered by the given good_event_col (or
+        unfiltered if None). Factored out of run() so both the primary
+        (good_event, truncation-aware) and the optional second
+        (good_event_pre_truncation) file share the exact same write
+        logic -- avoids maintaining two, potentially drifting copies of
+        the same h5py write block for what should behave identically
+        apart from which mask is applied.
+        """
         import h5py
 
-        file_id = hashlib.md5(
-            columns.metadata["chunk"]["file_path"].encode()
-        ).hexdigest().upper()
-        uid = str(uuid.uuid4())
-
-        target_name = dotFormat(
-            self.output_format,
-            **dict(dictToDot(columns.metadata)),
-            file_id=file_id,
-            uuid=uid,
-        )
-        target = f"{self.prefix}/{target_name}"
+        if good_event_col is not None:
+            good_np = ak.to_numpy(columns[good_event_col])
+        else:
+            good_np = None
 
         base = Path("localsaved")
         base.mkdir(exist_ok=True, parents=True)
+        # A fresh uid per call -- NOT shared with the other file's write,
+        # since both may be in flight (temp file on disk) at once and
+        # need distinct scratch paths regardless of what their final,
+        # permanent target filenames end up being.
+        uid = str(uuid.uuid4())
         local_filename = base / f"{uid}.h5"
-
-        if self.good_event_col is not None:
-            good_np = ak.to_numpy(columns[self.good_event_col])
-        else:
-            good_np = None
 
         try:
             source = columns[self.source_col]
@@ -1279,8 +1355,38 @@ class SaveSPANetH5(AnalyzerModule):
                             data=data,
                             compression="gzip",
                         )
-            copyFile(local_filename, target)
+            copyFile(local_filename, target_path)
         finally:
             local_filename.unlink(missing_ok=True)
+
+    def run(self, columns, params):
+        file_id = hashlib.md5(
+            columns.metadata["chunk"]["file_path"].encode()
+        ).hexdigest().upper()
+        uid = str(uuid.uuid4())
+
+        target_name = dotFormat(
+            self.output_format,
+            **dict(dictToDot(columns.metadata)),
+            file_id=file_id,
+            uuid=uid,
+        )
+        target = f"{self.prefix}/{target_name}"
+
+        self._write_h5(columns, target, self.good_event_col)
+
+        if self.good_event_pre_truncation_col is not None:
+            # Own directory, not the primary one -- so "concatenate every
+            # primary file" and "concatenate every pre-truncation file"
+            # are each a plain glob over one directory, not a
+            # filename-suffix filter mixed in among the other kind.
+            # Same uuid as the primary file (via the shared target_name
+            # stem), just under a different prefix -- still visually
+            # traceable back to its paired primary file if needed.
+            pre_prefix = self.pre_truncation_prefix or f"{self.prefix}_pretrunc"
+            name_path = Path(target_name)
+            pre_target_name = f"{name_path.stem}{self.pre_truncation_suffix}{name_path.suffix}"
+            pre_target = f"{pre_prefix}/{pre_target_name}"
+            self._write_h5(columns, pre_target, self.good_event_pre_truncation_col)
 
         return columns, []
