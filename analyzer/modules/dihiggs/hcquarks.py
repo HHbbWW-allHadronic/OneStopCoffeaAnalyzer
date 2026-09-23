@@ -55,11 +55,11 @@ class HCQuarkMaker(AnalyzerModule):
         cname = metadata["era"]["btag_scale_factors"]["correction_name"]
 
         if file_path in self.__corrections:
-            return tagger, self.__corrections[file_path]
+            return taggers, self.__corrections[file_path]
         cset = correctionlib.CorrectionSet.from_file(file_path)
         ret = {
             "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
-            "CvB": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+            "CvB": {p: cset[cname].evaluate(p, "CvB") for p in ("L", "M", "T")},
         }
         self.__corrections[file_path] = ret
         return taggers, ret

@@ -11,7 +11,6 @@ from .common import PlotConfiguration
 from .utils import saveFigVariants
 import mplhep
 
-
 def plot2D(
     histogram,
     common_meta,
@@ -23,6 +22,8 @@ def plot2D(
     vline=None,
     hline=None,
     cbar_title="Events",
+    vmin=None,
+    vmax=None,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -33,9 +34,9 @@ def plot2D(
     if normalize:
         h = h / np.sum(h.values())
     if color_scale == "log":
-        objs = mplhep.hist2dplot(h, norm=matplotlib.colors.LogNorm(), ax=ax)
+        objs = mplhep.hist2dplot(h, norm=matplotlib.colors.LogNorm(vmin=vmin, vmax=vmax), ax=ax)
     else:
-         objs = mplhep.hist2dplot(h, ax=ax)
+         objs = mplhep.hist2dplot(h, ax=ax, cmin=vmin, cmax=vmax)
     cbar = objs.cbar
     if cbar_title and cbar is not None:
         cbar.set_label(cbar_title)
@@ -66,7 +67,6 @@ def getContour(HH, val):
         if np.sum(HH[HH > i]) < (total * val):
             return i
     return None
-
 
 def plot2DSigBkg(
     bkg_hist,

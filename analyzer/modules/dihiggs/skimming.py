@@ -338,255 +338,6 @@ def remap_target_indices(target_arr, inv_perms, null_idx):
     return out
 
 
-# ============================================================
-# Debug tracing: per-parton gen-matching diagnosis + full target
-# resolution trace, for debug_trace_events. Inlined here directly
-# (rather than imported from a separate module) so this file has no
-# external dependency beyond what's already imported above -- a
-# previous version imported this from trace_target_construction.py,
-# which failed at runtime with ModuleNotFoundError since that file was
-# never actually placed anywhere on OSCA's import path. Everything
-# needed now lives in this one file.
-#
-# signal value -> particle/daughter mapping, confirmed directly from
-# make_targets' own logic above (full_hww mode):
-#     signal == 1  ->  H1 (Hbb),  fills H1.b1, H1.b2
-#     signal == 2  ->  H2 (HWW),  fills H2.q1, H2.q2 (one W's daughters)
-#     signal == 3  ->  H2 (HWW),  fills H2.q3, H2.q4 (the other W's daughters)
-#     signal == 4  ->  ISR (if include_isr_target)
-# ============================================================
-
-_TRACE_PDGID_NAMES = {1: "d", 2: "u", 3: "s", 4: "c", 5: "b"}
-# Confirmed directly from make_targets' own source: H1 is ALWAYS
-# computed and returned regardless of strip_bjets -- there is no
-# strip_bjets check anywhere in make_targets at all. The strip_bjets
-# exclusion of H1 from the final H5 happens downstream, at
-# SaveSPANetH5's targets_cols, a separate module. This tracer shows
-# everything make_targets itself actually produces for the given
-# reco_mode/include_isr_target, dynamically -- not a fixed H1+H2
-# assumption -- so it correctly handles full_hww, onshell_w, with or
-# without ISR, without needing separate hardcoded code paths. Verified
-# directly against both structures before being wired in here.
-#
-# Per-particle signal-group mapping, confirmed from make_targets' own
-# logic: H1 always signal==1. For full_hww, H2 pools signal 2+3 --
-# packing is shared across BOTH groups (confirmed earlier: an empty H2
-# slot can't be attributed to one specific parton once one sub-group
-# falls short, so failures are shown pooled, at the first empty H2
-# slot). For onshell_w, W1 is ONLY ever signal==2 -- onshell_w never
-# touches h3_jets at all, so there's no such ambiguity there. ISR is
-# always signal==4.
-_TRACE_PARTICLE_SIGNAL_GROUPS = {"H1": [1], "H2": [2, 3], "W1": [2], "ISR": [4]}
-
-
-def _trace_quark_label(pdg_id):
-    """Human-readable flavor from a PDG ID -- standard, stable PDG
-    numbering (1=d, 2=u, 3=s, 4=c, 5=b), sign indicates antiparticle."""
-    sign = "-" if pdg_id < 0 else ""
-    name = _TRACE_PDGID_NAMES.get(abs(pdg_id), f"pdgId={pdg_id}")
-    return f"{sign}{name}"
-
-
-def _trace_dr_matrix(eta_a, phi_a, eta_b, phi_b):
-    deta = eta_a[:, None] - eta_b[None, :]
-    dphi = phi_a[:, None] - phi_b[None, :]
-    dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
-    return np.sqrt(deta**2 + dphi**2)
-
-
-def _trace_greedy_match_with_indices(eta_a, phi_a, eta_b, phi_b, dr_threshold):
-    n_a, n_b = len(eta_a), len(eta_b)
-    if n_a == 0 or n_b == 0:
-        return {}
-    dr = _trace_dr_matrix(eta_a, phi_a, eta_b, phi_b)
-    assigned_a, assigned_b, matches = set(), set(), {}
-    while True:
-        dr_masked = dr.copy()
-        if assigned_a:
-            dr_masked[list(assigned_a), :] = np.inf
-        if assigned_b:
-            dr_masked[:, list(assigned_b)] = np.inf
-        if dr_masked.min() > dr_threshold:
-            break
-        ia, ib = np.unravel_index(dr_masked.argmin(), dr_masked.shape)
-        matches[int(ia)] = int(ib)
-        assigned_a.add(ia)
-        assigned_b.add(ib)
-    return matches
-
-
-def _trace_diagnose_partons(chs, gen_gj, jets, event_idx, dr_threshold, pt_ratio_bounds=(0.5, 2.0)):
-    partons = chs[event_idx]
-    genjets = gen_gj[event_idx]
-    recojets = jets[event_idx]
-    n_partons = len(partons)
-
-    stage1 = _trace_greedy_match_with_indices(
-        ak.to_numpy(genjets.eta), ak.to_numpy(genjets.phi),
-        ak.to_numpy(partons.eta), ak.to_numpy(partons.phi), dr_threshold,
-    )
-    parton_to_genjet = {p: gj for gj, p in stage1.items()}
-
-    stage2 = _trace_greedy_match_with_indices(
-        ak.to_numpy(recojets.eta), ak.to_numpy(recojets.phi),
-        ak.to_numpy(genjets.eta), ak.to_numpy(genjets.phi), dr_threshold,
-    )
-    genjet_to_recojet = {gj: r for r, gj in stage2.items()}
-
-    recojet_pt = ak.to_numpy(recojets.pt)
-    genjet_pt = ak.to_numpy(genjets.pt)
-
-    results = []
-    for p_idx in range(n_partons):
-        signal_val = int(partons.signal[p_idx])
-        pdg_id = int(partons.pdgId[p_idx])
-        base = {"parton": p_idx, "signal": signal_val, "pdg_id": pdg_id}
-
-        if p_idx not in parton_to_genjet:
-            results.append({**base, "outcome": "FAIL",
-                             "detail": "FAILED: did not pass GenPart-to-GenJet dr matching"})
-            continue
-        gj_idx = parton_to_genjet[p_idx]
-        if gj_idx not in genjet_to_recojet:
-            results.append({**base, "outcome": "FAIL",
-                             "detail": f"FAILED: GenJet {gj_idx} found, but no reco Jet within dr<{dr_threshold}"})
-            continue
-        reco_idx = genjet_to_recojet[gj_idx]
-        ratio = recojet_pt[reco_idx] / genjet_pt[gj_idx]
-        lo, hi = pt_ratio_bounds
-        if not (lo < ratio < hi):
-            results.append({**base, "outcome": "FAIL",
-                             "detail": f"FAILED: reco jet {reco_idx} found, pt_ratio={ratio:.2f} outside ({lo},{hi})"})
-            continue
-        if abs(pdg_id) == 5:
-            qtype = "b quark"
-        elif abs(pdg_id) == 21:
-            qtype = "gluon"
-        else:
-            qtype = f"{_trace_quark_label(pdg_id)} quark"
-        results.append({**base, "outcome": "SUCCESS", "reco_idx": reco_idx, "pt_ratio": ratio,
-                         "detail": f"PASSED: matched to a {qtype}\n-> reco jet {reco_idx}, pt_ratio={ratio:.2f}"})
-    return results
-
-
-def _trace_wrap_multiline(text, width=18):
-    """Wraps EACH existing line separately, so an intentional newline
-    isn't just treated as another character by textwrap. Confirmed
-    directly: the unwrapped version overflowed several boxes' edges."""
-    import textwrap
-    lines = text.split("\n")
-    wrapped = []
-    for line in lines:
-        wrapped.extend(textwrap.wrap(line, width=width) or [""])
-    return "\n".join(wrapped)
-
-
-def _trace_draw_box(ax, x, y, w, h, text, color, edge, fontsize=7.5):
-    import matplotlib.patches as patches
-    text = _trace_wrap_multiline(text)
-    box = patches.FancyBboxPatch((x, y), w, h, boxstyle="round,pad=0.02,rounding_size=0.03",
-                                   linewidth=1.3, edgecolor=edge, facecolor=color)
-    ax.add_patch(box)
-    ax.text(x + w / 2, y + h / 2, text, ha="center", va="center", fontsize=fontsize)
-
-
-def trace_event(chs, gen_gj, jets, event_idx, reco_mode, n_real_jets=6, n_null_jets=1,
-                 include_isr_target=False, dr_threshold=0.4, outdir="."):
-    """Generalized across ALL region structures (full_hww, onshell_w,
-    with or without ISR, regardless of strip_bjets) -- builds its slot
-    list dynamically from whatever the REAL make_targets() actually
-    returns for this reco_mode/include_isr_target, rather than a fixed
-    H1+H2 assumption. Verified directly against both full_hww and
-    onshell_w+ISR structures before being wired in here -- produced the
-    correct 6-slot and 5-slot layouts respectively, with no separate
-    code path needed per region type.
-    """
-    # matplotlib is a heavy, optional dependency -- imported HERE, not at
-    # module top, so a normal OSCA run that never sets debug_trace_events
-    # never pays the import cost or needs matplotlib installed at all.
-    import os
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-
-    parton_results = _trace_diagnose_partons(chs, gen_gj, jets, event_idx, dr_threshold)
-
-    signal_arr_event = np.full(n_real_jets, -1)
-    by_reco_idx = {}
-    for r in parton_results:
-        if r["outcome"] == "SUCCESS" and r["reco_idx"] < n_real_jets:
-            signal_arr_event[r["reco_idx"]] = r["signal"]
-            by_reco_idx[r["reco_idx"]] = r
-
-    # Calls the REAL make_targets() directly -- not a separate
-    # reimplementation -- so this can never disagree with what the
-    # actual production pipeline computes. Batch dim of 1 for one event.
-    targets_dict = make_targets(signal_arr_event[None, :], n_real_jets, n_null_jets, reco_mode, include_isr_target)
-    null_idx = n_real_jets if n_null_jets > 0 else -1
-
-    slots = []
-    for particle in targets_dict:
-        for daughter in targets_dict[particle]:
-            slots.append((particle, daughter))
-
-    fails_by_signal = {}
-    for r in parton_results:
-        if r["outcome"] != "SUCCESS":
-            fails_by_signal.setdefault(r["signal"], []).append(r["detail"])
-
-    os.makedirs(outdir, exist_ok=True)
-    n_slots = len(slots)
-    col_w, gap = 1.95, 0.25
-    fig_w = max(13, n_slots * (col_w + gap) + 1)
-    fig, ax = plt.subplots(figsize=(fig_w, 5.5))
-    ax.axis("off")
-    total_w = n_slots * col_w + (n_slots - 1) * gap
-    start_x = (fig_w - total_w) / 2
-    top_y, top_h = 3.8, 0.8
-    bot_y, bot_h = 1.5, 1.6
-
-    ax.text(fig_w / 2, 5.0, "TARGETS", ha="center", fontsize=13, weight="bold")
-
-    shown_pooled = set()
-    for i, (particle, daughter) in enumerate(slots):
-        x = start_x + i * (col_w + gap)
-        _trace_draw_box(ax, x, top_y, col_w, top_h, "[empty]", "#e8e7e2", "#5f5e5a", fontsize=9)
-        ax.annotate("", xy=(x + col_w / 2, bot_y + bot_h), xytext=(x + col_w / 2, top_y),
-                    arrowprops=dict(arrowstyle="->", color="#444441", lw=1.3))
-
-        value = int(targets_dict[particle][daughter][0])
-        if value != null_idx and value != -1:
-            text = by_reco_idx[value]["detail"]
-            color, edge = "#d7ecdf", "#1f7a4d"
-        else:
-            groups = _TRACE_PARTICLE_SIGNAL_GROUPS.get(particle, [])
-            all_reasons = [d for sig in groups for d in fails_by_signal.get(sig, [])]
-            if len(groups) == 1:
-                reason = all_reasons[0] if all_reasons else "?"
-            else:
-                if all_reasons and particle not in shown_pooled:
-                    reason = " | ".join(all_reasons)
-                    shown_pooled.add(particle)
-                elif all_reasons:
-                    reason = f"(see first empty {particle} slot)"
-                else:
-                    reason = "?"
-            text = reason
-            color, edge = ("#e8e7e2", "#5f5e5a") if value == null_idx else ("#fbe3d6", "#993c1d")
-        _trace_draw_box(ax, x, bot_y, col_w, bot_h, text, color, edge)
-
-        ax.text(x + col_w / 2, bot_y - 0.35, f"{particle}.{daughter}", ha="center", fontsize=9, weight="bold")
-
-    ax.set_xlim(0, fig_w)
-    ax.set_ylim(0.8, 5.4)
-    ax.set_title(f"Event {event_idx}: target resolution ({reco_mode}, ISR={include_isr_target})", fontsize=10, pad=10)
-    out_path = os.path.join(outdir, f"target_trace_event{event_idx}.png")
-    plt.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close(fig)
-    print(f"Saved: {out_path}")
-    return out_path
-
-
 def _measure_truncation_loss(jets, jets_sorted, n_real_jets, reco_mode, outdir=".", chunk_label="chunk"):
     """Measures how often a genuinely gen-matched signal jet exists in
     an event but gets truncated away before ever reaching the final
@@ -803,18 +554,18 @@ class SPANetGenMatch(AnalyzerModule):
     ctag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when ctag_mode="label", resolved via getCTagWPs()
     ctag_mode: str = "label"  # "score" or "label". SCORE: two independent continuous features (CvB, CvL) are kept, since they're genuinely distinct discriminants. LABEL: collapses to ONE boolean feature, true only if the jet clears BOTH the CvB and CvL working points simultaneously. Because the number of Source columns differs between these two modes (2 vs 1), a single event_info.yaml can't describe both -- use two separate configs, one per mode, matching this project's existing pattern of two-config comparisons.
 
-    strip_bjets: bool = False  
+    strip_bjets: bool = False
+
+    skip_gen_matching: bool = False  # For background-only (e.g. QCD) samples that have no genuine H->bb/WW gen-level truth to match against. When True, the entire genpart/genjet truth-construction and greedy-matching block below is bypassed entirely: every jet is labeled signal=-1 directly (i.e. "not part of any true resonance decay"), and the SAME btag+secondary-order sort/truncation logic downstream (which doesn't depend on `signal` at all) is left completely untouched, so background jets get ordered exactly the same way signal jets do -- the only difference is what's written to the `signal` field before that sort runs. good_event/good_event_pre_truncation are both overridden to unconditionally True in this mode: the normal good_event_mask_* functions always require signal==1 (>=2 Hbb jets) to appear, which by construction never happens for background, so calling them here would silently drop every single background event rather than keep it with all-null targets. check_truncation_loss and audit_n_real_jets_values are both skipped in this mode too, since each depends on genuinely gen-matched structures (chs, gen_gj) that were never built.
 
     randomize_jet_order: bool = False  # For directly testing whether jet ORDER carries information the network learns from: after Source features AND Targets are both fully built (btag+qvg sort, strip_bjets if active, target index computation -- all completely unchanged), apply an independent per-event random permutation to the REAL jet slots only (never the null slot(s)), then remap every target index through the exact inverse of that permutation so it still points at the same physical jet, just at its new shuffled position. If a model trained this way performs comparably to one trained on the normal btag+qvg order, that's real evidence order itself isn't what the network is learning from -- performance would come from the underlying jet content, not position. Leaves the normal (non-shuffled) path completely untouched when False (the default).
     randomize_seed: int = 42  # Seed for the per-event shuffle above. The underlying RNG is created ONCE (see __shuffle_rng_holder below) and persists across every call to run() for this module instance, so successive chunks draw genuinely different permutations rather than each chunk restarting from the same seed. This guarantee holds only if the SAME module instance processes every chunk sequentially -- if chunks are ever processed by separate instances/workers, each would restart from this same seed, which would not fully defeat the purpose (each individual event still gets an independent per-event shuffle) but could correlate shuffles ACROSS chunk boundaries. Good enough for this study's purpose (a coarse ablation on whether order matters at all), not a cryptographically rigorous randomization -- worth knowing the difference if the result is used as anything more precise.
 
-    debug_trace_events: list = field(factory=list)  # Event indices (within each chunk) to save a detailed per-parton gen-matching + target-resolution trace PNG for, via trace_event() defined earlier in this same file. Empty by default -- does nothing unless explicitly populated. Deliberately a list, not a single int or a bare 'object', so it stays a concrete, cattrs-friendly type (an object-typed field previously broke cattrs' structure-hook generation at OSCA startup for every AnalyzerModule subclass, confirmed directly earlier -- worth not repeating that mistake here).
-    debug_trace_outdir: str = "./target_trace_plots"  # Where debug_trace_events' output PNGs get saved.
 
     check_truncation_loss: bool = False  # When True, measures how often a genuinely gen-matched signal jet exists in an event but gets truncated away before reaching the final Source array -- distinct from a genuine non-match (both look identical, resolving to null, once truncation has already happened; only comparing the pre- and post-truncation jet collections, both live here in run(), can actually tell them apart). False by default -- a plain bool, cattrs-safe, does nothing unless explicitly turned on. Writes a running-totals file rather than holding results in memory, so it accumulates safely across many chunks.
     truncation_loss_outdir: str = "./truncation_diagnostics"  # Where check_truncation_loss's running-totals file gets written.
 
-    audit_n_real_jets_values: list = field(factory=list)  # e.g. [6, 8] -- when non-empty, directly audits whether widening n_real_jets (comparing consecutive values in this list) recovers genuine events or hides a bug: checks monotonicity (a wider window should never cause an event to lose a pass it already had) and samples specific "recovered" events, reporting exactly which rank their matched jets fall at. Empty by default -- does nothing unless explicitly populated, same cattrs-safe list pattern as debug_trace_events.
+    audit_n_real_jets_values: list = field(factory=list)  # e.g. [6, 8] -- when non-empty, directly audits whether widening n_real_jets (comparing consecutive values in this list) recovers genuine events or hides a bug: checks monotonicity (a wider window should never cause an event to lose a pass it already had) and samples specific "recovered" events, reporting exactly which rank their matched jets fall at. Empty by default -- does nothing unless explicitly populated, same cattrs-safe list pattern used throughout these diagnostic fields.
     audit_n_real_jets_outdir: str = "./truncation_diagnostics"  # Where the audit's log file gets written.
 
     check_chs_multiplicity: bool = False  # When True, checks whether q_onshell/q_offshell ever contain more than 2 entries per event -- if isFirstCopy+fromHardProcess doesn't guarantee exactly one GenPart record per physical quark (e.g. an FSR copy slipping through), chs itself could carry duplicate labels upstream of any matching logic. False by default, same cattrs-safe pattern as the other diagnostics here.
@@ -896,142 +647,149 @@ class SPANetGenMatch(AnalyzerModule):
         genpart = columns[self.genpart_col]
         genjet = columns[self.genjet_col]
 
-        all_gp_idx = ak.local_index(genpart, axis=1)
-
-        # -- Truth object construction (ported from nano_to_h5_V2.py) --
-        H_idx = all_gp_idx[(genpart.pdgId == 25) & genpart.hasFlags(["isLastCopy"])]
-        b_mask = (
-            (abs(genpart.pdgId) == 5)
-            & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-            & ak.any(genpart.genPartIdxMother[:, :, None] == H_idx[:, None, :], axis=2)
-        )
-        b_quarks = ak.with_field(genpart[b_mask], 1, "signal")
-
-        incoming_mask = (genpart.status == 21) & (genpart.genPartIdxMother == -1)
-        incoming_idx = all_gp_idx[incoming_mask]
-        isr_mask = (
-            (genpart.pdgId == 21)
-            & ak.any(genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2)
-            & (genpart.status != 21)
-        )
-        isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
-
-        if self.reco_mode == "full_hww":
-            W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
-            W_all_idx = all_gp_idx[W_mask]
-            W_bosons = genpart[W_mask]
-            W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
-            W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
-            onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
-            offshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1])
-
-            q_onshell_mask = (
-                (abs(genpart.pdgId) <= 4)
-                & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+        if self.skip_gen_matching:
+            # -- Background-only path (e.g. QCD): no genuine H->bb/WW gen
+            # truth exists to match against, so skip the ENTIRE truth
+            # construction + greedy-matching block that normally runs here
+            # (chs/gen_gj are never built in this mode). Every jet is
+            # labeled background (signal=-1) directly instead. Downstream,
+            # the identical btag+secondary sort/truncation, feature-
+            # building, and make_targets logic is left completely
+            # untouched -- make_targets naturally emits all-null (-1)
+            # targets since no jet ever carries signal==1/2/3/4, and
+            # QCD jets get ordered exactly the same way signal jets do.
+            jets = ak.with_field(
+                jets, ak.zeros_like(ak.local_index(jets, axis=1)) - 1, "signal"
             )
-            q_onshell = ak.with_field(genpart[q_onshell_mask], 2, "signal")
+            chs = None
+            gen_gj = None
+        else:
+            all_gp_idx = ak.local_index(genpart, axis=1)
 
-            q_offshell_mask = (
-                (abs(genpart.pdgId) <= 4)
+            # -- Truth object construction (ported from nano_to_h5_V2.py) --
+            H_idx = all_gp_idx[(genpart.pdgId == 25) & genpart.hasFlags(["isLastCopy"])]
+            b_mask = (
+                (abs(genpart.pdgId) == 5)
                 & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :], axis=2)
+                & ak.any(genpart.genPartIdxMother[:, :, None] == H_idx[:, None, :], axis=2)
             )
-            q_offshell = ak.with_field(genpart[q_offshell_mask], 3, "signal")
+            b_quarks = ak.with_field(genpart[b_mask], 1, "signal")
 
-            if self.check_chs_multiplicity:
-                n_onshell = ak.num(q_onshell)
-                n_offshell = ak.num(q_offshell)
-                onshell_violations = ak.sum(n_onshell > 2)
-                offshell_violations = ak.sum(n_offshell > 2)
-                print(f"[check_chs_multiplicity] Max q_onshell per event: {ak.max(n_onshell)}")
-                print(f"[check_chs_multiplicity] Max q_offshell per event: {ak.max(n_offshell)}")
-                print(f"[check_chs_multiplicity] Events with q_onshell > 2: {onshell_violations}")
-                print(f"[check_chs_multiplicity] Events with q_offshell > 2: {offshell_violations}")
-                if onshell_violations > 0 or offshell_violations > 0:
-                    bad_idx = ak.local_index(n_onshell)[(n_onshell > 2) | (n_offshell > 2)]
-                    print(f"[check_chs_multiplicity] Event indices (within this chunk) with a violation: {ak.to_list(bad_idx)[:20]}")
-
-            chs = ak.concatenate([b_quarks, q_onshell, q_offshell, isr_gluon], axis=1)
-
-            def good_event_mask_full_hww(gj_with_signal):
-                # HWW count is capped at 2 PER W (min(count, 2) for signal==2
-                # and signal==3 separately) before summing -- this must match
-                # make_targets' own all_q = concatenate([h2_jets[:2],
-                # h3_jets[:2]]) exactly.
-                h2_count = ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1)
-                h3_count = ak.sum(ak.fill_none(gj_with_signal.signal == 3, False), axis=1)
-                h2_count_capped = ak.where(h2_count > 2, 2, h2_count)
-                h3_count_capped = ak.where(h3_count > 2, 2, h3_count)
-                return (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
-                ) & (
-                    (h2_count_capped + h3_count_capped) >= 3
-                )
-        else:  # onshell_w
-            W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
-            W_all_idx = all_gp_idx[W_mask]
-            W_bosons = genpart[W_mask]
-            W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
-            W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
-            onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
-
-            q_onshell_mask = (
-                (abs(genpart.pdgId) <= 4)
-                & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+            incoming_mask = (genpart.status == 21) & (genpart.genPartIdxMother == -1)
+            incoming_idx = all_gp_idx[incoming_mask]
+            isr_mask = (
+                (genpart.pdgId == 21)
+                & ak.any(genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2)
+                & (genpart.status != 21)
             )
-            q_from_W = ak.with_field(genpart[q_onshell_mask], 2, "signal")
-            chs = ak.concatenate([b_quarks, q_from_W, isr_gluon], axis=1)
+            isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
 
-            def good_event_mask_onshell_w(gj_with_signal):
-                # No cap needed here: W1's target only has 2 slots total, and
-                # this check's own threshold (>=2) already equals that slot
-                # count -- W1[i, :min(len(h2_jets), 2)] = h2_jets[:2] fills
-                # both slots whenever h2_jets has >=2 entries, leaving nothing
-                # unfilled to ever collide. The full_hww case only has this
-                # bug because its threshold (>=3) is LESS than its total slot
-                # count (4), split across two separately-capped groups.
-                return (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
-                ) & (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1) >= 2
+            if self.reco_mode == "full_hww":
+                W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
+                W_all_idx = all_gp_idx[W_mask]
+                W_bosons = genpart[W_mask]
+                W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
+                W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
+                onshell_is_first = W_mass_1 >= W_mass_2
+                onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
+                offshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1])
+
+                q_onshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
                 )
+                q_onshell = ak.with_field(genpart[q_onshell_mask], 2, "signal")
 
-        # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
-        genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (genjet.pt > self.genjet_pt_cut)
-        gen_gj = genjet[genjet_cut]
-
-        # -- Stage 1: gen parton -> gen jet --
-        signal_genjet_list = greedy_match(gen_gj, chs, "signal", dr_threshold=self.dr_threshold)
-        gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
-        signal_gen_jets = gen_gj[ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])]
-
-        # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
-        signal_reco_list, matched_pt_list = greedy_match(
-            jets, signal_gen_jets, "signal", dr_threshold=self.dr_threshold, store_pt=True
-        )
-        jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
-        jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
-        pt_ratio = jets.pt / jets.matched_genjet_pt
-        good_match_ptr = ak.fill_none(
-            (pt_ratio > 0.5) & (pt_ratio < 2.0) & (jets.signal != -1), False
-        )
-        # Jets failing the pt_ratio check get relabeled to -1 (background)
-        # rather than dropped, keeping the jet collection's width intact.
-        jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
-
-        if self.debug_trace_events:
-            # trace_event is defined directly above in this same file --
-            for event_idx in self.debug_trace_events:
-                trace_event(
-                    chs, gen_gj, jets, event_idx,
-                    reco_mode=self.reco_mode, n_real_jets=self.n_real_jets,
-                    n_null_jets=self.n_null_jets, include_isr_target=self.include_isr_target,
-                    dr_threshold=self.dr_threshold, outdir=self.debug_trace_outdir,
+                q_offshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :], axis=2)
                 )
+                q_offshell = ak.with_field(genpart[q_offshell_mask], 3, "signal")
+
+                if self.check_chs_multiplicity:
+                    n_onshell = ak.num(q_onshell)
+                    n_offshell = ak.num(q_offshell)
+                    onshell_violations = ak.sum(n_onshell > 2)
+                    offshell_violations = ak.sum(n_offshell > 2)
+                    print(f"[check_chs_multiplicity] Max q_onshell per event: {ak.max(n_onshell)}")
+                    print(f"[check_chs_multiplicity] Max q_offshell per event: {ak.max(n_offshell)}")
+                    print(f"[check_chs_multiplicity] Events with q_onshell > 2: {onshell_violations}")
+                    print(f"[check_chs_multiplicity] Events with q_offshell > 2: {offshell_violations}")
+                    if onshell_violations > 0 or offshell_violations > 0:
+                        bad_idx = ak.local_index(n_onshell)[(n_onshell > 2) | (n_offshell > 2)]
+                        print(f"[check_chs_multiplicity] Event indices (within this chunk) with a violation: {ak.to_list(bad_idx)[:20]}")
+
+                chs = ak.concatenate([b_quarks, q_onshell, q_offshell, isr_gluon], axis=1)
+
+                def good_event_mask_full_hww(gj_with_signal):
+                    # HWW count is capped at 2 PER W (min(count, 2) for signal==2
+                    # and signal==3 separately) before summing -- this must match
+                    # make_targets' own all_q = concatenate([h2_jets[:2],
+                    # h3_jets[:2]]) exactly.
+                    h2_count = ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1)
+                    h3_count = ak.sum(ak.fill_none(gj_with_signal.signal == 3, False), axis=1)
+                    h2_count_capped = ak.where(h2_count > 2, 2, h2_count)
+                    h3_count_capped = ak.where(h3_count > 2, 2, h3_count)
+                    return (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
+                    ) & (
+                        (h2_count_capped + h3_count_capped) >= 3
+                    )
+            else:  # onshell_w
+                W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
+                W_all_idx = all_gp_idx[W_mask]
+                W_bosons = genpart[W_mask]
+                W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
+                W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
+                onshell_is_first = W_mass_1 >= W_mass_2
+                onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
+
+                q_onshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+                )
+                q_from_W = ak.with_field(genpart[q_onshell_mask], 2, "signal")
+                chs = ak.concatenate([b_quarks, q_from_W, isr_gluon], axis=1)
+
+                def good_event_mask_onshell_w(gj_with_signal):
+                    # No cap needed here: W1's target only has 2 slots total, and
+                    # this check's own threshold (>=2) already equals that slot
+                    # count -- W1[i, :min(len(h2_jets), 2)] = h2_jets[:2] fills
+                    # both slots whenever h2_jets has >=2 entries, leaving nothing
+                    # unfilled to ever collide. The full_hww case only has this
+                    # bug because its threshold (>=3) is LESS than its total slot
+                    # count (4), split across two separately-capped groups.
+                    return (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
+                    ) & (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1) >= 2
+                    )
+
+            # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
+            genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (genjet.pt > self.genjet_pt_cut)
+            gen_gj = genjet[genjet_cut]
+
+            # -- Stage 1: gen parton -> gen jet --
+            signal_genjet_list = greedy_match(gen_gj, chs, "signal", dr_threshold=self.dr_threshold)
+            gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
+            signal_gen_jets = gen_gj[ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])]
+
+            # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
+            signal_reco_list, matched_pt_list = greedy_match(
+                jets, signal_gen_jets, "signal", dr_threshold=self.dr_threshold, store_pt=True
+            )
+            jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
+            jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
+            pt_ratio = jets.pt / jets.matched_genjet_pt
+            good_match_ptr = ak.fill_none(
+                (pt_ratio > 0.5) & (pt_ratio < 2.0) & (jets.signal != -1), False
+            )
+            # Jets failing the pt_ratio check get relabeled to -1 (background)
+            # rather than dropped, keeping the jet collection's width intact.
+            jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
 
         # -- btag+secondary ordering, same convention used at inference time --
         btag_sort_idx = ak.argsort(jets.btagUParTAK4B, axis=1, ascending=False)
@@ -1049,19 +807,23 @@ class SPANetGenMatch(AnalyzerModule):
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
         jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
 
-        if self.check_truncation_loss:
+        if self.check_truncation_loss and not self.skip_gen_matching:
             # chunk_label uses id(columns) purely to guarantee uniqueness
             # across calls within one process (so accumulation can't
             # accidentally merge unrelated chunks into one line) -- NOT
             # a meaningful, human-readable identifier. If columns/this
             # module carries an actual filename or chunk index, worth
-            # swapping that in here instead.
+            # swapping that in here instead. Skipped entirely when
+            # skip_gen_matching is set: every jet is background (signal=-1)
+            # by construction in that mode, so there's no genuine
+            # truncation-loss question to measure -- it would just report
+            # zero matched jets everywhere, which isn't a real diagnostic.
             _measure_truncation_loss(
                 jets, jets_sorted, self.n_real_jets, self.reco_mode,
                 outdir=self.truncation_loss_outdir, chunk_label=f"chunk_{id(columns)}",
             )
 
-        if self.audit_n_real_jets_values:
+        if self.audit_n_real_jets_values and not self.skip_gen_matching:
             _audit_n_real_jets_recovery(
                 jets, jets_sorted, self.reco_mode, self.audit_n_real_jets_values,
                 outdir=self.audit_n_real_jets_outdir, chunk_label=f"chunk_{id(columns)}",
@@ -1079,17 +841,17 @@ class SPANetGenMatch(AnalyzerModule):
         # window signal_arr actually uses closes that gap: any event that
         # passes genuinely has >=3 real q-jets among the 6 the network will
         # actually be given, not just somewhere in the full event.
-        # Two versions of good_event, computed and saved separately:
-        # "pre-truncation" checks the full, untruncated jets_sorted -- does
-        # this event have enough matched jets ANYWHERE in the event, not
-        # just within the window that survives truncation. "good_event"
-        # (unchanged, still the primary gate) checks only the same
-        # top-n_real_jets window the saved Source/Targets are actually built
-        # from -- this is what genuinely decides what makes it into the H5
-        # file. Pre-truncation is a strict superset of good_event by
-        # construction: a wider window can only ever see the same matches
-        # or more, never fewer.
-        if self.reco_mode == "full_hww":
+        if self.skip_gen_matching:
+            # Background events never carry a signal==1 jet by construction,
+            # so the normal good_event_mask_* functions above would
+            # evaluate False for every single event here, silently
+            # dropping the whole background sample. Override to
+            # unconditionally True instead -- these events are legitimate
+            # background training rows with all-null targets, not failed
+            # matches to be filtered out.
+            good_event = ak.ones_like(ak.num(jets_sorted), dtype=bool)
+            good_event_pre_truncation = good_event
+        elif self.reco_mode == "full_hww":
             good_event_pre_truncation = good_event_mask_full_hww(jets_sorted)
             good_event = good_event_mask_full_hww(jets_sorted[:, : self.n_real_jets])
         else:
