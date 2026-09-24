@@ -777,6 +777,16 @@ withHLT_ObjDef9: &withHLT_ObjDef9
     sel_name: selection
   - *medb_low_obj
 
+noHLT_ObjDef9: &noHLT_ObjDef9
+  - *common_objects
+  - *eventlevel_selection
+  - module_name: SelectOnColumns
+    sel_name: preselection
+  - *lowjet_medb_selection
+  - module_name: SelectOnColumns
+    sel_name: selection
+  - *medb_low_obj
+
 withHLT_ObjDef8: &withHLT_ObjDef8
   - *common_objects
   - *hlt_selection
@@ -891,5 +901,9 @@ NoSelection: &NoSelection
   - *eventlevel_selection
   - module_name: SelectOnColumns
     sel_name: preselection
+  - *medb_obj
+
+FullSample: &FullSample
+  - *common_objects
   - *medb_obj
 {%- endmacro %}
