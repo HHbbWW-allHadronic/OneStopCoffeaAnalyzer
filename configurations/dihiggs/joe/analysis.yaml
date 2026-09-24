@@ -956,8 +956,8 @@ analyzer:
           stop: 500
           bins: 20
           unit: GeV
-    {# - *lowjet_histograms
-    - *lowjet_sixjet_plots #}
+    - *lowjet_histograms
+    - *lowjet_sixjet_plots
   
   withHLT_ObjDef10:
     - *withHLT_ObjDef10

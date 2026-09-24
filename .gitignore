@@ -59,6 +59,7 @@ oldpkl/
 *.result
 *.png
 *.pdf
+*.h5
 
 
 /trained_bnns/
