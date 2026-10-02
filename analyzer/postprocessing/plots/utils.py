@@ -119,12 +119,21 @@ def saveFigVariants(
 
 
 def addLegend(ax: Axes, cfg: PlotConfiguration, **legend_kwargs):
+    """
+    Add and style a legend on a matplotlib axis using PlotConfiguration.
+    """
     legend_loc = cfg.legend_loc
+
+    prop = {}
+    if cfg.legend_font:
+        prop["family"] = cfg.legend_font
+    if cfg.legend_fontsize:
+        prop["size"] = cfg.legend_fontsize
 
     legend = ax.legend(
         loc=legend_loc,
         ncol=cfg.legend_num_cols,
-        prop={"family": cfg.legend_font} if cfg.legend_font else None,
+        prop=prop or None,
         **legend_kwargs,
     )
     frame = legend.get_frame()

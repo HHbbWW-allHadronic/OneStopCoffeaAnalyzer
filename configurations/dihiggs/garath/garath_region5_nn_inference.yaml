@@ -1,0 +1,282 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  spanet_common_prefix_tiered: &spanet_common_prefix_tiered
+    - *common_objects
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - *eventlevel_selection
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: NObjFilter
+      input_col: tightElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: tightMuon
+      selection_name: zero_muon
+      min_count: 0
+      max_count: 0
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetLoose
+      include_pu_id: False
+      include_jet_id: True
+      min_pt: 15
+      max_abs_eta: 2.4
+
+    - module_name: TieredPtJetFilter
+      input_col: goodJetLoose
+      output_col: goodJetTiered
+      n_hard_jets: 4
+      hard_pt_cut: 25.0
+
+  spanet_medb_requirement: &spanet_medb_requirement
+    - module_name: HBQuarkMaker
+      input_col: goodJetTiered
+      output_col: MedBTiered
+      working_point: M
+      nontop2b: True
+      nontop2b_col: NonTop2BTiered
+
+    - module_name: NObjFilter
+      input_col: MedBTiered
+      selection_name: 2b
+      min_count: 2
+
+  baseline_histograms: &baseline_histograms
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_top2b_dijet_1d
+      input_cols: [Baseline.H1_combo.mass]
+      axes:
+        - name: top2b_dijet mass (Hbb)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_W1_nontop2b_dijet_1d
+      input_cols: [Baseline.W_on_combo.mass]
+      axes:
+        - name: nontop2b_dijet mass (Won)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_1d
+      input_cols: [Baseline.H2_threejet.mass]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_fourjet_1d
+      input_cols: [Baseline.H2_fourjet.mass]
+      axes:
+        - name: nontop2b_fourjet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  spanet_baseline_2d_histograms: &spanet_baseline_2d_histograms
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_W1_SPANet_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.m_W1_SPANet]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_Hbb_SPANet_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.m_Hbb_SPANet]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_m_Hbb_SPANet_2d
+      input_cols: [SPANet.m_W1_SPANet, SPANet.m_Hbb_SPANet]
+      axes:
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  baseline_only_2d_histograms: &baseline_only_2d_histograms
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_W1_nontop2b_dijet_2d
+      input_cols: [Baseline.H2_threejet.mass, Baseline.W_on_combo.mass]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: nontop2b_dijet mass (Won)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+  
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_Hbb_top2b_dijet_2d
+      input_cols: [Baseline.H2_threejet.mass, Baseline.H1_combo.mass]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: top2b_dijet mass (Hbb)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+  
+    - module_name: SimpleHistogram
+      hist_name: m_W1_nontop2b_dijet_m_Hbb_top2b_dijet_2d
+      input_cols: [Baseline.W_on_combo.mass, Baseline.H1_combo.mass]
+      axes:
+        - name: nontop2b_dijet mass (Won)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: top2b_dijet mass (Hbb)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+  
+  region5_9jet_tag_label: &region5_9jet_tag_label
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v4-NRP-region5-H1_W1_targets_9jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-acc-0p808.onnx
+      output_prefix: SPANet
+      n_real_jets: 9
+      n_null_jets: 1
+      reco_mode: onshell_w
+      secondary_order_field: qvg
+      particle_names: [H1, W1]
+      daughter_counts:
+        H1: 2
+        W1: 2
+      btag_mode: label
+      btag_working_point: M
+      qvg_mode: label
+      ctag_mode: label
+      ctag_working_point: M
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_1d
+      input_cols: [SPANet.m_W1_SPANet]
+      axes:
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: JetCombos
+      input_cols:
+        - MedBTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+        - NonTop2BTiered
+      order_by:
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
+        - btagPNetQvG
+      jet_combos:
+        - {0: [0, 1]}
+        - {1: [0, 1]}
+        - {2: [0, 1, 2]}
+        - {3: [0, 1, 2, 3]}
+      output_cols:
+        - Baseline.H1_combo
+        - Baseline.W_on_combo
+        - Baseline.H2_threejet
+        - Baseline.H2_fourjet
+    - *baseline_histograms
+    - *spanet_baseline_2d_histograms
+    - *baseline_only_2d_histograms
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024_eval_deduped'
+    pipelines:
+      - region5_9jet_tag_label
+
+#  - dataset: 'qcd*2024*'
+#    pipelines:
+#      - region5_9jet_tag_label
+
+#  - dataset: 'tt_hadronic*2024*'
+#    pipelines:
+#      - region5_9jet_tag_label
+
+#  - dataset: 'tt_semilep*2024'
+#    pipelines:
+#      - region5_9jet_tag_label

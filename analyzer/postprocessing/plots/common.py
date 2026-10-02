@@ -23,6 +23,7 @@ class PlotConfiguration:
     legend_fill_color: mplt.ColorType | None = None
     legend_fill_alpha: float | None = None
     legend_font: str | None = None
+    legend_fontsize: float | int | str | None = None
     legend_loc: str = "upper right"
     legend_num_cols: int = 1
 
