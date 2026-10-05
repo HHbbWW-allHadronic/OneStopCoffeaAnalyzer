@@ -633,6 +633,7 @@ class SPANetGenMatch(AnalyzerModule):
             Column(f"{p}.good_event"),
             Column(f"{p}.good_event_pre_truncation"),
             Column(("Selection", "good_event")),
+            Column(f"{p}.process_label"),
         ]
         if self.reco_mode == "full_hww":
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2")]
@@ -974,9 +975,27 @@ class SPANetGenMatch(AnalyzerModule):
                 for particle, daughters in targets.items()
             }
 
+        # -- Event-level classification label
+        #   skip_gen_matching (background sample) -> 0 (QCD/background)
+        #   signal sample, good_event True        -> 1 (signal; a genuine
+        #       full gen-match, the same gate that decides which events SaveSPANetH5
+        #       actually keeps when good_event_col is set)
+        #   signal sample, good_event False       -> -1 (failed match; NOT 0 --
+        #       these are signal-origin events, never background. They are
+        #       dropped by SaveSPANetH5's good_event filter anyway, and -1 is
+        #       cross_entropy's ignore_index if one ever slips through.)
+        # For files written with good_event_col set, this reproduces the
+        # patch script's output exactly (all-null targets -> 0, all-real
+        # -> 1); it differs only in never labeling a signal-origin event 0.
+        if self.skip_gen_matching:
+            process_label = np.zeros(len(good_event), dtype=np.int64)
+        else:
+            process_label = np.where(ak.to_numpy(good_event), 1, -1).astype(np.int64)
+
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source
         columns[Column(f"{p}.good_event")] = good_event
+        columns[Column(f"{p}.process_label")] = ak.Array(process_label)
         columns[Column(f"{p}.good_event_pre_truncation")] = good_event_pre_truncation
         columns[Column(("Selection", "good_event"))] = good_event
         columns[Column(f"{p}.Targets.H1")] = ak.zip(targets["H1"])
@@ -1004,6 +1023,14 @@ class SaveSPANetH5(AnalyzerModule):
     Leave `targets_cols` empty for evaluation-only pipelines where
     SPANetGenMatch either isn't run at all, or is run without truth targets
     -- only Source gets written in that case.
+
+    classification_cols : list[Column], optional
+        Event-level (1D) label columns, each written to
+        CLASSIFICATIONS/EVENT/<last name part> -- e.g.
+        [SPANet.process_label] -> CLASSIFICATIONS/EVENT/process_label,
+        the dataset SPANet's `CLASSIFICATIONS: EVENT: [process_label]` yaml
+        entry reads. Filtered by the same good_event mask as Source/Targets.
+        Empty (default) writes none -- existing pipelines see no change.
 
     good_event_col : Column, optional
         If given, events where this Column is False are dropped before
@@ -1047,6 +1074,7 @@ class SaveSPANetH5(AnalyzerModule):
     prefix: str
     source_col: Column
     targets_cols: List[Column] = field(factory=list)
+    classification_cols: List[Column] = field(factory=list)
     good_event_col: Column = None
     good_event_pre_truncation_col: Column = None
     pre_truncation_suffix: str = "_pretrunc"
@@ -1057,7 +1085,7 @@ class SaveSPANetH5(AnalyzerModule):
     )
 
     def inputs(self, metadata):
-        cols = [self.source_col] + list(self.targets_cols)
+        cols = [self.source_col] + list(self.targets_cols) + list(self.classification_cols)
         if self.good_event_col is not None:
             cols.append(self.good_event_col)
         if self.good_event_pre_truncation_col is not None:
@@ -1117,6 +1145,17 @@ class SaveSPANetH5(AnalyzerModule):
                             data=data,
                             compression="gzip",
                         )
+                for ccol in self.classification_cols:
+                    # e.g. Column("SPANet.process_label") -> CLASSIFICATIONS/EVENT/process_label
+                    name = str(ccol).split(".")[-1]
+                    data = ak.to_numpy(columns[ccol])
+                    if good_np is not None:
+                        data = data[good_np]
+                    f.create_dataset(
+                        f"CLASSIFICATIONS/EVENT/{name}",
+                        data=data,
+                        compression="gzip",
+                    )
             copyFile(local_filename, target_path)
         finally:
             local_filename.unlink(missing_ok=True)
