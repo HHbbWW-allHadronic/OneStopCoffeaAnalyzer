@@ -32,6 +32,7 @@ import analyzer.postprocessing.pair_dr_table  # noqa
 import analyzer.postprocessing.dr_plots  # noqa
 import analyzer.postprocessing.checkpoint_plots # noqa
 import analyzer.postprocessing.mass_window_projection # noqa
+import analyzer.postprocessing.detection_plots #noqa
 
 from .style import loadStyles
 from attrs import define, field

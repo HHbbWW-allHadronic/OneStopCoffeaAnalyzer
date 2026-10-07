@@ -88,13 +88,15 @@ analyzer:
       sel_name: good_event
       selection_names: ["good_event"]
     - module_name: SaveSPANetH5
-      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/region5_9jet_tiered-tag_LABEL-COMBINE_WITH_QCD
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/region5_9jet_tiered-tag_LABEL-COMBINE_WITH_QCD_MORE-EVTS
       source_col: SPANet.Source
       good_event_col: SPANet.good_event
       good_event_pre_truncation_col: SPANet.good_event_pre_truncation
       targets_cols:
         - SPANet.Targets.H1
         - SPANet.Targets.W1
+      classification_cols:
+        - SPANet.process_label
 
   region5_9jet_tiered_qcd: &region5_9jet_tiered_qcd
     - *spanet_common_prefix_tiered
@@ -138,14 +140,16 @@ analyzer:
       targets_cols:
         - SPANet.Targets.H1
         - SPANet.Targets.W1
+      classification_cols:
+        - SPANet.process_label
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
-#  - dataset: 'ggHH2b2V6q_2024_training_deduped'
-#    pipelines:
-#      - region5_9jet_tiered_label
-
-  - dataset: 'qcd*2024*'
+  - dataset: 'ggHH2b2V6q_2024_training_deduped'
     pipelines:
-      - region5_9jet_tiered_qcd
+      - region5_9jet_tiered_label
+
+#  - dataset: 'qcd*2024*'
+#    pipelines:
+#      - region5_9jet_tiered_qcd

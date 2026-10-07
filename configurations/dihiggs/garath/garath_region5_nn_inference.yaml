@@ -187,6 +187,84 @@ analyzer:
           bins: 50
           unit: GeV
   
+  detection_histograms: &detection_histograms
+    # --- SPANet detection scores (sigmoid of the detection logit; ONNX <name>_detection_probability). ---
+    # Names ending _1d / _2d are picked up by your existing Histogram1D / Histogram2D postprocessors;
+    # the _3d histogram is the input of DetectionBinned2D / DetectionCutMassProjection (detection_plots.py).
+    # The detection axes are dimensionless; unit is left empty.
+    - module_name: SimpleHistogram
+      hist_name: H1_detection_1d
+      input_cols: [SPANet.H1_detection]
+      axes:
+        - name: H1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+    - module_name: SimpleHistogram
+      hist_name: W1_detection_1d
+      input_cols: [SPANet.W1_detection]
+      axes:
+        - name: W1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_H1_detection_2d
+      input_cols: [SPANet.m_Hbb_SPANet, SPANet.H1_detection]
+      axes:
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 50
+          unit: GeV
+        - name: H1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_W1_detection_2d
+      input_cols: [SPANet.m_W1_SPANet, SPANet.W1_detection]
+      axes:
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 200
+          bins: 40
+          unit: GeV
+        - name: W1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+    # 3D: (m_Hbb, m_W1, detection). 5 GeV mass bins and 0.01 detection bins, so the default detection
+    # ranges and the 125 +/- 20, 80 +/- 15 GeV windows of DetectionBinned2D fall exactly on bin edges.
+    # H1 and W1 detection scores correlate at r ~ 0.999; H1_detection is used as the third axis.
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_m_W1_H1_detection_3d
+      input_cols: [SPANet.m_Hbb_SPANet, SPANet.m_W1_SPANet, SPANet.H1_detection]
+      axes:
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 50
+          unit: GeV
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 200
+          bins: 40
+          unit: GeV
+        - name: H1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
   region5_9jet_tag_label: &region5_9jet_tag_label
     - *spanet_common_prefix_tiered
     - module_name: NObjFilter
@@ -204,7 +282,7 @@ analyzer:
       mass_field: mass
       btag_field: btag
       qvg_field: btagPNetQvG
-      model_path: onnx_models/spanet_v4-NRP-region5-H1_W1_targets_9jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-acc-0p808.onnx
+      model_path: onnx_models/spanet_v18-NRP-region5-H1_W1_targets_9jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-acc-0p680.onnx   # <-- must match the exported file name
       output_prefix: SPANet
       n_real_jets: 9
       n_null_jets: 1
@@ -237,6 +315,7 @@ analyzer:
           stop: 600
           bins: 50
           unit: GeV
+    - *detection_histograms
     - module_name: JetCombos
       input_cols:
         - MedBTiered

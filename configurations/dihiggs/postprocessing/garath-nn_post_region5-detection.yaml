@@ -1,0 +1,139 @@
+# Run it AFTER the inference run that produced the _3d histogram; your existing garath-nn_post_region5.yaml
+# already plots the H1/W1 detection 1D and 2D histograms (their names end in _1d / _2d).
+#
+# Both modules read ONE 3D histogram per sample, axes (m_Hbb, m_W1, detection) = positions 0, 1, 2, and need
+# signal AND QCD in the same group, so group on {pipeline, era.name, name} and NOT on dataset_name.
+# signal_regex / background_regex are regexes searched in the dataset name; they must not both match one name.
+
+Postprocessing:
+  processors:
+    # --- detection-binned Hbb x W mass planes, S/sqrt(B) per cell, and S/sqrt(B) vs detection cut -----------
+    - name: DetectionBinned2D
+      inputs:
+        - "*/*/*/*"
+      signal_regex: "ggHH"
+      background_regex: "(?i)qcd"
+      h_axis: 0
+      w_axis: 1
+      det_axis: 2
+      det_bin_edges: [0.0, 0.5, 0.8, 0.9, 0.95, 0.99, 1.0]
+      min_b_events: 5
+      higgs_mass: 125.0
+      w_mass: 80.4
+      h_window: 20.0
+      w_window: 15.0
+      signal_scale: 1.0
+      bkg_scale: 1.0
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
+        legend_fontsize: 8
+      structure:
+        select: {dataset_name: "*", name: "m_Hbb_m_W1_H1_detection_3d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-region5-plots/{era.name}/{pipeline}/detection/det2d_{name}.png"
+
+    # --- mass distributions before (dashed) / after (solid) a detection cut, shape comparison ----------------
+    - name: DetectionCutMassProjection
+      inputs:
+        - "*/*/*/*"
+      signal_regex: "ggHH"
+      background_regex: "(?i)qcd"
+      mass_axis: "h"
+      det_cut: 0.9
+      normalize: True
+      scale: linear
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
+        legend_fontsize: 8
+      structure:
+        select: {dataset_name: "*", name: "m_Hbb_m_W1_H1_detection_3d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-region5-plots/{era.name}/{pipeline}/detection/m_Hbb_after_detection_cut_shape.png"
+
+    - name: DetectionCutMassProjection
+      inputs:
+        - "*/*/*/*"
+      signal_regex: "ggHH"
+      background_regex: "(?i)qcd"
+      mass_axis: "w"
+      det_cut: 0.9
+      normalize: True
+      scale: linear
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
+        legend_fontsize: 8
+      structure:
+        select: {dataset_name: "*", name: "m_Hbb_m_W1_H1_detection_3d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-region5-plots/{era.name}/{pipeline}/detection/m_W1_after_detection_cut_shape.png"
+
+    # --- same, weighted yields on a log axis (signal vs QCD on the physical scale) ---------------------------
+    - name: DetectionCutMassProjection
+      inputs:
+        - "*/*/*/*"
+      signal_regex: "ggHH"
+      background_regex: "(?i)qcd"
+      mass_axis: "h"
+      det_cut: 0.9
+      normalize: False
+      scale: log
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
+        legend_fontsize: 8
+      structure:
+        select: {dataset_name: "*", name: "m_Hbb_m_W1_H1_detection_3d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-region5-plots/{era.name}/{pipeline}/detection/m_Hbb_after_detection_cut_yield.png"
+
+    - name: DetectionCutMassProjection
+      inputs:
+        - "*/*/*/*"
+      signal_regex: "ggHH"
+      background_regex: "(?i)qcd"
+      mass_axis: "w"
+      det_cut: 0.9
+      normalize: False
+      scale: log
+      plot_configuration:
+        cms_text: "Preliminary"
+        image_type: ".png"
+        cms_text_color: Black
+        legend_num_cols: 1
+        legend_fontsize: 8
+      structure:
+        select: {dataset_name: "*", name: "m_Hbb_m_W1_H1_detection_3d"}
+        group: {pipeline: "*", era.name: "*", name: "*"}
+        transforms:
+          - name: SplitAxes
+            split_axis_names: {"variation": "central"}
+      output_name: "plots-2024-region5-plots/{era.name}/{pipeline}/detection/m_W1_after_detection_cut_yield.png"
+
+  default_plot_config:
+    cms_text: "Preliminary"
+    image_type: ".png"
+    cms_text_color: Black
+    legend_num_cols: 1

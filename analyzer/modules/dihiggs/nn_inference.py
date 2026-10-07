@@ -1,4 +1,3 @@
-
 from coffea.ml_tools.torch_wrapper import torch_wrapper
 from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
@@ -330,6 +329,14 @@ class SPANetDiHiggsInference(AnalyzerModule):
     analogous summed-mass output -- it's a single jet, not a pair/quad,
     so its own mass is just ISR_jets.mass directly, nothing to sum.
 
+    Detection scores: for EVERY name in particle_names the network's detection
+    probability (the ONNX "<name>_detection_probability" output, i.e. sigmoid of
+    the detection logit -- the same quantity batch_trace.py calls
+    detection_sigmoid) is also written, as "<name>_detection".
+    These are what a detection-score cut or detection-binned region in OSCA
+    should use; the assignment probabilities alone say nothing about whether
+    the event looks like signal.
+
     Separate module from ABCDiHiggsInference (the ABCD background
     discriminant) -- different model, different purpose. Does not modify
     or depend on that class.
@@ -526,9 +533,14 @@ class SPANetDiHiggsInference(AnalyzerModule):
             source[key] = _pad_and_convert(sorted_fields[key], self.n_real_jets, self.n_null_jets)
         return source
  
+    def _detection_cols(self):
+        """Per-particle detection-score columns."""
+        return {name: self.output_prefix + Column(f"{name}_detection") for name in self.particle_names}
+
     def run(self, columns, params):
         source = self.prepare_inputs(columns)
         n_events = len(source["pt"])
+        detect_cols = self._detection_cols()
 
         _MASS_COL_NAMES = {
             "H1": "m_Hbb_SPANet",
@@ -545,6 +557,8 @@ class SPANetDiHiggsInference(AnalyzerModule):
             empty = np.array([], dtype="float32")
             for name in mass_cols:
                 columns[mass_cols[name]] = ak.Array(empty)
+            for name in detect_cols:
+                columns[detect_cols[name]] = ak.Array(empty)
             empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
             empty_p4 = ak.zip(
                 {
@@ -582,6 +596,14 @@ class SPANetDiHiggsInference(AnalyzerModule):
             if name in mass_cols:
                 columns[mass_cols[name]] = ak.sum(jet_col, axis=1).mass
 
+        # Detection probabilities (already sigmoid'ed by the ONNX export; one value per event per
+        # particle). reshape handles an (n,) or (n, 1) output alike.
+        detections = {}
+        for name in self.particle_names:
+            det = np.asarray(assign_detect[name][1], dtype="float32").reshape(n_events, -1)[:, 0]
+            detections[name] = det
+            columns[detect_cols[name]] = ak.Array(det)
+
         return columns, []
 
     def neededResources(self, metadata):
@@ -598,6 +620,8 @@ class SPANetDiHiggsInference(AnalyzerModule):
             for name in self.particle_names if name in _MASS_COL_NAMES
         ]
         outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
+        detect_cols = self._detection_cols()
+        outs += list(detect_cols.values())
         return outs
 
     def inputs(self, metadata):
