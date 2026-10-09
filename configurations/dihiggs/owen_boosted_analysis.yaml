@@ -8,6 +8,8 @@
       - withHLT_ObjDef2
       - withHLT_ObjDef3
       - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
       - noHLT_ObjDef1
 {%- endmacro %}
 
@@ -19,6 +21,8 @@
       - withHLT_ObjDef2
       - withHLT_ObjDef3
       - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
       - noHLT_ObjDef1
 {%- endmacro %}
 
@@ -30,6 +34,8 @@
       - withHLT_ObjDef2
       - withHLT_ObjDef3
       - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
       - noHLT_ObjDef1
 {%- endmacro %}
 
@@ -38,106 +44,17 @@ common_histograms: &common_histograms
     
 - module_name: SimpleHistogram
   hist_name: gFatJet_globalParT3_QCD
-  input_cols: [FatJet.globalParT3_QCD]
+  input_cols: [boostedFatJet.globalParT3_QCD]
   axes:
     - name: "GlobalParT3 QCD Score"
       start: 0
       stop: 1
       bins: 20
 
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_TopbWev
-  input_cols: [FatJet.globalParT3_TopbWev]
-  axes:
-    - name: "GlobalParT3 Top->bWev Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_TopbWmv
-  input_cols: [FatJet.globalParT3_TopbWmv]
-  axes:
-    - name: "GlobalParT3 Top->bWmv Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_TopbWq
-  input_cols: [FatJet.globalParT3_TopbWq]
-  axes:
-    - name: "GlobalParT3 Top->bWq Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_TopbWqq
-  input_cols: [FatJet.globalParT3_TopbWqq]
-  axes:
-    - name: "GlobalParT3 Top->bWqq Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_TopbWtauhv
-  input_cols: [FatJet.globalParT3_TopbWtauhv]
-  axes:
-    - name: "GlobalParT3 Top->bWtauhv Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_WvsQCD
-  input_cols: [FatJet.globalParT3_WvsQCD]
-  axes:
-    - name: "GlobalParT3 WvsQCD Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_XWW3q
-  input_cols: [FatJet.globalParT3_XWW3q]
-  axes:
-    - name: "GlobalParT3 X->WW3q Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_XWW4q
-  input_cols: [FatJet.globalParT3_XWW4q]
-  axes:
-    - name: "GlobalParT3 X->WW4q Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_XWWqqev
-  input_cols: [FatJet.globalParT3_XWWqqev]
-  axes:
-    - name: "GlobalParT3 X->WWqqev Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_XWWqqmv
-  input_cols: [FatJet.globalParT3_XWWqqmv]
-  axes:
-    - name: "GlobalParT3 X->WWqqmv Score"
-      start: 0
-      stop: 1
-      bins: 20
 
 - module_name: SimpleHistogram
   hist_name: gFatJet_globalParT3_Xbb
-  input_cols: [FatJet.globalParT3_Xbb]
+  input_cols: [boostedFatJet.globalParT3_Xbb]
   axes:
     - name: "GlobalParT3 X->bb Score"
       start: 0
@@ -146,7 +63,7 @@ common_histograms: &common_histograms
 
 - module_name: SimpleHistogram
   hist_name: gFatJet_globalParT3_Xcc
-  input_cols: [FatJet.globalParT3_Xcc]
+  input_cols: [boostedFatJet.globalParT3_Xcc]
   axes:
     - name: "GlobalParT3 X->cc Score"
       start: 0
@@ -164,43 +81,54 @@ common_histograms: &common_histograms
 
 - module_name: SimpleHistogram
   hist_name: gFatJet_globalParT3_Xqq
-  input_cols: [FatJet.globalParT3_Xqq]
+  input_cols: [boostedFatJet.globalParT3_Xqq]
   axes:
     - name: "GlobalParT3 X->qq Score"
       start: 0
       stop: 1
       bins: 20
 
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_Xtauhtaue
-  input_cols: [FatJet.globalParT3_Xtauhtaue]
-  axes:
-    - name: "GlobalParT3 X->tauhtaue Score"
-      start: 0
-      stop: 1
-      bins: 20
 
 - module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_Xtauhtauh
-  input_cols: [FatJet.globalParT3_Xtauhtauh]
+  hist_name: gFatJet_globalParT3_XWW3q
+  input_cols: [boostedFatJet.globalParT3_XWW3q]
   axes:
-    - name: "GlobalParT3 X->tauhtauh Score"
-      start: 0
-      stop: 1
-      bins: 20
-
-- module_name: SimpleHistogram
-  hist_name: gFatJet_globalParT3_Xtauhtaum
-  input_cols: [FatJet.globalParT3_Xtauhtaum]
-  axes:
-    - name: "GlobalParT3 X->tauhtaum Score"
+    - name: "GlobalParT3 X->WW3q Score"
       start: 0
       stop: 1
       bins: 20
 
 
 - module_name: SimpleHistogram
-  hist_name: gFatJet_pt
+  hist_name: gFatJet_globalParT3_XWW4q
+  input_cols: [boostedFatJet.globalParT3_XWW4q]
+  axes:
+    - name: "GlobalParT3 X->WW4q Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_TopbWq
+  input_cols: [boostedFatJet.globalParT3_TopbWq]
+  axes:
+    - name: "GlobalParT3 Top->bWq Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_TopbWqq
+  input_cols: [boostedFatJet.globalParT3_TopbWqq]
+  axes:
+    - name: "GlobalParT3 Top->bWqq Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: FatJet_pt
   input_cols: [FatJet.pt]
   axes:
     - name: "FatJet pt"
@@ -209,7 +137,7 @@ common_histograms: &common_histograms
       bins: 20
 
 - module_name: SimpleHistogram
-  hist_name: gFatJet_eta
+  hist_name: FatJet_eta
   input_cols: [FatJet.eta]
   axes:
     - name: "FatJet eta"
@@ -219,8 +147,8 @@ common_histograms: &common_histograms
 
 
 - module_name: SimpleHistogram
-  hist_name: gFatJet_Xbb_Discrim
-  input_cols: [FatJet.xbb]
+  hist_name: FatJet_Xbb_Discrim
+  input_cols: [FatJet.xbbDiscrim]
   axes:
     - name: "Xbb_Discrim"
       start: 0
@@ -228,11 +156,8 @@ common_histograms: &common_histograms
       bins: 20
 
 
-
-
-
 - module_name: SimpleHistogram
-  hist_name: gFatJet_massRegressed
+  hist_name: FatJet_massRegressed
   input_cols: [FatJet.massRegressed]
   axes:
     - name: "Regressed Jet Mass [GeV]"
@@ -242,6 +167,44 @@ common_histograms: &common_histograms
 
 
 - module_name: SimpleHistogram
+  hist_name: gFatJet_pt
+  input_cols: [boostedFatJet.pt]
+  axes:
+    - name: "FatJet pt"
+      start: 0
+      stop: 1000
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_eta
+  input_cols: [boostedFatJet.eta]
+  axes:
+    - name: "FatJet eta"
+      start: 0
+      stop: 3
+      bins: 10
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_Xbb_Discrim
+  input_cols: [boostedFatJet.xbbDiscrim]
+  axes:
+    - name: "Xbb_Discrim"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_massRegressed
+  input_cols: [boostedFatJet.massRegressed]
+  axes:
+    - name: "Regressed Jet Mass [GeV]"
+      start: 0
+      stop: 300
+      bins: 60
+
+- module_name: SimpleHistogram
   hist_name: NBoostedJets
   input_cols: [NboostedFatJet]
   axes:
@@ -249,6 +212,7 @@ common_histograms: &common_histograms
       start: -0.5
       stop: 20.5
       bins: 21
+
 
 {{ core.objects() }}
 {{ core.regions() }}
@@ -283,6 +247,15 @@ analyzer:
     - *withHLT_ObjDef4
     - *common_histograms
 
+
+
+  withHLT_ObjDef5:
+    - *withHLT_ObjDef5
+    - *common_histograms
+
+  withHLT_ObjDef6:
+    - *withHLT_ObjDef6
+    - *common_histograms
 
   noHLT_ObjDef1:
     - *noHLT_ObjDef1

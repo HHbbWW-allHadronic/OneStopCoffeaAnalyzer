@@ -231,3 +231,35 @@ Postprocessing:
           - name: SliceAxes
             slices: {0: [0,1200]}
       output_name: "plots/{era.name}/withHLT_ObjDef4/trigger_eff_{name}.png"
+
+
+
+    - name: RatioPlot
+      inputs:
+        - "*/*/*/*"
+      ratio_type: "efficiency"
+      ratio_ylim: [0 ,1.1]
+      ratio_height: 1
+      show_den_unc: True
+      no_stack: True
+      scale: log
+      structure:
+        select: {dataset_name: "ggHH2b2V6q*", name: "re:^(?!.*selection$|all_triggers$|.*2d).*"}
+        group: {era.name: "*", name: "*"}
+        subgroups:
+          denominator:
+            select: {pipeline: noHLT_ObjDef1}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+          numerator:
+            select: {pipeline: withHLT_ObjDef5}
+            transforms:
+              - name: FormatTitle
+                title_format: "{pipeline}"
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: SliceAxes
+            slices: {0: [0,1200]}
+      output_name: "plots/{era.name}/withHLT_ObjDef5/trigger_eff_{name}.png"

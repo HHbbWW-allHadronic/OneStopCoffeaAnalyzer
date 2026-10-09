@@ -33,7 +33,7 @@ class FatBQuarkMaker(AnalyzerModule):
     max_mass: float = 250.0
     min_xbb: float = 0.8
     mass_branch: str = "massRegressed"
-    xbb_branch: str = "xbb"
+    xbb_branch: str = "xbbDiscrim"
 
     def run(self, columns, params):
         fatjets = columns[self.input_col]
@@ -62,3 +62,5 @@ class FatBQuarkMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
