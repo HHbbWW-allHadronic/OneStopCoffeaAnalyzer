@@ -70,3 +70,43 @@ class RegressedMass(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+
+@define
+class THVVMaker(AnalyzerModule):
+    """
+    Computes GlobalParT-3 H->VV discriminant score:
+    T_HVV = (P_HVV4q + P_HVV3q) / (P_QCD + P_Top + P_HVV4q + P_HVV3q)
+    """
+
+    input_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        fatjets = columns[self.input_col]
+
+        p_top = (
+            fatjets.globalParT3_TopbWev
+            + fatjets.globalParT3_TopbWmv
+            + fatjets.globalParT3_TopbWq
+            + fatjets.globalParT3_TopbWqq
+            + fatjets.globalParT3_TopbWtauhv
+        )
+
+        num = fatjets.globalParT3_XWW4q + fatjets.globalParT3_XWW3q
+
+        den = fatjets.globalParT3_QCD + p_top + num
+
+        thvv = ak.where(den > 0, num / den, 0.0)
+
+        fatjets["THVV"] = thvv
+        columns[self.output_col] = fatjets
+
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]

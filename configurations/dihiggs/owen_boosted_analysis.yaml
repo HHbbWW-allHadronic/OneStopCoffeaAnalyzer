@@ -127,6 +127,17 @@ common_histograms: &common_histograms
       stop: 1
       bins: 20
 
+
+
+- module_name: SimpleHistogram
+  hist_name: THVV_boosted
+  input_cols: [boostedFatJet.THVV]
+  axes:
+    - name: "THVV"
+      start: 0
+      stop: 1
+      bins: 20
+
 - module_name: SimpleHistogram
   hist_name: FatJet_pt
   input_cols: [FatJet.pt]
@@ -154,6 +165,7 @@ common_histograms: &common_histograms
       start: 0
       stop: 1
       bins: 20
+
 
 
 - module_name: SimpleHistogram

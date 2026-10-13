@@ -78,6 +78,12 @@ common_objects: &common_objects
     min_pt: 15
     max_abs_eta: 2.4
 
+
+  - module_name: THVVMaker
+    input_col: FatJet
+    output_col: FatJet
+
+
   - module_name: FatBQuarkMaker
     input_col: FatJet
     output_col: boostedFatJet
