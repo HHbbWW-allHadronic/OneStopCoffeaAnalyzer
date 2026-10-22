@@ -170,7 +170,8 @@ def _build_source_data(pt, eta, phi, e, btag, qvg, extra_features=None):
 
 def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=256,
                          assign_suffix="_assignment_probability",
-                         detect_suffix="_detection_probability"):
+                         detect_suffix="_detection_probability",
+                         extra_output_names=None):
     """
     Batched ONNX call. Looks up each particle's assignment/detection
     output BY NAME (via session.get_outputs()), not by fixed position --
@@ -178,6 +179,11 @@ def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=2
     if a name doesn't match what's expected.
 
     Returns: dict mapping particle_name -> (assign_array, detect_array).
+
+    If extra_output_names is given (e.g. the classification output), those outputs are also
+    collected, and the return value becomes the tuple (results, extras) with extras mapping
+    each requested output name to its concatenated array. Without it the return value is
+    unchanged.
     """
     output_names = [o.name for o in session.get_outputs()]
     expected_names = [f"{name}{assign_suffix}" for name in particle_names] + \
@@ -206,7 +212,68 @@ def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=2
         assign = np.concatenate(collected[f"{name}{assign_suffix}"], axis=0)
         detect = np.concatenate(collected[f"{name}{detect_suffix}"], axis=0)
         results[name] = (assign, detect)
+    if extra_output_names:
+        absent = [n for n in extra_output_names if n not in output_names]
+        if absent:
+            raise KeyError(f"Requested ONNX outputs not found: {absent}. Actual outputs: {output_names}")
+        extras = {n: np.concatenate(collected[n], axis=0) for n in extra_output_names}
+        return results, extras
     return results
+
+
+def _find_classification_output(output_names, particle_names, hint=None,
+                                assign_suffix="_assignment_probability",
+                                detect_suffix="_detection_probability"):
+    """
+    Name of the ONNX output that holds the event-classification scores.
+
+    hint (the module's classification_output setting) wins if given. Otherwise the output is
+    inferred: drop the assignment / detection outputs, drop anything that looks like a
+    regression output, and take what is left; if several remain, only one containing
+    'classif' is accepted. Anything ambiguous raises with the full list of output names, so a
+    wrong guess can never silently feed the wrong tensor into the score columns.
+    """
+    if hint:
+        if hint not in output_names:
+            raise KeyError(f"classification_output {hint!r} is not an output of the model. "
+                           f"Actual model output names: {output_names}")
+        return hint
+    taken = {f"{n}{assign_suffix}" for n in particle_names} | {f"{n}{detect_suffix}" for n in particle_names}
+    rest = [n for n in output_names
+            if n not in taken and not n.endswith((assign_suffix, detect_suffix)) and "regress" not in n.lower()]
+    if len(rest) == 1:
+        return rest[0]
+    named = [n for n in rest if "classif" in n.lower()]
+    if len(named) == 1:
+        return named[0]
+    raise KeyError(
+        f"Could not tell which ONNX output holds the classification scores (candidates after removing "
+        f"assignment/detection/regression outputs: {rest}). Actual model output names: {output_names}. "
+        f"If the model has no classification output, the stock export may not include one; otherwise set "
+        f"classification_output to the exact name.")
+
+
+def _to_class_probabilities(raw, mode="auto"):
+    """
+    (n_events, n_classes) class probabilities from the raw classification output.
+    mode: 'probabilities' (already softmax'ed; used as is), 'logits' (apply softmax), or 'auto':
+    treat the array as probabilities if every entry is in [0, 1] and every row sums to 1 within
+    1e-3, otherwise apply softmax. The decision is made once on the whole array, never per row.
+    """
+    raw = np.asarray(raw, dtype=np.float64)
+    if raw.ndim != 2:
+        raise ValueError(f"classification output must be 2D (n_events, n_classes), got shape {raw.shape}")
+    if mode not in ("auto", "logits", "probabilities"):
+        raise ValueError(f"classification_scores must be 'auto', 'logits' or 'probabilities', got {mode!r}")
+    if mode == "auto":
+        looks_prob = bool(raw.size == 0 or (raw.min() >= 0.0 and raw.max() <= 1.0
+                                            and np.allclose(raw.sum(axis=1), 1.0, atol=1e-3)))
+        mode = "probabilities" if looks_prob else "logits"
+    if mode == "logits":
+        z = raw - raw.max(axis=1, keepdims=True)
+        e = np.exp(z)
+        raw = e / e.sum(axis=1, keepdims=True)
+    return raw.astype("float32")
 
 
 def _zero_index_all_axes(tensor, jet_index):
@@ -337,6 +404,15 @@ class SPANetDiHiggsInference(AnalyzerModule):
     should use; the assignment probabilities alone say nothing about whether
     the event looks like signal.
 
+    Classification scores (optional, use_classification=True): for a model trained with a
+    classification head (process_label, 0 = QCD, 1 = signal), the per-event class probabilities are
+    written as "<prefix>.classification_<name>" for every name in classification_names (default
+    ["qcd", "signal", "ttbar"], in class-label order), e.g. SPANet.classification_signal = P(signal).
+    The output tensor is found by name (classification_output, or inferred -- see
+    _find_classification_output); classification_scores says whether it holds logits or
+    probabilities ("auto" checks). With use_classification=False (default) nothing about the
+    classification head is read, so models exported without one keep working.
+
     Separate module from ABCDiHiggsInference (the ABCD background
     discriminant) -- different model, different purpose. Does not modify
     or depend on that class.
@@ -373,6 +449,16 @@ class SPANetDiHiggsInference(AnalyzerModule):
         directly from each ONNX output tensor's own shape instead).
     batch_size : int, optional
         Batched ONNX inference chunk size, default 256.
+    use_classification : bool, optional
+        Read the model's classification output and write the class-probability columns.
+    classification_output : str, optional
+        Exact ONNX output name of the classification scores; inferred if omitted.
+    classification_names : list[str], optional
+        One name per class, in class-label order (process_label 0, 1, 2, ...). Default
+        ["qcd", "signal", "ttbar"] for the 3-class head; set ["qcd", "signal"] for a 2-class model.
+        Writes <prefix>.classification_<name> per entry, so ttbar events get a classification_ttbar score too.
+    classification_scores : str, optional
+        "auto" (default), "logits" or "probabilities" -- what the ONNX output contains.
     """
 
     jet_col: Column
@@ -391,6 +477,10 @@ class SPANetDiHiggsInference(AnalyzerModule):
     secondary_order_field: str = "qvg"
     particle_names: list = None
     daughter_counts: dict = None
+    use_classification: bool = False
+    classification_output: str = None
+    classification_names: list = None
+    classification_scores: str = "auto"
 
     btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label"
     btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Must match whichever mode the .onnx model was actually trained with.
@@ -407,6 +497,10 @@ class SPANetDiHiggsInference(AnalyzerModule):
             self.particle_names = ["H1", "H2", "ISR"]
         if self.daughter_counts is None:
             self.daughter_counts = {"H1": 2, "H2": 4, "ISR": 1}
+        if self.classification_names is None:
+            # label values of the training h5 (process_label): 0 = QCD, 1 = signal, 2 = ttbar -- the current
+            # 3-class head. A 2-class (QCD vs signal) model must set classification_names: [qcd, signal].
+            self.classification_names = ["qcd", "signal", "ttbar"]
 
     def getWPs(self, metadata):
         """Mirrors HBQuarkMaker.getWPs / skimming.py's SPANetGenMatch.getWPs
@@ -537,10 +631,17 @@ class SPANetDiHiggsInference(AnalyzerModule):
         """Per-particle detection-score columns."""
         return {name: self.output_prefix + Column(f"{name}_detection") for name in self.particle_names}
 
+    def _classification_cols(self):
+        """Per-class probability columns (empty unless use_classification)."""
+        if not self.use_classification:
+            return {}
+        return {name: self.output_prefix + Column(f"classification_{name}") for name in self.classification_names}
+
     def run(self, columns, params):
         source = self.prepare_inputs(columns)
         n_events = len(source["pt"])
         detect_cols = self._detection_cols()
+        class_cols = self._classification_cols()
 
         _MASS_COL_NAMES = {
             "H1": "m_Hbb_SPANet",
@@ -559,6 +660,8 @@ class SPANetDiHiggsInference(AnalyzerModule):
                 columns[mass_cols[name]] = ak.Array(empty)
             for name in detect_cols:
                 columns[detect_cols[name]] = ak.Array(empty)
+            for name in class_cols:
+                columns[class_cols[name]] = ak.Array(empty)
             empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
             empty_p4 = ak.zip(
                 {
@@ -581,9 +684,29 @@ class SPANetDiHiggsInference(AnalyzerModule):
             source["e"], source["btag"], source["qvg"],
             extra_features=source["_extra_features"],
         )
-        assign_detect = _run_onnx_inference(
-            session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
-        )
+        extras = {}
+        if self.use_classification:
+            cls_name = _find_classification_output(
+                [o.name for o in session.get_outputs()], self.particle_names, hint=self.classification_output
+            )
+            assign_detect, extras = _run_onnx_inference(
+                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size,
+                extra_output_names=[cls_name],
+            )
+            probs = _to_class_probabilities(extras[cls_name], self.classification_scores)
+            if probs.shape[1] != len(self.classification_names):
+                raise ValueError(
+                    f"the model's classification output {cls_name!r} has {probs.shape[1]} classes but "
+                    f"classification_names has {len(self.classification_names)} entries "
+                    f"({self.classification_names}); set classification_names to one name per class "
+                    f"(3-class model: [qcd, signal, ttbar]; 2-class model: [qcd, signal])."
+                )
+            for k, name in enumerate(self.classification_names):
+                columns[class_cols[name]] = ak.Array(probs[:, k])
+        else:
+            assign_detect = _run_onnx_inference(
+                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
+            )
         assign_tensors = [assign_detect[name][0] for name in self.particle_names]
         preds = _extract_pairs_exclusive(assign_tensors)
         jets = _gather_assigned_jets(
@@ -622,6 +745,7 @@ class SPANetDiHiggsInference(AnalyzerModule):
         outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
         detect_cols = self._detection_cols()
         outs += list(detect_cols.values())
+        outs += list(self._classification_cols().values())
         return outs
 
     def inputs(self, metadata):

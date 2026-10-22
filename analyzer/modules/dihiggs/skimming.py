@@ -570,6 +570,9 @@ class SPANetGenMatch(AnalyzerModule):
 
     check_chs_multiplicity: bool = False  # When True, checks whether q_onshell/q_offshell ever contain more than 2 entries per event -- if isFirstCopy+fromHardProcess doesn't guarantee exactly one GenPart record per physical quark (e.g. an FSR copy slipping through), chs itself could carry duplicate labels upstream of any matching logic. False by default, same cattrs-safe pattern as the other diagnostics here.
 
+    ttbar_matching: bool = False  # ttbar (background-with-structure) path. Gen-matches the t->b and W->qq partons of the tops (signal codes 5 = b from top, 6 = quark from a top-decay W) through the SAME two-stage greedy parton->genjet->reco-jet matching used for signal, but those codes never feed H1/W1 targets (make_targets only reads codes 1/2/3), so the Targets groups come out all-null exactly like QCD. Every event is kept (good_event unconditionally True) and process_label = ttbar_process_label. Semileptonic events simply have fewer W->qq partons (leptonic W has no quarks); nothing special needed. Mutually exclusive with skip_gen_matching.
+    ttbar_process_label: int = 2  # Event class written for ttbar events. 2 = its own third class (needs a 3-class CLASSIFICATIONS entry in the event yaml); 0 = fold into background with QCD; -1 = ignored by cross_entropy.
+
     __wp_cache: dict = field(factory=dict)
     __ctag_wp_cache: dict = field(factory=dict)
     __shuffle_rng_holder: dict = field(factory=dict)  # Holds {"rng": <generator>} once lazily initialized -- MUST be dict-typed, not object-typed: cattrs (OSCA's YAML-to-class converter) generates a structure hook for every AnalyzerModule subclass at startup, regardless of which pipelines are actually enabled, and cannot handle a plain `object` type annotation. Confirmed directly: object-typed field reproduces the exact "Unsupported type: <class 'object'>" error; dict-typed (matching __wp_cache/__ctag_wp_cache, already proven working) resolves it.
@@ -648,6 +651,9 @@ class SPANetGenMatch(AnalyzerModule):
         genpart = columns[self.genpart_col]
         genjet = columns[self.genjet_col]
 
+        if self.ttbar_matching and self.skip_gen_matching:
+            raise ValueError("ttbar_matching and skip_gen_matching are mutually exclusive")
+
         if self.skip_gen_matching:
             # -- Background-only path (e.g. QCD): no genuine H->bb/WW gen
             # truth exists to match against, so skip the ENTIRE truth
@@ -685,7 +691,29 @@ class SPANetGenMatch(AnalyzerModule):
             )
             isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
 
-            if self.reco_mode == "full_hww":
+            if self.ttbar_matching:
+                # -- ttbar truth: b from t->bW (code 5) and quarks from
+                # W->qq (code 6). Same selection idiom as the Hbb / W
+                # blocks (isFirstCopy + fromHardProcess, mother is the
+                # isLastCopy parent). No good_event_mask_* is defined or
+                # used on this path: every ttbar event is kept.
+                top_idx = all_gp_idx[(abs(genpart.pdgId) == 6) & genpart.hasFlags(["isLastCopy"])]
+                b_from_top_mask = (
+                    (abs(genpart.pdgId) == 5)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == top_idx[:, None, :], axis=2)
+                )
+                b_from_top = ak.with_field(genpart[b_from_top_mask], 5, "signal")
+
+                Wtt_idx = all_gp_idx[(abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])]
+                q_from_Wtt_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == Wtt_idx[:, None, :], axis=2)
+                )
+                q_from_Wtt = ak.with_field(genpart[q_from_Wtt_mask], 6, "signal")
+                chs = ak.concatenate([b_from_top, q_from_Wtt], axis=1)
+            elif self.reco_mode == "full_hww":
                 W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
                 W_all_idx = all_gp_idx[W_mask]
                 W_bosons = genpart[W_mask]
@@ -808,7 +836,7 @@ class SPANetGenMatch(AnalyzerModule):
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
         jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
 
-        if self.check_truncation_loss and not self.skip_gen_matching:
+        if self.check_truncation_loss and not (self.skip_gen_matching or self.ttbar_matching):
             # chunk_label uses id(columns) purely to guarantee uniqueness
             # across calls within one process (so accumulation can't
             # accidentally merge unrelated chunks into one line) -- NOT
@@ -824,7 +852,7 @@ class SPANetGenMatch(AnalyzerModule):
                 outdir=self.truncation_loss_outdir, chunk_label=f"chunk_{id(columns)}",
             )
 
-        if self.audit_n_real_jets_values and not self.skip_gen_matching:
+        if self.audit_n_real_jets_values and not (self.skip_gen_matching or self.ttbar_matching):
             _audit_n_real_jets_recovery(
                 jets, jets_sorted, self.reco_mode, self.audit_n_real_jets_values,
                 outdir=self.audit_n_real_jets_outdir, chunk_label=f"chunk_{id(columns)}",
@@ -842,7 +870,9 @@ class SPANetGenMatch(AnalyzerModule):
         # window signal_arr actually uses closes that gap: any event that
         # passes genuinely has >=3 real q-jets among the 6 the network will
         # actually be given, not just somewhere in the full event.
-        if self.skip_gen_matching:
+        if self.skip_gen_matching or self.ttbar_matching:
+            # (ttbar: same override, every event is a legitimate row with
+            # all-null H1/W1 targets; its 5/6 codes never reach make_targets.)
             # Background events never carry a signal==1 jet by construction,
             # so the normal good_event_mask_* functions above would
             # evaluate False for every single event here, silently
@@ -989,6 +1019,8 @@ class SPANetGenMatch(AnalyzerModule):
         # -> 1); it differs only in never labeling a signal-origin event 0.
         if self.skip_gen_matching:
             process_label = np.zeros(len(good_event), dtype=np.int64)
+        elif self.ttbar_matching:
+            process_label = np.full(len(good_event), self.ttbar_process_label, dtype=np.int64)
         else:
             process_label = np.where(ak.to_numpy(good_event), 1, -1).astype(np.int64)
 
@@ -1059,6 +1091,31 @@ class SaveSPANetH5(AnalyzerModule):
         pair unambiguous even if the files are ever copied or moved
         somewhere the directory structure doesn't survive.
 
+    write_weights : bool
+        If True, also writes per-event WEIGHTS (needs Column("Weights") upstream):
+          WEIGHTS/event     product of every field of the OSCA `Weights` record -- exactly what
+                            HistogramBuilder multiplies together when it fills a histogram
+                            (generator weight, pileup, SFs, ...).
+          WEIGHTS/physical  WEIGHTS/event * lumi * x_sec / n_events -- the same per-sample scale
+                            OSCA applies when it loads results (analyzer/core/results.py), so
+                            sums of this dataset reproduce the yields in the OSCA plots.
+        Plus file attributes (dataset_name, sample_name, lumi, x_sec, n_events, scale) so the
+        physical weight can be recomputed later (e.g. if only part of a sample was processed).
+        results.py divides by the number of events actually PROCESSED; a chunk cannot know that, so
+        this divides by n_events * processed_fraction. Leave processed_fraction at 1.0 when whole
+        samples are skimmed; for a capped run set it to processed/total (e.g. 50e6/470312166) so the
+        weights are scaled up to the full sample in this same run.
+
+    processed_fraction : float
+        See write_weights. Must be in (0, 1].
+
+    weight_source : str
+        "Weights" (default): multiply every field of the OSCA `Weights` record (the pipeline must contain the
+        weight modules that build it, otherwise the run fails with "no field 'Weights'").
+        "pos_neg": +1 / -1 from the sign of the raw NanoAOD genWeight, i.e. what OSCA's PosNegGenWeight module
+        produces. Needs nothing upstream; ignores pileup, prefiring and SFs (a few-percent effect for a validation
+        metric). The choice is stored in the file attribute `weight_fields`.
+
     pre_truncation_prefix : str, optional
         Output directory for the second (pre-truncation) file -- kept
         separate from `prefix` so concatenating "all the primary files"
@@ -1079,6 +1136,9 @@ class SaveSPANetH5(AnalyzerModule):
     good_event_pre_truncation_col: Column = None
     pre_truncation_suffix: str = "_pretrunc"
     pre_truncation_prefix: str = None
+    write_weights: bool = False
+    processed_fraction: float = 1.0
+    weight_source: str = "Weights"
     output_format: str = (
         "{dataset_name}__{sample_name}__{file_id}"
         "__{chunk.event_start}_{chunk.event_stop}.h5"
@@ -1090,10 +1150,42 @@ class SaveSPANetH5(AnalyzerModule):
             cols.append(self.good_event_col)
         if self.good_event_pre_truncation_col is not None:
             cols.append(self.good_event_pre_truncation_col)
+        if self.write_weights:
+            cols.append(Column("genWeight" if self.weight_source == "pos_neg" else "Weights"))
         return cols
 
     def outputs(self, metadata):
         return []
+
+    def _event_weights(self, columns):
+        """(product of all Weights fields, per-sample scale). Mirrors HistogramBuilder (product of
+        every field of the `Weights` record) and analyzer/core/results.py (scale = lumi * x_sec / events)."""
+        md = columns.metadata
+        if self.weight_source == "pos_neg":
+            # Same as OSCA's PosNegGenWeight module: +1 / -1 from the sign of genWeight (0 counts as -1, exactly like
+            # `ak.where(genWeight > 0, 1.0, -1.0)`). No pileup / prefiring / SFs. Use this when the pipeline does not
+            # build the OSCA `Weights` record.
+            names = ["pos_neg_weight"]
+            w = np.where(ak.to_numpy(columns["genWeight"]) > 0, 1.0, -1.0)
+        elif self.weight_source == "Weights":
+            weights = columns["Weights"]
+            names = list(weights.fields)
+            if not names:
+                raise ValueError("SaveSPANetH5: write_weights=True but the Weights record has no fields")
+            w = weights[names[0]]
+            for name in names[1:]:
+                w = w * weights[name]
+            w = ak.to_numpy(w).astype("float64")
+        else:
+            raise ValueError(f"SaveSPANetH5: weight_source must be 'Weights' or 'pos_neg', got {self.weight_source!r}")
+
+        x_sec = md.get("x_sec")
+        if x_sec is None:
+            raise ValueError(f"SaveSPANetH5: sample {md.get('sample_name')!r} has no x_sec; cannot build a physical weight")
+        if not (0.0 < self.processed_fraction <= 1.0):
+            raise ValueError(f"SaveSPANetH5: processed_fraction must be in (0, 1], got {self.processed_fraction}")
+        scale = float(md["era"]["lumi"]) * float(x_sec) / (float(md["n_events"]) * self.processed_fraction)
+        return w, scale, names
 
     def _write_h5(self, columns, target_path, good_event_col):
         """Writes one H5 file, filtered by the given good_event_col (or
@@ -1156,6 +1248,25 @@ class SaveSPANetH5(AnalyzerModule):
                         data=data,
                         compression="gzip",
                     )
+                if self.write_weights:
+                    w_event, scale, weight_names = self._event_weights(columns)
+                    if good_np is not None:
+                        w_event = w_event[good_np]
+                    f.create_dataset("WEIGHTS/event", data=w_event, compression="gzip")
+                    f.create_dataset("WEIGHTS/physical", data=w_event * scale, compression="gzip")
+                    md = columns.metadata
+                    f.attrs["dataset_name"] = str(md.get("dataset_name"))
+                    f.attrs["sample_name"] = str(md.get("sample_name"))
+                    f.attrs["lumi"] = float(md["era"]["lumi"])
+                    f.attrs["x_sec"] = float(md["x_sec"])
+                    f.attrs["n_events"] = float(md["n_events"])
+                    f.attrs["scale"] = scale
+                    f.attrs["processed_fraction"] = self.processed_fraction
+                    chunk = md.get("chunk", {})
+                    f.attrs["chunk_event_start"] = int(chunk.get("event_start", -1))
+                    f.attrs["chunk_event_stop"] = int(chunk.get("event_stop", -1))
+                    f.attrs["chunk_file_path"] = str(chunk.get("file_path", ""))
+                    f.attrs["weight_fields"] = ",".join(weight_names)
             copyFile(local_filename, target_path)
         finally:
             local_filename.unlink(missing_ok=True)
