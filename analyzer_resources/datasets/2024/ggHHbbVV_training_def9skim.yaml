@@ -1,0 +1,10 @@
+- name: ggHH2b2V6q_training_def9skim_2024
+  sample_type: MC
+  title: ggHH2b2V6q
+  n_events: 122509
+  x_sec: 0.4055587976857181
+  era: '2024'
+  other_data:
+    nanoversion: V15
+  files:
+  - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/ggHH2b2V6q_training_2024__ggHH2b2V6q_training_2024__0000.root
