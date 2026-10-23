@@ -1,0 +1,113 @@
+- name: qcd_inclusive_def9skim_2024
+  title: QCD
+  sample_type: MC
+  era: 2024
+  other_data:
+    nanoversion: V15
+  samples:
+  - name: QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8
+    n_events: 67
+    x_sec: 602109.2304813528
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8__0000.root
+  - name: QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8
+    n_events: 84
+    x_sec: 353259.91041154345
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8__0000.root
+  - name: QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8
+    n_events: 66
+    x_sec: 74996.14258284679
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8__0000.root
+  - name: QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8
+    n_events: 298
+    x_sec: 51587.47527613383
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8__0000.root
+  - name: QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8
+    n_events: 10673
+    x_sec: 272771.2972696465
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8__0002.root
+  - name: QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8
+    n_events: 81971
+    x_sec: 363919.6552492826
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8__0002.root
+  - name: QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8
+    n_events: 234132
+    x_sec: 270797.46256089065
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8__0002.root
+  - name: QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8
+    n_events: 369985
+    x_sec: 35986.93945882185
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8__0002.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8__0003.root
+  - name: QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8
+    n_events: 467565
+    x_sec: 3861.3703735075783
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__0002.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__0003.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__0004.root
+  - name: QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8
+    n_events: 534857
+    x_sec: 1220.3293418965018
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0002.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0003.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0004.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__0005.root
+  - name: QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8
+    n_events: 566148
+    x_sec: 222.93998100269064
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0002.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0003.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0004.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__0005.root
+  - name: QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8
+    n_events: 572095
+    x_sec: 69.46190805606051
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0001.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0002.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0003.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0004.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__0005.root
+  - name: QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8
+    n_events: 142055
+    x_sec: 3.6655152340171027
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8__0001.root
+  - name: QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8
+    n_events: 132094
+    x_sec: 0.2938166225701719
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8__0001.root
+  - name: QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8
+    n_events: 124808
+    x_sec: 0.02831118719908898
+    files:
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8__0000.root
+    - root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024/qcd_inclusive_2024__QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8__0001.root

@@ -308,6 +308,9 @@ class HJetFilter(AnalyzerModule):
 @define
 class TieredPtJetFilter(AnalyzerModule):
     """
+    Note: This is equivalent to just doing two HJetFilter modules with
+    appropriate selections.
+
     Produces a new jet collection (output_col) from an existing one
     (input_col) using a tiered pt selection: among jets in input_col, the
     n_hard_jets highest-pt jets must individually clear hard_pt_cut; any
@@ -483,6 +486,13 @@ class AbsoluteValue(AnalyzerModule):
     """
     This simple module takes the absolute value of a specified input column and
     stores the result in a new output column.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input values to be processed.
+    output_col : Column
+        Column where the absolute values will be stored.
     """
 
     input_col: Column
@@ -497,3 +507,38 @@ class AbsoluteValue(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+@define
+class PromoteAttributeToBracket(AnalyzerModule):
+    """
+    Promotes an attribute of a column to a new column using bracket notation.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input values to be processed.
+    attribute_name : str
+        Name of the attribute to be promoted to a new column.
+    nest_col : Column
+        Nested column where the promoted attribute values will be stored. e.g.
+        if input_col is "jets" and attribute_name is "pt", then output_col could be "new_pt",
+        and values will be stored as jets["new_pt"]. Importantly, changes to the promoted
+        attribute will not be reflected in the original column, and vice versa.
+    """
+
+    input_col: Column
+    attribute_name: str
+    nest_col: Column
+
+    def run(self, columns, params):
+        columns[self.input_col + self.nest_col] = getattr(
+            columns[self.input_col], self.attribute_name
+        )
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.input_col + self.nest_col]

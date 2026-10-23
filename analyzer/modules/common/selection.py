@@ -52,7 +52,7 @@ class SelectOnColumns(AnalyzerModule):
 
         def andCuts(all_cuts):
             if not all_cuts:
-                return ak.ones_like(cuts[0])
+                return ak.ones_like(getCol(cuts[0]))
             ret = getCol(all_cuts[0])
             for cut in all_cuts[1:]:
                 ret = ret & getCol(cut)
@@ -69,26 +69,31 @@ class SelectOnColumns(AnalyzerModule):
         for name in cuts[1:]:
             ret = ret & getCol(name)
             cutflow[name] = ak.count_nonzero(ret, axis=0)
-        
+
         final = ak.count_nonzero(ret, axis=0)
-        
-        one_cut = {'initial': initial}
-        one_cut |= {cut : ak.count_nonzero(getCol(cut)) for cut in cuts}
-        one_cut['final'] = final
-        
-        n_minus_one = {'initial': initial}
-        n_minus_one |= {cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i+1:]),axis=0) for i, cut in enumerate(cuts)}
-        n_minus_one['final'] = final
+
+        one_cut = {"initial": initial}
+        one_cut |= {cut: ak.count_nonzero(getCol(cut)) for cut in cuts}
+        one_cut["final"] = final
+
+        n_minus_one = {"initial": initial}
+        n_minus_one |= {
+            cut: ak.count_nonzero(andCuts(cuts[:i] + cuts[i + 1 :]), axis=0)
+            for i, cut in enumerate(cuts)
+        }
+        n_minus_one["final"] = final
         columns.filter(ret)
 
         if self.save_cutflow:
-            return columns, [SelectionFlow(
-                self.sel_name, 
-                cuts=cuts, 
-                cutflow=cutflow, 
-                one_cut=one_cut, 
-                n_minus_one=n_minus_one
-                )]
+            return columns, [
+                SelectionFlow(
+                    self.sel_name,
+                    cuts=cuts,
+                    cutflow=cutflow,
+                    one_cut=one_cut,
+                    n_minus_one=n_minus_one,
+                )
+            ]
         else:
             return columns, []
 
@@ -193,7 +198,15 @@ class SelectAllTriggers(AnalyzerModule):
         for trigger_name in all_triggers:
             ret = columns["HLT"][trigger_name]
             cutflow[trigger_name] = ak.count_nonzero(ret, axis=0)
-        return columns, [SelectionFlow(self.sel_name, cuts=all_triggers, cutflow=cutflow, one_cut={}, n_minus_one={})]
+        return columns, [
+            SelectionFlow(
+                self.sel_name,
+                cuts=all_triggers,
+                cutflow=cutflow,
+                one_cut={},
+                n_minus_one={},
+            )
+        ]
 
     def inputs(self, metadata):
         return [Column(("HLT"))]
@@ -201,14 +214,23 @@ class SelectAllTriggers(AnalyzerModule):
     def outputs(self, metadata):
         return "EVENTS"
 
+
 def makeAndSavePairDRTable(group, common_meta, output_path, format="csv"):
     pair_labels = [
         "b1-b2",
-        "b1-q1", "b1-q2", "b1-q3", "b1-q4",
-        "b2-q1", "b2-q2", "b2-q3", "b2-q4",
+        "b1-q1",
+        "b1-q2",
+        "b1-q3",
+        "b1-q4",
+        "b2-q1",
+        "b2-q2",
+        "b2-q3",
+        "b2-q4",
         "q1-q2",
-        "q1-q3", "q1-q4",
-        "q2-q3", "q2-q4",
+        "q1-q3",
+        "q1-q4",
+        "q2-q3",
+        "q2-q4",
         "q3-q4",
     ]
 
@@ -223,10 +245,7 @@ def makeAndSavePairDRTable(group, common_meta, output_path, format="csv"):
             all_counts = all_counts + counts
 
     total = sum(all_counts)
-    sorted_pairs = sorted(
-        zip(pair_labels, all_counts),
-        key=lambda x: -x[1]
-    )
+    sorted_pairs = sorted(zip(pair_labels, all_counts), key=lambda x: -x[1])
 
     df = pd.DataFrame(
         [
