@@ -1,6 +1,6 @@
 # H5 File Merge Configuration
 
-source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef9"
+source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/raw/withHLT_ObjDef9"
 
 output_dir: "./slimmedskims/2024/withHLT_ObjDef9/"
 

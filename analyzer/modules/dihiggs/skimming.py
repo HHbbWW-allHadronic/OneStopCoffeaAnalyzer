@@ -23,8 +23,7 @@ class SaveEventsH5(AnalyzerModule):
     - Event-level variables are written as (n_events,) datasets named after the
       Column (with '.' replaced by '_').
 
-    Assumes it is run in a region where every event has at least `n_jets` jets in
-    `jet_col`. Raises otherwise.
+    Pads jet-level variables to `n_jets` with NaN, and event-level variables are written as-is.
 
     Parameters
     ----------
@@ -86,14 +85,9 @@ class SaveEventsH5(AnalyzerModule):
                 return columns, []
 
             min_jets = int(min_jets)
-            if min_jets < self.n_jets:
-                raise ValueError(
-                    f"SaveH5: collection '{self.jet_col}' requires at least {self.n_jets} jets/event, "
-                    f"but found an event with {min_jets} in chunk "
-                    f"{columns.metadata['chunk']['file_path']} "
-                    f"[{columns.metadata['chunk']['event_start']}, "
-                    f"{columns.metadata['chunk']['event_stop']}]"
-                )
+
+            jets = ak.pad_none(jets, self.n_jets, clip=True)
+            jets = ak.fill_none(jets, np.nan)
 
             jet_prefix = str(self.jet_col).replace(".", "_")
 
@@ -150,20 +144,35 @@ W_MASS_PDG = 80.377  # GeV
 # Only the calling convention around them changes to fit AnalyzerModule.
 # ============================================================
 
+
 def greedy_match(objects_a, objects_b, signal_field, dr_threshold=0.4, store_pt=False):
     max_a = int(ak.max(ak.num(objects_a)))
     max_b = int(ak.max(ak.num(objects_b)))
 
-    eta_a_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_a.eta, max_a, clip=True), 0.0))
-    phi_a_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_a.phi, max_a, clip=True), 0.0))
-    eta_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.eta, max_b, clip=True), 0.0))
-    phi_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.phi, max_b, clip=True), 0.0))
-    sig_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(getattr(objects_b, signal_field), max_b, clip=True), -1))
+    eta_a_np = ak.to_numpy(
+        ak.fill_none(ak.pad_none(objects_a.eta, max_a, clip=True), 0.0)
+    )
+    phi_a_np = ak.to_numpy(
+        ak.fill_none(ak.pad_none(objects_a.phi, max_a, clip=True), 0.0)
+    )
+    eta_b_np = ak.to_numpy(
+        ak.fill_none(ak.pad_none(objects_b.eta, max_b, clip=True), 0.0)
+    )
+    phi_b_np = ak.to_numpy(
+        ak.fill_none(ak.pad_none(objects_b.phi, max_b, clip=True), 0.0)
+    )
+    sig_b_np = ak.to_numpy(
+        ak.fill_none(
+            ak.pad_none(getattr(objects_b, signal_field), max_b, clip=True), -1
+        )
+    )
     counts_a = ak.to_numpy(ak.num(objects_a))
     counts_b = ak.to_numpy(ak.num(objects_b))
 
     if store_pt:
-        pt_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.pt, max_b, clip=True), np.nan))
+        pt_b_np = ak.to_numpy(
+            ak.fill_none(ak.pad_none(objects_b.pt, max_b, clip=True), np.nan)
+        )
 
     labels_out = []
     pt_out = [] if store_pt else None
@@ -189,7 +198,7 @@ def greedy_match(objects_a, objects_b, signal_field, dr_threshold=0.4, store_pt=
         deta = eta_a[:, None] - eta_b[None, :]
         dphi = phi_a[:, None] - phi_b[None, :]
         dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
-        dr_matrix = np.sqrt(deta ** 2 + dphi ** 2)
+        dr_matrix = np.sqrt(deta**2 + dphi**2)
 
         assigned_a = set()
         assigned_b = set()
@@ -225,13 +234,20 @@ def pad_and_convert(arr, max_real_jets, n_null_jets):
 
 
 def make_mask(jet_counts, max_real_jets, n_null_jets):
-    return np.array([
-        [True] * min(n, max_real_jets) + [False] * max(0, max_real_jets - n) + [True] * n_null_jets
-        for n in jet_counts
-    ], dtype=bool)
+    return np.array(
+        [
+            [True] * min(n, max_real_jets)
+            + [False] * max(0, max_real_jets - n)
+            + [True] * n_null_jets
+            for n in jet_counts
+        ],
+        dtype=bool,
+    )
 
 
-def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_target=True):
+def make_targets(
+    signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_target=True
+):
     n_events = len(signal_arr)
     null_idx = max_real_jets if n_null_jets > 0 else -1
 
@@ -246,17 +262,17 @@ def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_
         h2_jets = np.where(signal_arr[i] == 2)[0]
         h3_jets = np.where(signal_arr[i] == 3)[0]
 
-        H1[i, :min(len(h1_jets), 2)] = h1_jets[:2]
+        H1[i, : min(len(h1_jets), 2)] = h1_jets[:2]
         if include_isr_target:
             h_isr_jets = np.where(signal_arr[i] == 4)[0]
-            ISR[i, :min(len(h_isr_jets), 1)] = h_isr_jets[:1]
+            ISR[i, : min(len(h_isr_jets), 1)] = h_isr_jets[:1]
 
         if reco_mode == "full_hww":
-            W1[i, :min(len(h2_jets), 2)] = h2_jets[:2]
+            W1[i, : min(len(h2_jets), 2)] = h2_jets[:2]
             all_q = np.concatenate([h2_jets[:2], h3_jets[:2]])
-            H2[i, :min(len(all_q), 4)] = all_q[:4]
+            H2[i, : min(len(all_q), 4)] = all_q[:4]
         elif reco_mode == "onshell_w":
-            W1[i, :min(len(h2_jets), 2)] = h2_jets[:2]
+            W1[i, : min(len(h2_jets), 2)] = h2_jets[:2]
 
         seen = set()
         for slot in range(2):
@@ -309,6 +325,7 @@ def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_
 # Module 1: gen-level matching + target/source construction
 # ============================================================
 
+
 @define
 class SPANetGenMatch(AnalyzerModule):
     """
@@ -326,8 +343,12 @@ class SPANetGenMatch(AnalyzerModule):
     """
 
     jet_col: Column
-    genpart_col: Column = field(factory=lambda: Column("GenPart"))  # ASSUMPTION -- confirm
-    genjet_col: Column = field(factory=lambda: Column("GenJet"))    # ASSUMPTION -- confirm
+    genpart_col: Column = field(
+        factory=lambda: Column("GenPart")
+    )  # ASSUMPTION -- confirm
+    genjet_col: Column = field(
+        factory=lambda: Column("GenJet")
+    )  # ASSUMPTION -- confirm
     output_prefix: str = "SPANet"
     reco_mode: str = "full_hww"  # "full_hww" or "onshell_w"
     n_real_jets: int = 9
@@ -335,15 +356,23 @@ class SPANetGenMatch(AnalyzerModule):
     dr_threshold: float = 0.4
     genjet_eta_cut: float = 2.4
     genjet_pt_cut: float = 15.0
-    secondary_order_field: str = "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
-    include_isr_target: bool = True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
+    secondary_order_field: str = (
+        "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
+    )
+    include_isr_target: bool = (
+        True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
+    )
 
     def inputs(self, metadata):
         return [self.jet_col, self.genpart_col, self.genjet_col]
 
     def outputs(self, metadata):
         p = self.output_prefix
-        outs = [Column(f"{p}.Source"), Column(f"{p}.good_event"), Column(("Selection", "good_event"))]
+        outs = [
+            Column(f"{p}.Source"),
+            Column(f"{p}.good_event"),
+            Column(("Selection", "good_event")),
+        ]
         if self.reco_mode == "full_hww":
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2")]
         else:
@@ -372,7 +401,9 @@ class SPANetGenMatch(AnalyzerModule):
         incoming_idx = all_gp_idx[incoming_mask]
         isr_mask = (
             (genpart.pdgId == 21)
-            & ak.any(genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2)
+            & ak.any(
+                genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2
+            )
             & (genpart.status != 21)
         )
         isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
@@ -384,20 +415,30 @@ class SPANetGenMatch(AnalyzerModule):
             W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
             W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
             onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
-            offshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1])
+            onshell_W_idx = ak.where(
+                onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2]
+            )
+            offshell_W_idx = ak.where(
+                onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1]
+            )
 
             q_onshell_mask = (
                 (abs(genpart.pdgId) <= 4)
                 & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+                & ak.any(
+                    genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :],
+                    axis=2,
+                )
             )
             q_onshell = ak.with_field(genpart[q_onshell_mask], 2, "signal")
 
             q_offshell_mask = (
                 (abs(genpart.pdgId) <= 4)
                 & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :], axis=2)
+                & ak.any(
+                    genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :],
+                    axis=2,
+                )
             )
             q_offshell = ak.with_field(genpart[q_offshell_mask], 3, "signal")
 
@@ -411,6 +452,7 @@ class SPANetGenMatch(AnalyzerModule):
                     + ak.sum(ak.fill_none(gj_with_signal.signal == 3, False), axis=1)
                     >= 3
                 )
+
         else:  # onshell_w
             W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
             W_all_idx = all_gp_idx[W_mask]
@@ -418,12 +460,17 @@ class SPANetGenMatch(AnalyzerModule):
             W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
             W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
             onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
+            onshell_W_idx = ak.where(
+                onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2]
+            )
 
             q_onshell_mask = (
                 (abs(genpart.pdgId) <= 4)
                 & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+                & ak.any(
+                    genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :],
+                    axis=2,
+                )
             )
             q_from_W = ak.with_field(genpart[q_onshell_mask], 2, "signal")
             chs = ak.concatenate([b_quarks, q_from_W, isr_gluon], axis=1)
@@ -436,17 +483,27 @@ class SPANetGenMatch(AnalyzerModule):
                 )
 
         # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
-        genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (genjet.pt > self.genjet_pt_cut)
+        genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (
+            genjet.pt > self.genjet_pt_cut
+        )
         gen_gj = genjet[genjet_cut]
 
         # -- Stage 1: gen parton -> gen jet --
-        signal_genjet_list = greedy_match(gen_gj, chs, "signal", dr_threshold=self.dr_threshold)
+        signal_genjet_list = greedy_match(
+            gen_gj, chs, "signal", dr_threshold=self.dr_threshold
+        )
         gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
-        signal_gen_jets = gen_gj[ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])]
+        signal_gen_jets = gen_gj[
+            ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])
+        ]
 
         # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
         signal_reco_list, matched_pt_list = greedy_match(
-            jets, signal_gen_jets, "signal", dr_threshold=self.dr_threshold, store_pt=True
+            jets,
+            signal_gen_jets,
+            "signal",
+            dr_threshold=self.dr_threshold,
+            store_pt=True,
         )
         jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
         jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
@@ -472,7 +529,9 @@ class SPANetGenMatch(AnalyzerModule):
             )
 
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
-        jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
+        jets_sorted = ak.concatenate(
+            [jets_partial[:, :2], jets_partial[pt_idx]], axis=1
+        )
 
         # FIXED: good_event was previously evaluated on the full, untruncated
         # `jets` collection -- but signal_arr (and therefore make_targets)
@@ -492,22 +551,41 @@ class SPANetGenMatch(AnalyzerModule):
         eta_arr = pad_and_convert(jets_sorted.eta, self.n_real_jets, self.n_null_jets)
         phi_arr = pad_and_convert(jets_sorted.phi, self.n_real_jets, self.n_null_jets)
         e_arr = pad_and_convert(jets_sorted.energy, self.n_real_jets, self.n_null_jets)
-        btag_arr = pad_and_convert(jets_sorted.btagUParTAK4B, self.n_real_jets, self.n_null_jets)
-        pnet_qvg_arr = pad_and_convert(jets_sorted.btagPNetQvG, self.n_real_jets, self.n_null_jets)
-        upart_qvg_arr = pad_and_convert(jets_sorted.btagUParTAK4QvG, self.n_real_jets, self.n_null_jets)
-        signal_arr = pad_and_convert(jets_sorted.signal, self.n_real_jets, self.n_null_jets)
+        btag_arr = pad_and_convert(
+            jets_sorted.btagUParTAK4B, self.n_real_jets, self.n_null_jets
+        )
+        pnet_qvg_arr = pad_and_convert(
+            jets_sorted.btagPNetQvG, self.n_real_jets, self.n_null_jets
+        )
+        upart_qvg_arr = pad_and_convert(
+            jets_sorted.btagUParTAK4QvG, self.n_real_jets, self.n_null_jets
+        )
+        signal_arr = pad_and_convert(
+            jets_sorted.signal, self.n_real_jets, self.n_null_jets
+        )
 
         jet_counts = ak.num(jets_sorted)
         mask = make_mask(jet_counts, self.n_real_jets, self.n_null_jets)
 
         source = ak.zip(
-            {"MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr, "btag": btag_arr,
-             "pnet_qvg": pnet_qvg_arr, "upart_qvg": upart_qvg_arr},
-             depth_limit=1,
+            {
+                "MASK": mask,
+                "pt": pt_arr,
+                "eta": eta_arr,
+                "phi": phi_arr,
+                "e": e_arr,
+                "btag": btag_arr,
+                "pnet_qvg": pnet_qvg_arr,
+                "upart_qvg": upart_qvg_arr,
+            },
+            depth_limit=1,
         )
 
         targets = make_targets(
-            signal_arr, self.n_real_jets, self.n_null_jets, self.reco_mode,
+            signal_arr,
+            self.n_real_jets,
+            self.n_null_jets,
+            self.reco_mode,
             include_isr_target=self.include_isr_target,
         )
 
@@ -530,9 +608,11 @@ class SPANetGenMatch(AnalyzerModule):
 
         return columns, []
 
+
 # ============================================================
 # Module 2: HDF5 writer
 # ============================================================
+
 
 @define
 class SaveSPANetH5(AnalyzerModule):
@@ -575,9 +655,11 @@ class SaveSPANetH5(AnalyzerModule):
     def run(self, columns, params):
         import h5py
 
-        file_id = hashlib.md5(
-            columns.metadata["chunk"]["file_path"].encode()
-        ).hexdigest().upper()
+        file_id = (
+            hashlib.md5(columns.metadata["chunk"]["file_path"].encode())
+            .hexdigest()
+            .upper()
+        )
         uid = str(uuid.uuid4())
 
         target_name = dotFormat(

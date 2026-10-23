@@ -1,0 +1,38 @@
+# ROOT skim merge configuration (scripts/merge_root.py)
+# Relative local paths are resolved relative to this file.
+
+source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/raw_root/withHLT_ObjDef9"
+# Group area (lpcsusystealth)
+output_dir: "root://cmseos.fnal.gov//store/user/lpcsusystealth/HHDef9Skim/2024"
+meta_subdir: "_meta"      # summary, manifest and yamls are copied here as provenance
+
+# Local scratch for merged files before xrdcp, plus inspect cache, manifest, logs
+staging_dir: "./merge_staging/withHLT_ObjDef9"
+
+# ROOT is needed only for haddnano; black-env has none, so use an LCG view from cvmfs
+root_setup: "/cvmfs/sft.cern.ch/lcg/views/LCG_107/x86_64-el9-gcc13-opt/setup.sh"
+haddnano: "/uscms_data/d3/jgehrke/tmp/haddnano.py"
+
+# Output chunking: a new output starts when any limit would be exceeded
+target_size_mb: 2000      # approximate, based on input file sizes
+max_events: null          # optional cap on events per output
+max_files: 500            # cap on inputs per output file
+max_open_files: 100       # inputs per haddnano call; larger chunks merge in two stages (memory)
+
+# Per-sample overrides (regex on "{dataset}__{sample}")
+overrides: []
+#  - pattern: "^qcd_inclusive_2024__"
+#    target_size_mb: 4000
+
+inspect_workers: 8        # processes; inspection is CPU-bound
+merge_workers: 6          # each holds one ≈target_size_mb file in staging_dir
+
+# Original datasets: source of x_sec (n_events there is only reported as a reference)
+dataset_yamls:
+  - "../analyzer_resources/datasets/2024/*.yaml"
+
+# Outputs: one yaml per original yaml (same filename), containing only skimmed
+# samples, with x_sec = x_sec_eff, n_events = N_pass, das_path -> merged files
+dataset_suffix: ""
+output_yaml_dir: "./merge_staging/withHLT_ObjDef9/datasets"
+summary: "./merge_staging/withHLT_ObjDef9/merge_summary.csv"

@@ -60,7 +60,7 @@ oldpkl/
 *.png
 *.pdf
 *.h5
-
+*.tar
 
 /trained_bnns/
 /knn_models/
@@ -75,3 +75,4 @@ oldpkl/
 /*forseth*/
 /*forjoe*/
 /docs/source/api/
+scripts/merge_staging
