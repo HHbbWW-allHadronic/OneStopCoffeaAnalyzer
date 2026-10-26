@@ -1,7 +1,7 @@
 - name: ggHH2b2V6q_2024_training_deduped
   sample_type: MC
   title: "ggHH2b2V6q"
-  n_events:  1530559
+  n_events: 1857234
   x_sec: 3.5
   era: '2024'
   other_data:
@@ -51,3 +51,16 @@
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0010.root
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0011.root
     - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0012.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0026.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0027.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0028.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0029.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0030.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0031.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0032.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0033.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0034.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0035.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0036.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0037.root
+    - root://cmseos.fnal.gov//eos/uscms/store/user/gavetter/MYOMC/ggtoHHto2B2W_HADRONIC_GROUP_MERGED/ggtoHHto2B2W_HADRONIC_group_part0038.root
