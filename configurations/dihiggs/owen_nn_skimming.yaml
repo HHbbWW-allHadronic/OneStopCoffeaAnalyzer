@@ -39,9 +39,9 @@ event_collections:
   - dataset: 'qcd_inclusive_2024*'
     pipelines:
     {{ all_pipelines() }}
-  - dataset: 'tt_hadronic*2024*'
+  - dataset: 'tt_hadronic_2024*'
     pipelines:
     {{ all_pipelines() }}
-  - dataset: 'tt_semilep*2024'
+  - dataset: 'tt_semileptonic_2024*'
     pipelines:
     {{ all_pipelines() }}
