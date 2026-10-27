@@ -100,7 +100,9 @@ class THVVMaker(AnalyzerModule):
 
         thvv = ak.where(den > 0, num / den, 0.0)
 
+        fatjets["globalParT3_Top"] = p_top
         fatjets["THVV"] = thvv
+
         columns[self.output_col] = fatjets
 
         return columns, []
@@ -110,3 +112,75 @@ class THVVMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+
+
+
+
+
+@define
+class HHKinematicVarsMaker(AnalyzerModule):
+    """
+    Computes di-fatjet (HH = bb + VV) kinematics and ratios for BDT input:
+    - m_jj: Invariant mass of (bb + VV)
+    - pt_jj: Transverse momentum of (bb + VV)
+    - dPhi_jj: |dPhi(bb, VV)|
+    - ratio_ptVV_ptbb: pt(VV) / pt(bb)
+    - ratio_ptVV_ptjj: pt(VV) / pt(jj)
+    """
+
+    bb_col: Column
+    vv_col: Column
+    output_col: Column
+
+    def run(self, columns, params):
+        bb_jets = columns[self.bb_col]
+        vv_jets = columns[self.vv_col]
+
+        # Extract 1D record per event (returns None for events with 0 candidates)
+        bb = ak.firsts(bb_jets)
+        vv = ak.firsts(vv_jets)
+
+        # Di-fatjet 4-vector sum
+        hh = bb + vv
+
+        # Compute scalar quantities (these contain None for empty events)
+        m_jj = hh.mass
+        pt_jj = hh.pt
+        dphi_jj = abs(bb.delta_phi(vv))
+
+        bb_pt = bb.pt
+        vv_pt = vv.pt
+
+        # Safe denominators prevent divide-by-zero RuntimeWarnings
+        safe_bb_pt = ak.where((bb_pt > 0) & (~ak.is_none(bb_pt)), bb_pt, 1.0)
+        safe_pt_jj = ak.where((pt_jj > 0) & (~ak.is_none(pt_jj)), pt_jj, 1.0)
+
+        ratio_ptVV_ptbb = ak.where(
+            (bb_pt > 0) & (~ak.is_none(bb_pt)), vv_pt / safe_bb_pt, 0.0
+        )
+        ratio_ptVV_ptjj = ak.where(
+            (pt_jj > 0) & (~ak.is_none(pt_jj)), vv_pt / safe_pt_jj, 0.0
+        )
+
+        # Convert option arrays (None) to var-length collections ([]) using ak.singletons
+        # so HistogramBuilder can flatten them naturally
+        columns[self.output_col] = ak.zip(
+            {
+                "m_jj": ak.singletons(m_jj),
+                "pt_jj": ak.singletons(pt_jj),
+                "dPhi_jj": ak.singletons(dphi_jj),
+                "ratio_ptVV_ptbb": ak.singletons(ratio_ptVV_ptbb),
+                "ratio_ptVV_ptjj": ak.singletons(ratio_ptVV_ptjj),
+            }
+        )
+
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.bb_col, self.vv_col]
+
+    def outputs(self, metadata):
+        return [self.output_col]
+
