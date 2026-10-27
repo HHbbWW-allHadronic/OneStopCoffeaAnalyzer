@@ -85,17 +85,26 @@ common_objects: &common_objects
     output_col: FatJet
 
 
-  - module_name: FatBQuarkMaker
+  - module_name: FatJetMaker
     input_col: FatJet
     output_col: boostedFatJet
+    min_mass: 50.0
+    max_mass: 250.0
+
+  - module_name: FatJetMaker
+    input_col: FatJet
+    output_col: boostedFatBJet
     min_mass: 50.0
     max_mass: 250.0
     min_xbb: 0.8
 
   - module_name: Count
+    input_col: boostedFatBJet
+    output_col: NboostedFatBJet
+
+  - module_name: Count
     input_col: boostedFatJet
     output_col: NboostedFatJet
-
 
   - module_name: HHCandidateSelector
     input_col: boostedFatJet
@@ -105,6 +114,13 @@ common_objects: &common_objects
     xbb_branch: xbbDiscrim
     thvv_branch: THVV
 
+  - module_name: Count
+    input_col: bbFatJet
+    output_col: NbbFatJet
+
+  - module_name: Count
+    input_col: vvFatJet
+    output_col: NvvFatJet
 
   - module_name: HHKinematicVarsMaker
     bb_col: bbFatJet
@@ -168,6 +184,11 @@ tightlep_fatquark_selection: &tightlep_fatquarks_selection
   - module_name: NObjFilter
     input_col: boostedFatJet
     selection_name: min_boosted_fatjet
+    min_count: 2
+
+  - module_name: NObjFilter
+    input_col: boostedFatBJet
+    selection_name: min_boosted_fatbjet
     min_count: 1
 
 

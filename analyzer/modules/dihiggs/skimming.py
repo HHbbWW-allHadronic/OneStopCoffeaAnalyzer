@@ -18,26 +18,31 @@ class SaveEventsH5(AnalyzerModule):
     """
     Analyzer module that serializes event-level data to HDF5 files for NN training.
 
-    - Jet-level variables are written as (n_events, n_jets) datasets named
-      "{jet_col}_{var}" (with '.' replaced by '_').
+    - Jet-level variables (optional) are written as (n_events, n_jets) datasets
+      named "{jet_col}_{var}" (with '.' replaced by '_').
     - Event-level variables are written as (n_events,) datasets named after the
       Column (with '.' replaced by '_').
 
-    Pads jet-level variables to `n_jets` with NaN, and event-level variables are written as-is.
+    Pads jet-level variables to `n_jets` with NaN. Event-level variables are
+    written as-is, except that variables holding at most one object per event
+    (e.g. a selected candidate jet, stored as a 0-or-1-length list) are
+    flattened to one value per event, with NaN where the list is empty.
 
     Parameters
     ----------
     prefix : str
         Destination directory prefix where the output HDF5 files will be copied.
-        (You said this will be the region name/path.)
-    jet_col : Column
-        Jet collection column (e.g. Column("goodJet")).
-    jet_vars : list[str]
+    jet_col : Column, optional
+        Jet collection column (e.g. Column("goodJet")). If omitted, no
+        jet-level datasets are written.
+    jet_vars : list[str], optional
         Fields on the jet collection (e.g. ["pt","eta","phi","mass"]).
-    n_jets : int
-        Number of leading jets to write per event.
+        Required if `jet_col` is given.
+    n_jets : int, optional
+        Number of leading jets to write per event. Required if `jet_col` is given.
     event_vars : list[Column], optional
         Event-level columns to write (e.g. [Column("HT"), Column("b_dijet_12.mass")]).
+        Required if `jet_col` is not given.
     output_format : str, optional
         Filename template expanded with metadata fields plus file_id and uuid.
         Note: uuid is only used for the *local* temp filename unless you include
@@ -45,14 +50,20 @@ class SaveEventsH5(AnalyzerModule):
     """
 
     prefix: str
-    jet_col: Column
-    jet_vars: list[str]
-    n_jets: int
+    jet_col: Column | None = None
+    jet_vars: list[str] = field(factory=list)
+    n_jets: int | None = None
     event_vars: list[Column] = field(factory=list)
     output_format: str = (
         "{dataset_name}__{sample_name}__{file_id}"
         "__{chunk.event_start}_{chunk.event_stop}.h5"
     )
+
+    def __attrs_post_init__(self):
+        if self.jet_col is None and not self.event_vars:
+            raise ValueError("SaveEventsH5 needs at least one of jet_col or event_vars.")
+        if self.jet_col is not None and (not self.jet_vars or self.n_jets is None):
+            raise ValueError("SaveEventsH5: jet_col requires both jet_vars and n_jets.")
 
     def run(self, columns, params):
         file_id = (
@@ -77,23 +88,20 @@ class SaveEventsH5(AnalyzerModule):
         try:
             import h5py
 
-            jets = columns[self.jet_col]
-
-            # Validate jet multiplicity before writing anything
-            min_jets = ak.min(ak.num(jets))
-            if min_jets is None:
+            # Nothing to write for an empty chunk
+            if ak.num(columns.events, axis=0) == 0:
                 return columns, []
 
-            min_jets = int(min_jets)
-
-            jets = ak.pad_none(jets, self.n_jets, clip=True)
-            jets = ak.fill_none(jets, np.nan)
-
-            jet_prefix = str(self.jet_col).replace(".", "_")
+            jets = None
+            if self.jet_col is not None:
+                jets = columns[self.jet_col]
+                jets = ak.pad_none(jets, self.n_jets, clip=True)
+                jets = ak.fill_none(jets, np.nan)
+                jet_prefix = str(self.jet_col).replace(".", "_")
 
             with h5py.File(local_filename, "w") as f:
                 # Per-jet datasets: (n_events, n_jets)
-                for v in self.jet_vars:
+                for v in self.jet_vars if jets is not None else []:
                     field_name = (
                         v
                         if (v != "btag")
@@ -110,6 +118,15 @@ class SaveEventsH5(AnalyzerModule):
                 # Event-level datasets: (n_events,)
                 for c in self.event_vars:
                     arr = columns[c]
+                    if arr.ndim == 2:
+                        # Candidate-style columns hold 0 or 1 objects per event
+                        max_len = ak.max(ak.num(arr, axis=1))
+                        if max_len is not None and max_len > 1:
+                            raise ValueError(
+                                f"SaveEventsH5: event var '{c}' has up to {max_len} "
+                                "entries per event; only 0 or 1 can be flattened."
+                            )
+                        arr = ak.fill_none(ak.firsts(arr), np.nan)
                     data = ak.to_numpy(arr)
                     name = str(c).replace(".", "_")
                     f.create_dataset(
@@ -125,7 +142,8 @@ class SaveEventsH5(AnalyzerModule):
         return columns, []
 
     def inputs(self, metadata):
-        return [self.jet_col] + list(self.event_vars)
+        jet_cols = [self.jet_col] if self.jet_col is not None else []
+        return jet_cols + list(self.event_vars)
 
     def outputs(self, metadata):
         return []

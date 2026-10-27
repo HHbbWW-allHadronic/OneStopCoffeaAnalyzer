@@ -1,0 +1,47 @@
+{% import 'boosted_core.yaml' as core %}
+
+{%- macro all_pipelines() %}
+      - withHLT_ObjDef6
+{%- endmacro %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  withHLT_ObjDef6:
+    - *withHLT_ObjDef6
+    - module_name: SaveEventsH5
+      prefix: root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/raw/boosted_withHLT_ObjDef6
+      event_vars:
+        - vvFatJet.globalParT3_QCD
+        - vvFatJet.globalParT3_XWW3q
+        - vvFatJet.globalParT3_XWW4q
+        - vvFatJet.globalParT3_Top
+        - vvFatJet.pt
+        - vvFatJet.massRegressed
+        - bbFatJet.pt
+        - HH.m_jj
+        - HH.pt_jj
+        - HH.dPhi_jj
+        - HH.ratio_ptVV_ptbb
+        - HH.ratio_ptVV_ptjj
+        - PuppiMET.pt
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_training_2024*'
+    pipelines: 
+    {{ all_pipelines() }}
+  - dataset: 'qcd_inclusive_2024*'
+    pipelines:
+    {{ all_pipelines() }}
+  - dataset: 'tt_hadronic*2024*'
+    pipelines:
+    {{ all_pipelines() }}
+  - dataset: 'tt_semilep*2024'
+    pipelines:
+    {{ all_pipelines() }}

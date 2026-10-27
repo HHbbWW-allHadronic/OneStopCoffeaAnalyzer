@@ -5,9 +5,10 @@ from analyzer.core.columns import Column
 
 
 @define
-class FatBQuarkMaker(AnalyzerModule):
+class FatJetMaker(AnalyzerModule):
     """
-    Select boosted FatJets based on regressed mass and Xbb discriminant thresholds.
+    Select FatJets based on regressed mass and Xbb discriminant thresholds,
+    basic kinematic cuts.
 
     Parameters
     ----------
@@ -19,7 +20,7 @@ class FatBQuarkMaker(AnalyzerModule):
         Minimum regressed mass threshold (default: 50.0).
     max_mass : float
         Maximum regressed mass threshold (default: 250.0).
-    min_xbb : float
+    min_xbb : float, optional
         Minimum Xbb discriminant score threshold (default: 0.8).
     mass_branch : str
         Field name for regressed mass on the FatJet collection (default: "massRegressed").
@@ -31,7 +32,7 @@ class FatBQuarkMaker(AnalyzerModule):
     output_col: Column
     min_mass: float = 50.0
     max_mass: float = 250.0
-    min_xbb: float = 0.8
+    min_xbb: float | None = None
     mass_branch: str = "massRegressed"
     xbb_branch: str = "xbbDiscrim"
 
@@ -43,11 +44,11 @@ class FatBQuarkMaker(AnalyzerModule):
         eta = fatjets.eta
         pt = fatjets.pt
 
-        # Mask for FatJets with 50 <= massRegressed <= 250 and Xbb >= 0.8
+        # Mask for FatJets with 50 <= massRegressed <= 250 and Xbb >= min_xbb
         mask = (
             (mass >= self.min_mass)
             & (mass <= self.max_mass)
-           # & (xbb_score >= self.min_xbb)
+            & (xbb_score >= self.min_xbb if self.min_xbb is not None else True)
             & (abs(eta) <= 2.4)
             & (pt >= 300)
         )
@@ -62,6 +63,7 @@ class FatBQuarkMaker(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
 
 @define
 class HHCandidateSelector(AnalyzerModule):
