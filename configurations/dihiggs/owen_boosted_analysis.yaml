@@ -226,6 +226,228 @@ common_histograms: &common_histograms
       bins: 21
 
 
+- module_name: SimpleHistogram
+  hist_name: vvTHVV_boosted
+  input_cols: [vvFatJet.THVV]
+  axes:
+    - name: "THVV"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: bbMass_boosted
+  input_cols: [bbFatJet.mass]
+  axes:
+    - name: "bb-Candidate Raw Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbMassRegressed_boosted
+  input_cols: [bbFatJet.massRegressed]
+  axes:
+    - name: "bb-Candidate Regressed Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbPt_boosted
+  input_cols: [bbFatJet.pt]
+  axes:
+    - name: "bb-Candidate p_{T} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbEta_boosted
+  input_cols: [bbFatJet.eta]
+  axes:
+    - name: "bb-Candidate #eta"
+      start: -2.5
+      stop: 2.5
+      bins: 30
+
+- module_name: SimpleHistogram
+  hist_name: bbPhi_boosted
+  input_cols: [bbFatJet.phi]
+  axes:
+    - name: "bb-Candidate #phi [rad]"
+      start: -3.14159
+      stop: 3.14159
+      bins: 32
+
+
+- module_name: SimpleHistogram
+  hist_name: vvMass_boosted
+  input_cols: [vvFatJet.mass]
+  axes:
+    - name: "VV-Candidate Raw Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvMassRegressed_boosted
+  input_cols: [vvFatJet.massRegressed]
+  axes:
+    - name: "VV-Candidate Regressed Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvPt_boosted
+  input_cols: [vvFatJet.pt]
+  axes:
+    - name: "VV-Candidate p_{T} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvEta_boosted
+  input_cols: [vvFatJet.eta]
+  axes:
+    - name: "VV-Candidate #eta"
+      start: -2.5
+      stop: 2.5
+      bins: 30
+
+- module_name: SimpleHistogram
+  hist_name: vvPhi_boosted
+  input_cols: [vvFatJet.phi]
+  axes:
+    - name: "VV-Candidate #phi [rad]"
+      start: -3.14159
+      stop: 3.14159
+      bins: 32
+
+
+
+- module_name: SimpleHistogram
+  hist_name: vvProbQCD_boosted
+  input_cols: [vvFatJet.globalParT3_QCD]
+  axes:
+    - name: "ParT Prob(QCD)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbHWW3q_boosted
+  input_cols: [vvFatJet.globalParT3_XWW3q]
+  axes:
+    - name: "ParT Prob(HWW3q)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbHWW4q_boosted
+  input_cols: [vvFatJet.globalParT3_XWW4q]
+  axes:
+    - name: "ParT Prob(HWW4q)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvPt_bdt
+  input_cols: [vvFatJet.pt]
+  axes:
+    - name: "p_{T}^{VV} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvMassReg_bdt
+  input_cols: [vvFatJet.massRegressed]
+  axes:
+    - name: "m_{reg}^{VV} [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbPt_bdt
+  input_cols: [bbFatJet.pt]
+  axes:
+    - name: "p_{T}^{bb} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: metPt_bdt
+  input_cols: [PuppiMET.pt]
+  axes:
+    - name: "p_{T}^{miss} [GeV]"
+      start: 0
+      stop: 500
+      bins: 50
+
+
+
+- module_name: SimpleHistogram
+  hist_name: mjj_bdt
+  input_cols: [HH.m_jj]
+  axes:
+    - name: "m^{jj} [GeV]"
+      start: 0
+      stop: 2000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: ptjj_bdt
+  input_cols: [HH.pt_jj]
+  axes:
+    - name: "p_{T}^{jj} [GeV]"
+      start: 0
+      stop: 800
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: dPhijj_bdt
+  input_cols: [HH.dPhi_jj]
+  axes:
+    - name: "|#Delta#phi^{jj}| [rad]"
+      start: 0
+      stop: 3.14159
+      bins: 32
+
+- module_name: SimpleHistogram
+  hist_name: ratio_ptVV_ptbb_bdt
+  input_cols: [HH.ratio_ptVV_ptbb]
+  axes:
+    - name: "p_{T}^{VV} / p_{T}^{bb}"
+      start: 0
+      stop: 3
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: ratio_ptVV_ptjj_bdt
+  input_cols: [HH.ratio_ptVV_ptjj]
+  axes:
+    - name: "p_{T}^{VV} / p_{T}^{jj}"
+      start: 0
+      stop: 3
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbTop_bdt
+  input_cols: [vvFatJet.globalParT3_Top]
+  axes:
+    - name: "ParT Prob(Top)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
 {{ core.objects() }}
 {{ core.regions() }}
 
