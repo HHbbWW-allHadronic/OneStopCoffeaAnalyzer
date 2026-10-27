@@ -977,12 +977,12 @@ event_collections:
   {# - dataset: 'data_HHParking_2024*'
     pipelines:
     {{ data_pipelines() }} #}
-  - dataset: 'qcd*2024*'
+  - dataset: 'qcd_inclusive_2024*'
     pipelines:
     {{ mc_pipelines() }}
-  - dataset: 'tt_hadronic*2024*'
+  - dataset: 'tt_hadronic_2024*'
     pipelines:
     {{ mc_pipelines() }}
-  - dataset: 'tt_semilep*2024'
+  - dataset: 'tt_semileptonic_2024'
     pipelines:
     {{ mc_pipelines() }}
