@@ -23,6 +23,8 @@ analyzer:
         - vvFatJet.pt
         - vvFatJet.massRegressed
         - bbFatJet.pt
+        - bbFatJet.massRegressed
+        - bbFatJet.xbbDiscrim
         - HH.m_jj
         - HH.pt_jj
         - HH.dPhi_jj
@@ -36,7 +38,7 @@ event_collections:
   - dataset: 'ggHH2b2V6q_training_2024*'
     pipelines: 
     {{ all_pipelines() }}
-  - dataset: 'qcd_inclusive_2024*'
+  {# - dataset: 'qcd_inclusive_2024*'
     pipelines:
     {{ all_pipelines() }}
   - dataset: 'tt_hadronic_2024*'
@@ -44,4 +46,4 @@ event_collections:
     {{ all_pipelines() }}
   - dataset: 'tt_semileptonic_2024*'
     pipelines:
-    {{ all_pipelines() }}
+    {{ all_pipelines() }} #}
