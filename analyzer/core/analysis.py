@@ -42,6 +42,7 @@ def loadAnalysis(path, variable_name=None):
     if variable_name is None:
         variable_name = CONFIG.analysis_var
     data = loadConfigData(path, variable_name)
+    from rich import print
 
     if isinstance(data, Analysis):
         return data

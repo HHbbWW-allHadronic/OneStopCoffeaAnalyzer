@@ -815,10 +815,10 @@ event_collections:
       - withHLT_NoSelection_run2
       - NoSelection_run2_2018
 
-#  - dataset: 'qcd*2024*'
+#  - dataset: 'qcd_inclusive_2024*'
 #    pipelines: [withHLT_ObjDef1]
-#  - dataset: 'tt_hadronic*2024*'
+#  - dataset: 'tt_hadronic_2024*'
 #    pipelines: [withHLT_ObjDef1]
-#  - dataset: 'tt_semilep*2024'
+#  - dataset: 'tt_semileptonic_2024*'
 #    pipelines: [SignalRegion]
         

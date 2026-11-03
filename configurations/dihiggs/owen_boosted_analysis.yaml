@@ -1,0 +1,516 @@
+{% import 'boosted_core.yaml' as core %}
+
+{%- macro signalmc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
+      - noHLT_ObjDef1
+{%- endmacro %}
+
+{%- macro mc_pipelines() %}
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
+      - noHLT_ObjDef1
+{%- endmacro %}
+
+{%- macro data_pipelines() %}
+
+      - withHLT_NoSelection
+      - NoSelection
+      - withHLT_ObjDef1
+      - withHLT_ObjDef2
+      - withHLT_ObjDef3
+      - withHLT_ObjDef4
+      - withHLT_ObjDef5
+      - withHLT_ObjDef6
+      - noHLT_ObjDef1
+{%- endmacro %}
+
+
+common_histograms: &common_histograms
+    
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_QCD
+  input_cols: [boostedFatJet.globalParT3_QCD]
+  axes:
+    - name: "GlobalParT3 QCD Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_Xbb
+  input_cols: [boostedFatJet.globalParT3_Xbb]
+  axes:
+    - name: "GlobalParT3 X->bb Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_Xcc
+  input_cols: [boostedFatJet.globalParT3_Xcc]
+  axes:
+    - name: "GlobalParT3 X->cc Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_Xcs
+  input_cols: [FatJet.globalParT3_Xcs]
+  axes:
+    - name: "GlobalParT3 X->cs Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_Xqq
+  input_cols: [boostedFatJet.globalParT3_Xqq]
+  axes:
+    - name: "GlobalParT3 X->qq Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_XWW3q
+  input_cols: [boostedFatJet.globalParT3_XWW3q]
+  axes:
+    - name: "GlobalParT3 X->WW3q Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_XWW4q
+  input_cols: [boostedFatJet.globalParT3_XWW4q]
+  axes:
+    - name: "GlobalParT3 X->WW4q Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_TopbWq
+  input_cols: [boostedFatJet.globalParT3_TopbWq]
+  axes:
+    - name: "GlobalParT3 Top->bWq Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_globalParT3_TopbWqq
+  input_cols: [boostedFatJet.globalParT3_TopbWqq]
+  axes:
+    - name: "GlobalParT3 Top->bWqq Score"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+
+- module_name: SimpleHistogram
+  hist_name: THVV_boosted
+  input_cols: [boostedFatJet.THVV]
+  axes:
+    - name: "THVV"
+      start: 0
+      stop: 1
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: FatJet_pt
+  input_cols: [FatJet.pt]
+  axes:
+    - name: "FatJet pt"
+      start: 0
+      stop: 1000
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: FatJet_eta
+  input_cols: [FatJet.eta]
+  axes:
+    - name: "FatJet eta"
+      start: 0
+      stop: 3
+      bins: 10
+
+
+- module_name: SimpleHistogram
+  hist_name: FatJet_Xbb_Discrim
+  input_cols: [FatJet.xbbDiscrim]
+  axes:
+    - name: "Xbb_Discrim"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+
+- module_name: SimpleHistogram
+  hist_name: FatJet_massRegressed
+  input_cols: [FatJet.massRegressed]
+  axes:
+    - name: "Regressed Jet Mass [GeV]"
+      start: 0
+      stop: 300
+      bins: 60
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_pt
+  input_cols: [boostedFatJet.pt]
+  axes:
+    - name: "FatJet pt"
+      start: 0
+      stop: 1000
+      bins: 20
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_eta
+  input_cols: [boostedFatJet.eta]
+  axes:
+    - name: "FatJet eta"
+      start: 0
+      stop: 3
+      bins: 10
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_Xbb_Discrim
+  input_cols: [boostedFatJet.xbbDiscrim]
+  axes:
+    - name: "Xbb_Discrim"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: gFatJet_massRegressed
+  input_cols: [boostedFatJet.massRegressed]
+  axes:
+    - name: "Regressed Jet Mass [GeV]"
+      start: 0
+      stop: 300
+      bins: 60
+
+- module_name: SimpleHistogram
+  hist_name: NBoostedJets
+  input_cols: [NboostedFatJet]
+  axes:
+    - name: "$N_{FatJet}$"
+      start: -0.5
+      stop: 20.5
+      bins: 21
+
+
+- module_name: SimpleHistogram
+  hist_name: vvTHVV_boosted
+  input_cols: [vvFatJet.THVV]
+  axes:
+    - name: "THVV"
+      start: 0
+      stop: 1
+      bins: 20
+
+
+- module_name: SimpleHistogram
+  hist_name: bbMass_boosted
+  input_cols: [bbFatJet.mass]
+  axes:
+    - name: "bb-Candidate Raw Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbMassRegressed_boosted
+  input_cols: [bbFatJet.massRegressed]
+  axes:
+    - name: "bb-Candidate Regressed Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbPt_boosted
+  input_cols: [bbFatJet.pt]
+  axes:
+    - name: "bb-Candidate p_{T} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbEta_boosted
+  input_cols: [bbFatJet.eta]
+  axes:
+    - name: "bb-Candidate #eta"
+      start: -2.5
+      stop: 2.5
+      bins: 30
+
+- module_name: SimpleHistogram
+  hist_name: bbPhi_boosted
+  input_cols: [bbFatJet.phi]
+  axes:
+    - name: "bb-Candidate #phi [rad]"
+      start: -3.14159
+      stop: 3.14159
+      bins: 32
+
+
+- module_name: SimpleHistogram
+  hist_name: vvMass_boosted
+  input_cols: [vvFatJet.mass]
+  axes:
+    - name: "VV-Candidate Raw Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvMassRegressed_boosted
+  input_cols: [vvFatJet.massRegressed]
+  axes:
+    - name: "VV-Candidate Regressed Mass [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvPt_boosted
+  input_cols: [vvFatJet.pt]
+  axes:
+    - name: "VV-Candidate p_{T} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvEta_boosted
+  input_cols: [vvFatJet.eta]
+  axes:
+    - name: "VV-Candidate #eta"
+      start: -2.5
+      stop: 2.5
+      bins: 30
+
+- module_name: SimpleHistogram
+  hist_name: vvPhi_boosted
+  input_cols: [vvFatJet.phi]
+  axes:
+    - name: "VV-Candidate #phi [rad]"
+      start: -3.14159
+      stop: 3.14159
+      bins: 32
+
+
+
+- module_name: SimpleHistogram
+  hist_name: vvProbQCD_boosted
+  input_cols: [vvFatJet.globalParT3_QCD]
+  axes:
+    - name: "ParT Prob(QCD)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbHWW3q_boosted
+  input_cols: [vvFatJet.globalParT3_XWW3q]
+  axes:
+    - name: "ParT Prob(HWW3q)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbHWW4q_boosted
+  input_cols: [vvFatJet.globalParT3_XWW4q]
+  axes:
+    - name: "ParT Prob(HWW4q)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvPt_bdt
+  input_cols: [vvFatJet.pt]
+  axes:
+    - name: "p_{T}^{VV} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvMassReg_bdt
+  input_cols: [vvFatJet.massRegressed]
+  axes:
+    - name: "m_{reg}^{VV} [GeV]"
+      start: 0
+      stop: 250
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: bbPt_bdt
+  input_cols: [bbFatJet.pt]
+  axes:
+    - name: "p_{T}^{bb} [GeV]"
+      start: 200
+      stop: 1000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: metPt_bdt
+  input_cols: [PuppiMET.pt]
+  axes:
+    - name: "p_{T}^{miss} [GeV]"
+      start: 0
+      stop: 500
+      bins: 50
+
+
+
+- module_name: SimpleHistogram
+  hist_name: mjj_bdt
+  input_cols: [HH.m_jj]
+  axes:
+    - name: "m^{jj} [GeV]"
+      start: 0
+      stop: 2000
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: ptjj_bdt
+  input_cols: [HH.pt_jj]
+  axes:
+    - name: "p_{T}^{jj} [GeV]"
+      start: 0
+      stop: 800
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: dPhijj_bdt
+  input_cols: [HH.dPhi_jj]
+  axes:
+    - name: "|#Delta#phi^{jj}| [rad]"
+      start: 0
+      stop: 3.14159
+      bins: 32
+
+- module_name: SimpleHistogram
+  hist_name: ratio_ptVV_ptbb_bdt
+  input_cols: [HH.ratio_ptVV_ptbb]
+  axes:
+    - name: "p_{T}^{VV} / p_{T}^{bb}"
+      start: 0
+      stop: 3
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: ratio_ptVV_ptjj_bdt
+  input_cols: [HH.ratio_ptVV_ptjj]
+  axes:
+    - name: "p_{T}^{VV} / p_{T}^{jj}"
+      start: 0
+      stop: 3
+      bins: 50
+
+- module_name: SimpleHistogram
+  hist_name: vvProbTop_bdt
+  input_cols: [vvFatJet.globalParT3_Top]
+  axes:
+    - name: "ParT Prob(Top)^{VV}"
+      start: 0
+      stop: 1
+      bins: 50
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  withHLT_NoSelection:
+    - *withHLT_NoSelection
+    - *common_histograms
+
+  NoSelection:
+    - *NoSelection
+    - *common_histograms
+
+  withHLT_ObjDef1:
+    - *withHLT_ObjDef1
+    - *common_histograms
+
+  withHLT_ObjDef2:
+    - *withHLT_ObjDef2
+    - *common_histograms
+
+
+  withHLT_ObjDef3:
+    - *withHLT_ObjDef3
+    - *common_histograms
+
+
+  withHLT_ObjDef4:
+    - *withHLT_ObjDef4
+    - *common_histograms
+
+
+
+  withHLT_ObjDef5:
+    - *withHLT_ObjDef5
+    - *common_histograms
+
+  withHLT_ObjDef6:
+    - *withHLT_ObjDef6
+    - *common_histograms
+
+  noHLT_ObjDef1:
+    - *noHLT_ObjDef1
+    - *common_histograms
+
+
+location_priorities: [".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024*'
+    pipelines: 
+    {{ signalmc_pipelines() }}
+  - dataset: 'data_HHParking_2024*'
+    pipelines:
+    {{ data_pipelines() }} 
+  - dataset: 'qcd_inclusive_2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_hadronic_2024*'
+    pipelines:
+    {{ mc_pipelines() }}
+  - dataset: 'tt_semileptonic_2024*'
+    pipelines:
+    {{ mc_pipelines() }}
