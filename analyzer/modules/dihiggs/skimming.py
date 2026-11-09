@@ -513,6 +513,46 @@ def _audit_n_real_jets_recovery(jets, jets_sorted, reco_mode, n_values, outdir="
 
     return log_path
 
+# ---------------------------------------------------------------------------
+# Per-stage gen-matching cutflow
+# ---------------------------------------------------------------------------
+# Stages 1-3 of gen matching never drop an event: they only relabel jets. Their cost is therefore measured as
+# "how many events would still satisfy the good_event criterion if the labels were frozen at this stage".
+# Each stage below applies the SAME criterion as good_event_mask_* to the signal labels as they stand after that stage.
+STAGE_SELECTION_NAMES = [
+    "gm_parton_truth",   # gen record has >=2 b from H and the W-daughter partons (no matching involved yet)
+    "gm_genjet_match",   # after parton -> gen jet greedy dR match (incl. the genjet eta/pt acceptance)
+    "gm_reco_match",     # after gen jet -> reco jet greedy dR match
+    "gm_pt_ratio",       # after the 0.5 < pt(reco)/pt(genjet) < 2 relabeling  (== good_event_pre_truncation)
+    "gm_in_window",      # after truncating to the first n_real_jets of the btag+secondary ordering
+]                        # the final stage is the existing Selection.good_event (adds strip_bjets, if enabled)
+
+
+def _hw_ok(signal, reco_mode):
+    """(h_ok, w_ok) per-event boolean masks from a jagged `signal` label array: the two halves of the good_event
+    criterion, written to match good_event_mask_full_hww / good_event_mask_onshell_w exactly (h_ok & w_ok == mask)."""
+    h_ok = ak.sum(ak.fill_none(signal == 1, False), axis=1) >= 2
+    c2 = ak.sum(ak.fill_none(signal == 2, False), axis=1)
+    if reco_mode == "full_hww":
+        c3 = ak.sum(ak.fill_none(signal == 3, False), axis=1)
+        w_ok = (ak.where(c2 > 2, 2, c2) + ak.where(c3 > 2, 2, c3)) >= 3
+    else:
+        w_ok = c2 >= 2
+    return h_ok, w_ok
+
+
+def _log_stage_counts(stage_masks, outdir, chunk_label):
+    """Append one line per stage -- chunk, stage, n_events, n_H_ok, n_W_ok, n_both -- to gen_match_stage_counts.txt.
+    UNWEIGHTED raw event counts per chunk; sum the lines of a stage over chunks. n_H_ok / n_W_ok are the two halves
+    of the criterion separately, so the file also shows WHICH particle is lost at each stage."""
+    import os
+    os.makedirs(outdir, exist_ok=True)
+    with open(os.path.join(outdir, "gen_match_stage_counts.txt"), "a") as f:
+        for name, (h_ok, w_ok, both) in stage_masks.items():
+            f.write(f"{chunk_label}\t{name}\t{len(both)}\t{int(np.sum(ak.to_numpy(h_ok)))}\t"
+                    f"{int(np.sum(ak.to_numpy(w_ok)))}\t{int(np.sum(ak.to_numpy(both)))}\n")
+
+
 # ============================================================
 # Module 1: gen-level matching + target/source construction
 # ============================================================
@@ -564,6 +604,10 @@ class SPANetGenMatch(AnalyzerModule):
 
     check_truncation_loss: bool = False  # When True, measures how often a genuinely gen-matched signal jet exists in an event but gets truncated away before reaching the final Source array -- distinct from a genuine non-match (both look identical, resolving to null, once truncation has already happened; only comparing the pre- and post-truncation jet collections, both live here in run(), can actually tell them apart). False by default -- a plain bool, cattrs-safe, does nothing unless explicitly turned on. Writes a running-totals file rather than holding results in memory, so it accumulates safely across many chunks.
     truncation_loss_outdir: str = "./truncation_diagnostics"  # Where check_truncation_loss's running-totals file gets written.
+
+    write_stage_selections: bool = False  # When True, also writes one boolean Selection column per gen-matching stage (names in STAGE_SELECTION_NAMES) so a downstream SelectOnColumns can list them and OSCA's CutflowTable / PlotSelectionFlow show the event loss at each stage (parton truth -> genjet match -> reco match -> pt ratio -> n_real_jets window -> good_event). Signal gen-matching only: ignored for skip_gen_matching / ttbar_matching. False by default: no new columns, outputs() unchanged.
+    log_stage_counts: bool = False  # When True (needs write_stage_selections), also appends UNWEIGHTED per-stage raw counts, split into the H and W halves of the criterion, to gen_match_stage_counts.txt in stage_counts_outdir.
+    stage_counts_outdir: str = "./truncation_diagnostics"
 
     audit_n_real_jets_values: list = field(factory=list)  # e.g. [6, 8] -- when non-empty, directly audits whether widening n_real_jets (comparing consecutive values in this list) recovers genuine events or hides a bug: checks monotonicity (a wider window should never cause an event to lose a pass it already had) and samples specific "recovered" events, reporting exactly which rank their matched jets fall at. Empty by default -- does nothing unless explicitly populated, same cattrs-safe list pattern used throughout these diagnostic fields.
     audit_n_real_jets_outdir: str = "./truncation_diagnostics"  # Where the audit's log file gets written.
@@ -644,12 +688,15 @@ class SPANetGenMatch(AnalyzerModule):
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.W1")]
         if self.include_isr_target:
             outs.append(Column(f"{p}.Targets.ISR"))
+        if self.write_stage_selections and not (self.skip_gen_matching or self.ttbar_matching):
+            outs += [Column(("Selection", n)) for n in STAGE_SELECTION_NAMES]
         return outs
 
     def run(self, columns, params):
         jets = columns[self.jet_col]
         genpart = columns[self.genpart_col]
         genjet = columns[self.genjet_col]
+        stage_signals = {}   # {stage name: jagged signal labels as they stand after that stage}; see STAGE_SELECTION_NAMES
 
         if self.ttbar_matching and self.skip_gen_matching:
             raise ValueError("ttbar_matching and skip_gen_matching are mutually exclusive")
@@ -797,6 +844,8 @@ class SPANetGenMatch(AnalyzerModule):
                         ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1) >= 2
                     )
 
+            stage_signals["gm_parton_truth"] = chs.signal
+
             # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
             genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (genjet.pt > self.genjet_pt_cut)
             gen_gj = genjet[genjet_cut]
@@ -804,6 +853,7 @@ class SPANetGenMatch(AnalyzerModule):
             # -- Stage 1: gen parton -> gen jet --
             signal_genjet_list = greedy_match(gen_gj, chs, "signal", dr_threshold=self.dr_threshold)
             gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
+            stage_signals["gm_genjet_match"] = gen_gj.signal
             signal_gen_jets = gen_gj[ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])]
 
             # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
@@ -812,6 +862,7 @@ class SPANetGenMatch(AnalyzerModule):
             )
             jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
             jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
+            stage_signals["gm_reco_match"] = jets.signal
             pt_ratio = jets.pt / jets.matched_genjet_pt
             good_match_ptr = ak.fill_none(
                 (pt_ratio > 0.5) & (pt_ratio < 2.0) & (jets.signal != -1), False
@@ -819,6 +870,7 @@ class SPANetGenMatch(AnalyzerModule):
             # Jets failing the pt_ratio check get relabeled to -1 (background)
             # rather than dropped, keeping the jet collection's width intact.
             jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
+            stage_signals["gm_pt_ratio"] = jets.signal
 
         # -- btag+secondary ordering, same convention used at inference time --
         btag_sort_idx = ak.argsort(jets.btagUParTAK4B, axis=1, ascending=False)
@@ -888,6 +940,8 @@ class SPANetGenMatch(AnalyzerModule):
         else:
             good_event_pre_truncation = good_event_mask_onshell_w(jets_sorted)
             good_event = good_event_mask_onshell_w(jets_sorted[:, : self.n_real_jets])
+
+        good_event_window = good_event   # after the n_real_jets truncation, BEFORE the optional strip_bjets cut
 
         if self.strip_bjets:
             top2_signal = jets_sorted[:, :2].signal
@@ -1037,6 +1091,22 @@ class SPANetGenMatch(AnalyzerModule):
             columns[Column(f"{p}.Targets.W1")] = ak.zip(targets["W1"])
         if self.include_isr_target:
             columns[Column(f"{p}.Targets.ISR")] = ak.zip(targets["ISR"])
+
+        if self.write_stage_selections and not (self.skip_gen_matching or self.ttbar_matching):
+            stage_masks = {}
+            for name in STAGE_SELECTION_NAMES[:-1]:
+                h_ok, w_ok = _hw_ok(stage_signals[name], self.reco_mode)
+                stage_masks[name] = (h_ok, w_ok, h_ok & w_ok)
+            # gm_in_window: the criterion on the first n_real_jets of the btag+secondary ordering (exactly the window
+            # good_event is evaluated on, before the optional strip_bjets cut)
+            h_win, w_win = _hw_ok(jets_sorted[:, : self.n_real_jets].signal, self.reco_mode)
+            stage_masks["gm_in_window"] = (h_win, w_win, good_event_window)
+            for name, (_, _, both) in stage_masks.items():
+                columns[Column(("Selection", name))] = both
+            if self.log_stage_counts:
+                to_log = dict(stage_masks)
+                to_log["good_event"] = (h_win, w_win, good_event)   # differs from gm_in_window only if strip_bjets is on
+                _log_stage_counts(to_log, self.stage_counts_outdir, f"chunk_{id(columns)}")
 
         return columns, []
 
