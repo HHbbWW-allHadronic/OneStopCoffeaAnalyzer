@@ -85,6 +85,50 @@ Postprocessing:
             title_format: "{pipeline}"
       output_name: "plots-2024-spanet-version10/{era.name}/{dataset_name}/m_HWW_SPANet_v123_vs_v122pt.png"
 
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: True
+      plot_configuration:
+        x_axis_label: "m(bb) SPANet [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          pipeline: "re:^region2_6jet_(v140_prefix|v154_postfix)$"
+          name: "m_Hbb_SPANet_1d"
+        group: {era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: FormatTitle
+            title_format: "{pipeline}"
+      output_name: "plots-2024-spanet-version10/{era.name}/{dataset_name}/m_Hbb_SPANet_v140_vs_v154.png"
+
+    - name: Histogram1D
+      inputs:
+        - "*/*/*/*"
+      scale: linear
+      normalize: False
+      show_info: True
+      plot_configuration:
+        x_axis_label: "m(HWW) SPANet [GeV]"
+      structure:
+        select:
+          dataset_name: "ggHH2b2V6q*"
+          sample_type: "MC"
+          pipeline: "re:^region2_6jet_(v140_prefix|v154_postfix)$"
+          name: "m_HWW_SPANet_1d"
+        group: {era.name: "*", dataset_name: "*"}
+        transforms:
+          - name: SelectAxesValues
+            select_axes_values: {"variation": "central"}
+          - name: FormatTitle
+            title_format: "{pipeline}"
+      output_name: "plots-2024-spanet-version10/{era.name}/{dataset_name}/m_HWW_SPANet_v140_vs_v154.png"
+
 #    - name: RatioPlot
 #      inputs:
 #        - "*/*/*/*"

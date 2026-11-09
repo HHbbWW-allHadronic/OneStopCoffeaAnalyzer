@@ -3,6 +3,7 @@ import hashlib
 from pathlib import Path
 
 import awkward as ak
+import correctionlib
 from attrs import define, field
 
 from analyzer.core.analysis_modules import AnalyzerModule
@@ -155,42 +156,20 @@ class SaveEventsH5(AnalyzerModule):
 
 W_MASS_PDG = 80.377  # GeV
 
-# ============================================================
-# Matching + target-construction helpers
-# Ported verbatim (logic unchanged) from nano_to_h5_V2.py's
-# greedy_match / pad_and_convert / make_mask / make_targets.
-# Only the calling convention around them changes to fit AnalyzerModule.
-# ============================================================
-
-
 def greedy_match(objects_a, objects_b, signal_field, dr_threshold=0.4, store_pt=False):
     max_a = int(ak.max(ak.num(objects_a)))
     max_b = int(ak.max(ak.num(objects_b)))
 
-    eta_a_np = ak.to_numpy(
-        ak.fill_none(ak.pad_none(objects_a.eta, max_a, clip=True), 0.0)
-    )
-    phi_a_np = ak.to_numpy(
-        ak.fill_none(ak.pad_none(objects_a.phi, max_a, clip=True), 0.0)
-    )
-    eta_b_np = ak.to_numpy(
-        ak.fill_none(ak.pad_none(objects_b.eta, max_b, clip=True), 0.0)
-    )
-    phi_b_np = ak.to_numpy(
-        ak.fill_none(ak.pad_none(objects_b.phi, max_b, clip=True), 0.0)
-    )
-    sig_b_np = ak.to_numpy(
-        ak.fill_none(
-            ak.pad_none(getattr(objects_b, signal_field), max_b, clip=True), -1
-        )
-    )
+    eta_a_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_a.eta, max_a, clip=True), 0.0))
+    phi_a_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_a.phi, max_a, clip=True), 0.0))
+    eta_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.eta, max_b, clip=True), 0.0))
+    phi_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.phi, max_b, clip=True), 0.0))
+    sig_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(getattr(objects_b, signal_field), max_b, clip=True), -1))
     counts_a = ak.to_numpy(ak.num(objects_a))
     counts_b = ak.to_numpy(ak.num(objects_b))
 
     if store_pt:
-        pt_b_np = ak.to_numpy(
-            ak.fill_none(ak.pad_none(objects_b.pt, max_b, clip=True), np.nan)
-        )
+        pt_b_np = ak.to_numpy(ak.fill_none(ak.pad_none(objects_b.pt, max_b, clip=True), np.nan))
 
     labels_out = []
     pt_out = [] if store_pt else None
@@ -216,7 +195,7 @@ def greedy_match(objects_a, objects_b, signal_field, dr_threshold=0.4, store_pt=
         deta = eta_a[:, None] - eta_b[None, :]
         dphi = phi_a[:, None] - phi_b[None, :]
         dphi = (dphi + np.pi) % (2 * np.pi) - np.pi
-        dr_matrix = np.sqrt(deta**2 + dphi**2)
+        dr_matrix = np.sqrt(deta ** 2 + dphi ** 2)
 
         assigned_a = set()
         assigned_b = set()
@@ -252,20 +231,13 @@ def pad_and_convert(arr, max_real_jets, n_null_jets):
 
 
 def make_mask(jet_counts, max_real_jets, n_null_jets):
-    return np.array(
-        [
-            [True] * min(n, max_real_jets)
-            + [False] * max(0, max_real_jets - n)
-            + [True] * n_null_jets
-            for n in jet_counts
-        ],
-        dtype=bool,
-    )
+    return np.array([
+        [True] * min(n, max_real_jets) + [False] * max(0, max_real_jets - n) + [True] * n_null_jets
+        for n in jet_counts
+    ], dtype=bool)
 
 
-def make_targets(
-    signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_target=True
-):
+def make_targets(signal_arr, max_real_jets, n_null_jets, reco_mode, include_isr_target=True):
     n_events = len(signal_arr)
     null_idx = max_real_jets if n_null_jets > 0 else -1
 
@@ -280,17 +252,17 @@ def make_targets(
         h2_jets = np.where(signal_arr[i] == 2)[0]
         h3_jets = np.where(signal_arr[i] == 3)[0]
 
-        H1[i, : min(len(h1_jets), 2)] = h1_jets[:2]
+        H1[i, :min(len(h1_jets), 2)] = h1_jets[:2]
         if include_isr_target:
             h_isr_jets = np.where(signal_arr[i] == 4)[0]
-            ISR[i, : min(len(h_isr_jets), 1)] = h_isr_jets[:1]
+            ISR[i, :min(len(h_isr_jets), 1)] = h_isr_jets[:1]
 
         if reco_mode == "full_hww":
-            W1[i, : min(len(h2_jets), 2)] = h2_jets[:2]
+            W1[i, :min(len(h2_jets), 2)] = h2_jets[:2]
             all_q = np.concatenate([h2_jets[:2], h3_jets[:2]])
-            H2[i, : min(len(all_q), 4)] = all_q[:4]
+            H2[i, :min(len(all_q), 4)] = all_q[:4]
         elif reco_mode == "onshell_w":
-            W1[i, : min(len(h2_jets), 2)] = h2_jets[:2]
+            W1[i, :min(len(h2_jets), 2)] = h2_jets[:2]
 
         seen = set()
         for slot in range(2):
@@ -339,10 +311,263 @@ def make_targets(
     return out
 
 
+def make_random_permutations(n_events, n_real, rng):
+    """One INDEPENDENT random permutation of range(n_real) per event, as
+    an (n_events, n_real) array. perms[i, k] = j means 'new position k
+    gets whatever was at old position j, for event i'. Verified via
+    direct test against a full source+target consistency check before
+    ever being wired into the real pipeline."""    
+    perms = np.tile(np.arange(n_real), (n_events, 1))
+    for i in range(n_events):
+        rng.shuffle(perms[i])
+    return perms
+
+
+def apply_perm_to_source_field(arr, perms, n_real):
+    """arr has shape (n_events, n_real + n_null). Only the first n_real
+    columns (the REAL jet slots) get shuffled, per event; the null-slot
+    column(s) at the end are left completely untouched -- they are not
+    real jets, and null_idx's meaning as a fixed position depends on
+    them staying put."""
+    out = arr.copy()
+    out[:, :n_real] = np.take_along_axis(arr[:, :n_real], perms, axis=1)
+    return out
+
+
+def remap_target_indices(target_arr, inv_perms, null_idx):
+    """target_arr has shape (n_events,), values are either a real
+    position in [0, n_real), OR null_idx, OR -1 (dedup conflict
+    sentinel from make_targets). Only real positions get remapped
+    through inv_perms; null_idx/-1 are sentinels, not real positions,
+    and must pass through completely unchanged -- confirmed by direct
+    test, since silently remapping a sentinel would corrupt the target
+    in a way that's easy to miss."""
+    out = target_arr.copy()
+    for i in range(len(target_arr)):
+        v = target_arr[i]
+        if v != null_idx and v != -1:
+            out[i] = inv_perms[i, v]
+    return out
+
+
+def _measure_truncation_loss(jets, jets_sorted, n_real_jets, reco_mode, outdir=".", chunk_label="chunk"):
+    """Measures how often a genuinely gen-matched signal jet exists in
+    an event but gets truncated away before ever reaching the final
+    Source array -- NOT detectable from an already-built H5 file, since
+    a target index can only ever point at a position that survived
+    truncation (targets and Source are built from the same
+    post-truncation signal_arr), and a truncated-away jet looks
+    identical to a genuinely-unmatched one once truncation has
+    happened -- both simply resolve to null. This instead compares the
+    pre-truncation `jets` collection against the post-sort
+    `jets_sorted`, both already live here in run(), which is the only
+    place this distinction is actually visible.
+
+    Named with a leading underscore, distinct from the
+    check_truncation_loss boolean field on SPANetGenMatch -- different
+    namespaces (instance attribute vs. module-level function) so this
+    wouldn't actually collide, but named differently anyway to avoid
+    any confusion reading the two side by side.
+    """
+    import os
+
+    full_signal = jets.signal
+    truncated_signal = jets_sorted[:, :n_real_jets].signal
+
+    # FIXED: this used to hardcode an "H2" group (pooling signal==2 and
+    # signal==3, expecting 4 daughters) regardless of reco_mode. In
+    # onshell_w mode, signal==3 is never assigned at all (there's no
+    # offshell-W branch there), so that pooled group could never
+    # legitimately reach 4 -- it silently, always reported "0 events had
+    # all 4 daughters matched," which isn't a real finding, just a
+    # groups dict describing the wrong particle for this mode. Branch
+    # groups/n_daughters_expected on reco_mode, same split good_event_mask
+    # and make_targets already use, so onshell_w runs report on W1 (2
+    # daughters, signal==2 only) instead of a meaningless "H2".
+    if reco_mode == "full_hww":
+        # H1=1 only (unambiguous); H2 pools 2+3 (same packing ambiguity
+        # established for trace_event -- can't attribute loss to one
+        # specific slot once truncation reshuffles which daughter lands
+        # where); ISR=4 alone.
+        groups = {"H1": [1], "H2": [2, 3], "ISR": [4]}
+        n_daughters_expected = {"H1": 2, "H2": 4, "ISR": 1}
+    else:  # onshell_w
+        groups = {"H1": [1], "W1": [2], "ISR": [4]}
+        n_daughters_expected = {"H1": 2, "W1": 2, "ISR": 1}
+
+    os.makedirs(outdir, exist_ok=True)
+    summary_path = os.path.join(outdir, "truncation_loss_running_totals.txt")
+
+    results = {}
+    with open(summary_path, "a") as f:
+        for group_name, signal_values in groups.items():
+            n_matched_full = ak.sum(sum((full_signal == v) for v in signal_values), axis=1)
+            n_matched_survived = ak.sum(sum((truncated_signal == v) for v in signal_values), axis=1)
+            n_lost = ak.to_numpy(n_matched_full - n_matched_survived)
+            n_matched_full_np = ak.to_numpy(n_matched_full)
+
+            n_events = len(n_lost)
+            n_events_with_loss = int(np.sum(n_lost > 0))
+            n_events_with_any_match = int(np.sum(n_matched_full_np > 0))
+            n_lost_total = int(np.sum(n_lost[n_lost > 0]))
+
+            f.write(f"{chunk_label}\t{group_name}\t{n_events}\t{n_events_with_any_match}\t"
+                    f"{n_events_with_loss}\t{n_lost_total}\n")
+
+            pct = 100 * n_events_with_loss / max(n_events_with_any_match, 1)
+            print(f"[{chunk_label}] {group_name}: {n_events_with_any_match} events had >=1 gen-matched "
+                  f"{group_name} jet, {n_events_with_loss} lost >=1 to truncation ({pct:.2f}%)")
+
+            results[group_name] = {
+                "n_events": n_events, "n_events_with_any_match": n_events_with_any_match,
+                "n_events_with_loss": n_events_with_loss, "n_lost_total": n_lost_total,
+            }
+
+            # The highest-risk slice: events where ALL of this
+            # particle's daughters were genuinely gen-matched BEFORE
+            # truncation -- of those (not the survivorship-biased "all
+            # targets already real in the finished file" subset, which
+            # can never show loss by construction), how many lost at
+            # least one anyway.
+            n_expected = n_daughters_expected.get(group_name)
+            if n_expected is not None:
+                full_strength_mask = n_matched_full_np == n_expected
+                n_full_strength = int(np.sum(full_strength_mask))
+                n_full_strength_that_lost = int(np.sum(full_strength_mask & (n_lost > 0)))
+                pct_fs = 100 * n_full_strength_that_lost / max(n_full_strength, 1)
+                f.write(f"{chunk_label}\t{group_name}_FULLSTRENGTH\t{n_events}\t{n_full_strength}\t"
+                        f"{n_full_strength_that_lost}\t0\n")
+                print(f"[{chunk_label}] {group_name} (highest-risk slice): {n_full_strength} events had "
+                      f"ALL {n_expected} daughters genuinely matched pre-truncation, "
+                      f"{n_full_strength_that_lost} lost >=1 anyway ({pct_fs:.2f}%)")
+                results[f"{group_name}_full_strength"] = {
+                    "n_full_strength": n_full_strength, "n_full_strength_that_lost": n_full_strength_that_lost,
+                }
+
+    return results
+
+
+def _audit_n_real_jets_recovery(jets, jets_sorted, reco_mode, n_values, outdir=".", chunk_label="chunk", n_sample_events=5):
+    """Directly audits whether widening n_real_jets recovers GENUINE
+    events (real gen-matched jets that simply rank below the old
+    cutoff) versus something suspicious. Replicates
+    good_event_mask_full_hww/good_event_mask_onshell_w's
+    own logic inline (simple enough -- two ak.sum comparisons -- to
+    safely reimplement rather than needing a closure extracted from
+    run() itself), parameterized by reco_mode to match both the
+    full_hww and onshell_w variants exactly as they appear in run().
+
+    Checks, for each pair of consecutive n values in n_values:
+      1. MONOTONICITY: every event passing at the smaller n must also
+         pass at the larger n (a wider window is strictly a superset,
+         so this should ALWAYS hold by construction -- if it doesn't,
+         that's a genuine bug signal, not a truncation-related finding).
+      2. For events that fail at the smaller n but pass at the larger
+         one ("recovered" events): samples a few and reports exactly
+         which rank (post-sort position) their matched jets fall at,
+         directly showing whether they're genuine matches just beyond
+         the old cutoff.
+    """
+    import os
+
+    full_signal = jets.signal
+
+    def passes_at(n):
+        window_signal = jets_sorted[:, :n].signal
+        h1_count = ak.sum(window_signal == 1, axis=1)
+        if reco_mode == "full_hww":
+            hww_count = ak.sum(window_signal == 2, axis=1) + ak.sum(window_signal == 3, axis=1)
+            return ak.to_numpy((h1_count >= 2) & (hww_count >= 3))
+        else:  # onshell_w
+            w_count = ak.sum(window_signal == 2, axis=1)
+            return ak.to_numpy((h1_count >= 2) & (w_count >= 2))
+
+    os.makedirs(outdir, exist_ok=True)
+    log_path = os.path.join(outdir, "n_real_jets_audit_log.txt")
+
+    with open(log_path, "a") as f:
+        for i in range(len(n_values) - 1):
+            n_small, n_large = n_values[i], n_values[i + 1]
+            pass_small = passes_at(n_small)
+            pass_large = passes_at(n_large)
+
+            # Monotonicity: nobody should pass at n_small but fail at n_large.
+            violations = int(np.sum(pass_small & ~pass_large))
+            recovered = pass_large & ~pass_small
+            n_recovered = int(np.sum(recovered))
+
+            line = (f"[{chunk_label}] n={n_small}->n={n_large}: {n_recovered} events recovered, "
+                    f"{violations} monotonicity violations")
+            print(line)
+            f.write(line + "\n")
+
+            if violations > 0:
+                print(f"  *** WARNING: {violations} events passed at n={n_small} but FAILED at n={n_large}. "
+                      f"This should be structurally impossible (a wider window is a superset) and points "
+                      f"to a genuine bug, not a truncation effect. ***")
+                f.write(f"  *** WARNING: {violations} monotonicity violations -- investigate directly ***\n")
+
+            # Sample a few recovered events and show exactly where their
+            # matched jets rank -- direct, per-event evidence rather than
+            # just an aggregate count.
+            recovered_idx = np.where(ak.to_numpy(recovered))[0]
+            second_group_label = "H2" if reco_mode == "full_hww" else "W1"
+            second_group_values = (2, 3) if reco_mode == "full_hww" else (2,)
+            for idx in recovered_idx[:n_sample_events]:
+                event_signal_sorted = ak.to_numpy(jets_sorted[idx].signal)
+                h1_ranks = [r for r, s in enumerate(event_signal_sorted) if s == 1]
+                second_group_ranks = [r for r, s in enumerate(event_signal_sorted) if s in second_group_values]
+                detail = (f"  event[{idx}]: H1 matched jets at ranks {h1_ranks}, "
+                          f"{second_group_label} matched jets at ranks {second_group_ranks} "
+                          f"(0-indexed, post btag+secondary sort)")
+                print(detail)
+                f.write(detail + "\n")
+
+    return log_path
+
+# ---------------------------------------------------------------------------
+# Per-stage gen-matching cutflow
+# ---------------------------------------------------------------------------
+# Stages 1-3 of gen matching never drop an event: they only relabel jets. Their cost is therefore measured as
+# "how many events would still satisfy the good_event criterion if the labels were frozen at this stage".
+# Each stage below applies the SAME criterion as good_event_mask_* to the signal labels as they stand after that stage.
+STAGE_SELECTION_NAMES = [
+    "gm_parton_truth",   # gen record has >=2 b from H and the W-daughter partons (no matching involved yet)
+    "gm_genjet_match",   # after parton -> gen jet greedy dR match (incl. the genjet eta/pt acceptance)
+    "gm_reco_match",     # after gen jet -> reco jet greedy dR match
+    "gm_pt_ratio",       # after the 0.5 < pt(reco)/pt(genjet) < 2 relabeling  (== good_event_pre_truncation)
+    "gm_in_window",      # after truncating to the first n_real_jets of the btag+secondary ordering
+]                        # the final stage is the existing Selection.good_event (adds strip_bjets, if enabled)
+
+
+def _hw_ok(signal, reco_mode):
+    """(h_ok, w_ok) per-event boolean masks from a jagged `signal` label array: the two halves of the good_event
+    criterion, written to match good_event_mask_full_hww / good_event_mask_onshell_w exactly (h_ok & w_ok == mask)."""
+    h_ok = ak.sum(ak.fill_none(signal == 1, False), axis=1) >= 2
+    c2 = ak.sum(ak.fill_none(signal == 2, False), axis=1)
+    if reco_mode == "full_hww":
+        c3 = ak.sum(ak.fill_none(signal == 3, False), axis=1)
+        w_ok = (ak.where(c2 > 2, 2, c2) + ak.where(c3 > 2, 2, c3)) >= 3
+    else:
+        w_ok = c2 >= 2
+    return h_ok, w_ok
+
+
+def _log_stage_counts(stage_masks, outdir, chunk_label):
+    """Append one line per stage -- chunk, stage, n_events, n_H_ok, n_W_ok, n_both -- to gen_match_stage_counts.txt.
+    UNWEIGHTED raw event counts per chunk; sum the lines of a stage over chunks. n_H_ok / n_W_ok are the two halves
+    of the criterion separately, so the file also shows WHICH particle is lost at each stage."""
+    import os
+    os.makedirs(outdir, exist_ok=True)
+    with open(os.path.join(outdir, "gen_match_stage_counts.txt"), "a") as f:
+        for name, (h_ok, w_ok, both) in stage_masks.items():
+            f.write(f"{chunk_label}\t{name}\t{len(both)}\t{int(np.sum(ak.to_numpy(h_ok)))}\t"
+                    f"{int(np.sum(ak.to_numpy(w_ok)))}\t{int(np.sum(ak.to_numpy(both)))}\n")
+
+
 # ============================================================
 # Module 1: gen-level matching + target/source construction
 # ============================================================
-
 
 @define
 class SPANetGenMatch(AnalyzerModule):
@@ -361,12 +586,8 @@ class SPANetGenMatch(AnalyzerModule):
     """
 
     jet_col: Column
-    genpart_col: Column = field(
-        factory=lambda: Column("GenPart")
-    )  # ASSUMPTION -- confirm
-    genjet_col: Column = field(
-        factory=lambda: Column("GenJet")
-    )  # ASSUMPTION -- confirm
+    genpart_col: Column = field(factory=lambda: Column("GenPart"))
+    genjet_col: Column = field(factory=lambda: Column("GenJet"))
     output_prefix: str = "SPANet"
     reco_mode: str = "full_hww"  # "full_hww" or "onshell_w"
     n_real_jets: int = 9
@@ -374,12 +595,92 @@ class SPANetGenMatch(AnalyzerModule):
     dr_threshold: float = 0.4
     genjet_eta_cut: float = 2.4
     genjet_pt_cut: float = 15.0
-    secondary_order_field: str = (
-        "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
-    )
-    include_isr_target: bool = (
-        True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
-    )
+    secondary_order_field: str = "pt"  # "pt" or "qvg" -- ordering applied to jets after the leading 2 btag-sorted slots
+    include_isr_target: bool = True  # False = Option A: still gen-match/label ISR jets (signal==4), but don't build a Targets.ISR group for SPANet to predict against
+    btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label", resolved via getWPs() -- same official correctionlib source HBQuarkMaker's event-selection cut uses
+    btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Does not affect jet ORDERING, which always uses the continuous score regardless of this setting (see run(), sorting happens before this is applied).
+
+    qvg_mode: str = "label"  # "score" or "label", applied to PNet QvG (the only QvG discriminant kept -- UParT QvG has been removed entirely: not useful, and ROC-curve testing showed its candidate WPs were unreasonable)
+    qvg_label_threshold: float = 0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG as of writing. CONFIRMED for PNet QvG specifically.
+
+    ctag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when ctag_mode="label", resolved via getCTagWPs()
+    ctag_mode: str = "label"  # "score" or "label". SCORE: two independent continuous features (CvB, CvL) are kept, since they're genuinely distinct discriminants. LABEL: collapses to ONE boolean feature, true only if the jet clears BOTH the CvB and CvL working points simultaneously. Because the number of Source columns differs between these two modes (2 vs 1), a single event_info.yaml can't describe both -- use two separate configs, one per mode, matching this project's existing pattern of two-config comparisons.
+
+    strip_bjets: bool = False
+
+    skip_gen_matching: bool = False  # For background-only (e.g. QCD) samples that have no genuine H->bb/WW gen-level truth to match against. When True, the entire genpart/genjet truth-construction and greedy-matching block below is bypassed entirely: every jet is labeled signal=-1 directly (i.e. "not part of any true resonance decay"), and the SAME btag+secondary-order sort/truncation logic downstream (which doesn't depend on `signal` at all) is left completely untouched, so background jets get ordered exactly the same way signal jets do -- the only difference is what's written to the `signal` field before that sort runs. good_event/good_event_pre_truncation are both overridden to unconditionally True in this mode: the normal good_event_mask_* functions always require signal==1 (>=2 Hbb jets) to appear, which by construction never happens for background, so calling them here would silently drop every single background event rather than keep it with all-null targets. check_truncation_loss and audit_n_real_jets_values are both skipped in this mode too, since each depends on genuinely gen-matched structures (chs, gen_gj) that were never built.
+
+    randomize_jet_order: bool = False  # For directly testing whether jet ORDER carries information the network learns from: after Source features AND Targets are both fully built (btag+qvg sort, strip_bjets if active, target index computation -- all completely unchanged), apply an independent per-event random permutation to the REAL jet slots only (never the null slot(s)), then remap every target index through the exact inverse of that permutation so it still points at the same physical jet, just at its new shuffled position. If a model trained this way performs comparably to one trained on the normal btag+qvg order, that's real evidence order itself isn't what the network is learning from -- performance would come from the underlying jet content, not position. Leaves the normal (non-shuffled) path completely untouched when False (the default).
+    randomize_seed: int = 42  # Seed for the per-event shuffle above. The underlying RNG is created ONCE (see __shuffle_rng_holder below) and persists across every call to run() for this module instance, so successive chunks draw genuinely different permutations rather than each chunk restarting from the same seed. This guarantee holds only if the SAME module instance processes every chunk sequentially -- if chunks are ever processed by separate instances/workers, each would restart from this same seed, which would not fully defeat the purpose (each individual event still gets an independent per-event shuffle) but could correlate shuffles ACROSS chunk boundaries. Good enough for this study's purpose (a coarse ablation on whether order matters at all), not a cryptographically rigorous randomization -- worth knowing the difference if the result is used as anything more precise.
+
+
+    check_truncation_loss: bool = False  # When True, measures how often a genuinely gen-matched signal jet exists in an event but gets truncated away before reaching the final Source array -- distinct from a genuine non-match (both look identical, resolving to null, once truncation has already happened; only comparing the pre- and post-truncation jet collections, both live here in run(), can actually tell them apart). False by default -- a plain bool, cattrs-safe, does nothing unless explicitly turned on. Writes a running-totals file rather than holding results in memory, so it accumulates safely across many chunks.
+    truncation_loss_outdir: str = "./truncation_diagnostics"  # Where check_truncation_loss's running-totals file gets written.
+
+    write_stage_selections: bool = False  # When True, also writes one boolean Selection column per gen-matching stage (names in STAGE_SELECTION_NAMES) so a downstream SelectOnColumns can list them and OSCA's CutflowTable / PlotSelectionFlow show the event loss at each stage (parton truth -> genjet match -> reco match -> pt ratio -> n_real_jets window -> good_event). Signal gen-matching only: ignored for skip_gen_matching / ttbar_matching. False by default: no new columns, outputs() unchanged.
+    log_stage_counts: bool = False  # When True (needs write_stage_selections), also appends UNWEIGHTED per-stage raw counts, split into the H and W halves of the criterion, to gen_match_stage_counts.txt in stage_counts_outdir.
+    stage_counts_outdir: str = "./truncation_diagnostics"
+
+    audit_n_real_jets_values: list = field(factory=list)  # e.g. [6, 8] -- when non-empty, directly audits whether widening n_real_jets (comparing consecutive values in this list) recovers genuine events or hides a bug: checks monotonicity (a wider window should never cause an event to lose a pass it already had) and samples specific "recovered" events, reporting exactly which rank their matched jets fall at. Empty by default -- does nothing unless explicitly populated, same cattrs-safe list pattern used throughout these diagnostic fields.
+    audit_n_real_jets_outdir: str = "./truncation_diagnostics"  # Where the audit's log file gets written.
+
+    check_chs_multiplicity: bool = False  # When True, checks whether q_onshell/q_offshell ever contain more than 2 entries per event -- if isFirstCopy+fromHardProcess doesn't guarantee exactly one GenPart record per physical quark (e.g. an FSR copy slipping through), chs itself could carry duplicate labels upstream of any matching logic. False by default, same cattrs-safe pattern as the other diagnostics here.
+
+    ttbar_matching: bool = False  # ttbar (background-with-structure) path. Gen-matches the t->b and W->qq partons of the tops (signal codes 5 = b from top, 6 = quark from a top-decay W) through the SAME two-stage greedy parton->genjet->reco-jet matching used for signal, but those codes never feed H1/W1 targets (make_targets only reads codes 1/2/3), so the Targets groups come out all-null exactly like QCD. Every event is kept (good_event unconditionally True) and process_label = ttbar_process_label. Semileptonic events simply have fewer W->qq partons (leptonic W has no quarks); nothing special needed. Mutually exclusive with skip_gen_matching.
+    ttbar_process_label: int = 2  # Event class written for ttbar events. 2 = its own third class (needs a 3-class CLASSIFICATIONS entry in the event yaml); 0 = fold into background with QCD; -1 = ignored by cross_entropy.
+
+    __wp_cache: dict = field(factory=dict)
+    __ctag_wp_cache: dict = field(factory=dict)
+    __shuffle_rng_holder: dict = field(factory=dict)  # Holds {"rng": <generator>} once lazily initialized -- MUST be dict-typed, not object-typed: cattrs (OSCA's YAML-to-class converter) generates a structure hook for every AnalyzerModule subclass at startup, regardless of which pipelines are actually enabled, and cannot handle a plain `object` type annotation. Confirmed directly: object-typed field reproduces the exact "Unsupported type: <class 'object'>" error; dict-typed (matching __wp_cache/__ctag_wp_cache, already proven working) resolves it.
+
+    def getWPs(self, metadata):
+        """
+        Mirrors HBQuarkMaker.getWPs exactly (same file/tagger/correction_name
+        metadata path, same correctionlib call, same per-file caching) --
+        this module reads its own working-point thresholds from the SAME
+        source HBQuarkMaker's event-selection cut already uses, rather than
+        a second, independently-hardcoded number that could silently drift
+        out of sync with it.
+        """
+        file_path = metadata["era"]["btag_scale_factors"]["file"]
+        tagger = metadata["era"]["btag_scale_factors"]["tagger"]
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__wp_cache:
+            return tagger, self.__wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {p: cset[cname].evaluate(p) for p in ("L", "M", "T")}
+        self.__wp_cache[file_path] = ret
+        return tagger, ret
+
+    def getCTagWPs(self, metadata):
+        """
+        c-tagging analog of getWPs. Follows the same metadata/correctionlib
+        pattern as HCQuarkMaker, resolving TWO independent discriminants
+        (CvB, CvL) rather than one -- each gets its own tagger field name
+        and its own set of L/M/T thresholds, evaluated separately (CvB
+        evaluated as "CvB", CvL evaluated as "CvL" -- these are genuinely
+        different correctionlib queries, not the same query reused twice).
+        """
+        file_path = metadata["era"]["btag_scale_factors"]["c_file"]
+        tagger_cvb = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvB"]
+        tagger_cvl = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvL"]
+        taggers = {"CvB": tagger_cvb, "CvL": tagger_cvl}
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
+
+        if file_path in self.__ctag_wp_cache:
+            return taggers, self.__ctag_wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {
+            "CvB": {p: cset[cname].evaluate(p, "CvB") for p in ("L", "M", "T")},
+            "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+        }
+        self.__ctag_wp_cache[file_path] = ret
+        return taggers, ret
+
+    def preloadForMeta(self, metadata):
+        self.getWPs(metadata)
+        self.getCTagWPs(metadata)
 
     def inputs(self, metadata):
         return [self.jet_col, self.genpart_col, self.genjet_col]
@@ -389,7 +690,9 @@ class SPANetGenMatch(AnalyzerModule):
         outs = [
             Column(f"{p}.Source"),
             Column(f"{p}.good_event"),
+            Column(f"{p}.good_event_pre_truncation"),
             Column(("Selection", "good_event")),
+            Column(f"{p}.process_label"),
         ]
         if self.reco_mode == "full_hww":
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.H2")]
@@ -397,141 +700,189 @@ class SPANetGenMatch(AnalyzerModule):
             outs += [Column(f"{p}.Targets.H1"), Column(f"{p}.Targets.W1")]
         if self.include_isr_target:
             outs.append(Column(f"{p}.Targets.ISR"))
+        if self.write_stage_selections and not (self.skip_gen_matching or self.ttbar_matching):
+            outs += [Column(("Selection", n)) for n in STAGE_SELECTION_NAMES]
         return outs
 
     def run(self, columns, params):
         jets = columns[self.jet_col]
         genpart = columns[self.genpart_col]
         genjet = columns[self.genjet_col]
+        stage_signals = {}   # {stage name: jagged signal labels as they stand after that stage}; see STAGE_SELECTION_NAMES
 
-        all_gp_idx = ak.local_index(genpart, axis=1)
+        if self.ttbar_matching and self.skip_gen_matching:
+            raise ValueError("ttbar_matching and skip_gen_matching are mutually exclusive")
 
-        # -- Truth object construction (ported from nano_to_h5_V2.py) --
-        H_idx = all_gp_idx[(genpart.pdgId == 25) & genpart.hasFlags(["isLastCopy"])]
-        b_mask = (
-            (abs(genpart.pdgId) == 5)
-            & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-            & ak.any(genpart.genPartIdxMother[:, :, None] == H_idx[:, None, :], axis=2)
-        )
-        b_quarks = ak.with_field(genpart[b_mask], 1, "signal")
-
-        incoming_mask = (genpart.status == 21) & (genpart.genPartIdxMother == -1)
-        incoming_idx = all_gp_idx[incoming_mask]
-        isr_mask = (
-            (genpart.pdgId == 21)
-            & ak.any(
-                genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2
+        if self.skip_gen_matching:
+            # -- Background-only path (e.g. QCD): no genuine H->bb/WW gen
+            # truth exists to match against, so skip the ENTIRE truth
+            # construction + greedy-matching block that normally runs here
+            # (chs/gen_gj are never built in this mode). Every jet is
+            # labeled background (signal=-1) directly instead. Downstream,
+            # the identical btag+secondary sort/truncation, feature-
+            # building, and make_targets logic is left completely
+            # untouched -- make_targets naturally emits all-null (-1)
+            # targets since no jet ever carries signal==1/2/3/4, and
+            # QCD jets get ordered exactly the same way signal jets do.
+            jets = ak.with_field(
+                jets, ak.zeros_like(ak.local_index(jets, axis=1)) - 1, "signal"
             )
-            & (genpart.status != 21)
-        )
-        isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
+            chs = None
+            gen_gj = None
+        else:
+            all_gp_idx = ak.local_index(genpart, axis=1)
 
-        if self.reco_mode == "full_hww":
-            W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
-            W_all_idx = all_gp_idx[W_mask]
-            W_bosons = genpart[W_mask]
-            W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
-            W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
-            onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(
-                onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2]
-            )
-            offshell_W_idx = ak.where(
-                onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1]
-            )
-
-            q_onshell_mask = (
-                (abs(genpart.pdgId) <= 4)
+            # -- Truth object construction (ported from nano_to_h5_V2.py) --
+            H_idx = all_gp_idx[(genpart.pdgId == 25) & genpart.hasFlags(["isLastCopy"])]
+            b_mask = (
+                (abs(genpart.pdgId) == 5)
                 & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(
-                    genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :],
-                    axis=2,
-                )
+                & ak.any(genpart.genPartIdxMother[:, :, None] == H_idx[:, None, :], axis=2)
             )
-            q_onshell = ak.with_field(genpart[q_onshell_mask], 2, "signal")
+            b_quarks = ak.with_field(genpart[b_mask], 1, "signal")
 
-            q_offshell_mask = (
-                (abs(genpart.pdgId) <= 4)
-                & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(
-                    genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :],
-                    axis=2,
-                )
+            incoming_mask = (genpart.status == 21) & (genpart.genPartIdxMother == -1)
+            incoming_idx = all_gp_idx[incoming_mask]
+            isr_mask = (
+                (genpart.pdgId == 21)
+                & ak.any(genpart.genPartIdxMother[:, :, None] == incoming_idx[:, None, :], axis=2)
+                & (genpart.status != 21)
             )
-            q_offshell = ak.with_field(genpart[q_offshell_mask], 3, "signal")
+            isr_gluon = ak.with_field(genpart[isr_mask], 4, "signal")
 
-            chs = ak.concatenate([b_quarks, q_onshell, q_offshell, isr_gluon], axis=1)
-
-            def good_event_mask(gj_with_signal):
-                return (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
-                ) & (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1)
-                    + ak.sum(ak.fill_none(gj_with_signal.signal == 3, False), axis=1)
-                    >= 3
+            if self.ttbar_matching:
+                # -- ttbar truth: b from t->bW (code 5) and quarks from
+                # W->qq (code 6). Same selection idiom as the Hbb / W
+                # blocks (isFirstCopy + fromHardProcess, mother is the
+                # isLastCopy parent). No good_event_mask_* is defined or
+                # used on this path: every ttbar event is kept.
+                top_idx = all_gp_idx[(abs(genpart.pdgId) == 6) & genpart.hasFlags(["isLastCopy"])]
+                b_from_top_mask = (
+                    (abs(genpart.pdgId) == 5)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == top_idx[:, None, :], axis=2)
                 )
+                b_from_top = ak.with_field(genpart[b_from_top_mask], 5, "signal")
 
-        else:  # onshell_w
-            W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
-            W_all_idx = all_gp_idx[W_mask]
-            W_bosons = genpart[W_mask]
-            W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
-            W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
-            onshell_is_first = W_mass_1 >= W_mass_2
-            onshell_W_idx = ak.where(
-                onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2]
+                Wtt_idx = all_gp_idx[(abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])]
+                q_from_Wtt_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == Wtt_idx[:, None, :], axis=2)
+                )
+                q_from_Wtt = ak.with_field(genpart[q_from_Wtt_mask], 6, "signal")
+                chs = ak.concatenate([b_from_top, q_from_Wtt], axis=1)
+            elif self.reco_mode == "full_hww":
+                W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
+                W_all_idx = all_gp_idx[W_mask]
+                W_bosons = genpart[W_mask]
+                W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
+                W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
+                onshell_is_first = W_mass_1 >= W_mass_2
+                onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
+                offshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, 1:2], W_all_idx[:, :1])
+
+                q_onshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+                )
+                q_onshell = ak.with_field(genpart[q_onshell_mask], 2, "signal")
+
+                q_offshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == offshell_W_idx[:, None, :], axis=2)
+                )
+                q_offshell = ak.with_field(genpart[q_offshell_mask], 3, "signal")
+
+                if self.check_chs_multiplicity:
+                    n_onshell = ak.num(q_onshell)
+                    n_offshell = ak.num(q_offshell)
+                    onshell_violations = ak.sum(n_onshell > 2)
+                    offshell_violations = ak.sum(n_offshell > 2)
+                    print(f"[check_chs_multiplicity] Max q_onshell per event: {ak.max(n_onshell)}")
+                    print(f"[check_chs_multiplicity] Max q_offshell per event: {ak.max(n_offshell)}")
+                    print(f"[check_chs_multiplicity] Events with q_onshell > 2: {onshell_violations}")
+                    print(f"[check_chs_multiplicity] Events with q_offshell > 2: {offshell_violations}")
+                    if onshell_violations > 0 or offshell_violations > 0:
+                        bad_idx = ak.local_index(n_onshell)[(n_onshell > 2) | (n_offshell > 2)]
+                        print(f"[check_chs_multiplicity] Event indices (within this chunk) with a violation: {ak.to_list(bad_idx)[:20]}")
+
+                chs = ak.concatenate([b_quarks, q_onshell, q_offshell, isr_gluon], axis=1)
+
+                def good_event_mask_full_hww(gj_with_signal):
+                    # HWW count is capped at 2 PER W (min(count, 2) for signal==2
+                    # and signal==3 separately) before summing -- this must match
+                    # make_targets' own all_q = concatenate([h2_jets[:2],
+                    # h3_jets[:2]]) exactly.
+                    h2_count = ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1)
+                    h3_count = ak.sum(ak.fill_none(gj_with_signal.signal == 3, False), axis=1)
+                    h2_count_capped = ak.where(h2_count > 2, 2, h2_count)
+                    h3_count_capped = ak.where(h3_count > 2, 2, h3_count)
+                    return (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
+                    ) & (
+                        (h2_count_capped + h3_count_capped) >= 3
+                    )
+            else:  # onshell_w
+                W_mask = (abs(genpart.pdgId) == 24) & genpart.hasFlags(["isLastCopy"])
+                W_all_idx = all_gp_idx[W_mask]
+                W_bosons = genpart[W_mask]
+                W_mass_1 = ak.flatten(W_bosons[:, :1].mass)
+                W_mass_2 = ak.flatten(W_bosons[:, 1:2].mass)
+                onshell_is_first = W_mass_1 >= W_mass_2
+                onshell_W_idx = ak.where(onshell_is_first[:, None], W_all_idx[:, :1], W_all_idx[:, 1:2])
+
+                q_onshell_mask = (
+                    (abs(genpart.pdgId) <= 4)
+                    & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
+                    & ak.any(genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :], axis=2)
+                )
+                q_from_W = ak.with_field(genpart[q_onshell_mask], 2, "signal")
+                chs = ak.concatenate([b_quarks, q_from_W, isr_gluon], axis=1)
+
+                def good_event_mask_onshell_w(gj_with_signal):
+                    # No cap needed here: W1's target only has 2 slots total, and
+                    # this check's own threshold (>=2) already equals that slot
+                    # count -- W1[i, :min(len(h2_jets), 2)] = h2_jets[:2] fills
+                    # both slots whenever h2_jets has >=2 entries, leaving nothing
+                    # unfilled to ever collide. The full_hww case only has this
+                    # bug because its threshold (>=3) is LESS than its total slot
+                    # count (4), split across two separately-capped groups.
+                    return (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
+                    ) & (
+                        ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1) >= 2
+                    )
+
+            stage_signals["gm_parton_truth"] = chs.signal
+
+            # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
+            genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (genjet.pt > self.genjet_pt_cut)
+            gen_gj = genjet[genjet_cut]
+
+            # -- Stage 1: gen parton -> gen jet --
+            signal_genjet_list = greedy_match(gen_gj, chs, "signal", dr_threshold=self.dr_threshold)
+            gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
+            stage_signals["gm_genjet_match"] = gen_gj.signal
+            signal_gen_jets = gen_gj[ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])]
+
+            # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
+            signal_reco_list, matched_pt_list = greedy_match(
+                jets, signal_gen_jets, "signal", dr_threshold=self.dr_threshold, store_pt=True
             )
-
-            q_onshell_mask = (
-                (abs(genpart.pdgId) <= 4)
-                & genpart.hasFlags(["isFirstCopy", "fromHardProcess"])
-                & ak.any(
-                    genpart.genPartIdxMother[:, :, None] == onshell_W_idx[:, None, :],
-                    axis=2,
-                )
+            jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
+            jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
+            stage_signals["gm_reco_match"] = jets.signal
+            pt_ratio = jets.pt / jets.matched_genjet_pt
+            good_match_ptr = ak.fill_none(
+                (pt_ratio > 0.5) & (pt_ratio < 2.0) & (jets.signal != -1), False
             )
-            q_from_W = ak.with_field(genpart[q_onshell_mask], 2, "signal")
-            chs = ak.concatenate([b_quarks, q_from_W, isr_gluon], axis=1)
-
-            def good_event_mask(gj_with_signal):
-                return (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 1, False), axis=1) >= 2
-                ) & (
-                    ak.sum(ak.fill_none(gj_with_signal.signal == 2, False), axis=1) >= 2
-                )
-
-        # -- Gen jet selection (same eta/pt floor as nano_to_h5_V2.py) --
-        genjet_cut = (abs(genjet.eta) < self.genjet_eta_cut) & (
-            genjet.pt > self.genjet_pt_cut
-        )
-        gen_gj = genjet[genjet_cut]
-
-        # -- Stage 1: gen parton -> gen jet --
-        signal_genjet_list = greedy_match(
-            gen_gj, chs, "signal", dr_threshold=self.dr_threshold
-        )
-        gen_gj = ak.with_field(gen_gj, ak.Array(signal_genjet_list), "signal")
-        signal_gen_jets = gen_gj[
-            ak.Array([[s != -1 for s in ev] for ev in signal_genjet_list])
-        ]
-
-        # -- Stage 2: gen jet -> reco jet, with pt_ratio sanity check --
-        signal_reco_list, matched_pt_list = greedy_match(
-            jets,
-            signal_gen_jets,
-            "signal",
-            dr_threshold=self.dr_threshold,
-            store_pt=True,
-        )
-        jets = ak.with_field(jets, ak.Array(signal_reco_list), "signal")
-        jets = ak.with_field(jets, ak.Array(matched_pt_list), "matched_genjet_pt")
-        pt_ratio = jets.pt / jets.matched_genjet_pt
-        good_match_ptr = ak.fill_none(
-            (pt_ratio > 0.5) & (pt_ratio < 2.0) & (jets.signal != -1), False
-        )
-        # Jets failing the pt_ratio check get relabeled to -1 (background)
-        # rather than dropped, keeping the jet collection's width intact.
-        jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
+            # Jets failing the pt_ratio check get relabeled to -1 (background)
+            # rather than dropped, keeping the jet collection's width intact.
+            jets = ak.with_field(jets, ak.where(good_match_ptr, jets.signal, -1), "signal")
+            stage_signals["gm_pt_ratio"] = jets.signal
 
         # -- btag+secondary ordering, same convention used at inference time --
         btag_sort_idx = ak.argsort(jets.btagUParTAK4B, axis=1, ascending=False)
@@ -540,16 +891,36 @@ class SPANetGenMatch(AnalyzerModule):
         if self.secondary_order_field == "pt":
             secondary_field = jets_partial[:, 2:].pt
         elif self.secondary_order_field == "qvg":
-            secondary_field = jets_partial[:, 2:].btagUParTAK4QvG
+            secondary_field = jets_partial[:, 2:].btagPNetQvG
         else:
             raise ValueError(
                 f"secondary_order_field must be 'pt' or 'qvg', got {self.secondary_order_field!r}"
             )
 
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
-        jets_sorted = ak.concatenate(
-            [jets_partial[:, :2], jets_partial[pt_idx]], axis=1
-        )
+        jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
+
+        if self.check_truncation_loss and not (self.skip_gen_matching or self.ttbar_matching):
+            # chunk_label uses id(columns) purely to guarantee uniqueness
+            # across calls within one process (so accumulation can't
+            # accidentally merge unrelated chunks into one line) -- NOT
+            # a meaningful, human-readable identifier. If columns/this
+            # module carries an actual filename or chunk index, worth
+            # swapping that in here instead. Skipped entirely when
+            # skip_gen_matching is set: every jet is background (signal=-1)
+            # by construction in that mode, so there's no genuine
+            # truncation-loss question to measure -- it would just report
+            # zero matched jets everywhere, which isn't a real diagnostic.
+            _measure_truncation_loss(
+                jets, jets_sorted, self.n_real_jets, self.reco_mode,
+                outdir=self.truncation_loss_outdir, chunk_label=f"chunk_{id(columns)}",
+            )
+
+        if self.audit_n_real_jets_values and not (self.skip_gen_matching or self.ttbar_matching):
+            _audit_n_real_jets_recovery(
+                jets, jets_sorted, self.reco_mode, self.audit_n_real_jets_values,
+                outdir=self.audit_n_real_jets_outdir, chunk_label=f"chunk_{id(columns)}",
+            )
 
         # FIXED: good_event was previously evaluated on the full, untruncated
         # `jets` collection -- but signal_arr (and therefore make_targets)
@@ -563,58 +934,167 @@ class SPANetGenMatch(AnalyzerModule):
         # window signal_arr actually uses closes that gap: any event that
         # passes genuinely has >=3 real q-jets among the 6 the network will
         # actually be given, not just somewhere in the full event.
-        good_event = good_event_mask(jets_sorted[:, : self.n_real_jets])
+        if self.skip_gen_matching or self.ttbar_matching:
+            # (ttbar: same override, every event is a legitimate row with
+            # all-null H1/W1 targets; its 5/6 codes never reach make_targets.)
+            # Background events never carry a signal==1 jet by construction,
+            # so the normal good_event_mask_* functions above would
+            # evaluate False for every single event here, silently
+            # dropping the whole background sample. Override to
+            # unconditionally True instead -- these events are legitimate
+            # background training rows with all-null targets, not failed
+            # matches to be filtered out.
+            good_event = ak.ones_like(ak.num(jets_sorted), dtype=bool)
+            good_event_pre_truncation = good_event
+        elif self.reco_mode == "full_hww":
+            good_event_pre_truncation = good_event_mask_full_hww(jets_sorted)
+            good_event = good_event_mask_full_hww(jets_sorted[:, : self.n_real_jets])
+        else:
+            good_event_pre_truncation = good_event_mask_onshell_w(jets_sorted)
+            good_event = good_event_mask_onshell_w(jets_sorted[:, : self.n_real_jets])
 
-        pt_arr = pad_and_convert(jets_sorted.pt, self.n_real_jets, self.n_null_jets)
-        eta_arr = pad_and_convert(jets_sorted.eta, self.n_real_jets, self.n_null_jets)
-        phi_arr = pad_and_convert(jets_sorted.phi, self.n_real_jets, self.n_null_jets)
-        e_arr = pad_and_convert(jets_sorted.energy, self.n_real_jets, self.n_null_jets)
-        btag_arr = pad_and_convert(
-            jets_sorted.btagUParTAK4B, self.n_real_jets, self.n_null_jets
-        )
-        pnet_qvg_arr = pad_and_convert(
-            jets_sorted.btagPNetQvG, self.n_real_jets, self.n_null_jets
-        )
-        upart_qvg_arr = pad_and_convert(
-            jets_sorted.btagUParTAK4QvG, self.n_real_jets, self.n_null_jets
-        )
-        signal_arr = pad_and_convert(
-            jets_sorted.signal, self.n_real_jets, self.n_null_jets
-        )
+        good_event_window = good_event   # after the n_real_jets truncation, BEFORE the optional strip_bjets cut
 
-        jet_counts = ak.num(jets_sorted)
-        mask = make_mask(jet_counts, self.n_real_jets, self.n_null_jets)
+        if self.strip_bjets:
+            top2_signal = jets_sorted[:, :2].signal
+            bjet_slot_violation = ak.any((top2_signal == 2) | (top2_signal == 3), axis=1)
+            # Applied to both versions identically -- this check is about
+            # the top-2 btag slots specifically, independent of n_real_jets
+            # truncation entirely, so it isn't part of the before/after
+            # distinction at all.
+            good_event = good_event & ~bjet_slot_violation
+            good_event_pre_truncation = good_event_pre_truncation & ~bjet_slot_violation
 
-        source = ak.zip(
-            {
-                "MASK": mask,
-                "pt": pt_arr,
-                "eta": eta_arr,
-                "phi": phi_arr,
-                "e": e_arr,
-                "btag": btag_arr,
-                "pnet_qvg": pnet_qvg_arr,
-                "upart_qvg": upart_qvg_arr,
-            },
-            depth_limit=1,
-        )
+            jets_for_features = jets_sorted[:, 2:]
+            effective_n_real_jets = self.n_real_jets - 2
+        else:
+            jets_for_features = jets_sorted
+            effective_n_real_jets = self.n_real_jets
+
+        pt_arr = pad_and_convert(jets_for_features.pt, effective_n_real_jets, self.n_null_jets)
+        eta_arr = pad_and_convert(jets_for_features.eta, effective_n_real_jets, self.n_null_jets)
+        phi_arr = pad_and_convert(jets_for_features.phi, effective_n_real_jets, self.n_null_jets)
+        e_arr = pad_and_convert(jets_for_features.energy, effective_n_real_jets, self.n_null_jets)
+
+        if self.btag_mode == "label":
+            tagger, wps = self.getWPs(columns.metadata)
+            btag_feature = jets_for_features[tagger] > wps[self.btag_working_point]
+        elif self.btag_mode == "score":
+            btag_feature = jets_for_features.btagUParTAK4B
+        else:
+            raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
+        btag_arr = pad_and_convert(btag_feature, effective_n_real_jets, self.n_null_jets)
+
+        if self.qvg_mode == "label":
+            pnet_qvg_feature = jets_for_features.btagPNetQvG > self.qvg_label_threshold
+        elif self.qvg_mode == "score":
+            pnet_qvg_feature = jets_for_features.btagPNetQvG
+        else:
+            raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
+        pnet_qvg_arr = pad_and_convert(pnet_qvg_feature, effective_n_real_jets, self.n_null_jets)
+
+        # c-tagging: SCORE mode keeps CvB and CvL as two independent
+        # continuous features (they're genuinely distinct discriminants,
+        # not interchangeable). LABEL mode collapses them into ONE boolean
+        # feature -- true only if the jet clears BOTH working points
+        # simultaneously. This means Source has a DIFFERENT NUMBER of
+        # columns depending on ctag_mode -- intentional
+        ctag_source_fields = {}
+        if self.ctag_mode == "label":
+            taggers, wps = self.getCTagWPs(columns.metadata)
+            cvb_pass = jets_for_features[taggers["CvB"]] > wps["CvB"][self.ctag_working_point]
+            cvl_pass = jets_for_features[taggers["CvL"]] > wps["CvL"][self.ctag_working_point]
+            ctag_feature = cvb_pass & cvl_pass
+            ctag_source_fields["ctag"] = pad_and_convert(ctag_feature, effective_n_real_jets, self.n_null_jets)
+        elif self.ctag_mode == "score":
+            taggers, _ = self.getCTagWPs(columns.metadata)
+            ctag_source_fields["ctag_cvb"] = pad_and_convert(
+                jets_for_features[taggers["CvB"]], effective_n_real_jets, self.n_null_jets
+            )
+            ctag_source_fields["ctag_cvl"] = pad_and_convert(
+                jets_for_features[taggers["CvL"]], effective_n_real_jets, self.n_null_jets
+            )
+        else:
+            raise ValueError(f"ctag_mode must be 'score' or 'label', got {self.ctag_mode!r}")
+
+        signal_arr = pad_and_convert(jets_for_features.signal, effective_n_real_jets, self.n_null_jets)
+
+        jet_counts = ak.num(jets_for_features)
+        mask = make_mask(jet_counts, effective_n_real_jets, self.n_null_jets)
+
+        source_fields = {
+            "MASK": mask, "pt": pt_arr, "eta": eta_arr, "phi": phi_arr, "e": e_arr,
+            "btag": btag_arr, "pnet_qvg": pnet_qvg_arr,
+        }
+        source_fields.update(ctag_source_fields)
+        source = ak.zip(source_fields, depth_limit=1)
 
         targets = make_targets(
-            signal_arr,
-            self.n_real_jets,
-            self.n_null_jets,
-            self.reco_mode,
+            signal_arr, effective_n_real_jets, self.n_null_jets, self.reco_mode,
             include_isr_target=self.include_isr_target,
         )
+
+        if self.randomize_jet_order:
+            # Deliberately placed AFTER both Source and Targets are fully,
+            # normally built -- the entire construction above is completely
+            # untouched by this flag. Only the REAL jet slots get shuffled,
+            # independently per event; the null slot(s) never move, since
+            # null_idx's meaning depends on it staying at a fixed position.
+            if "rng" not in self.__shuffle_rng_holder:
+                self.__shuffle_rng_holder["rng"] = np.random.default_rng(self.randomize_seed)
+
+            n_events = len(pt_arr)
+            perms = make_random_permutations(n_events, effective_n_real_jets, self.__shuffle_rng_holder["rng"])
+            inv_perms = np.argsort(perms, axis=1)
+            null_idx = effective_n_real_jets if self.n_null_jets > 0 else -1
+
+            # MASK is included here deliberately, not just the physical
+            # features -- it records which real-jet-range positions hold
+            # actual jets vs padding for events with fewer than
+            # effective_n_real_jets real jets, and that has to move WITH
+            # its jet, not stay fixed at its original position.
+            shuffled_source_fields = {
+                key: apply_perm_to_source_field(np.asarray(value), perms, effective_n_real_jets)
+                for key, value in source_fields.items()
+            }
+            source = ak.zip(shuffled_source_fields, depth_limit=1)
+
+            # Remap every target's daughter-slot indices through the SAME
+            # inverse permutation, so each one still points at the same
+            # physical jet, just at its new shuffled position. null_idx/-1
+            # are sentinels, not real positions, and pass through unchanged.
+            targets = {
+                particle: {
+                    daughter: remap_target_indices(np.asarray(indices), inv_perms, null_idx)
+                    for daughter, indices in daughters.items()
+                }
+                for particle, daughters in targets.items()
+            }
+
+        # -- Event-level classification label
+        #   skip_gen_matching (background sample) -> 0 (QCD/background)
+        #   signal sample, good_event True        -> 1 (signal; a genuine
+        #       full gen-match, the same gate that decides which events SaveSPANetH5
+        #       actually keeps when good_event_col is set)
+        #   signal sample, good_event False       -> -1 (failed match; NOT 0 --
+        #       these are signal-origin events, never background. They are
+        #       dropped by SaveSPANetH5's good_event filter anyway, and -1 is
+        #       cross_entropy's ignore_index if one ever slips through.)
+        # For files written with good_event_col set, this reproduces the
+        # patch script's output exactly (all-null targets -> 0, all-real
+        # -> 1); it differs only in never labeling a signal-origin event 0.
+        if self.skip_gen_matching:
+            process_label = np.zeros(len(good_event), dtype=np.int64)
+        elif self.ttbar_matching:
+            process_label = np.full(len(good_event), self.ttbar_process_label, dtype=np.int64)
+        else:
+            process_label = np.where(ak.to_numpy(good_event), 1, -1).astype(np.int64)
 
         p = self.output_prefix
         columns[Column(f"{p}.Source")] = source
         columns[Column(f"{p}.good_event")] = good_event
-        # Also register under the "Selection" namespace SelectOnColumns's
-        # getCol() actually reads from (columns[Column(("Selection", name))]),
-        # confirmed from its real source. The plain Column(f"{p}.good_event")
-        # above stays too -- SaveSPANetH5's good_event_col filtering already
-        # works off that one, and remains a harmless redundant safety net.
+        columns[Column(f"{p}.process_label")] = ak.Array(process_label)
+        columns[Column(f"{p}.good_event_pre_truncation")] = good_event_pre_truncation
         columns[Column(("Selection", "good_event"))] = good_event
         columns[Column(f"{p}.Targets.H1")] = ak.zip(targets["H1"])
         if self.reco_mode == "full_hww":
@@ -624,13 +1104,27 @@ class SPANetGenMatch(AnalyzerModule):
         if self.include_isr_target:
             columns[Column(f"{p}.Targets.ISR")] = ak.zip(targets["ISR"])
 
-        return columns, []
+        if self.write_stage_selections and not (self.skip_gen_matching or self.ttbar_matching):
+            stage_masks = {}
+            for name in STAGE_SELECTION_NAMES[:-1]:
+                h_ok, w_ok = _hw_ok(stage_signals[name], self.reco_mode)
+                stage_masks[name] = (h_ok, w_ok, h_ok & w_ok)
+            # gm_in_window: the criterion on the first n_real_jets of the btag+secondary ordering (exactly the window
+            # good_event is evaluated on, before the optional strip_bjets cut)
+            h_win, w_win = _hw_ok(jets_sorted[:, : self.n_real_jets].signal, self.reco_mode)
+            stage_masks["gm_in_window"] = (h_win, w_win, good_event_window)
+            for name, (_, _, both) in stage_masks.items():
+                columns[Column(("Selection", name))] = both
+            if self.log_stage_counts:
+                to_log = dict(stage_masks)
+                to_log["good_event"] = (h_win, w_win, good_event)   # differs from gm_in_window only if strip_bjets is on
+                _log_stage_counts(to_log, self.stage_counts_outdir, f"chunk_{id(columns)}")
 
+        return columns, []
 
 # ============================================================
 # Module 2: HDF5 writer
 # ============================================================
-
 
 @define
 class SaveSPANetH5(AnalyzerModule):
@@ -644,58 +1138,161 @@ class SaveSPANetH5(AnalyzerModule):
     SPANetGenMatch either isn't run at all, or is run without truth targets
     -- only Source gets written in that case.
 
+    classification_cols : list[Column], optional
+        Event-level (1D) label columns, each written to
+        CLASSIFICATIONS/EVENT/<last name part> -- e.g.
+        [SPANet.process_label] -> CLASSIFICATIONS/EVENT/process_label,
+        the dataset SPANet's `CLASSIFICATIONS: EVENT: [process_label]` yaml
+        entry reads. Filtered by the same good_event mask as Source/Targets.
+        Empty (default) writes none -- existing pipelines see no change.
+
     good_event_col : Column, optional
         If given, events where this Column is False are dropped before
         writing -- reproducing what nano_to_h5_V2.py originally did (bad
         events never made it into the H5 at all), applied here rather than
         via a yaml-level SelectOnColumns step. Leave unset to write every
         event SPANetGenMatch saw.
+
+    good_event_pre_truncation_col : Column, optional
+        If given, a SECOND H5 file is written alongside the primary one --
+        same Source/Targets, but filtered by this column instead of
+        good_event_col. Meant to pair with SPANetGenMatch's
+        good_event_pre_truncation output: the primary file reflects the
+        current, truncation-aware gate; this second file reflects the
+        wider, pre-truncation gate, letting the two be compared directly
+        rather than only inferred from aggregate diagnostics. Leave unset
+        (default) to write only the single, primary file -- existing
+        pipelines that don't set this see no change in behavior at all.
+
+    pre_truncation_suffix : str
+        Inserted before the file extension to distinguish the second
+        file's name from the primary one, e.g. "..._0_1000.h5" becomes
+        "..._0_1000_pretrunc.h5". Only used when
+        good_event_pre_truncation_col is set. Kept even though the two
+        files now also live in separate directories (below) -- makes the
+        pair unambiguous even if the files are ever copied or moved
+        somewhere the directory structure doesn't survive.
+
+    write_weights : bool
+        If True, also writes per-event WEIGHTS (needs Column("Weights") upstream):
+          WEIGHTS/event     product of every field of the OSCA `Weights` record -- exactly what
+                            HistogramBuilder multiplies together when it fills a histogram
+                            (generator weight, pileup, SFs, ...).
+          WEIGHTS/physical  WEIGHTS/event * lumi * x_sec / n_events -- the same per-sample scale
+                            OSCA applies when it loads results (analyzer/core/results.py), so
+                            sums of this dataset reproduce the yields in the OSCA plots.
+        Plus file attributes (dataset_name, sample_name, lumi, x_sec, n_events, scale) so the
+        physical weight can be recomputed later (e.g. if only part of a sample was processed).
+        results.py divides by the number of events actually PROCESSED; a chunk cannot know that, so
+        this divides by n_events * processed_fraction. Leave processed_fraction at 1.0 when whole
+        samples are skimmed; for a capped run set it to processed/total (e.g. 50e6/470312166) so the
+        weights are scaled up to the full sample in this same run.
+
+    processed_fraction : float
+        See write_weights. Must be in (0, 1].
+
+    weight_source : str
+        "Weights" (default): multiply every field of the OSCA `Weights` record (the pipeline must contain the
+        weight modules that build it, otherwise the run fails with "no field 'Weights'").
+        "pos_neg": +1 / -1 from the sign of the raw NanoAOD genWeight, i.e. what OSCA's PosNegGenWeight module
+        produces. Needs nothing upstream; ignores pileup, prefiring and SFs (a few-percent effect for a validation
+        metric). The choice is stored in the file attribute `weight_fields`.
+
+    pre_truncation_prefix : str, optional
+        Output directory for the second (pre-truncation) file -- kept
+        separate from `prefix` so concatenating "all the primary files"
+        or "all the pre-truncation files" is a plain directory-level
+        hadd/glob, not a filename-suffix filter mixed in with everything
+        else. If unset (default), automatically derived as
+        f"{prefix}_pretrunc" -- a sibling directory next to the primary
+        one, no extra yaml configuration needed. Set explicitly to send
+        the second file somewhere unrelated to the primary output
+        entirely.
     """
 
     prefix: str
     source_col: Column
     targets_cols: List[Column] = field(factory=list)
+    classification_cols: List[Column] = field(factory=list)
     good_event_col: Column = None
+    good_event_pre_truncation_col: Column = None
+    pre_truncation_suffix: str = "_pretrunc"
+    pre_truncation_prefix: str = None
+    write_weights: bool = False
+    processed_fraction: float = 1.0
+    weight_source: str = "Weights"
     output_format: str = (
         "{dataset_name}__{sample_name}__{file_id}"
         "__{chunk.event_start}_{chunk.event_stop}.h5"
     )
 
     def inputs(self, metadata):
-        cols = [self.source_col] + list(self.targets_cols)
+        cols = [self.source_col] + list(self.targets_cols) + list(self.classification_cols)
         if self.good_event_col is not None:
             cols.append(self.good_event_col)
+        if self.good_event_pre_truncation_col is not None:
+            cols.append(self.good_event_pre_truncation_col)
+        if self.write_weights:
+            cols.append(Column("genWeight" if self.weight_source == "pos_neg" else "Weights"))
         return cols
 
     def outputs(self, metadata):
         return []
 
-    def run(self, columns, params):
+    def _event_weights(self, columns):
+        """(product of all Weights fields, per-sample scale). Mirrors HistogramBuilder (product of
+        every field of the `Weights` record) and analyzer/core/results.py (scale = lumi * x_sec / events)."""
+        md = columns.metadata
+        if self.weight_source == "pos_neg":
+            # Same as OSCA's PosNegGenWeight module: +1 / -1 from the sign of genWeight (0 counts as -1, exactly like
+            # `ak.where(genWeight > 0, 1.0, -1.0)`). No pileup / prefiring / SFs. Use this when the pipeline does not
+            # build the OSCA `Weights` record.
+            names = ["pos_neg_weight"]
+            w = np.where(ak.to_numpy(columns["genWeight"]) > 0, 1.0, -1.0)
+        elif self.weight_source == "Weights":
+            weights = columns["Weights"]
+            names = list(weights.fields)
+            if not names:
+                raise ValueError("SaveSPANetH5: write_weights=True but the Weights record has no fields")
+            w = weights[names[0]]
+            for name in names[1:]:
+                w = w * weights[name]
+            w = ak.to_numpy(w).astype("float64")
+        else:
+            raise ValueError(f"SaveSPANetH5: weight_source must be 'Weights' or 'pos_neg', got {self.weight_source!r}")
+
+        x_sec = md.get("x_sec")
+        if x_sec is None:
+            raise ValueError(f"SaveSPANetH5: sample {md.get('sample_name')!r} has no x_sec; cannot build a physical weight")
+        if not (0.0 < self.processed_fraction <= 1.0):
+            raise ValueError(f"SaveSPANetH5: processed_fraction must be in (0, 1], got {self.processed_fraction}")
+        scale = float(md["era"]["lumi"]) * float(x_sec) / (float(md["n_events"]) * self.processed_fraction)
+        return w, scale, names
+
+    def _write_h5(self, columns, target_path, good_event_col):
+        """Writes one H5 file, filtered by the given good_event_col (or
+        unfiltered if None). Factored out of run() so both the primary
+        (good_event, truncation-aware) and the optional second
+        (good_event_pre_truncation) file share the exact same write
+        logic -- avoids maintaining two, potentially drifting copies of
+        the same h5py write block for what should behave identically
+        apart from which mask is applied.
+        """
         import h5py
 
-        file_id = (
-            hashlib.md5(columns.metadata["chunk"]["file_path"].encode())
-            .hexdigest()
-            .upper()
-        )
-        uid = str(uuid.uuid4())
-
-        target_name = dotFormat(
-            self.output_format,
-            **dict(dictToDot(columns.metadata)),
-            file_id=file_id,
-            uuid=uid,
-        )
-        target = f"{self.prefix}/{target_name}"
+        if good_event_col is not None:
+            good_np = ak.to_numpy(columns[good_event_col])
+        else:
+            good_np = None
 
         base = Path("localsaved")
         base.mkdir(exist_ok=True, parents=True)
+        # A fresh uid per call -- NOT shared with the other file's write,
+        # since both may be in flight (temp file on disk) at once and
+        # need distinct scratch paths regardless of what their final,
+        # permanent target filenames end up being.
+        uid = str(uuid.uuid4())
         local_filename = base / f"{uid}.h5"
-
-        if self.good_event_col is not None:
-            good_np = ak.to_numpy(columns[self.good_event_col])
-        else:
-            good_np = None
 
         try:
             source = columns[self.source_col]
@@ -722,8 +1319,68 @@ class SaveSPANetH5(AnalyzerModule):
                             data=data,
                             compression="gzip",
                         )
-            copyFile(local_filename, target)
+                for ccol in self.classification_cols:
+                    # e.g. Column("SPANet.process_label") -> CLASSIFICATIONS/EVENT/process_label
+                    name = str(ccol).split(".")[-1]
+                    data = ak.to_numpy(columns[ccol])
+                    if good_np is not None:
+                        data = data[good_np]
+                    f.create_dataset(
+                        f"CLASSIFICATIONS/EVENT/{name}",
+                        data=data,
+                        compression="gzip",
+                    )
+                if self.write_weights:
+                    w_event, scale, weight_names = self._event_weights(columns)
+                    if good_np is not None:
+                        w_event = w_event[good_np]
+                    f.create_dataset("WEIGHTS/event", data=w_event, compression="gzip")
+                    f.create_dataset("WEIGHTS/physical", data=w_event * scale, compression="gzip")
+                    md = columns.metadata
+                    f.attrs["dataset_name"] = str(md.get("dataset_name"))
+                    f.attrs["sample_name"] = str(md.get("sample_name"))
+                    f.attrs["lumi"] = float(md["era"]["lumi"])
+                    f.attrs["x_sec"] = float(md["x_sec"])
+                    f.attrs["n_events"] = float(md["n_events"])
+                    f.attrs["scale"] = scale
+                    f.attrs["processed_fraction"] = self.processed_fraction
+                    chunk = md.get("chunk", {})
+                    f.attrs["chunk_event_start"] = int(chunk.get("event_start", -1))
+                    f.attrs["chunk_event_stop"] = int(chunk.get("event_stop", -1))
+                    f.attrs["chunk_file_path"] = str(chunk.get("file_path", ""))
+                    f.attrs["weight_fields"] = ",".join(weight_names)
+            copyFile(local_filename, target_path)
         finally:
             local_filename.unlink(missing_ok=True)
+
+    def run(self, columns, params):
+        file_id = hashlib.md5(
+            columns.metadata["chunk"]["file_path"].encode()
+        ).hexdigest().upper()
+        uid = str(uuid.uuid4())
+
+        target_name = dotFormat(
+            self.output_format,
+            **dict(dictToDot(columns.metadata)),
+            file_id=file_id,
+            uuid=uid,
+        )
+        target = f"{self.prefix}/{target_name}"
+
+        self._write_h5(columns, target, self.good_event_col)
+
+        if self.good_event_pre_truncation_col is not None:
+            # Own directory, not the primary one -- so "concatenate every
+            # primary file" and "concatenate every pre-truncation file"
+            # are each a plain glob over one directory, not a
+            # filename-suffix filter mixed in among the other kind.
+            # Same uuid as the primary file (via the shared target_name
+            # stem), just under a different prefix -- still visually
+            # traceable back to its paired primary file if needed.
+            pre_prefix = self.pre_truncation_prefix or f"{self.prefix}_pretrunc"
+            name_path = Path(target_name)
+            pre_target_name = f"{name_path.stem}{self.pre_truncation_suffix}{name_path.suffix}"
+            pre_target = f"{pre_prefix}/{pre_target_name}"
+            self._write_h5(columns, pre_target, self.good_event_pre_truncation_col)
 
         return columns, []

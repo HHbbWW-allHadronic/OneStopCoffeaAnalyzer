@@ -1,0 +1,269 @@
+{% import 'core.yaml' as core %}
+
+{{ core.objects() }}
+{{ core.regions() }}
+
+analyzer:
+  default_run_builder:
+    strategy_name: NoSystematics
+
+  spanet_common_prefix_tiered: &spanet_common_prefix_tiered
+    - *common_objects
+    - module_name: SimpleHLT
+      triggers: [250HT4J2B]
+    - *eventlevel_selection
+    - module_name: SelectOnColumns
+      sel_name: preselection
+
+    - module_name: NObjFilter
+      input_col: tightElectron
+      selection_name: zero_electron
+      min_count: 0
+      max_count: 0
+
+    - module_name: NObjFilter
+      input_col: tightMuon
+      selection_name: zero_muon
+      min_count: 0
+      max_count: 0
+
+    - module_name: HJetFilter
+      input_col: Jet
+      output_col: goodJetLoose
+      include_pu_id: False
+      include_jet_id: True
+      min_pt: 15
+      max_abs_eta: 2.4
+
+    - module_name: TieredPtJetFilter
+      input_col: goodJetLoose
+      output_col: goodJetTiered
+      n_hard_jets: 4
+      hard_pt_cut: 25.0
+
+  spanet_medb_requirement_tiered: &spanet_medb_requirement_tiered
+    - module_name: HBQuarkMaker
+      input_col: goodJetTiered
+      output_col: MedBTiered
+      working_point: M
+      nontop2b: True
+      nontop2b_col: NonTop2BTiered
+
+    - module_name: NObjFilter
+      input_col: MedBTiered
+      selection_name: 2b
+      min_count: 2
+
+  region2_6jet_tagging_label_v176: &region2_6jet_tagging_label_v176
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v176-region2-H1_H2_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-tagging_LABELS-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: full_hww
+      secondary_order_field: qvg
+      particle_names: [H1, H2]
+      daughter_counts:
+        H1: 2
+        H2: 4
+      btag_mode: label
+      btag_working_point: M
+      qvg_mode: label
+      ctag_mode: label
+      ctag_working_point: M
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_SPANet_1d
+      input_cols: [SPANet.m_HWW_SPANet]
+      axes:
+        - name: m(HWW) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  region2_6jet_tagging_score_v177: &region2_6jet_tagging_score_v177
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v177-region2-H1_H2_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-tagging_SCORES-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: full_hww
+      secondary_order_field: qvg
+      particle_names: [H1, H2]
+      daughter_counts:
+        H1: 2
+        H2: 4
+      btag_mode: score
+      btag_working_point: M
+      qvg_mode: score
+      ctag_mode: score
+      ctag_working_point: M
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_SPANet_1d
+      input_cols: [SPANet.m_HWW_SPANet]
+      axes:
+        - name: m(HWW) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  region5_6jet_tagging_label_v178: &region5_6jet_tagging_label_v178
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v178-region5-H1_W1_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-tagging_LABELS-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: onshell_w
+      secondary_order_field: qvg
+      particle_names: [H1, W1]
+      daughter_counts:
+        H1: 2
+        W1: 2
+      btag_mode: label
+      btag_working_point: M
+      qvg_mode: label
+      ctag_mode: label
+      ctag_working_point: M
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_1d
+      input_cols: [SPANet.m_W1_SPANet]
+      axes:
+        - name: m(W1) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+  region5_6jet_tagging_score_v179: &region5_6jet_tagging_score_v179
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetDiHiggsInference
+      jet_col: goodJetTiered
+      pt_field: pt
+      eta_field: eta
+      phi_field: phi
+      mass_field: mass
+      btag_field: btag
+      qvg_field: btagPNetQvG
+      model_path: onnx_models/spanet_v179-region5-H1_W1_targets_6jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-tagging_SCORES-FIXED_H2_TARGETS.onnx
+      output_prefix: SPANet
+      n_real_jets: 6
+      n_null_jets: 1
+      reco_mode: onshell_w
+      secondary_order_field: qvg
+      particle_names: [H1, W1]
+      daughter_counts:
+        H1: 2
+        W1: 2
+      btag_mode: score
+      btag_working_point: M
+      qvg_mode: score
+      ctag_mode: score
+      ctag_working_point: M
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_SPANet_1d
+      input_cols: [SPANet.m_Hbb_SPANet]
+      axes:
+        - name: m(bb) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_1d
+      input_cols: [SPANet.m_W1_SPANet]
+      axes:
+        - name: m(W1) SPANet
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
+
+event_collections:
+  - dataset: 'ggHH2b2V6q_2024_eval'
+    pipelines:
+      - region2_6jet_tagging_label_v176
+      - region2_6jet_tagging_score_v177
+      - region5_6jet_tagging_label_v178
+      - region5_6jet_tagging_score_v179

@@ -6,8 +6,8 @@ import awkward as ak
 import numpy as np
 import torch
 import onnxruntime
-from functools import lru_cache
-from coffea.nanoevents.methods import vector as coffea_vector
+import correctionlib
+import vector
 
 
 @define
@@ -103,129 +103,214 @@ class ABCDiHiggsInference(AnalyzerModule):
     def inputs(self, metadata):
         return [self.jet_col] + self.global_cols
 
+# ------------------------------------------ #
+# SPANet-related models for SPANet inference #
+# ------------------------------------------ #
 
-_BEHAVIOR = coffea_vector.behavior
-_ASSIGN_SUFFIX = "_assignment_probability"
-
-# Kinematic fields carried through the ordering step. Jets are stored in
-# pt/eta/phi/mass everywhere; energy is never stored, only computed via
-# `.energy`, because coffea rejects a record holding both mass and energy
-# ("multiple temporal aliases present").
-_KINEMATIC = ("pt", "eta", "phi", "mass")
+def _pad_and_convert(arr, n_real_jets, n_null_jets):
+    padded = ak.pad_none(arr[:, :n_real_jets], n_real_jets + n_null_jets, clip=True)
+    padded = ak.fill_none(padded, 0)
+    return ak.to_numpy(padded)
 
 
-@lru_cache(maxsize=None)
-def _get_session(model_path: str, providers: tuple[str, ...]):
-    """One ORT session per (model, providers) per process.
+def _make_mask(jet_counts, n_real_jets, n_null_jets):
+    return np.array([
+        [True] * min(n, n_real_jets) + [False] * max(0, n_real_jets - n) + [True] * n_null_jets
+        for n in jet_counts
+    ], dtype=bool)
 
-    Cached rather than stored on the module so the module stays trivially
-    picklable for worker dispatch, and so the session is built once per
-    worker instead of once per chunk.
+
+def _order_fields_btag_then_secondary(field_arrays, secondary_key):
     """
-    return onnxruntime.InferenceSession(model_path, providers=list(providers))
-
-
-def _default_providers() -> tuple[str, ...]:
-    avail = onnxruntime.get_available_providers()
-    cuda = ("CUDAExecutionProvider",) if "CUDAExecutionProvider" in avail else ()
-    return cuda + ("CPUExecutionProvider",)
-
-
-def _order_jets(fields: dict, secondary_key: str) -> dict:
-    """Sort jets btag-descending for the first two slots, then `secondary_key`
-    descending for the rest.
-
-    `secondary_key` selects which already-fetched field determines the order.
-    It does not change which fields are fed to the model: every field in
-    `fields`, including the one used for ordering, is reordered identically and
-    passed through as its own feature.
+    Sort jets: btag descending for the first 2 slots (H1/bb candidates),
+    then field_arrays[secondary_key] descending for the remaining slots
+    (H2/WW candidates). secondary_key selects which ALREADY-FETCHED field
+    ("qvg" or "pt") determines the order -- it does not change which
+    fields get fetched or fed to the model as features. This matters:
+    a variant training convention may reorder jets by pt instead of QvG
+    while still using the genuine QvG score as its own separate input
+    feature -- conflating "what determines the order" with "what gets stacked as a
+    feature" would silently feed the wrong numbers into the qvg feature
+    slot. Every entry in field_arrays, including whichever one ISN'T the
+    secondary_key, still gets consistently reordered and still gets fed
+    to the model as its own real, untouched feature.
     """
-    order = ak.argsort(fields["btag"], axis=1, ascending=False)
-    lead = {k: v[order] for k, v in fields.items()}
-    rest = ak.argsort(lead[secondary_key][:, 2:], axis=1, ascending=False) + 2
-    return {k: ak.concatenate([v[:, :2], v[rest]], axis=1) for k, v in lead.items()}
-
-
-def _pad_to_numpy(arr, n_real: int, n_slots: int) -> np.ndarray:
-    """Clip to `n_real` jets, pad to `n_slots` with zeros, materialize."""
-    return ak.to_numpy(
-        ak.fill_none(ak.pad_none(arr[:, :n_real], n_slots, clip=True), 0)
+    btag_sort_idx = ak.argsort(field_arrays["btag"], axis=1, ascending=False)
+    partially_sorted = {k: v[btag_sort_idx] for k, v in field_arrays.items()}
+ 
+    secondary_indices = (
+        ak.argsort(partially_sorted[secondary_key][:, 2:], axis=1, ascending=False) + 2
     )
+    return {
+        k: ak.concatenate([v[:, :2], v[secondary_indices]], axis=1)
+        for k, v in partially_sorted.items()
+    }
 
 
-def _source_mask(counts, n_real: int, n_null: int) -> np.ndarray:
-    """True for real jets present in the event and for every null slot."""
-    counts = np.asarray(counts)[:, None]
-    real = np.arange(n_real)[None, :] < counts
-    null = np.ones((len(counts), n_null), dtype=bool)
-    return np.concatenate([real, null], axis=1)
+def _build_source_data(pt, eta, phi, e, btag, qvg, extra_features=None):
+    """Exact transform the model expects: pt/e log1p'd, btag/qvg/ctag fed
+    as-is (no log transform -- they're already O(1) scores or labels, not
+    physical quantities benefiting from log-compression the way pt/e do).
 
-
-def _padded_jets(ordered: dict, n_real: int, n_slots: int):
-    """One padded PtEtaPhiM collection, used for both the model input and the
-    gathered output. Null slots are (pt, eta, phi, mass) = 0, whose computed
-    energy is exactly 0 and which contribute nothing to a sum."""
-    return ak.zip(
-        {f: ak.Array(_pad_to_numpy(ordered[f], n_real, n_slots)) for f in _KINEMATIC},
-        with_name="PtEtaPhiMLorentzVector",
-        behavior=_BEHAVIOR,
-    )
-
-
-def _build_source_data(jets, btag, qvg) -> np.ndarray:
-    """Build the model's Source_data tensor, shape (n_events, n_slots, 6).
-
-    The model was trained on exactly this stacking:
-
-        [log(pt + 1), eta, phi, log(energy + 1), btag, qvg]
-
-    Do not reorder, rename, or insert. Energy is computed from the jets rather
-    than stored, which is numerically identical to deriving it before padding:
-    it is a deterministic function of (pt, eta, mass), and a null slot's
-    (0, 0, 0, 0) gives exactly 0.0, matching the zero the padding inserts.
+    extra_features, if given, is a list of arrays appended AFTER qvg, in
+    the SAME order they were written into the training Source array by
+    skimming.py -- for c-tagging: one array (ctag) in label mode, two
+    arrays (ctag_cvb, ctag_cvl) in score mode, matching
+    source_fields.update(ctag_source_fields)'s insertion order exactly.
+    Column count varies with mode (7 vs 8 total features) -- this MUST
+    match whichever mode the specific .onnx model was actually trained
+    with, or the stacked array will silently be fed to the wrong input
+    slots.
     """
-    return np.stack(
-        [
-            np.log(ak.to_numpy(jets.pt) + 1),
-            ak.to_numpy(jets.eta),
-            ak.to_numpy(jets.phi),
-            np.log(ak.to_numpy(jets.energy) + 1),
-            btag,
-            qvg,
-        ],
-        axis=-1,
-    ).astype(np.float32)
+    base = [np.log(pt + 1), eta, phi, np.log(e + 1), btag, qvg]
+    if extra_features:
+        base.extend(extra_features)
+    return np.stack(base, axis=-1).astype(np.float32)
 
 
-def _zero_index_all_axes(tensor: np.ndarray, jet_index: int) -> None:
-    """Zero every slice of `tensor` where any axis equals `jet_index`."""
+def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=256,
+                         assign_suffix="_assignment_probability",
+                         detect_suffix="_detection_probability",
+                         extra_output_names=None):
+    """
+    Batched ONNX call. Looks up each particle's assignment/detection
+    output BY NAME (via session.get_outputs()), not by fixed position --
+    more robust than a hardcoded positional order, and self-documenting
+    if a name doesn't match what's expected.
+
+    Returns: dict mapping particle_name -> (assign_array, detect_array).
+
+    If extra_output_names is given (e.g. the classification output), those outputs are also
+    collected, and the return value becomes the tuple (results, extras) with extras mapping
+    each requested output name to its concatenated array. Without it the return value is
+    unchanged.
+    """
+    output_names = [o.name for o in session.get_outputs()]
+    expected_names = [f"{name}{assign_suffix}" for name in particle_names] + \
+                      [f"{name}{detect_suffix}" for name in particle_names]
+    missing = [n for n in expected_names if n not in output_names]
+    if missing:
+        raise KeyError(
+            f"Expected ONNX output names not found: {missing}. "
+            f"Actual model output names: {output_names}. "
+            f"The assumed '<Name>{assign_suffix}'/'<Name>{detect_suffix}' naming "
+            f"convention may not match this model -- check session.get_outputs() directly."
+        )
+
+    n = len(source_data)
+    collected = {name: [] for name in output_names}
+    for i in range(0, n, batch_size):
+        out = session.run(output_names, {
+            "Source_data": source_data[i:i + batch_size],
+            "Source_mask": mask[i:i + batch_size],
+        })
+        for name, arr in zip(output_names, out):
+            collected[name].append(arr)
+
+    results = {}
+    for name in particle_names:
+        assign = np.concatenate(collected[f"{name}{assign_suffix}"], axis=0)
+        detect = np.concatenate(collected[f"{name}{detect_suffix}"], axis=0)
+        results[name] = (assign, detect)
+    if extra_output_names:
+        absent = [n for n in extra_output_names if n not in output_names]
+        if absent:
+            raise KeyError(f"Requested ONNX outputs not found: {absent}. Actual outputs: {output_names}")
+        extras = {n: np.concatenate(collected[n], axis=0) for n in extra_output_names}
+        return results, extras
+    return results
+
+
+def _find_classification_output(output_names, particle_names, hint=None,
+                                assign_suffix="_assignment_probability",
+                                detect_suffix="_detection_probability"):
+    """
+    Name of the ONNX output that holds the event-classification scores.
+
+    hint (the module's classification_output setting) wins if given. Otherwise the output is
+    inferred: drop the assignment / detection outputs, drop anything that looks like a
+    regression output, and take what is left; if several remain, only one containing
+    'classif' is accepted. Anything ambiguous raises with the full list of output names, so a
+    wrong guess can never silently feed the wrong tensor into the score columns.
+    """
+    if hint:
+        if hint not in output_names:
+            raise KeyError(f"classification_output {hint!r} is not an output of the model. "
+                           f"Actual model output names: {output_names}")
+        return hint
+    taken = {f"{n}{assign_suffix}" for n in particle_names} | {f"{n}{detect_suffix}" for n in particle_names}
+    rest = [n for n in output_names
+            if n not in taken and not n.endswith((assign_suffix, detect_suffix)) and "regress" not in n.lower()]
+    if len(rest) == 1:
+        return rest[0]
+    named = [n for n in rest if "classif" in n.lower()]
+    if len(named) == 1:
+        return named[0]
+    raise KeyError(
+        f"Could not tell which ONNX output holds the classification scores (candidates after removing "
+        f"assignment/detection/regression outputs: {rest}). Actual model output names: {output_names}. "
+        f"If the model has no classification output, the stock export may not include one; otherwise set "
+        f"classification_output to the exact name.")
+
+
+def _to_class_probabilities(raw, mode="auto"):
+    """
+    (n_events, n_classes) class probabilities from the raw classification output.
+    mode: 'probabilities' (already softmax'ed; used as is), 'logits' (apply softmax), or 'auto':
+    treat the array as probabilities if every entry is in [0, 1] and every row sums to 1 within
+    1e-3, otherwise apply softmax. The decision is made once on the whole array, never per row.
+    """
+    raw = np.asarray(raw, dtype=np.float64)
+    if raw.ndim != 2:
+        raise ValueError(f"classification output must be 2D (n_events, n_classes), got shape {raw.shape}")
+    if mode not in ("auto", "logits", "probabilities"):
+        raise ValueError(f"classification_scores must be 'auto', 'logits' or 'probabilities', got {mode!r}")
+    if mode == "auto":
+        looks_prob = bool(raw.size == 0 or (raw.min() >= 0.0 and raw.max() <= 1.0
+                                            and np.allclose(raw.sum(axis=1), 1.0, atol=1e-3)))
+        mode = "probabilities" if looks_prob else "logits"
+    if mode == "logits":
+        z = raw - raw.max(axis=1, keepdims=True)
+        e = np.exp(z)
+        raw = e / e.sum(axis=1, keepdims=True)
+    return raw.astype("float32")
+
+
+def _zero_index_all_axes(tensor, jet_index):
+    """Zero out every slice of `tensor` where ANY axis equals jet_index --
+    generalizes the original H1/H2 zeroing (which hand-wrote each axis
+    explicitly) to work on a tensor of ANY rank, including ISR's rank-1
+    (single-jet) case, without a separate branch per particle."""
     for axis in range(tensor.ndim):
         idx = [slice(None)] * tensor.ndim
         idx[axis] = jet_index
         tensor[tuple(idx)] = 0
 
 
-def _assign_greedy_exclusive(assign_tensors: list[np.ndarray]) -> list[np.ndarray]:
-    """Greedy exclusive jet assignment, one round per particle.
-
-    Each round, whichever remaining particle has the highest max confidence is
-    assigned via its own argmax; the jets it claims are then zeroed out of every
-    other remaining tensor before the next round.
-
-    Note: this prevents two *particles* claiming the same jet. It does not
-    prevent one particle claiming the same jet in two of its own daughter slots
-    (an argmax landing on the tensor diagonal) -- preserved from the original
-    for bit-identical results. Zeroing each tensor's diagonal before the argmax
-    would close that gap.
+def _extract_pairs_exclusive(assign_tensors):
+    """
+    Exclusive jet assignment, generalized from the original 2-particle
+    (H1-vs-H2) version to an arbitrary number of particles: at each
+    round, whichever REMAINING particle currently has the highest max
+    confidence gets assigned next (via its own argmax); its claimed jet
+    indices are then zeroed out of every OTHER remaining tensor
+    (regardless of that tensor's rank) before the next round. Confirmed
+    to exactly reproduce the original 2-particle algorithm's output when
+    given only 2 tensors, and confirmed exclusive (no jet claimed by
+    more than one particle) and exact-recovery-correct on synthetic
+    3-particle test data with realistic, self-consistent target peaks.
 
     Parameters
     ----------
     assign_tensors : list of np.ndarray
-        One per particle, shape (n_events,) + (n_slots,) * rank.
+        One array per particle, each shape (n_events,) + (n_jets,)*rank,
+        where rank is that particle's number of daughter slots (H1=2,
+        H2=4 for full_hww, ISR=1).
 
     Returns
     -------
-    list of np.ndarray, shape (n_events, rank), same order as the input.
+    list of np.ndarray, one per particle, each shape (n_events, rank),
+    in the SAME order as assign_tensors.
     """
     n_events = assign_tensors[0].shape[0]
     n_particles = len(assign_tensors)
@@ -242,9 +327,7 @@ def _assign_greedy_exclusive(assign_tensors: list[np.ndarray]) -> list[np.ndarra
             confidences = [np.max(tensors[k]) for k in remaining]
             winner = remaining.pop(int(np.argmax(confidences)))
 
-            pred_idx = np.unravel_index(
-                np.argmax(tensors[winner]), tensors[winner].shape
-            )
+            pred_idx = np.unravel_index(np.argmax(tensors[winner]), tensors[winner].shape)
             preds[winner][i] = pred_idx
 
             for jet_index in pred_idx:
@@ -254,111 +337,128 @@ def _assign_greedy_exclusive(assign_tensors: list[np.ndarray]) -> list[np.ndarra
     return preds
 
 
-def _infer_assignments(
-    session, source_data, mask, particle_names, batch_size: int, n_slots: int
-) -> list[np.ndarray]:
-    """Run the model in batches, reducing each batch to jet indices immediately.
-
-    The H2 assignment tensor is (batch, n_slots**4) floats and only its argmax
-    is ever used, so it is discarded before the next batch is fetched. Peak
-    memory is batch_size * n_slots**4 * 4 bytes, not n_events * that.
-
-    Detection probabilities are not requested -- nothing downstream reads them.
+def _gather_assigned_jets(pt, eta, phi, e, preds):
     """
-    names = [p + _ASSIGN_SUFFIX for p in particle_names]
-    available = [o.name for o in session.get_outputs()]
-    missing = [n for n in names if n not in available]
-    if missing:
-        raise KeyError(
-            f"Model has no outputs {missing}. Available: {available}. "
-            f"Check `particle_names` against the model actually being loaded."
-        )
+    Gather each particle's jet collection from the padded source arrays,
+    using the network's predicted indices -- generalized from the
+    original H1(2)/H2(4) version to accept any number of particles with
+    any daughter count, including ISR's single-jet (rank-1) case.
 
-    chunks = None
-    for start in range(0, len(source_data), batch_size):
-        stop = start + batch_size
-        feed = {"Source_data": source_data[start:stop], "Source_mask": mask[start:stop]}
-        try:
-            tensors = session.run(names, feed)
-        except Exception as exc:
-            if chunks is not None:
-                raise
-            # SPANet bakes its jet-slot count into the graph, so a mismatch
-            # surfaces as an opaque reshape failure deep in the encoder.
-            raise RuntimeError(
-                f"ONNX inference failed on the first batch with n_real_jets + "
-                f"n_null_jets = {n_slots}. Check that against the model "
-                f"({session._model_path if hasattr(session, '_model_path') else 'loaded model'}). "
-                f"Original error: {exc}"
-            ) from exc
-        if chunks is None:
-            got = tensors[0].shape[1]
-            if got != n_slots:
-                raise ValueError(
-                    f"Model expects {got} jet slots, configured for {n_slots} "
-                    f"(n_real_jets + n_null_jets). Fix the configuration to match "
-                    f"the model."
-                )
-            chunks = [[] for _ in particle_names]
-        for chunk, pred in zip(chunks, _assign_greedy_exclusive(tensors)):
-            chunk.append(pred)
+    Uses ak.from_regular to convert the numpy index arrays to the jagged
+    ("var") form -- verified this is required: a regular (fixed-width)
+    awkward index array silently applies the WRONG (flattened) indexing
+    semantics against a jagged content array rather than erroring, so the
+    from_regular conversion is not optional cosmetic cleanup, it is what
+    makes the per-event gather correct at all.
 
-    return [np.concatenate(c, axis=0) for c in chunks]
+    If a predicted assignment includes the null slot (index n_real_jets,
+    zero-padded), that slot's four-vector is exactly (0,0,0,0) and
+    contributes nothing to a sum -- confirmed this reproduces the exact
+    same masses as the original per-event-loop implementation to
+    float32 precision, so this is a drop-in numerical replacement, not a
+    behavior change.
 
+    Parameters
+    ----------
+    preds : list of np.ndarray
+        One array per particle, each shape (n_events, rank), in the SAME
+        order the caller wants results back in.
 
-def _gather_assigned_jets(jets, preds) -> list:
-    """Gather each particle's assignment out of the padded jet collection.
-
-    `ak.from_regular` is required: the predicted-index arrays are regular
-    (fixed-width) numpy, and slicing the jet collection with them as-is does not
-    apply per-event indexing.
-
-    A prediction may include a null slot, whose four-vector is exactly
-    (0, 0, 0, 0) and contributes nothing to a sum.
+    Returns
+    -------
+    list of ak.Array, one Momentum4D jet collection per particle, in the
+    SAME order as preds.
     """
-    return [jets[ak.from_regular(ak.Array(pred), axis=1)] for pred in preds]
-
+    p4 = ak.zip(
+        {"pt": ak.Array(pt), "eta": ak.Array(eta), "phi": ak.Array(phi), "energy": ak.Array(e)},
+        with_name="Momentum4D",
+    )
+    p4 = ak.zip(
+        {"pt": p4.pt, "eta": p4.eta, "phi": p4.phi, "energy": p4.energy, "mass": p4.mass},
+        with_name="Momentum4D",
+    )
+    return [p4[ak.from_regular(ak.Array(pred), axis=1)] for pred in preds]
 
 @define
 class SPANetDiHiggsInference(AnalyzerModule):
-    """SPANet jet-assignment inference for HH->bbWW(+ISR).
+    """
+    Inference module for the SPANet HH->bbWW(+ISR) jet-assignment network.
+    Takes jet-like columns, applies the btag-then-secondary jet ordering
+    SPANet was trained on, prepares padded Source inputs, runs the ONNX
+    model, and adds each particle's reconstructed jet collection (and,
+    for H1/H2, summed mass) to the columns.
 
-    Applies the btag-then-secondary jet ordering the model was trained on,
-    builds the padded Source inputs, runs the ONNX model in batches, and writes
-    each particle's assigned jet collection plus the configured summed masses.
+    Generalized to N particles via particle_names (default ["H1", "H2",
+    "ISR"], matching the current 3-particle Hbb/HWW/ISR training) --
+    outputs for EVERY name in particle_names get written, e.g. with the
+    default list: H1_jets, H2_jets, ISR_jets, plus m_Hbb_SPANet (summed
+    from H1_jets) and m_HWW_SPANet (summed from H2_jets). ISR has no
+    analogous summed-mass output -- it's a single jet, not a pair/quad,
+    so its own mass is just ISR_jets.mass directly, nothing to sum.
 
-    Jet four-vectors use coffea's ``PtEtaPhiMLorentzVector`` behavior, so the
-    summed mass is ``jets.sum(axis=1).mass``. Note that coffea's vector
-    behaviors provide ``.sum()`` as a method and do not register an ``ak.sum``
-    reducer for records; the scikit-hep ``vector`` package is the other way
-    round. Do not mix the two in one collection.
+    Detection scores: for EVERY name in particle_names the network's detection
+    probability (the ONNX "<name>_detection_probability" output, i.e. sigmoid of
+    the detection logit -- the same quantity batch_trace.py calls
+    detection_sigmoid) is also written, as "<name>_detection".
+    These are what a detection-score cut or detection-binned region in OSCA
+    should use; the assignment probabilities alone say nothing about whether
+    the event looks like signal.
+
+    Classification scores (optional, use_classification=True): for a model trained with a
+    classification head (process_label, 0 = QCD, 1 = signal), the per-event class probabilities are
+    written as "<prefix>.classification_<name>" for every name in classification_names (default
+    ["qcd", "signal", "ttbar"], in class-label order), e.g. SPANet.classification_signal = P(signal).
+    The output tensor is found by name (classification_output, or inferred -- see
+    _find_classification_output); classification_scores says whether it holds logits or
+    probabilities ("auto" checks). With use_classification=False (default) nothing about the
+    classification head is read, so models exported without one keep working.
+
+    Separate module from ABCDiHiggsInference (the ABCD background
+    discriminant) -- different model, different purpose. Does not modify
+    or depend on that class.
 
     Parameters
     ----------
     jet_col : Column
-        Jet collection, already selected upstream (eta/pt cuts, trigger, njet).
+        Column containing the jet collection (already selected upstream:
+        eta/pt cuts, trigger, >=5 jets).
     pt_field, eta_field, phi_field, mass_field, btag_field, qvg_field : str
-        Field names on `jet_col`. Pass ``"btag"`` for `btag_field` to resolve
-        the era-dependent tagger from metadata.
+        Field names for the jet kinematic/tagging variables. btag_field
+        follows the same era-dependent-tagger resolution convention as
+        ABCDiHiggsInference (pass "btag" to trigger it).
     model_path : str
-        Path to the SPANet .onnx file.
+        Path to the SPANet .onnx model.
     output_prefix : Column
-        Prefix for all written columns.
-    n_real_jets, n_null_jets : int
-        Must match the model. Their sum is validated against the model's
-        assignment tensor width on the first batch.
-    batch_size : int
-        Events per ONNX call. Also bounds peak assignment-tensor memory.
-    secondary_order_field : {"qvg", "pt"}
-        Which field orders slots 2 and beyond.
-    particle_names : list[str]
-        Particles the model predicts. Each needs a
-        ``<name>_assignment_probability`` output.
-    mass_outputs : dict[str, str]
-        Particle name -> output column name for that particle's summed mass.
-        Particles absent from this mapping still get a jet collection written.
-    providers : tuple[str, ...] or None
-        ONNXRuntime execution providers; None auto-selects CUDA if available.
+        Column prefix under which m_Hbb_SPANet / m_HWW_SPANet / H*_jets
+        are written.
+    particle_names : list[str], optional
+        Names of the particles the model was trained to predict, in
+        whatever order the model's own ONNX outputs use internally
+        (order here only affects the greedy exclusive-assignment
+        priority resolution, not correctness -- see
+        _extract_pairs_exclusive). Default ["H1", "H2", "ISR"].
+    daughter_counts : dict[str, int], optional
+        Number of daughter slots per particle name, needed to build
+        correctly-shaped empty placeholders for the n_events==0 case.
+        Default {"H1": 2, "H2": 4, "ISR": 1}.
+    n_real_jets, n_null_jets : int, optional
+        Must match the values the model was trained with.
+    reco_mode : str, optional
+        Kept for compatibility with older 2-particle configs; unused by
+        the current N-particle assignment logic itself (rank is read
+        directly from each ONNX output tensor's own shape instead).
+    batch_size : int, optional
+        Batched ONNX inference chunk size, default 256.
+    use_classification : bool, optional
+        Read the model's classification output and write the class-probability columns.
+    classification_output : str, optional
+        Exact ONNX output name of the classification scores; inferred if omitted.
+    classification_names : list[str], optional
+        One name per class, in class-label order (process_label 0, 1, 2, ...). Default
+        ["qcd", "signal", "ttbar"] for the 3-class head; set ["qcd", "signal"] for a 2-class model.
+        Writes <prefix>.classification_<name> per entry, so ttbar events get a classification_ttbar score too.
+    classification_scores : str, optional
+        "auto" (default), "logits" or "probabilities" -- what the ONNX output contains.
     """
 
     jet_col: Column
@@ -372,129 +472,351 @@ class SPANetDiHiggsInference(AnalyzerModule):
     output_prefix: Column
     n_real_jets: int = 6
     n_null_jets: int = 1
+    reco_mode: str = "full_hww"
     batch_size: int = 256
     secondary_order_field: str = "qvg"
-    particle_names: list = field(factory=lambda: ["H1", "H2", "ISR"])
-    mass_outputs: dict = field(
-        factory=lambda: {"H1": "m_Hbb_SPANet", "H2": "m_HWW_SPANet"}
-    )
-    providers: tuple | None = None
+    particle_names: list = None
+    daughter_counts: dict = None
+    use_classification: bool = False
+    classification_output: str = None
+    classification_names: list = None
+    classification_scores: str = "auto"
+
+    btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label"
+    btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Must match whichever mode the .onnx model was actually trained with.
+    qvg_mode: str = "label"  # "score" or "label", applied to whichever qvg_field is configured (PNet QvG for any model trained after UParT QvG was removed from skimming.py)
+    qvg_label_threshold: float = 0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG. Must match skimming.py's value exactly for label-mode models.
+    ctag_working_point: str = "M"  # official WP used when ctag_mode="label"
+    ctag_mode: str = "label"  # "score" (2 independent columns: CvB, CvL), "label" (1 boolean column: CvB AND CvL both pass), or "none" (no ctag columns at all, and c-tagging metadata is never even resolved -- safe for checkpoints trained before c-tagging existed, e.g. the original region1-5 study). Changes Source WIDTH -- must match the specific .onnx model's actual trained shape, not just its physics content.
+
+    __wp_cache: dict = field(factory=dict)
+    __ctag_wp_cache: dict = field(factory=dict)
 
     def __attrs_post_init__(self):
-        if self.secondary_order_field not in ("qvg", "pt"):
-            raise ValueError(
-                f"secondary_order_field must be 'qvg' or 'pt', got "
-                f"{self.secondary_order_field!r}"
-            )
-        unknown = set(self.mass_outputs) - set(self.particle_names)
-        if unknown:
-            raise ValueError(
-                f"mass_outputs references unknown particles {sorted(unknown)}; "
-                f"particle_names is {self.particle_names}"
-            )
+        if self.particle_names is None:
+            self.particle_names = ["H1", "H2", "ISR"]
+        if self.daughter_counts is None:
+            self.daughter_counts = {"H1": 2, "H2": 4, "ISR": 1}
+        if self.classification_names is None:
+            # label values of the training h5 (process_label): 0 = QCD, 1 = signal, 2 = ttbar -- the current
+            # 3-class head. A 2-class (QCD vs signal) model must set classification_names: [qcd, signal].
+            self.classification_names = ["qcd", "signal", "ttbar"]
 
-    @property
-    def n_slots(self) -> int:
-        return self.n_real_jets + self.n_null_jets
+    def getWPs(self, metadata):
+        """Mirrors HBQuarkMaker.getWPs / skimming.py's SPANetGenMatch.getWPs
+        exactly -- same metadata path, same correctionlib call, same
+        per-file caching, so inference reads WP thresholds from the SAME
+        source training-time skimming.py used, not a second,
+        independently-hardcoded number that could silently drift."""
+        file_path = metadata["era"]["btag_scale_factors"]["file"]
+        tagger = metadata["era"]["btag_scale_factors"]["tagger"]
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
 
-    def _session(self):
-        return _get_session(self.model_path, self.providers or _default_providers())
+        if file_path in self.__wp_cache:
+            return tagger, self.__wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {p: cset[cname].evaluate(p) for p in ("L", "M", "T")}
+        self.__wp_cache[file_path] = ret
+        return tagger, ret
 
-    def _jets_col(self, name: str) -> Column:
-        return self.output_prefix + Column(f"{name}_jets")
+    def getCTagWPs(self, metadata):
+        """c-tagging analog of getWPs, mirroring skimming.py's
+        SPANetGenMatch.getCTagWPs exactly."""
+        file_path = metadata["era"]["btag_scale_factors"]["c_file"]
+        tagger_cvb = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvB"]
+        tagger_cvl = metadata["era"]["btag_scale_factors"]["c_tagger"]["CvL"]
+        taggers = {"CvB": tagger_cvb, "CvL": tagger_cvl}
+        cname = metadata["era"]["btag_scale_factors"]["correction_name"]
 
-    def _mass_col(self, name: str) -> Column:
-        return self.output_prefix + Column(self.mass_outputs[name])
+        if file_path in self.__ctag_wp_cache:
+            return taggers, self.__ctag_wp_cache[file_path]
+        cset = correctionlib.CorrectionSet.from_file(file_path)
+        ret = {
+            "CvB": {p: cset[cname].evaluate(p, "CvB") for p in ("L", "M", "T")},
+            "CvL": {p: cset[cname].evaluate(p, "CvL") for p in ("L", "M", "T")},
+        }
+        self.__ctag_wp_cache[file_path] = ret
+        return taggers, ret
 
-    def prepare_inputs(self, columns) -> dict:
-        """Order and pad the jets, returning the padded PtEtaPhiM collection plus
-        the two non-kinematic model inputs and the source mask."""
+    def preloadForMeta(self, metadata):
+        self.getWPs(metadata)
+        self.getCTagWPs(metadata)
+
+    def prepare_inputs(self, columns):
         btag_col = Column(
             self.btag_field
             if self.btag_field != "btag"
             else columns.metadata["era"]["btag_scale_factors"]["tagger"]
         )
-        pt = columns[self.jet_col + Column(self.pt_field)]
-        eta = columns[self.jet_col + Column(self.eta_field)]
-        phi = columns[self.jet_col + Column(self.phi_field)]
+        pt   = columns[self.jet_col + Column(self.pt_field)]
+        eta  = columns[self.jet_col + Column(self.eta_field)]
+        phi  = columns[self.jet_col + Column(self.phi_field)]
         mass = columns[self.jet_col + Column(self.mass_field)]
+        p4 = ak.zip({"pt": pt, "eta": eta, "phi": phi, "mass": mass}, with_name="Momentum4D")
+        e = p4.energy
 
-        ordered = _order_jets(
-            {
-                "pt": pt,
-                "eta": eta,
-                "phi": phi,
-                "mass": mass,
-                "btag": columns[self.jet_col + btag_col],
-                "qvg": columns[self.jet_col + Column(self.qvg_field)],
-            },
-            self.secondary_order_field,
-        )
-
-        return {
-            "jets": _padded_jets(ordered, self.n_real_jets, self.n_slots),
-            "btag": _pad_to_numpy(ordered["btag"], self.n_real_jets, self.n_slots),
-            "qvg": _pad_to_numpy(ordered["qvg"], self.n_real_jets, self.n_slots),
-            "MASK": _source_mask(
-                ak.num(ordered["pt"]), self.n_real_jets, self.n_null_jets
-            ),
+        raw_fields = {
+            "pt":   pt,
+            "eta":  eta,
+            "phi":  phi,
+            "e":    e,
+            "btag": columns[self.jet_col + btag_col],
+            "qvg":  columns[self.jet_col + Column(self.qvg_field)],
         }
 
-    def _write_empty(self, columns):
-        empty = np.array([], dtype="float32")
-        for name in self.mass_outputs:
-            columns[self._mass_col(name)] = ak.Array(empty)
+        # ctag_mode="none": for checkpoints trained before c-tagging existed
+        # (e.g. the original region1-5 study). This must not touch
+        # c-tagging metadata AT ALL -- resolving it unconditionally would
+        # fail outright on an era config that predates c-tagging support,
+        # which is exactly the situation this mode exists to handle safely.
+        if self.ctag_mode != "none":
+            ctag_taggers, _ = self.getCTagWPs(columns.metadata)
+            # Fetched into raw_fields alongside everything else so
+            # _order_fields_btag_then_secondary reorders them with the SAME
+            # sort permutation as pt/eta/phi/e/btag/qvg -- it iterates
+            # field_arrays.items() generically, no changes needed there.
+            raw_fields["ctag_cvb"] = columns[self.jet_col + Column(ctag_taggers["CvB"])]
+            raw_fields["ctag_cvl"] = columns[self.jet_col + Column(ctag_taggers["CvL"])]
 
-        shapes = {o.name: o.shape for o in self._session().get_outputs()}
-        zeros = np.zeros((0, self.n_slots), dtype="float32")
-        jets = ak.zip(
-            {f: ak.Array(zeros) for f in _KINEMATIC},
-            with_name="PtEtaPhiMLorentzVector",
-            behavior=_BEHAVIOR,
-        )
-        for name in self.particle_names:
-            rank = len(shapes[name + _ASSIGN_SUFFIX]) - 1
-            idx = ak.from_regular(ak.Array(np.zeros((0, rank), dtype=int)), axis=1)
-            columns[self._jets_col(name)] = jets[idx]
-        return columns
+        if self.secondary_order_field not in ("qvg", "pt"):
+            raise ValueError(
+                f"secondary_order_field must be 'qvg' or 'pt', got "
+                f"{self.secondary_order_field!r} -- these are the only two "
+                f"fields genuinely fetched into raw_fields; anything else "
+                f"would silently KeyError deep inside the sort."
+            )
+        sorted_fields = _order_fields_btag_then_secondary(raw_fields, self.secondary_order_field)
+
+        # btag/qvg/ctag FEATURES fed to the model can each independently be
+        # the continuous score or a boolean WP decision, per
+        # btag_mode/qvg_mode/ctag_mode -- deliberately separate from the
+        # sort above, which always used the continuous scores regardless
+        # of mode. Only the copy AFTER sorting is touched here; mirrors
+        # skimming.py's identical discipline exactly.
+        if self.btag_mode == "label":
+            _, wps = self.getWPs(columns.metadata)
+            sorted_fields["btag"] = sorted_fields["btag"] > wps[self.btag_working_point]
+        elif self.btag_mode != "score":
+            raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
+
+        if self.qvg_mode == "label":
+            sorted_fields["qvg"] = sorted_fields["qvg"] > self.qvg_label_threshold
+        elif self.qvg_mode != "score":
+            raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
+
+        extra_features = []
+        if self.ctag_mode == "none":
+            pass  # no ctag columns at all -- matches pre-ctagging checkpoints' 6-column Source exactly
+        elif self.ctag_mode == "label":
+            _, ctag_wps = self.getCTagWPs(columns.metadata)
+            cvb_pass = sorted_fields["ctag_cvb"] > ctag_wps["CvB"][self.ctag_working_point]
+            cvl_pass = sorted_fields["ctag_cvl"] > ctag_wps["CvL"][self.ctag_working_point]
+            ctag_feature = cvb_pass & cvl_pass
+            extra_features = [_pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)]
+        elif self.ctag_mode == "score":
+            extra_features = [
+                _pad_and_convert(sorted_fields["ctag_cvb"], self.n_real_jets, self.n_null_jets),
+                _pad_and_convert(sorted_fields["ctag_cvl"], self.n_real_jets, self.n_null_jets),
+            ]
+        else:
+            raise ValueError(f"ctag_mode must be 'score', 'label', or 'none', got {self.ctag_mode!r}")
+
+        mask = _make_mask(ak.num(sorted_fields["pt"]), self.n_real_jets, self.n_null_jets)
+        source = {"MASK": mask, "_extra_features": extra_features}
+        for key in ("pt", "eta", "phi", "e", "btag", "qvg"):
+            source[key] = _pad_and_convert(sorted_fields[key], self.n_real_jets, self.n_null_jets)
+        return source
+ 
+    def _detection_cols(self):
+        """Per-particle detection-score columns."""
+        return {name: self.output_prefix + Column(f"{name}_detection") for name in self.particle_names}
+
+    def _classification_cols(self):
+        """Per-class probability columns (empty unless use_classification)."""
+        if not self.use_classification:
+            return {}
+        return {name: self.output_prefix + Column(f"classification_{name}") for name in self.classification_names}
 
     def run(self, columns, params):
-        # len() on a virtual array reads no buffers, so an empty chunk costs
-        # nothing beyond the (cached) session.
-        if len(columns[self.jet_col + Column(self.pt_field)]) == 0:
-            return self._write_empty(columns), []
-
         source = self.prepare_inputs(columns)
-        source_data = _build_source_data(source["jets"], source["btag"], source["qvg"])
+        n_events = len(source["pt"])
+        detect_cols = self._detection_cols()
+        class_cols = self._classification_cols()
 
-        preds = _infer_assignments(
-            self._session(),
-            source_data,
-            source["MASK"],
-            self.particle_names,
-            self.batch_size,
-            self.n_slots,
-        )
-        jets = dict(
-            zip(
-                self.particle_names,
-                _gather_assigned_jets(source["jets"], preds),
+        _MASS_COL_NAMES = {
+            "H1": "m_Hbb_SPANet",
+            "H2": "m_HWW_SPANet",
+            "W1": "m_W1_SPANet",
+        }
+        mass_cols = {
+            name: self.output_prefix + Column(_MASS_COL_NAMES[name])
+            for name in self.particle_names if name in _MASS_COL_NAMES
+        }
+        jets_cols = {name: self.output_prefix + Column(f"{name}_jets") for name in self.particle_names}
+
+        if n_events == 0:
+            empty = np.array([], dtype="float32")
+            for name in mass_cols:
+                columns[mass_cols[name]] = ak.Array(empty)
+            for name in detect_cols:
+                columns[detect_cols[name]] = ak.Array(empty)
+            for name in class_cols:
+                columns[class_cols[name]] = ak.Array(empty)
+            empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
+            empty_p4 = ak.zip(
+                {
+                    "pt": ak.Array(empty_2d), "eta": ak.Array(empty_2d),
+                    "phi": ak.Array(empty_2d), "energy": ak.Array(empty_2d),
+                    "mass": ak.Array(empty_2d),
+                },
+                with_name="Momentum4D",
             )
-        )
+            for name in self.particle_names:
+                width = self.daughter_counts[name]
+                empty_idx = ak.from_regular(ak.Array(np.zeros((0, width), dtype=int)), axis=1)
+                columns[jets_cols[name]] = empty_p4[empty_idx]
+            return columns, []
 
-        for name, jet_col in jets.items():
-            columns[self._jets_col(name)] = jet_col
-        for name in self.mass_outputs:
-            columns[self._mass_col(name)] = jets[name].sum(axis=1).mass
+        session = onnxruntime.InferenceSession(self.model_path)
+
+        source_data = _build_source_data(
+            source["pt"], source["eta"], source["phi"],
+            source["e"], source["btag"], source["qvg"],
+            extra_features=source["_extra_features"],
+        )
+        extras = {}
+        if self.use_classification:
+            cls_name = _find_classification_output(
+                [o.name for o in session.get_outputs()], self.particle_names, hint=self.classification_output
+            )
+            assign_detect, extras = _run_onnx_inference(
+                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size,
+                extra_output_names=[cls_name],
+            )
+            probs = _to_class_probabilities(extras[cls_name], self.classification_scores)
+            if probs.shape[1] != len(self.classification_names):
+                raise ValueError(
+                    f"the model's classification output {cls_name!r} has {probs.shape[1]} classes but "
+                    f"classification_names has {len(self.classification_names)} entries "
+                    f"({self.classification_names}); set classification_names to one name per class "
+                    f"(3-class model: [qcd, signal, ttbar]; 2-class model: [qcd, signal])."
+                )
+            for k, name in enumerate(self.classification_names):
+                columns[class_cols[name]] = ak.Array(probs[:, k])
+        else:
+            assign_detect = _run_onnx_inference(
+                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
+            )
+        assign_tensors = [assign_detect[name][0] for name in self.particle_names]
+        preds = _extract_pairs_exclusive(assign_tensors)
+        jets = _gather_assigned_jets(
+            source["pt"], source["eta"], source["phi"], source["e"], preds
+        )
+        jets_by_name = dict(zip(self.particle_names, jets))
+
+        for name, jet_col in jets_by_name.items():
+            columns[jets_cols[name]] = jet_col
+            if name in mass_cols:
+                columns[mass_cols[name]] = ak.sum(jet_col, axis=1).mass
+
+        # Detection probabilities (already sigmoid'ed by the ONNX export; one value per event per
+        # particle). reshape handles an (n,) or (n, 1) output alike.
+        detections = {}
+        for name in self.particle_names:
+            det = np.asarray(assign_detect[name][1], dtype="float32").reshape(n_events, -1)[:, 0]
+            detections[name] = det
+            columns[detect_cols[name]] = ak.Array(det)
+
         return columns, []
 
     def neededResources(self, metadata):
         return [self.model_path]
 
     def outputs(self, metadata):
-        return [self._mass_col(n) for n in self.mass_outputs] + [
-            self._jets_col(n) for n in self.particle_names
+        _MASS_COL_NAMES = {
+            "H1": "m_Hbb_SPANet",
+            "H2": "m_HWW_SPANet",
+            "W1": "m_W1_SPANet",
+        }
+        outs = [
+            self.output_prefix + Column(_MASS_COL_NAMES[name])
+            for name in self.particle_names if name in _MASS_COL_NAMES
         ]
+        outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
+        detect_cols = self._detection_cols()
+        outs += list(detect_cols.values())
+        outs += list(self._classification_cols().values())
+        return outs
 
     def inputs(self, metadata):
         return [self.jet_col]
+
+vector.register_awkward()
+
+@define
+class DiHiggsMassMultiplicitySplit(AnalyzerModule):
+    """
+    Splits an assigned H2 (HWW) jet collection's invariant mass into
+    "threejet" and "fourjet" variants, based on how many REAL jets (as
+    opposed to a null/missing slot) actually went into the assignment --
+    mirroring `nontop2b_threejet`/`nontop2b_fourjet`
+    variables (built the same way, minus the top-2-b jets), but computed
+    from H2's own assignment for each method rather than a separately
+    re-sorted leftover pool, since our jet collection is capped at 6 (the
+    SPANet input-size constraint) -- H2 already *is* the complete leftover
+    set, there is nothing further to select from a larger pool the way
+    ABCD's unbounded goodJet collection needs.
+
+    Works identically, with no branching, on either of the two H2 shapes
+    this analysis produces:
+      - SPANetDiHiggsInference's H2_jets: always exactly 4 gathered slots,
+        one of which may be the network's null-slot pick (a genuine
+        (0,0,0,0) four-vector, not a sentinel to special-case).
+      - BaselineDiHiggsMasses's H2_jets: naturally ragged, 3 jets for a
+        5-jet event or 4 for a 6-jet event, never padded.
+    In both cases "count jets with pt != 0" gives the correct real-jet
+    count: for the ragged case there's nothing to exclude (real jets are
+    never exactly pt==0), and for the padded case it correctly excludes
+    the null slot.
+
+    Parameters
+    ----------
+    h2_jet_col : Column
+        The H2 (HWW) jet collection column -- SPANetDiHiggsInference's or
+        BaselineDiHiggsMasses's `<prefix>.H2_jets` output.
+    output_prefix : Column
+        Column prefix under which m_HWW_threejet / m_HWW_fourjet /
+        n_real_H2_jets are written.
+    """
+
+    h2_jet_col: Column
+    output_prefix: Column
+
+    def run(self, columns, params):
+        jets = columns[self.h2_jet_col]
+
+        real_mask = jets.pt != 0
+        n_real = ak.sum(real_mask, axis=1)
+        mass = ak.sum(jets[real_mask], axis=1).mass
+
+        is_three = n_real == 3
+        is_four = n_real == 4
+
+        columns[self.output_prefix + Column("m_HWW_threejet")] = ak.where(
+            is_three, mass, np.nan
+        )
+        columns[self.output_prefix + Column("m_HWW_fourjet")] = ak.where(
+            is_four, mass, np.nan
+        )
+        columns[self.output_prefix + Column("n_real_H2_jets")] = n_real
+        return columns, []
+
+    def outputs(self, metadata):
+        return [
+            self.output_prefix + Column("m_HWW_threejet"),
+            self.output_prefix + Column("m_HWW_fourjet"),
+            self.output_prefix + Column("n_real_H2_jets"),
+        ]
+
+    def inputs(self, metadata):
+        return [self.h2_jet_col]
