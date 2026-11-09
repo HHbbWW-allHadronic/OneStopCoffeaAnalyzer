@@ -364,17 +364,17 @@ event_collections:
       - withHLT_SPANet_v133_9jet
       - withHLT_SPANet_v134_7jet
 
-#  - dataset: 'qcd*2024*'
+#  - dataset: 'qcd_inclusive_2024*'
 #    pipelines:
 #      - withHLT_SPANet_v133_9jet
 #      - withHLT_SPANet_v134_7jet
 
-#  - dataset: 'tt_hadronic*2024*'
+#  - dataset: 'tt_hadronic_2024*'
 #    pipelines:
 #      - withHLT_SPANet_v133_9jet
 #      - withHLT_SPANet_v134_7jet
 
-#  - dataset: 'tt_semilep*2024'
+#  - dataset: 'tt_semileptonic_2024*'
 #    pipelines:
 #      - withHLT_SPANet_v133_9jet
 #      - withHLT_SPANet_v134_7jet

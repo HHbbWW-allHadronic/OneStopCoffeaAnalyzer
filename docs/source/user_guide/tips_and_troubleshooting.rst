@@ -33,9 +33,9 @@ Also verify that your selections are not cutting all events.
 Run with ``--max-sample-events 10000`` and ``--log-level DEBUG`` to see event counts at each step.
 
 
-**xrootd timeout or file access errors**
+**xrootd timeout errors and friends**
 
-These are typically infrastructure issues.
+These are typically infrastructure issues, and there is not a ton to be done about them.
 Try adjusting ``location_priorities`` to prefer different sites, or retry later.
 If a specific sample consistently fails, check whether its files are available on the sites you are using.
 
@@ -45,12 +45,13 @@ If a specific sample consistently fails, check whether its files are available o
 This means two result files contain data from the same file chunks.
 This can happen if you accidentally ran the same job twice.
 Remove the duplicate result files before merging.
+You can use standard bash tools like find to check the modification time and delete files newer or older than a certain time.
 
 
 **Memory issues with large chunk sizes**
 
 Reduce the ``chunk_size`` of your executor, or use an executor with more ``worker_memory``.
-If you have many systematic variations, consider using ``reduction_factor: 2`` to reduce memory pressure from intermediate results.
+If you have many systematic variations or fine binning (both of which make for large histograms), consider using ``reduction_factor: 2`` to reduce memory pressure from intermediate results.
 
 
 Performance Tips
@@ -59,7 +60,8 @@ Performance Tips
 - Use :class:`~analyzer.core.run_builders.NoSystematics` during development and switch to :class:`~analyzer.core.run_builders.CompleteSysts` only for production.
 - The ``--max-sample-events`` flag is your best friend during development. Start with 10000 events and increase as needed.
 - When running postprocessing with many plots, use ``--parallel 4`` (or however many cores you have) to parallelize plot generation.
-- If your analysis produces many large histograms, consider using fewer bins or limiting the number of systematics during development.
+- If your analysis produces many large histograms, consider using fewer bins or limiting the number of systematics during development. If your histograms are huge then things will be much more brittle.
+
 
 
 Useful Resources
@@ -72,3 +74,16 @@ Useful Resources
 - `attrs documentation <https://www.attrs.org/>`_
 - `Jinja2 template documentation <https://jinja.palletsprojects.com/>`_
 - `CMS NanoAOD documentation <https://cms-nanoaod-integration.web.cern.ch/autoDoc/>`_
+- `HLT Info <https://cmshltinfo.app.cern.ch/>`_ -- Get list of available triggers for different years
+- `PPD Homepage <https://cms-info.web.cern.ch/coordination/physics-performance-datasets-ppd/>`_
+- `HLT Config <https://cmshltcfg.app.cern.ch/>`_ -- See how different triggers are defined in code
+- `CMSSW Source Search <https://cmssdt.cern.ch/lxr/>`_ -- Explore the CMSSW code base
+- `FNAL LPC Monitoring <https://landscape.fnal.gov/monitor/d/c9450043/lpc-batch-summary>`_ -- Dashboard for LPC Condor
+- `GRASP <https://cms-pdmv-prod.web.cern.ch/grasp>`_ -- Find MC Samples
+- `XSECDB <https://xsecdb-xsdb-official.app.cern.ch/>`_ -- Find cross sections of different processes
+- `DAS <https://cmsweb.cern.ch/das/>`_ -- Explore CMS datasets
+- `Site Status <https://cmssst.web.cern.ch/siteStatus/summary.html>`_ -- See status of different sites on the grid
+- `CMSOnline <https://cmsonline.cern.ch/webcenter/portal/cmsonline>`_ -- As close to the control room as you can get without being there
+- `OMS <https://cmsoms.cern.ch/>`_ -- Information about runs
+- `CAT <https://cms-analysis.docs.cern.ch/>`_ -- Information about analysis tools
+- `New iCMS <https://icms.cern.ch/tools/>`_ -- Updated interface for queries about CMS analyses and other information

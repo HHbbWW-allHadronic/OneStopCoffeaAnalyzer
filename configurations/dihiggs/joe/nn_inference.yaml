@@ -300,12 +300,12 @@ event_collections:
   - dataset: 'ggHH2b2V6q_2024*'
     pipelines: 
       - withHLT_ObjDef1
-  - dataset: 'qcd*2024*'
+  - dataset: 'qcd_inclusive_2024*'
     pipelines:
       - withHLT_ObjDef1
-  - dataset: 'tt_hadronic*2024*'
+  - dataset: 'tt_hadronic_2024*'
     pipelines:
       - withHLT_ObjDef1
-  - dataset: 'tt_semilep*2024'
+  - dataset: 'tt_semileptonic_2024*'
     pipelines:
       - withHLT_ObjDef1

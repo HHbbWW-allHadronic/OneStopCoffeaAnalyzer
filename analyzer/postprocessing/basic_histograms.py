@@ -11,8 +11,15 @@ from analyzer.utils.structure_tools import (
     dotFormat,
 )
 from .processors import BasePostprocessor
-from .plots.plots_1d import plotOne, plotRatio, plotRatioOfRatios, plotModel
-from .plots.plots_2d import plot2D
+from .plots.plots_1d import (
+    plotOne,
+    plotRatio,
+    plotRatioOfRatios,
+    plotModel,
+    plotEfficiency,
+    plotCDF,
+)
+from .plots.plots_2d import plot2D, plotRatio2D
 from attrs import define, field
 
 ResultSet = list[list[ItemWithMeta]]
@@ -90,6 +97,46 @@ class RatioPlot(BasePostprocessor):
             ratio_height=self.ratio_height,
             no_stack=self.no_stack,
             show_den_unc=self.show_den_unc,
+            plot_configuration=pc,
+        )
+
+
+@define
+class EfficiencyPlot(BasePostprocessor):
+    output_name: str
+    scale: Literal["log", "linear"] = "linear"
+    normalize: bool = False
+    ratio_ylim: tuple[float, float] = (0, 1.05)  # Set default efficiency axis range
+    ratio_hlines: list[float] = field(
+        factory=lambda: []
+    )  # No dashed line at 1.0 by default
+    ratio_height: float = 0.5
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "efficiency"
+    )
+    no_stack: bool = False
+
+    def getRunFuncs(self, group, prefix=None):
+        numerator = group["numerator"]
+        denominator = group["denominator"]
+        common_meta = commonDict(it.chain(numerator, denominator))
+        output_path = dotFormat(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
+        pc = self.plot_configuration.makeFormatted(common_meta)
+        yield ft.partial(
+            plotEfficiency,
+            denominator,
+            numerator,
+            output_path,
+            self.style_set,
+            normalize=self.normalize,
+            ratio_ylim=self.ratio_ylim,
+            ratio_type=self.ratio_type,
+            scale=self.scale,
+            ratio_hlines=self.ratio_hlines,
+            ratio_height=self.ratio_height,
+            no_stack=self.no_stack,
             plot_configuration=pc,
         )
 
@@ -253,5 +300,134 @@ class ModelPlot(BasePostprocessor):
             scale=self.scale,
             ratio_hlines=self.ratio_hlines,
             ratio_height=self.ratio_height,
+            plot_configuration=pc,
+        )
+
+
+@define
+class RatioPlot2D(BasePostprocessor):
+    output_name: str
+    scale: Literal["log", "linear"] = "linear"
+    normalize: bool = False
+    ratio_type: Literal["poisson", "poisson-ratio", "efficiency", "significance"] = (
+        "poisson"
+    )
+    z_range: tuple[float, float] | None = None
+    center: float | str | None = "auto"
+    cmap: str | None = None
+    cbar_title: str | None = None
+    mask_zeros: bool = False
+    vline: float | None = None
+    hline: float | None = None
+
+    def getRunFuncs(self, group, prefix=None):
+        numerators = group["numerator"]
+        denominator = group["denominator"]
+        if not denominator:
+            raise RuntimeError("Expected at least 1 denominator histogram")
+
+        # One figure per numerator
+        for num in numerators:
+            common_meta = commonDict(it.chain([num], denominator))
+            output_path = dotFormat(
+                self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+            )
+            pc = self.plot_configuration.makeFormatted(common_meta)
+            yield ft.partial(
+                plotRatio2D,
+                denominator,
+                [num],
+                common_meta,
+                output_path,
+                style_set=self.style_set,
+                ratio_type=self.ratio_type,
+                normalize=self.normalize,
+                plot_configuration=pc,
+                color_scale=self.scale,
+                z_range=self.z_range,
+                center=self.center,
+                cmap=self.cmap,
+                cbar_title=self.cbar_title,
+                mask_zeros=self.mask_zeros,
+                vline=self.vline,
+                hline=self.hline,
+            )
+
+
+@define
+class CDFPlot(BasePostprocessor):
+    """Cumulative distribution of a 1D histogram.
+
+    ``direction="below"`` gives the fraction a cut at x would remove (i.e. the
+    generation skipped); ``"above"`` gives the fraction that survives.
+
+    Example::
+
+        CDFPlot(
+            output_name="cdf_{histogram_name}",
+            cut_markers=[50, 100, 150, 200, 250, 300],
+            dump_table=True,
+        )
+    """
+
+    output_name: str
+    style_set: str | StyleSet = field(factory=StyleSet)
+
+    direction: Literal["below", "above"] = "below"
+    draw: Literal["markers", "steps"] = "markers"
+    scale: Literal["log", "linear"] = "linear"
+    include_flow: bool = True
+    as_percent: bool = False
+    show_unc: bool = False
+
+    cut_markers: list[float] = field(factory=list)
+    annotate_cuts: bool = True
+    hlines: list[float] = field(factory=list)
+    ylim: tuple[float, float] | None = None
+
+    show_yields: bool = False
+    dump_table: bool = False
+
+    def getRunFuncs(self, group, prefix=None):
+        if isinstance(group, dict):
+            items = list(
+                it.chain(
+                    group.get("unstacked") or [],
+                    group.get("stacked") or [],
+                    group.get("numerator") or [],
+                    group.get("denominator") or [],
+                )
+            )
+        else:
+            items = list(group)
+
+        items = [i for i in items if i is not None]
+        if not items:
+            return
+
+        common_meta = commonDict(items)
+        output_path = dotFormat(
+            self.output_name, prefix=prefix, **dict(dictToDot(common_meta))
+        )
+        pc = self.plot_configuration.makeFormatted(common_meta)
+
+        yield ft.partial(
+            plotCDF,
+            items,
+            common_meta,
+            output_path,
+            self.style_set,
+            direction=self.direction,
+            draw=self.draw,
+            include_flow=self.include_flow,
+            as_percent=self.as_percent,
+            scale=self.scale,
+            show_unc=self.show_unc,
+            cut_markers=tuple(self.cut_markers),
+            annotate_cuts=self.annotate_cuts,
+            hlines=tuple(self.hlines),
+            ylim=self.ylim,
+            show_yields=self.show_yields,
+            dump_table=self.dump_table,
             plot_configuration=pc,
         )

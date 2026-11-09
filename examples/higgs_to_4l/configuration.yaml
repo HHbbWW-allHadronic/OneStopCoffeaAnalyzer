@@ -155,8 +155,8 @@ event_collections:
     pipelines: [FourElectron]
 
 extra_dataset_paths: 
-  - analyzer_resources/examples/higgs_to_4l/datasets.yaml
+  - examples/higgs_to_4l/datasets.yaml
 extra_era_paths: 
-  - analyzer_resources/examples/higgs_to_4l/era.yaml
+  - examples/higgs_to_4l/era.yaml
 extra_module_paths: 
-  - analyzer_resources/examples/higgs_to_4l/higgs_to_4l.py
+  - examples/higgs_to_4l/higgs_to_4l.py

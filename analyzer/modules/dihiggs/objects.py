@@ -308,6 +308,9 @@ class HJetFilter(AnalyzerModule):
 @define
 class TieredPtJetFilter(AnalyzerModule):
     """
+    Note: This is equivalent to just doing two HJetFilter modules with
+    appropriate selections.
+
     Produces a new jet collection (output_col) from an existing one
     (input_col) using a tiered pt selection: among jets in input_col, the
     n_hard_jets highest-pt jets must individually clear hard_pt_cut; any
@@ -354,7 +357,9 @@ class TieredPtJetFilter(AnalyzerModule):
         n_hard_in_event = ak.sum(sorted_jets.pt > self.hard_pt_cut, axis=1)
         has_enough_hard = n_hard_in_event >= self.n_hard_jets
 
-        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (has_enough_hard & (rank >= self.n_hard_jets))
+        passes_tier = (sorted_jets.pt > self.hard_pt_cut) | (
+            has_enough_hard & (rank >= self.n_hard_jets)
+        )
 
         columns[self.output_col] = sorted_jets[passes_tier]
         return columns, []
@@ -454,10 +459,7 @@ class JetCombos(AnalyzerModule):
                     combined_msk = combined_msk | msk
 
             combined_col = ak.concatenate(sum_cols, axis=1)
-            try:
-                summed = combined_col.sum()
-            except AttributeError:
-                summed = ak.sum(combined_col, axis=1)
+            summed = combined_col.sum()
             summed = ak.mask(summed, ~combined_msk)
             columns[self.output_cols[i]] = ak.with_name(
                 ak.zip(
@@ -478,11 +480,19 @@ class JetCombos(AnalyzerModule):
     def inputs(self, metadata):
         return self.input_cols + self.order_by
 
+
 @define
 class AbsoluteValue(AnalyzerModule):
     """
     This simple module takes the absolute value of a specified input column and
     stores the result in a new output column.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input values to be processed.
+    output_col : Column
+        Column where the absolute values will be stored.
     """
 
     input_col: Column
@@ -497,3 +507,38 @@ class AbsoluteValue(AnalyzerModule):
 
     def outputs(self, metadata):
         return [self.output_col]
+
+
+@define
+class PromoteAttributeToBracket(AnalyzerModule):
+    """
+    Promotes an attribute of a column to a new column using bracket notation.
+
+    Parameters
+    ----------
+    input_col : Column
+        Column containing the input values to be processed.
+    attribute_name : str
+        Name of the attribute to be promoted to a new column.
+    nest_col : Column
+        Nested column where the promoted attribute values will be stored. e.g.
+        if input_col is "jets" and attribute_name is "pt", then output_col could be "new_pt",
+        and values will be stored as jets["new_pt"]. Importantly, changes to the promoted
+        attribute will not be reflected in the original column, and vice versa.
+    """
+
+    input_col: Column
+    attribute_name: str
+    nest_col: Column
+
+    def run(self, columns, params):
+        columns[self.input_col + self.nest_col] = getattr(
+            columns[self.input_col], self.attribute_name
+        )
+        return columns, []
+
+    def inputs(self, metadata):
+        return [self.input_col]
+
+    def outputs(self, metadata):
+        return [self.input_col + self.nest_col]

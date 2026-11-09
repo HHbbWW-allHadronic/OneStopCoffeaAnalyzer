@@ -401,6 +401,30 @@ class JetFilter(AnalyzerModule):
     include_pu_id: bool = False
     include_jet_id: bool = False
 
+    def lint(self):
+        from analyzer.core.linting import LintLevel, LintMessage
+        
+        messages = []
+        if self.min_pt is not None and self.min_pt < 15:
+            messages.append(
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="JetKinematics",
+                    message=f"Unusually low jet pt cut: {self.min_pt} GeV.",
+                    module_name=self.name()
+                )
+            )
+        if self.max_abs_eta is not None and self.max_abs_eta > 5.0:
+            messages.append(
+                LintMessage(
+                    level=LintLevel.WARNING,
+                    category="JetKinematics",
+                    message=f"Unusually high jet eta cut: {self.max_abs_eta}.",
+                    module_name=self.name()
+                )
+            )
+        return messages
+
     def run(self, columns, params):
         metadata = columns.metadata
         jets = columns[self.input_col]
@@ -965,3 +989,46 @@ class PileupJetIdSF(AnalyzerModule):
 
     def outputs(self, metadata):
         return [Column(("Weights", self.weight_name))]
+
+
+@define
+class JetIndexPass2D(AnalyzerModule):
+    """2D histogram of Jet Rank/Index vs Pass/Fail Flag."""
+
+    mask_input: Column
+    prefix: str
+    max_rank: int = 10
+
+    def run(self, columns, params):
+        mask = columns[self.mask_input]
+        
+        
+        rank = ak.local_index(mask, axis=1)
+
+        hist = makeHistogram(
+            f"{self.prefix}C_by_rank",
+            columns,
+            [
+                RegularAxis(
+                    self.max_rank,
+                    0,
+                    self.max_rank,
+                    r"Jet Rank",
+                ),
+                RegularAxis(
+                    2,
+                    -0.5,
+                    1.5,
+                    r"Pass Flag",
+                ),
+            ],
+            [rank, mask],  
+        )
+
+        return columns, [hist]
+
+    def inputs(self, metadata):
+        return [self.mask_input]
+
+    def outputs(self, metadata):
+        return []

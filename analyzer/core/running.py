@@ -204,6 +204,7 @@ def patchFromPath(
     logger.info(f'Running analysis from path "{path}" with executor {executor_name}')
     output = Path(output)
     analysis = loadAnalysis(path)
+    logger.info(f'{analysis}')
     dataset_repo, era_repo = getRepos(
         analysis.extra_dataset_paths, analysis.extra_era_paths
     )

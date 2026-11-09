@@ -1,0 +1,106 @@
+.postprocess-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1.5rem;
+    margin: 1.5rem 0 2rem;
+}
+
+.postprocess-card {
+    border: 1px solid var(--sd-color-card-border, #e0e0e0);
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    background: var(--sd-color-card-background, #fafafa);
+    color: var(--sd-color-card-text, inherit);
+}
+
+.postprocess-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px var(--sd-color-shadow, rgba(0, 0, 0, 0.12));
+    border-color: var(--sd-color-card-border-hover, #007bff);
+}
+
+.postprocess-card .postprocess-card-image {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+    border-bottom: 1px solid var(--sd-color-card-border, #e0e0e0);
+}
+
+.postprocess-card-title-text {
+    padding: 0.6rem 0.75rem;
+    margin: 0;
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-align: center;
+}
+
+.postprocess-card-title-text a {
+    text-decoration: none;
+    color: var(--sd-color-card-text, #333);
+}
+
+.postprocess-card-title-text a:hover {
+    color: var(--color-brand-primary, #2962ff);
+}
+
+.postprocess-category-heading {
+    font-size: 1.25rem;
+    margin-top: 2rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--color-brand-primary, #2962ff);
+}
+
+
+.postprocess-image-grid {
+    display: grid;
+    gap: 1.25rem;
+    margin: 1.5rem 0;
+}
+
+.postprocess-cols-1 {
+    grid-template-columns: 1fr;
+}
+
+.postprocess-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.postprocess-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+@media (max-width: 700px) {
+
+    .postprocess-cols-2,
+    .postprocess-cols-3 {
+        grid-template-columns: 1fr;
+    }
+}
+
+.postprocess-plot {
+    margin: 0 !important;
+}
+
+.postprocess-plot img {
+    width: 100%;
+    border: 1px solid var(--color-background-border, #e0e0e0);
+    border-radius: 0.375rem;
+}
+
+.postprocess-plot figcaption {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--color-foreground-muted, #666);
+    margin-top: 0.35rem;
+}
+
+.postprocess-example {
+    margin: 1rem 0 2.5rem;
+}
+
+.postprocess-grid-caption {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}

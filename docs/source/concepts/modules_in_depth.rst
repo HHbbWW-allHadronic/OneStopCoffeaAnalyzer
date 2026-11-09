@@ -1,8 +1,9 @@
 Modules in Depth
 ================
 
-In this framework, modules are the fundamental building blocks of an analysis.
+In OSCA, modules are the fundamental building blocks of an analysis.
 Each module should implement a single, well-defined operation.
+Each module declares its dependent columns and its outputs.
 Understanding the module system is essential for both using existing modules and writing your own.
 
 It is highly recommended to take a look at :doc:`the built-in modules <../user_guide/builtin_modules>`.
@@ -37,6 +38,7 @@ This is what you will use for the vast majority of analysis logic: filtering obj
             columns["GoodJet"] = good_jets
             return columns, []
 
+
 ``EventSourceModule``
 ^^^^^^^^^^^^^^^^^^^^^
 
@@ -44,12 +46,14 @@ A specialized module that produces events rather than consuming them.
 The implicit :class:`~analyzer.modules.common.load_events.LoadColumns` module is the primary example -- it loads a chunk of NanoAOD data from disk and creates the initial :class:`~analyzer.core.columns.TrackedColumns`.
 
 You would only write an :class:`~analyzer.core.analysis_modules.EventSourceModule` if you needed to load events from a non-standard source.
+A normal user will not need to interact with this system.
+
 
 ``PureResultModule``
 ^^^^^^^^^^^^^^^^^^^^
 
-A module that receives *multiple* event collections (one per systematic variation) and produces results that aggregate across them.
-The :class:`~analyzer.modules.common.histogram_builder.HistogramBuilder` is the primary example -- it receives event collections for central, up, and down variations and fills a single histogram with a ``variation`` axis.
+A module that receives *multiple* event collections (one per dynamic parameter set) and produces results that aggregate across them.
+The :class:`~analyzer.modules.common.histogram_builder.HistogramBuilder` is the primary example -- it receives event collections for different variations and fills a single histogram with a ``variation`` axis.
 
 You generally do not create :class:`~analyzer.core.analysis_modules.PureResultModule` subclasses directly.
 Instead, you use the :func:`~analyzer.modules.common.histogram_builder.makeHistogram` helper function from within a standard :class:`~analyzer.core.analysis_modules.AnalyzerModule`, which takes care of creating the :class:`~analyzer.core.analysis_modules.PureResultModule` and the associated :class:`~analyzer.core.analysis_modules.ModuleAddition` for you.
@@ -83,7 +87,7 @@ The :meth:`~analyzer.core.analysis_modules.AnalyzerModule.run` method is where y
 - Accept ``columns`` (a :class:`~analyzer.core.columns.TrackedColumns`) and ``params`` (a dictionary of dynamic parameter values).
 - Return a tuple of ``(columns, results)`` where:
 
-  - ``columns`` is the (potentially modified) :class:`~analyzer.core.columns.TrackedColumns`.
+  - ``columns`` is the (potentially modified) :class:`~analyzer.core.columns.TrackedColumns`. If columns are modified they must be declared as outputs.
   - ``results`` is a list of :class:`~analyzer.core.results.ResultBase` objects and/or :class:`~analyzer.core.analysis_modules.ModuleAddition` objects.
 
 .. code-block:: python
@@ -194,4 +198,4 @@ These fields become the YAML configuration parameters.
 When the framework loads a configuration, it uses ``cattrs`` to deserialize the YAML dictionaries into these ``attrs`` classes.
 The ``module_name`` field in the YAML identifies which class to instantiate via a tagged union system.
 
-As is standard in python, fields with default values are optional in the YAML configuration, and fields without defaults are required.
+Fields with default values are optional in the YAML configuration, and fields without defaults are required.

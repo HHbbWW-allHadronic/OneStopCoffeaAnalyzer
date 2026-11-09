@@ -66,6 +66,35 @@ def run(
 
 
 @cli.command()
+@click.argument(
+    "config-path", type=click.Path(exists=True, file_okay=True, dir_okay=False)
+)
+def lint(config_path):
+    from analyzer.core.analysis import loadAnalysis
+    from analyzer.core.linting import runLint, LintLevel
+    from rich import print
+    import sys
+
+    analysis = loadAnalysis(config_path)
+    lint_msgs = runLint(analysis)
+
+    if not lint_msgs:
+        print("[bold green]Linting passed! No errors or warnings found.[/bold green]")
+        return
+
+    print("[bold yellow]Linter Warnings/Errors found:[/bold yellow]")
+    for msg in lint_msgs:
+        color = "red" if msg.level == LintLevel.ERROR else "yellow"
+        print(f"[{color}]{msg}[/{color}]")
+
+    if any(msg.level == LintLevel.ERROR for msg in lint_msgs):
+        print(
+            "[bold red]Analysis configuration failed linting checks with ERRORs.[/bold red]"
+        )
+        sys.exit(1)
+
+
+@cli.command()
 @click.argument("input", type=click.Path(exists=True, file_okay=True, dir_okay=False))
 def glancelz4(input):
     import lz4.frame

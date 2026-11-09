@@ -1,0 +1,71 @@
+\documentclass{standalone}
+\usepackage{tikz}
+\usepackage{graphicx}
+
+\usepackage[dvipsnames]{xcolor}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{fadings}
+\tikzfading[name=fade out,
+inner color=transparent!0, outer color=transparent!100]
+
+
+
+\begin{document}
+
+\begin{tikzpicture}
+  \node[regular polygon, regular polygon sides=8, minimum size=5cm, 
+  draw=white, fill=BrickRed, line width=2pt, inner sep=0.1cm] (stop) {};
+  
+  \node[regular polygon, regular polygon sides=8, minimum size=4.4cm, 
+  draw=white, line width=2pt] (stop-border) {};
+  
+  % From https://texample.net/coffee-cup/
+  \def\c{white}
+  \colorlet{cup}{\c}
+
+  \tikzset{yshift=0.5cm}
+  \begin{scope}[shift={(0,-1-1/16)}]
+    \fill [black!87.5, path fading=fade out] 
+    (0,-2/8) ellipse [x radius=6/4, y radius=3/4];
+    \fill [cup, postaction={left color=black, right color=white, opacity=1/3}] 
+    (0,0) ++(180:5/4) arc (180:360:5/4 and 5/8+1/16);
+    \fill [cup, postaction={left color=black!50, right color=white, opacity=1/3}] 
+    (0,0) ellipse [x radius=5/4, y radius=5/8];
+    \fill [cup, postaction={left color=white, right color=black, opacity=1/3}]
+    (0,1/16) ellipse [x radius=5/4/2, y radius=5/8/2];
+    \fill [cup, postaction={left color=black, right color=white, opacity=1/3}] 
+    (0,0) ellipse [x radius=5/4/2-1/16, y radius=5/8/2-1/16];
+  \end{scope} 
+
+  % Handle
+  \begin{scope}[shift=(10:7/8), rotate=-30, yslant=1/2, xslant=-1/8]
+    \fill [cup, postaction={top color=black, bottom color=white, opacity=1/3}] 
+    (0,0) arc (130:-100:3/8 and 1/2) -- ++(0,1/4) arc (-100:130:1/8 and 1/4)
+    -- cycle;
+    \fill [cup, postaction={top color=white, bottom color=black, opacity=1/3}] 
+    (0,0) arc (130:-100:3/8 and 1/2) -- ++(0,1/32) arc (-100:130:1/4 and 1/3)
+    -- cycle;
+  \end{scope}
+
+  \fill [cup!25!black, path fading=fade out] 
+  (0,-1-1/16) ellipse [x radius=3/4, y radius=1/3];
+  \fill [cup, postaction={left color=black, right color=white, opacity=1/3/2},
+  postaction={bottom color=black, top color=white, opacity=1/3/2}] 
+  (-1,0) arc (180:360:1 and 5/4);
+  \fill [cup, postaction={left color=white, right color=black, opacity=1/3}] 
+  (0,0) ellipse [x radius=1, y radius=1/2];
+  \fill [cup, postaction={left color=black, right color=white, opacity=1/3/2},
+  postaction={bottom color=black, top color=white, opacity=1/3/2}] 
+  (0,0) ellipse [x radius=1-1/16, y radius=1/2-1/16];
+
+  \begin{scope}
+    \clip ellipse [x radius=1-1/16, y radius=1/2-1/16];
+    \fill [brown!25!black] 
+    (0,-1/4) ellipse [x radius=3/4, y radius=3/8];
+    \fill [brown!50!black, path fading=fade out] 
+    (0,-1/4) ellipse [x radius=3/4, y radius=3/8];
+    \node at (0.02,-0.15cm) {\includegraphics[width=1.66cm]{coffea_perspective}};
+  \end{scope}
+  
+\end{tikzpicture}
+\end{document}

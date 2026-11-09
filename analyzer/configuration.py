@@ -48,6 +48,8 @@ class Config:
     execution: ExecutionConfig
     datasets: DatasetConfig
     post: PostConfig
+    analysis_var: str = "ANALYSIS"
+    post_var: str = "POSTPROCESSING"
 
 
 CONFIG = Config(
