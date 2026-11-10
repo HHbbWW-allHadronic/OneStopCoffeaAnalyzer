@@ -16,9 +16,9 @@ Let's examine how a single chunk of events is processed:
 * The first module in the pipeline is always a :class:`~analyzer.modules.common.load_columns.LoadColumns` module.
   It is added implicitly by the framework to any user-specified pipeline; the user does not need to add it.
   It has dynamic parameters ``chunk`` and ``metadata``.
-  Unlike other modules, it has no event input.
+  Of course, it has no event input.
   When it runs, it loads the requested chunk and creates a :class:`~analyzer.core.columns.TrackedColumns` object.
-* Each of the selections runs. In the backend, each selection adds a column to events which is the boolean mask of the requested selection.
+* Each of the selections runs. In the backend, each selection adds a column to events which is the boolean mask of the requested selection. Note that no actual slicing of the array has been performed yet.
 * :class:`~analyzer.modules.common.selection.SelectOnColumns` runs, which actually filters the events.
 * ``JetCorrection`` (using :class:`~analyzer.modules.common.jets.JetScaleCorrections`) runs using the default systematic ``"central"``.
 * :class:`~analyzer.modules.common.jets.JetFilter` runs, changing the shape of jets.
@@ -31,9 +31,10 @@ Let's examine how a single chunk of events is processed:
   * The dynamic parameter ``systematic`` of ``JetCorrection`` (corresponding to :class:`~analyzer.modules.common.jets.JetScaleCorrections`) changes to :math:`S`, so the correction module is re-run.
   * :class:`~analyzer.modules.common.jets.JetFilter` is re-run, since it depends on the column Jet, which was changed.
   * :class:`~analyzer.modules.common.event_level_corrections.PileupSF` uses the cached result, since it does not depend on Jet.
-  * ``JetPtHistogram`` re-runs and produces another :class:`~analyzer.core.analysis_modules.ModuleAddition`, which is ignored.
+  * ``JetPtHistogram`` re-runs and produces another :class:`~analyzer.core.analysis_modules.ModuleAddition`, which is ignored (results are ignored within a nulti-run).
   * The three sets of events corresponding to the ``up``, ``down``, and ``central`` systematics are passed to the :class:`~analyzer.modules.common.histogram_builder.HistogramBuilder` module, which returns a single :class:`~analyzer.core.results.Histogram` containing an axis called ``"systematic"``, and any number of other data axes.
   * This ends the multi-run.
+
 * The results are returned.
     
 

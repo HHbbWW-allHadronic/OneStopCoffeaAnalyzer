@@ -8,15 +8,22 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import mplhep
 from analyzer.postprocessing.style import Styler
+import csv
+from pathlib import Path
 
 # from ..grouping import doFormatting
 from .annotations import labelAxis
 from .common import PlotConfiguration
-from .utils import saveFig, saveFigVariants, scaleYAxis, addLegend
+from .utils import saveFig, saveFigVariants, addLegend
+import warnings
+
+warnings.filterwarnings("ignore", message="Data has no positive values.*")
+
 
 def hist_sum(h):
     s = h.sum()
-    return s.value if hasattr(s, 'value') else s
+    return s.value if hasattr(s, "value") else s
+
 
 def get_yerr(h):
     vals = h.values()
@@ -29,6 +36,7 @@ def get_yerr(h):
     yerr[zero_mask] = 0
     return yerr
 
+
 def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
     import hist.intervals as hinter
 
@@ -38,6 +46,7 @@ def getRatioAndUnc(num, den, uncertainty_type="poisson-ratio"):
             num=num, denom=den, uncertainty_type=uncertainty_type
         )
     return ratios, unc
+
 
 def getYMin(histograms, stacked_hists):
     all_values = []
@@ -51,6 +60,7 @@ def getYMin(histograms, stacked_hists):
     if len(nonzero) == 0:
         return None
     return nonzero.min()
+
 
 def plotOne(
     histograms,
@@ -70,9 +80,7 @@ def plotOne(
     fig, ax = plt.subplots()
     h = None
     if stacked_hists:
-        stacked_hists = sorted(
-            stacked_hists, key=lambda x: hist_sum(x.item.histogram)
-        )
+        stacked_hists = sorted(stacked_hists, key=lambda x: hist_sum(x.item.histogram))
         style_kwargs = defaultdict(list)
         hists = []
         titles = []
@@ -84,7 +92,7 @@ def plotOne(
                 counts = item.histogram.values()
                 centers = item.histogram.axes[0].centers
                 mean = np.average(centers, weights=counts)
-                std = np.sqrt(np.average((centers - mean)**2, weights=counts))
+                std = np.sqrt(np.average((centers - mean) ** 2, weights=counts))
                 title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
             titles.append(title)
             style = styler.getStyle(meta)
@@ -96,6 +104,7 @@ def plotOne(
         mplhep.histplot(
             hists,
             ax=ax,
+            density=normalize,
             stack=True,
             **style_kwargs,
             label=titles,  # sort="yield"
@@ -103,13 +112,14 @@ def plotOne(
         if show_stacked_unc:
             stacked_total = ft.reduce(op.add, [x.item.histogram for x in stacked_hists])
             yerr = get_yerr(stacked_total)
-            
+
             mplhep.histplot(
                 stacked_total,
                 ax=ax,
+                density=normalize,
                 label="Stacked Unc.",
                 histtype="band",
-                yerr=yerr
+                yerr=yerr,
             )
 
     for item, meta in histograms:
@@ -120,7 +130,7 @@ def plotOne(
             counts = h.values()
             centers = h.axes[0].centers
             mean = np.average(centers, weights=counts)
-            std = np.sqrt(np.average((centers - mean)**2, weights=counts))
+            std = np.sqrt(np.average((centers - mean) ** 2, weights=counts))
             title = f"{title}, Int.={integral:.1f}\nmean={mean:.3f}, std={std:.3f}"
         style = styler.getStyle(meta)
         yerr = get_yerr(h) if style.yerr else style.yerr
@@ -133,7 +143,7 @@ def plotOne(
         )
 
     if h is None:
-        h = stacked_hists[0]
+        h = stacked_hists[0].item.histogram
 
     labelAxis(ax, "y", h.axes, label=pc.y_label)
     labelAxis(ax, "x", h.axes, label=pc.x_label)
@@ -148,10 +158,15 @@ def plotOne(
             ax.set_ylim(bottom=ymin * 0.1)
     addLegend(ax, pc)
 
-    scaleYAxis(ax)
     # mplhep.yscale_anchored_text(ax, soft_fail=True)
-    if style.y_min:
-        ax.set_ylim(bottom=style.y_min)
+    if style.y_min or pc.y_min:
+        ax.set_ylim(bottom=style.y_min or pc.y_min)
+    if pc.y_max:
+        ax.set_ylim(top=pc.y_max)
+    if pc.x_min:
+        ax.set_xlim(left=pc.x_min)
+    if pc.x_max:
+        ax.set_xlim(right=pc.x_max)
 
     saveFigVariants(
         fig,
@@ -160,7 +175,8 @@ def plotOne(
         all_meta,
         plot_configuration=pc,
         metadata=common_metadata,
-        extra_text=f"{common_metadata.get('pipeline', '')}",
+        extra_text=f"{common_metadata['pipeline']}",
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -197,8 +213,8 @@ def plotDictAsBars(
         flow = getter(item)
         style = styler.getStyle(meta)
         h = makeStrHist([(x, y) for x, y in flow.items()], ax_name=ax_name)
-        if normalize: 
-            h *= (1 / h[0].value)
+        if normalize:
+            h *= 1 / h[0].value
         if show_yields and normalize:
             values = h.values()
             errs = np.sqrt(h.variances())
@@ -208,11 +224,7 @@ def plotDictAsBars(
             for x, y, e in zip(centers, values, errs):
                 if y > 0:
                     txt = ax.text(
-                        x, y+e,
-                        f"{100*y:.1f}%",
-                        ha="center",
-                        va="bottom",
-                        fontsize=20
+                        x, y + e, f"{100*y:.1f}%", ha="center", va="bottom", fontsize=20
                     )
                     txt._is_yield_label = True
         h.plot1d(
@@ -228,7 +240,6 @@ def plotDictAsBars(
     ax.set_yscale(scale)
     addLegend(ax, pc)
     mplhep.sort_legend(ax=ax)
-    scaleYAxis(ax)
     saveFigVariants(
         fig,
         ax,
@@ -236,6 +247,7 @@ def plotDictAsBars(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -261,7 +273,7 @@ def computeRatio(n, d, normalize=False, ratio_type="poisson"):
 def computeSignificance(n, d, normalize=False, ratio_type="poisson"):
     with np.errstate(divide="ignore", invalid="ignore"):
         significance = n / np.sqrt(d)
-    
+
     return significance, None
 
 
@@ -273,13 +285,14 @@ def plotRatioErrorBars(ratio_ax, x_values, ratio, unc, style):
     ratio_ax.errorbar(x_values, ratio, yerr=unc, **opts)
 
 
-def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_unc=True):
+def plotStackedDenominators(
+    ax, denominators, styler, normalize=False, show_den_unc=True
+):
     den_to_plot = sorted(denominators, key=lambda x: hist_sum(x.item.histogram))
-    
+
     hists = []
     titles = []
     style_kwargs = defaultdict(list)
-
 
     for item, meta in den_to_plot:
         hists.append(item.histogram)
@@ -298,16 +311,12 @@ def plotStackedDenominators(ax, denominators, styler, normalize=False, show_den_
         label=titles,
         **style_kwargs,
     )
-    
+
     den_total = ft.reduce(op.add, (x.item.histogram for x in denominators))
     if show_den_unc:
         yerr = get_yerr(den_total)
         mplhep.histplot(
-            den_total,
-            ax=ax,
-            label="Den. Stat. Unc.",
-            histtype="band",
-            yerr=yerr
+            den_total, ax=ax, label="Den. Stat. Unc.", histtype="band", yerr=yerr
         )
     return den_total
 
@@ -441,7 +450,7 @@ def plotRatio(
     ratio_hlines=(1.0,),
     ratio_height=0.3,
     show_den_unc=True,
-    show_den_unc_ratio=False
+    show_den_unc_ratio=False,
 ):
     pc = plot_configuration or PlotConfiguration()
     styler = Styler(style_set)
@@ -475,11 +484,7 @@ def plotRatio(
         )
     else:
         den_total = plotStackedDenominators(
-            ax,
-            denominator,
-            styler,
-            normalize=normalize,
-            show_den_unc=show_den_unc
+            ax, denominator, styler, normalize=normalize, show_den_unc=show_den_unc
         )
         plotMultiNumerators(
             ax,
@@ -491,7 +496,7 @@ def plotRatio(
             ratio_type=ratio_type,
             x_values=x_values,
             ratio_func=ratio_func,
-            show_den_unc_ratio=show_den_unc_ratio
+            show_den_unc_ratio=show_den_unc_ratio,
         )
 
     for y in ratio_hlines:
@@ -525,8 +530,6 @@ def plotRatio(
         if ymin is not None:
             ax.set_ylim(bottom=ymin * 0.1)
 
-    scaleYAxis(ax)
-
     common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
 
     saveFigVariants(
@@ -536,6 +539,7 @@ def plotRatio(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
 
@@ -782,7 +786,6 @@ def plotModel(
 
     all_meta = [data_meta, sig_meta] + [x.metadata for x in backgrounds]
     ax.set_yscale(scale)
-    scaleYAxis(ax)
 
     common_meta = commonDict(all_meta, key=lambda x: x)
 
@@ -793,5 +796,366 @@ def plotModel(
         all_meta,
         plot_configuration=pc,
         metadata=common_meta,
+        scale_yaxis=True,
     )
     plt.close(fig)
+
+
+def plotEfficiency(
+    denominator,
+    numerators,
+    output_path,
+    style_set,
+    normalize=False,
+    ratio_ylim=(0, 0.3),  # Desired max y-limit
+    ratio_type="efficiency",
+    scale="linear",
+    plot_configuration=None,
+    no_stack=False,
+    ratio_hlines=(),
+    ratio_height=0.3,
+    show_errorbars=False,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+
+    # 1. Create a dummy top axis (hidden) and ratio_ax for the main plot
+    fig, (ax_dummy, ratio_ax) = plt.subplots(
+        2, 1, figsize=(8, 6), gridspec_kw={"height_ratios": [0.001, 1]}
+    )
+    ax_dummy.set_visible(False)
+
+    den_hist0 = denominator[0].item.histogram
+    x_values = den_hist0.axes[0].centers
+    left_edge = den_hist0.axes.edges[0][0]
+    right_edge = den_hist0.axes.edges[-1][-1]
+
+    ratio_func = computeSignificance if ratio_type == "significance" else computeRatio
+
+    # 2. Map denominators by dataset_name so each sample is divided ONLY by itself
+    den_by_dataset = {}
+    for d in denominator:
+        if hasattr(d, "metadata") and "dataset_name" in d.metadata:
+            den_by_dataset[d.metadata["dataset_name"]] = d
+
+    # 3. Plot efficiency per dataset sample
+    for i, num in enumerate(numerators):
+        ds_name = num.metadata.get("dataset_name") if hasattr(num, "metadata") else None
+        den = den_by_dataset.get(
+            ds_name, denominator[i] if i < len(denominator) else None
+        )
+        if den is None:
+            continue
+
+        den_hist = (
+            den.item.histogram
+            if hasattr(den, "item") and hasattr(den.item, "histogram")
+            else den.item
+        )
+        # Temporary sanity print
+        num_vals = num.item.histogram.values()
+        den_vals = den_hist.values()
+        eff_vals = num_vals / den_vals
+
+        print(f"Dataset: {ds_name}")
+        print(f"Numerator (Pass)   : {num_vals}")
+        print(f"Denominator (Total): {den_vals}")
+        print(f"Calculated Ratio   : {eff_vals}")
+        plotMultiNumerators(
+            ax_dummy,
+            ratio_ax,
+            [num],
+            den_hist,
+            styler,
+            normalize=normalize,
+            ratio_type=ratio_type,
+            x_values=x_values,
+            ratio_func=ratio_func,
+        )
+
+    # 4. REMOVE the hatched band at y=1.0 drawn by plotMultiNumerators
+    for col in list(ratio_ax.collections):
+        if col.get_hatch():
+            col.remove()
+    for patch in list(ratio_ax.patches):
+        if patch.get_hatch():
+            patch.remove()
+
+    # 5. Remove error bar vertical lines and caps if desired
+    if not show_errorbars:
+        for container in ratio_ax.containers:
+            if hasattr(container, "lines") and len(container.lines) > 1:
+                for cap in container.lines[1]:
+                    cap.set_visible(False)
+                for bar in container.lines[2]:
+                    bar.set_visible(False)
+
+    # 6. Axes formatting & DISABLE AUTOSCALE so framework can't override limits
+    for y in ratio_hlines:
+        ratio_ax.axhline(y, color="black", linestyle="dashed", linewidth=1.0)
+
+    ratio_ax.set_xlim(left_edge, right_edge)
+
+    # Lock y-limits directly
+    ratio_ax.set_autoscale_on(False)
+    ratio_ax.set_ylim(ratio_ylim[0], ratio_ylim[1])
+
+    rylabel = "Significance" if ratio_type == "significance" else "c-Tag Efficiency"
+    ratio_ax.set_ylabel(rylabel)
+
+    labelAxis(ratio_ax, "x", den_hist0.axes)
+
+    # 7. Harvest legend handles & labels
+    handles_dummy, labels_dummy = ax_dummy.get_legend_handles_labels()
+    handles_ratio, labels_ratio = ratio_ax.get_legend_handles_labels()
+
+    all_handles = handles_dummy + handles_ratio
+    all_labels = labels_dummy + labels_ratio
+
+    by_label = {}
+    for h, l in zip(all_handles, all_labels):
+        if l and not l.startswith("_") and l not in by_label:
+            by_label[l] = h
+
+    if by_label:
+        ratio_ax.legend(
+            by_label.values(),
+            by_label.keys(),
+            loc="upper right",
+            frameon=False,
+        )
+    else:
+        addLegend(ratio_ax, pc)
+
+    # Re-enforce y-limits one last time before saving
+    ratio_ax.set_ylim(ratio_ylim[0], ratio_ylim[1])
+
+    # 8. Save figure
+    all_meta = [x.metadata for x in numerators] + [x.metadata for x in denominator]
+    common_meta = commonDict(numerators + denominator, key=lambda x: x.metadata)
+
+    saveFigVariants(
+        fig,
+        ratio_ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_meta,
+    )
+    plt.close(fig)
+
+
+_LINE_STYLE_KEYS = {
+    "color",
+    "linestyle",
+    "linewidth",
+    "alpha",
+    "marker",
+    "markersize",
+    "markerfacecolor",
+    "markeredgecolor",
+}
+
+
+def getLineKwargs(style):
+    """Pull Line2D-compatible kwargs out of a Style."""
+    try:
+        raw = style.get("errorbar", include_type=False)
+    except TypeError:
+        raw = style.get()
+    return {k: v for k, v in raw.items() if k in _LINE_STYLE_KEYS}
+
+
+def cumulativeFractions(h, direction="below", include_flow=True):
+    """Fraction of a 1D histogram lying below (or at/above) each bin edge.
+
+    Returns ``(edges, fractions, total)`` with ``fractions[i]`` the fraction at
+    ``edges[i]``.  ``direction="below"`` is the fraction a cut at that value
+    would remove; ``"above"`` is the fraction that survives it.
+    """
+    edges = np.asarray(h.axes[0].edges, dtype=float)
+    nbins = len(edges) - 1
+
+    try:
+        vals = np.asarray(h.values(flow=True), dtype=float)
+    except TypeError:
+        vals = np.asarray(h.values(), dtype=float)
+
+    if vals.size == nbins + 2:
+        under, over = float(vals[0]), float(vals[-1])
+        vals = vals[1:-1]
+    elif vals.size == nbins:
+        under = over = 0.0
+    else:
+        raise ValueError(
+            f"Unexpected value array of length {vals.size} for {nbins} bins"
+        )
+
+    if not include_flow:
+        under = over = 0.0
+
+    total = under + vals.sum() + over
+    if total <= 0:
+        return edges, np.zeros_like(edges), 0.0
+
+    below = np.concatenate(([under], under + np.cumsum(vals))) / total
+    if direction == "above":
+        return edges, 1.0 - below, total
+    return edges, below, total
+
+
+def cumulativeUncertainty(frac, total):
+    """Binomial (Wilson) interval on a cumulative fraction.
+
+    Returns a (2, N) array of asymmetric (lower, upper) errors, in the shape
+    matplotlib's ``yerr`` expects.
+    """
+    if total <= 0:
+        return np.zeros((2, len(frac)))
+    z = 1.0
+    p = np.clip(frac, 0.0, 1.0)
+    denom = 1.0 + z**2 / total
+    center = (p + z**2 / (2 * total)) / denom
+    half = (z / denom) * np.sqrt(p * (1 - p) / total + z**2 / (4 * total**2))
+    lo = np.clip(p - (center - half), 0.0, None)
+    hi = np.clip((center + half) - p, 0.0, None)
+    return np.stack([lo, hi])
+
+
+def plotCDF(
+    histograms,
+    common_metadata,
+    output_path,
+    style_set,
+    direction="below",
+    draw="markers",
+    include_flow=True,
+    as_percent=False,
+    scale="linear",
+    show_unc=False,
+    cut_markers=(),
+    annotate_cuts=True,
+    hlines=(),
+    ylim=None,
+    show_yields=False,
+    dump_table=False,
+    plot_configuration=None,
+):
+    pc = plot_configuration or PlotConfiguration()
+    styler = Styler(style_set)
+    fig, ax = plt.subplots()
+
+    sf = 100.0 if as_percent else 1.0
+    h = None
+    rows = []
+    cut_summary = []
+
+    for item, meta in histograms:
+        h = item.histogram
+        edges, frac, total = cumulativeFractions(
+            h, direction=direction, include_flow=include_flow
+        )
+        title = meta.get("title") or meta["dataset_title"]
+        if show_yields:
+            title = f"{title} (Int.={total:,.1f})"
+
+        style = styler.getStyle(meta)
+        kwargs = getLineKwargs(style)
+        kwargs.setdefault("marker", "o")
+        kwargs.setdefault("markersize", 3.5)
+
+        if draw == "steps":
+            kwargs.setdefault("linewidth", 1.0)
+            kwargs["drawstyle"] = "steps-post"
+        else:
+            kwargs["linestyle"] = "none"
+
+        if show_unc:
+            yerr = cumulativeUncertainty(frac, total) * sf
+            ax.errorbar(
+                edges,
+                frac * sf,
+                yerr=yerr,
+                label=title,
+                **{k: v for k, v in kwargs.items() if k != "drawstyle"},
+            )
+        else:
+            ax.plot(edges, frac * sf, label=title, **kwargs)
+
+        if dump_table:
+            for x, y in zip(edges, frac):
+                rows.append([title, x, y, y * total])
+
+        for cut in cut_markers:
+            y = float(np.interp(cut, edges, frac))
+            ax.plot(
+                [cut], [y * sf], marker="*", markersize=9, color=kwargs.get("color")
+            )
+            if annotate_cuts:
+                ax.annotate(
+                    f"{y * 100:.2f}%",
+                    xy=(cut, y * sf),
+                    xytext=(4, 4),
+                    textcoords="offset points",
+                    fontsize=8,
+                )
+            cut_summary.append((title, cut, y, y * total))
+
+    if h is None:
+        return
+
+    for cut in cut_markers:
+        ax.axvline(cut, color="grey", linestyle=":", linewidth=1.0, zorder=0)
+    for y in hlines:
+        ax.axhline(y * sf, color="black", linestyle="dashed", linewidth=1.0, zorder=0)
+
+    word = "below" if direction == "below" else "at or above"
+    default_ylabel = f"Fraction of events {word} cut"
+    if as_percent:
+        default_ylabel = f"Percent of events {word} cut [%]"
+
+    labelAxis(ax, "y", h.axes, label=pc.y_label or default_ylabel)
+    labelAxis(ax, "x", h.axes, label=pc.x_label)
+
+    ax.set_yscale(scale)
+    ax.grid(alpha=0.25, linestyle=":")
+
+    edges = h.axes[0].edges
+    ax.set_xlim(edges[0], edges[-1])
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+    elif scale == "linear":
+        ax.set_ylim(0, 1.05 * sf)
+
+    if pc.x_min:
+        ax.set_xlim(left=pc.x_min)
+    if pc.x_max:
+        ax.set_xlim(right=pc.x_max)
+    if pc.y_min:
+        ax.set_ylim(bottom=pc.y_min)
+    if pc.y_max:
+        ax.set_ylim(top=pc.y_max)
+
+    addLegend(ax, pc)
+
+    all_meta = [x.metadata for x in histograms]
+
+    saveFigVariants(
+        fig,
+        ax,
+        output_path,
+        all_meta,
+        plot_configuration=pc,
+        metadata=common_metadata,
+        extra_text=common_metadata.get("pipeline", None),
+        scale_yaxis=True,
+    )
+    plt.close(fig)
+
+    if dump_table and rows:
+        csv_path = Path(f"{output_path}.csv")
+        csv_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(csv_path, "w", newline="") as f:
+            w = csv.writer(f)
+            w.writerow(["label", "edge", "fraction", "events"])
+            w.writerows(rows)

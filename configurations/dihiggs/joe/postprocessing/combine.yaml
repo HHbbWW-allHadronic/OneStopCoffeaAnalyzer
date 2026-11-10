@@ -19,7 +19,7 @@ Postprocessing:
     - name: CombineDatacard
       channel: "m2d_3j_{era.name}_{pipeline}"
       inputs: 
-        - "*/*/*/*threejet_m2d"
+        - "*/*/*/dijet_threejet_m2d"
       structure:
         group: {pipeline: "*", era.name: "*"}
         subgroups: 
@@ -37,7 +37,7 @@ Postprocessing:
     - name: CombineDatacard
       channel: "m2d_4j_{era.name}_{pipeline}"
       inputs: 
-        - "*/*/*/*fourjet_m2d"
+        - "*/*/*/dijet_fourjet_m2d"
       structure:
         group: {pipeline: "re:^(?!.*(?:ObjDef5|ObjDef6)).*", era.name: "*"}
         subgroups: 
@@ -51,3 +51,57 @@ Postprocessing:
                 dataset_name: "tt"
                 title: "$t\\overline{t}$"
       output_name: "plots/{era.name}/{pipeline}/datacard_4j"
+
+    - name: CombineDatacard
+      channel: "m2d_qvg3j_{era.name}_{pipeline}"
+      inputs: 
+        - "*/*/*/dijet_qvg_threejet_m2d"
+      structure:
+        group: {pipeline: "*", era.name: "*"}
+        subgroups: 
+          signal: {select: {dataset_name: "re:^ggHH2b2V6q.*"}} 
+          observation: {select: {dataset_name: "re:^$"}} #{select: {dataset_name: "re:^data.*"}}
+          background: {select: {dataset_name: "re:^(?!data.*|ggHH2b2V6q.*).*"}}
+        transforms:
+            - name: SumHistograms
+              sum_match_pattern: {dataset_name: "tt*"}
+              new_meta_fields:
+                dataset_name: "tt"
+                title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datacard_qvg3j"
+
+    - name: CombineDatacard
+      channel: "m2d_qvg4j_{era.name}_{pipeline}"
+      inputs: 
+        - "*/*/*/dijet_qvg_fourjet_m2d"
+      structure:
+        group: {pipeline: "re:^(?!.*(?:ObjDef5|ObjDef6)).*", era.name: "*"}
+        subgroups: 
+          signal: {select: {dataset_name: "re:^ggHH2b2V6q.*"}} 
+          observation: {select: {dataset_name: "re:^$"}} #{select: {dataset_name: "re:^data.*"}}
+          background: {select: {dataset_name: "re:^(?!data.*|ggHH2b2V6q.*).*"}}
+        transforms:
+            - name: SumHistograms
+              sum_match_pattern: {dataset_name: "tt*"}
+              new_meta_fields:
+                dataset_name: "tt"
+                title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datacard_qvg4j"
+
+    - name: CombineDatacard
+      channel: "m2d_spanet_{era.name}_{pipeline}"
+      inputs: 
+        - "*/*/*/spanet_m2d"
+      structure:
+        group: {pipeline: "re:^(?!.*(?:ObjDef5|ObjDef6)).*", era.name: "*"}
+        subgroups: 
+          signal: {select: {dataset_name: "re:^ggHH2b2V6q.*"}} 
+          observation: {select: {dataset_name: "re:^$"}} #{select: {dataset_name: "re:^data.*"}}
+          background: {select: {dataset_name: "re:^(?!data.*|ggHH2b2V6q.*).*"}}
+        transforms:
+            - name: SumHistograms
+              sum_match_pattern: {dataset_name: "tt*"}
+              new_meta_fields:
+                dataset_name: "tt"
+                title: "$t\\overline{t}$"
+      output_name: "plots/{era.name}/{pipeline}/datacard_spanet"

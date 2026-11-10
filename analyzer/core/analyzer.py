@@ -259,14 +259,18 @@ class Analyzer:
     @classmethod
     def _structure(cls, data: dict, conv) -> Analyzer:
         analyzer = cls()
+        data = data.copy()
         builder = data.pop("default_run_builder", None)
         if builder is not None:
             analyzer.default_run_builder = conv.structure(builder, RunBuilder)
 
-        for k, v in data.items():
-            analyzer.addPipeline(
-                k, [conv.structure(x, AnalyzerModule) for x in flatten(v)]
-            )
+        for k in data:
+            data[k] = list(flatten(data[k]))
+
+        pipelines = conv.structure(data, dict[str, list[AnalyzerModule]])
+        for k, pipeline in pipelines.items():
+            analyzer.addPipeline(k, pipeline)
+
         return analyzer
 
     def _unstructure(self, conv) -> dict:

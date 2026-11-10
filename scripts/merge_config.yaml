@@ -1,24 +1,63 @@
 # H5 File Merge Configuration
 
-source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/withHLT_ObjDef1"
+source_dir: "root://cmseos.fnal.gov//store/user/jgehrke/skims/2024/raw/withHLT_ObjDef9"
 
-output_dir: "./slimmedskims/2024/withHLT_ObjDef1/"
+output_dir: "./slimmedskims/2024/withHLT_ObjDef9/"
 
 chunk_size: 8192
 
-# Pattern structure: ^<process>_\d{4}__
-# Anchored at start, year-agnostic, double-underscore separates from generator string.
-
 groups:
 
-  - name: "tt_semileptonic"
-    pattern: "^tt_semileptonic_\\d{4}__"
+  - name: "ggHH2b2V6q_training_2024"
+    pattern: "^ggHH2b2V6q_training_2024__ggHH2b2V6q_training_2024__"
 
-  - name: "tt_hadronic"
-    pattern: "^tt_hadronic_\\d{4}__"
+  - name: "qcd_inclusive__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-1000to1500_TuneCP5_13p6TeV_pythia8__"
 
-  - name: "qcd_inclusive"
-    pattern: "^qcd_inclusive_\\d{4}__"
+  - name: "qcd_inclusive__QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-120to170_TuneCP5_13p6TeV_pythia8__"
 
-  - name: "ggHH2b2V6q"
-    pattern: "^ggHH2b2V6q_\\d{4}__"
+  - name: "qcd_inclusive__QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-1500to2000_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-15to20_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-170to300_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-2000to2500_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-20to30_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-2500to3000_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-300to470_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-30to50_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-470to600_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-50to80_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-600to800_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-800to1000_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "qcd_inclusive__QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8"
+    pattern: "^qcd_inclusive_2024__QCD_Bin-PT-80to120_TuneCP5_13p6TeV_pythia8__"
+
+  - name: "tt_hadronic__TTto4Q_TuneCP5_13p6TeV_powheg-pythia8"
+    pattern: "^tt_hadronic_2024__TTto4Q_TuneCP5_13p6TeV_powheg-pythia8__"
+
+  - name: "tt_semileptonic__TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8"
+    pattern: "^tt_semileptonic_2024__TTtoLNu2Q_TuneCP5_13p6TeV_powheg-pythia8__"

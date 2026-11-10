@@ -12,6 +12,12 @@ class PlotConfiguration:
     cms_text_pos: int = 2
     cms_text_color: Optional[str] = None
 
+    y_min: float | None = None
+    y_max: float | None = None
+
+    x_min: float | None = None
+    x_max: float | None = None
+
     x_scale: Optional[str] = "linear"
     y_scale: Optional[str] = "linear"
 

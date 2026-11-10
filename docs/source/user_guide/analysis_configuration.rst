@@ -6,8 +6,11 @@ This framework is primarily declarative, you say *what* you want to do rather th
 The analysis configuration file is where you define *what* your analysis does -- which modules to run, which datasets to process, how to handle systematics, and how to execute the computation.
 Understanding how to write these files is essential to using the framework.
 
-The configuration is a YAML file, optionally enhanced with Jinja2 templates for reuse.
-When loaded, the framework first renders any Jinja2 templates, then parses the resulting YAML and constructs the internal Python objects that drive the analysis.
+The configuration is typically a YAML file, optionally enhanced with Jinja2 templates for reuse. 
+However, it can also be a pure Python file (``.py``) where you define the configuration as a standard dictionary or construct the underlying Python objects directly.
+
+When loaded from YAML, the framework first renders any Jinja2 templates, then parses the resulting YAML and constructs the internal Python objects that drive the analysis.
+When loaded from a Python file, the script is executed and the configuration is read directly.
 
 
 Overview of Top-Level Sections
@@ -536,3 +539,17 @@ You can also specify which selections to apply if you only want a subset:
 
 For more details on how this works internally, see :doc:`../concepts/columns_and_data`.
 In general, however, this is rarely used, and it is easier to simply let the the module track which cuts have been applied.
+
+
+Python-Based Configurations
+---------------------------
+
+In addition to YAML, the framework also supports pure Python configuration files (``.py``). 
+This allows you to bypass the YAML/Jinja2 parser entirely and construct your analysis configuration programmatically using standard Python features (loops, functions, imports, etc.).
+
+There are two approaches to writing Python configurations:
+
+1. **Dictionary-based**: Define a top-level ``ANALYSIS`` dictionary exactly mirroring the YAML structure. This allows you to construct the dictionary dynamically.
+2. **Object-based**: Import and instantiate the :class:`~analyzer.core.analysis.Analysis`, :class:`~analyzer.core.analyzer.Analyzer`, and individual module classes directly.
+
+For large analyses, the object-based configuration is often preferred because it benefits from IDE auto-completion, linting, and type checking for module parameters. To see how these configurations look in practice, you can refer to the ``examples/higgs_to_4l/configuration.py`` and ``examples/higgs_to_4l/configuration_obj.py`` files.

@@ -20,6 +20,7 @@ import abc
 from typing import Any, TYPE_CHECKING
 import logging
 from analyzer.core.adl import ADLBlock
+from analyzer.core.linting import LintMessage
 
 logger = logging.getLogger("analyzer.core")
 
@@ -30,7 +31,7 @@ class MetadataExpr(abc.ABC):
     """
     Base class for simple predicates of metadata.
     """
-    
+
     @abc.abstractmethod
     def evaluate(self, metadata) -> bool: ...
 
@@ -97,7 +98,7 @@ class BaseAnalyzerModule(abc.ABC):
     Base class for a unit of analysis.
     Provides a cache to avoid duplicate execution when running systematics.
     """
-    
+
     MAX_CACHE_SIZE = 25
 
     _cache: SimpleCache = field(
@@ -139,6 +140,9 @@ class BaseAnalyzerModule(abc.ABC):
     def clearCache(self):
         self._cache.clear()
 
+    def lint(self) -> list[LintMessage]:
+        return []
+
     # Technically this is dangerous, as the class is not frozen, but the user should never modify the properties of a module once it is created
     @ft.cached_property
     def selfkey(self):
@@ -166,9 +170,9 @@ class AnalyzerModule(BaseAnalyzerModule):
         """
         Get a unique key associated with a given run.
         Acts a proxy for caching the output of the run method.
-        Computed by hashing the self key, the parameters, and the key associated with the columns. 
+        Computed by hashing the self key, the parameters, and the key associated with the columns.
         """
-        
+
         logger.debug(f"Params are {params}")
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
@@ -184,7 +188,7 @@ class AnalyzerModule(BaseAnalyzerModule):
         """
         Why is ths even a different method.
         """
-        
+
         inp = self.inputs(columns.metadata)
         if inp == "EVENTS":
             k = columns.getKeyForAll()
@@ -377,15 +381,15 @@ def register_module(input_columns, output_columns, configuration=None, params=No
     """
     Attempt to make decorator for constructing modules.
     Has problems with pickle.
-    
+
     """
-    
+
     raise NotImplementedError()
     configuration = configuration or {}
     params = params or {}
 
     def wrapper(func):
-        
+
         getParameterSpec = defaultParameterSpec(params)
         run = func
         if callable(input_columns):
