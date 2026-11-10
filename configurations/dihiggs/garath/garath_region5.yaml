@@ -88,7 +88,7 @@ analyzer:
       sel_name: good_event
       selection_names: ["good_event"]
     - module_name: SaveSPANetH5
-      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/region5_9jet_tiered-tag_LABEL-COMBINE_WITH_QCD_MORE-EVTS
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/region5_9jet_tiered-tag_LABEL-ALL_EVTS-weighted
       source_col: SPANet.Source
       good_event_col: SPANet.good_event
       good_event_pre_truncation_col: SPANet.good_event_pre_truncation
@@ -97,6 +97,9 @@ analyzer:
         - SPANet.Targets.W1
       classification_cols:
         - SPANet.process_label
+      write_weights: true      # WEIGHTS/event + WEIGHTS/physical (xsec*lumi/n_events scaled), same run
+      weight_source: pos_neg   # +-1 from sign(genWeight), same as OSCA PosNegGenWeight (no Weights record in this pipeline)
+      # processed_fraction: 1.0  # < 1 ONLY if this run caps the sample's events (e.g. 50e6/470312166 for ttbar)
 
   region5_9jet_tiered_qcd: &region5_9jet_tiered_qcd
     - *spanet_common_prefix_tiered
@@ -133,7 +136,7 @@ analyzer:
       sel_name: good_event
       selection_names: ["good_event"]
     - module_name: SaveSPANetH5
-      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/QCD_samples/region5_9jet_tiered-tag_LABEL-QCD-COMBINE_WITH_SIGNAL
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/QCD_samples/region5_9jet_tiered-tag_LABEL-QCD-COMBINE_WITH_SIGNAL_reweighted
       source_col: SPANet.Source
       good_event_col: SPANet.good_event
       good_event_pre_truncation_col: SPANet.good_event_pre_truncation
@@ -142,6 +145,58 @@ analyzer:
         - SPANet.Targets.W1
       classification_cols:
         - SPANet.process_label
+      write_weights: true      # WEIGHTS/event + WEIGHTS/physical (xsec*lumi/n_events scaled), same run
+      weight_source: pos_neg   # +-1 from sign(genWeight), same as OSCA PosNegGenWeight (no Weights record in this pipeline)
+      # processed_fraction: 1.0  # < 1 ONLY if this run caps the sample's events (e.g. 50e6/470312166 for ttbar)
+
+  region5_9jet_tiered_ttbar: &region5_9jet_tiered_ttbar
+    - *spanet_common_prefix_tiered
+    - module_name: NObjFilter
+      input_col: goodJetTiered
+      selection_name: njets
+      min_count: 6
+    - *spanet_medb_requirement_tiered
+    - module_name: SelectOnColumns
+      sel_name: selection
+    - module_name: SPANetGenMatch
+      jet_col: goodJetTiered
+      genpart_col: GenPart
+      genjet_col: GenJet
+      output_prefix: SPANet
+      reco_mode: onshell_w
+      n_real_jets: 9
+      n_null_jets: 1
+      dr_threshold: 0.4
+      genjet_eta_cut: 2.4
+      genjet_pt_cut: 15.0
+      secondary_order_field: qvg
+      include_isr_target: false
+      btag_mode: label
+      btag_working_point: M
+      qvg_mode: label
+      ctag_mode: label
+      ctag_working_point: M
+      strip_bjets: false
+      randomize_jet_order: false
+      check_truncation_loss: false
+      ttbar_matching: true
+      ttbar_process_label: 2
+    - module_name: SelectOnColumns
+      sel_name: good_event
+      selection_names: ["good_event"]
+    - module_name: SaveSPANetH5
+      prefix: root://cmseos.fnal.gov//eos/uscms/store/user/gvetters/OneStopCoffeaAnalyzer/h5_files/FRESH_samples/DEDUPED_samples/tiered_pt_cut/TTBAR_samples/region5_9jet_tiered-tag_LABEL-TTBAR-COMBINE_WITH_SIGNAL-TAKE3_reweighted
+      source_col: SPANet.Source
+      good_event_col: SPANet.good_event
+      good_event_pre_truncation_col: SPANet.good_event_pre_truncation
+      targets_cols:
+        - SPANet.Targets.H1
+        - SPANet.Targets.W1
+      classification_cols:
+        - SPANet.process_label
+      write_weights: true      # WEIGHTS/event + WEIGHTS/physical (xsec*lumi/n_events scaled), same run
+      weight_source: pos_neg   # +-1 from sign(genWeight), same as OSCA PosNegGenWeight (no Weights record in this pipeline)
+      # processed_fraction: 1.0  # < 1 ONLY if this run caps the sample's events (e.g. 50e6/470312166 for ttbar)
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
@@ -153,3 +208,11 @@ event_collections:
 #  - dataset: 'qcd*2024*'
 #    pipelines:
 #      - region5_9jet_tiered_qcd
+
+#  - dataset: 'tt_hadronic*2024*'
+#    pipelines:
+#      - region5_9jet_tiered_ttbar
+
+#  - dataset: 'tt_semilep*2024*'
+#    pipelines:
+#      - region5_9jet_tiered_ttbar
