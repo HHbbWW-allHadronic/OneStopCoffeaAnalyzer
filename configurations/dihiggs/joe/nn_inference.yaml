@@ -7,17 +7,21 @@ analyzer:
   default_run_builder:
     strategy_name: NoSystematics
 
-  withHLT_ObjDef1:
-    - *withHLT_ObjDef1
+  withHLT_ObjDef9:
+    - *withHLT_ObjDef9
+
+    - module_name: PromoteAttributeToBracket
+      input_col: lowJet
+      nest_col: storedE
+      attribute_name: e
 
     - module_name: ABCDiHiggsInference
-      jet_col: goodJet
-      jet_vars: [pt, eta, phi, mass, btag]
-      n_jets: 6
-      global_cols: [HT, nontop2b_fourjet.mass, b_dijet.mass]
+      jet_col: lowJet
+      jet_vars: [pt, eta, phi, storedE, btag, btagPNetQvG, btagUParTAK4CvB, btagUParTAK4CvL]
+      global_cols: [HT, nontop2b_qvg_threejet.mass, b_dijet.mass]
       output_cols: [Disc1]
-      scaler_path: nn_models/checkpoint_09-06-26.pt
-      model_path: nn_models/checkpoint_09-06-26_jitmodel.pt
+      model_path: nn_models/skim9_mlp_sd30_s42/model_best.pt
+      preprocessing_path: nn_models/skim9_mlp_sd30_s42/preprocessing.json
 
     - module_name: SimpleHistogram
       hist_name: Disc1_sig
@@ -173,10 +177,10 @@ analyzer:
           bins: 20
 
     - module_name: JetVarRankHistograms
-      hist_name: Jet_pt_{}_2d
-      input_col: goodJet.pt
+      hist_name: lowJet_pt_{}_2d
+      input_col: lowJet.pt
       axis:
-        name: "Jet $p_{T,idx}$"
+        name: "lowJet $p_{T,idx}$"
         start: 0
         stop: 1000
         bins: 20
@@ -198,10 +202,10 @@ analyzer:
           bins: 20
 
     - module_name: JetVarRankHistograms
-      hist_name: Jet_eta_{}_2d
-      input_col: goodJet.eta
+      hist_name: lowJet_eta_{}_2d
+      input_col: lowJet.eta
       axis:
-        name: "Jet $\\eta_{idx}$"
+        name: "lowJet $\\eta_{idx}$"
         start: -4
         stop: 4
         bins: 20
@@ -222,10 +226,10 @@ analyzer:
           bins: 20
 
     - module_name: JetVarRankHistograms
-      hist_name: Jet_phi_{}_2d
-      input_col: goodJet.phi
+      hist_name: lowJet_phi_{}_2d
+      input_col: lowJet.phi
       axis:
-        name: "Jet $\\phi_{idx}$"
+        name: "lowJet $\\phi_{idx}$"
         start: -4
         stop: 4
         bins: 20
@@ -246,10 +250,10 @@ analyzer:
           bins: 20
 
     - module_name: JetVarRankHistograms
-      hist_name: Jet_mass_{}_2d
-      input_col: goodJet.mass
+      hist_name: lowJet_mass_{}_2d
+      input_col: lowJet.mass
       axis:
-        name: "Jet $m_{idx}$"
+        name: "lowJet $m_{idx}$"
         start: 0
         stop: 250
         bins: 20
@@ -271,10 +275,10 @@ analyzer:
           bins: 20 
 
     - module_name: JetVarRankHistograms
-      hist_name: Jet_btag_{}_2d
-      input_col: goodJet.btagUParTAK4B
+      hist_name: lowJet_btag_{}_2d
+      input_col: lowJet.btagUParTAK4B
       axis:
-        name: "Jet UParTB$_{idx}$"
+        name: "lowJet UParTB$_{idx}$"
         start: 0
         stop: 1
         bins: 20
@@ -297,15 +301,15 @@ analyzer:
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'ggHH2b2V6q_2024*'
+  - dataset: 'ggHH2b2V6q_eval_2024*'
     pipelines: 
-      - withHLT_ObjDef1
-  - dataset: 'qcd_inclusive_2024*'
+      - withHLT_ObjDef9
+  {# - dataset: 'qcd_inclusive_2024*'
     pipelines:
-      - withHLT_ObjDef1
+      - withHLT_ObjDef9
   - dataset: 'tt_hadronic_2024*'
     pipelines:
-      - withHLT_ObjDef1
+      - withHLT_ObjDef9
   - dataset: 'tt_semileptonic_2024*'
     pipelines:
-      - withHLT_ObjDef1
+      - withHLT_ObjDef9 #}
