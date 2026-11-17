@@ -31,6 +31,7 @@ import analyzer.postprocessing.exporting  # noqa
 import analyzer.postprocessing.corrections  # noqa
 import analyzer.postprocessing.pair_dr_table  # noqa
 import analyzer.postprocessing.dr_plots  # noqa
+import analyzer.postprocessing.GP_background  # noqa
 
 from .style import loadStyles
 from attrs import define, field
