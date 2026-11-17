@@ -8,6 +8,9 @@ from analyzer.utils.structure_tools import (
 )
 from attrs import define, field, Factory
 from .transforms.registry import Transform
+import logging
+
+logger = logging.getLogger(__name__)
 
 ResultSet = list[list[ItemWithMeta]]
 
@@ -125,8 +128,6 @@ class GroupTrace:
             )
         )
 
-    def makeChildTrace(self) -> GroupTrace:
-        return GroupTrace()
 
 
 def applyTransform(transform, items):
@@ -228,6 +229,13 @@ class GroupBuilder:
                 if trace is not None:
                     trace.recordTransform(transform, len(groups))
 
+        if not groups:
+            logger.warning(
+                "You have an empty group in your structure! "
+                "This is probably a mistake. "
+                "You can visualize the structure using the --explain-grouping-only flag."
+            )
+
         # If no subgroup operations are defined, we are done
         if self.subgroups is None:
             return groups
@@ -240,7 +248,7 @@ class GroupBuilder:
                 r = {}
                 sub_traces = {} if trace is not None else None
                 for x, y in self.subgroups.items():
-                    child_trace = trace.makeChildTrace() if trace is not None else None
+                    child_trace = GroupTrace() if trace is not None else None
                     r[x] = y.apply(group_items, trace=child_trace)
                     if sub_traces is not None:
                         sub_traces[x] = child_trace
@@ -252,7 +260,7 @@ class GroupBuilder:
                 r = []
                 sub_traces = [] if trace is not None else None
                 for x in self.subgroups:
-                    child_trace = trace.makeChildTrace() if trace is not None else None
+                    child_trace = GroupTrace() if trace is not None else None
                     r.append(x.apply(group_items, trace=child_trace))
                     if sub_traces is not None:
                         sub_traces.append(child_trace)

@@ -189,8 +189,8 @@ This is commonly used for signal MC to attach mass points and other physics para
         n_events: 56000
         x_sec: 385.32
         files:
-        - root://cmseos.fnal.gov//store/user/ckapsiak/SingleStop/official_samples/2018/signal_312_1000_400_plus.root
-        - root://cmseos.fnal.gov//store/user/ckapsiak/SingleStop/official_samples/2018/signal_312_1000_400_minus.root
+        - root://cmseos.fnal.gov//store/user/sbendigo/SingleStop/official_samples/2018/signal_312_1000_400_plus.root
+        - root://cmseos.fnal.gov//store/user/sbendigo/SingleStop/official_samples/2018/signal_312_1000_400_minus.root
 
 
 Era Definition

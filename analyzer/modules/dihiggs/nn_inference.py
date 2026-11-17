@@ -3,65 +3,256 @@ from analyzer.core.analysis_modules import AnalyzerModule
 from analyzer.core.columns import Column
 from attrs import define, field
 import awkward as ak
+import json
 import numpy as np
-import torch
 import onnxruntime
 import correctionlib
-import vector
+from coffea.nanoevents.methods import vector as coffea_vector
+
+# Restated from abcdiscotec/data/preprocessing.py so the analyzer does not import the training package.
+_TRANSFORMS = {"none": lambda x: x, "asinh": np.arcsinh, "log1p": np.log1p}
+_SCALERS = ("standard", "robust", "none")
+
+
+def _read_preprocessing(path: str) -> dict:
+    """Load a run's ``preprocessing.json`` and check it is internally consistent:
+    known transform and scaler names, and ``loc``/``scale`` of length 1 (shared
+    across jets, and always for a global variable) or ``n_jets`` (one per jet
+    slot) according to ``shared_scaling_across_jets``."""
+    with open(path) as f:
+        pre = json.load(f)
+    if pre["scaler"] not in _SCALERS:
+        raise ValueError(
+            f"Unknown scaler {pre['scaler']!r} in {path}; known: {list(_SCALERS)}"
+        )
+    for name, state in pre["states"].items():
+        if state["transform"] not in _TRANSFORMS:
+            raise ValueError(
+                f"Unknown transform {state['transform']!r} for {name} in {path}; known: {list(_TRANSFORMS)}"
+            )
+        per_slot = (
+            name in pre["jet_variables"] and not pre["shared_scaling_across_jets"]
+        )
+        expected = pre["n_jets"] if per_slot else 1
+        if len(state["loc"]) != expected or len(state["scale"]) != expected:
+            raise ValueError(
+                f"{name} in {path} has {len(state['loc'])} loc and {len(state['scale'])} scale "
+                f"entries, expected {expected}"
+            )
+    return pre
+
+
+def _valid_mask(raw: np.ndarray, pad_value) -> np.ndarray:
+    """True where the value is not the pad sentinel; all True when none is configured."""
+    if pad_value is None:
+        return np.ones(raw.shape, dtype=bool)
+    if pad_value != pad_value:  # NaN sentinel
+        return ~np.isnan(raw)
+    return raw != pad_value
+
+
+def _jet_block(pre: dict, jets: dict) -> tuple:
+    """The scaled jet block, shape ``(n_events, n_jets, n_jet_variables)``, and
+    its per-jet validity, shape ``(n_events, n_jets)``.
+
+    ``jets`` maps each training jet variable to its jagged per-event array.
+    Each is padded to ``n_jets`` with the pad sentinel (0 when training used
+    none), transformed, scaled, and set to 0 where it is a pad, which after
+    standardization is the feature mean. The arithmetic follows
+    ``Preprocessor.transform_jet_block`` step by step, including the dtypes, so
+    the values are identical to the ones the model was trained on.
+    """
+    n_jets, pad_value = pre["n_jets"], pre["pad_value"]
+    fill = 0.0 if pad_value is None else pad_value
+    n = len(next(iter(jets.values())))
+    block = np.empty((n, n_jets, len(pre["jet_variables"])), dtype=np.float32)
+    any_invalid = np.zeros((n, n_jets), dtype=bool)
+
+    for j, var in enumerate(pre["jet_variables"]):
+        state = pre["states"][var]
+        raw = ak.to_numpy(
+            ak.fill_none(ak.pad_none(jets[var], n_jets, clip=True), np.float32(fill))
+        )
+        mask = _valid_mask(raw, pad_value)
+        transformed = _TRANSFORMS[state["transform"]](raw)
+        loc, scale = np.asarray(state["loc"]), np.asarray(state["scale"])
+        if pre["shared_scaling_across_jets"]:
+            normalized = (transformed - loc[0]) / scale[0]
+        else:
+            normalized = (transformed - loc[np.newaxis, :]) / scale[np.newaxis, :]
+        block[:, :, j] = np.where(mask, normalized, 0.0).astype(np.float32)
+        any_invalid |= ~mask
+    return block, ~any_invalid
+
+
+def _flat_global(arr) -> np.ndarray:
+    """One value per event. A column holding 0 or 1 objects per event (a selected
+    candidate) is flattened, NaN where the list is empty, as ``SaveEventsH5``
+    wrote it."""
+    if arr.ndim == 2:
+        most = ak.max(ak.num(arr, axis=1))
+        if most is not None and most > 1:
+            raise ValueError(
+                f"A global column has up to {most} entries per event; only 0 or 1 can be flattened."
+            )
+        arr = ak.fill_none(ak.firsts(arr), np.nan)
+    return ak.to_numpy(arr)
+
+
+def _global_block(pre: dict, globals_: dict) -> np.ndarray:
+    """The scaled global variables the model takes, one column each, in the order
+    of ``globals_``, following ``Preprocessor.transform_global``."""
+    pad_value = pre["pad_value"]
+    out = np.empty(
+        (len(next(iter(globals_.values()))), len(globals_)), dtype=np.float32
+    )
+    for j, (var, raw) in enumerate(globals_.items()):
+        state = pre["states"][var]
+        mask = _valid_mask(raw, pad_value)
+        transformed = _TRANSFORMS[state["transform"]](raw)
+        normalized = (transformed - state["loc"][0]) / state["scale"][0]
+        out[:, j] = np.where(mask, normalized, 0.0).astype(np.float32)
+    return out
+
+
+def _build_features(pre: dict, jets: dict, globals_: dict) -> np.ndarray:
+    """The model input, shape ``(n_events, n_features)``, float32.
+
+    The layout is the one ``_process_batch_arrays`` builds for training: every
+    jet variable of jet 0, then of jet 1, and so on; then one validity flag per
+    jet, only if the run has a pad sentinel; then the global variables.
+
+    Parameters
+    ----------
+    pre : dict
+        The run's ``preprocessing.json``, as read by ``_read_preprocessing``.
+    jets : dict[str, ak.Array]
+        Training jet variable name -> jagged per-event array.
+    globals_ : dict[str, np.ndarray]
+        Training name of each global variable the model takes -> one value per event.
+    """
+    block, valid = _jet_block(pre, jets)
+    n = block.shape[0]
+    parts = [block.reshape(n, pre["n_jets"] * len(pre["jet_variables"]))]
+    if pre["pad_value"] is not None:
+        parts.append(valid.astype(np.float32))
+    parts.append(_global_block(pre, globals_))
+    return np.concatenate(parts, axis=1)
 
 
 @define
 class ABCDiHiggsInference(AnalyzerModule):
     """
-    Inference module for the ABCDiHiggs neural network.
+    Inference module for a network trained with abcdiscotec.
     This module takes in jet-like columns and global event features,
-    prepares the inputs for the neural network, performs inference,
-    and adds the output discriminators to the columns.
+    prepares the inputs for the neural network exactly as the training did,
+    performs inference, and adds the output probabilities to the columns.
+
+    The training run supplies the two files the inputs depend on: the traced
+    model (``model_best.pt`` or ``model_last.pt``) and ``preprocessing.json``
+    (per-variable transforms and scalings, the jet count, the pad sentinel and
+    the global variables left out of the input). The variables named here are
+    checked against that file on every call, so a list that does not match
+    what the model was trained on raises instead of feeding it mis-scaled
+    inputs. Jet variables are matched as ``<jet_col>_<var>`` and global columns
+    by their name with ``.`` replaced by ``_``, the rule ``SaveEventsH5`` writes
+    the training variables with.
+
+    A matching configuration for the ``withHLT_ObjDef9`` skim::
+
+        - module_name: PromoteAttributeToBracket
+          input_col: lowJet
+          nest_col: storedE
+          attribute_name: e
+        - module_name: ABCDiHiggsInference
+          jet_col: lowJet
+          jet_vars: [pt, eta, phi, storedE, btag, btagPNetQvG, btagUParTAK4CvB, btagUParTAK4CvL]
+          global_cols: [HT, nontop2b_qvg_threejet.mass, b_dijet.mass]
+          output_cols: [Disc1]
+          model_path: nn_models/<run>/model_best.pt
+          preprocessing_path: nn_models/<run>/preprocessing.json
 
     Parameters
     ----------
     jet_col : Column
         Column containing the jet collection.
     jet_vars : list[str]
-        List of jet variables to be used as inputs for the neural network.
+        Fields of the jet collection the network takes, in the training order.
+        ``btag`` resolves to the era's tagger.
     global_cols : list[Column]
-        List of global event feature columns to be used as inputs for the neural network.
+        Global event feature columns the network takes, in the training order
+        (those not in the run's ``exclude_inputs``).
     model_path : str
-        Path to the trained neural network model file.
-    scaler_path : str
-        Path to the scaler file used for input normalization.
+        Path to the traced model of the run.
+    preprocessing_path : str
+        Path to the run's ``preprocessing.json``.
     output_cols : list[Column]
-        List of columns to store the output discriminators from the neural network.
-    n_jets : int, optional
-        Number of jets to prepare for the input, default is 6.
+        One column per network head. Each gets one sub-column per class.
+    class_names : list[str], optional
+        Names of the sub-columns, in the model's output order. Default
+        ``[sig, qcd, tt]``.
     """
 
     jet_col: Column
     jet_vars: list[str]
     global_cols: list[Column]
     model_path: str
-    scaler_path: str
+    preprocessing_path: str
     output_cols: list[Column]
-    n_jets: int = 6
+    class_names: list[str] = field(factory=lambda: ["sig", "qcd", "tt"])
 
-    def prepare_inputs(self, columns):
-        inputs = []
-        for var in self.jet_vars:
-            field = Column(
-                var
-                if (var != "btag")
-                else columns.metadata["era"]["btag_scale_factors"]["tagger"]
+    def _preprocessing(self) -> dict:
+        """The run's preprocessing, checked against the variables configured here."""
+        pre = _read_preprocessing(self.preprocessing_path)
+        jet_prefix = str(self.jet_col).replace(".", "_")
+        jet_names = [f"{jet_prefix}_{v}" for v in self.jet_vars]
+        if jet_names != pre["jet_variables"]:
+            raise ValueError(
+                f"jet_col and jet_vars give the variables {jet_names} but the run was trained on "
+                f"{pre['jet_variables']}"
             )
-            in_var = columns[self.jet_col + field]
-            padded = ak.pad_none(in_var, self.n_jets, clip=True)
-            padded = ak.fill_none(padded, 0)
-            inputs.append(padded)
-        for global_col in self.global_cols:
-            inputs.append(columns[global_col][:, np.newaxis])
-        return ak.concatenate(inputs, axis=1)
+        wanted = [v for v in pre["global_variables"] if v not in pre["exclude_inputs"]]
+        global_names = [str(c).replace(".", "_") for c in self.global_cols]
+        if global_names != wanted:
+            raise ValueError(
+                f"global_cols give the variables {global_names} but the run's model takes {wanted} "
+                f"(its global variables {pre['global_variables']}, excluded from the input: "
+                f"{pre['exclude_inputs']})"
+            )
+        return pre
+
+    def _jet_column(self, columns, name: str):
+        """One field of the jet collection, as the (lazy) column; ``btag`` is the era's tagger."""
+        field_name = (
+            name
+            if (name != "btag")
+            else columns.metadata["era"]["btag_scale_factors"]["tagger"]
+        )
+        return columns[self.jet_col + Column(field_name)]
+
+    def prepare_inputs(self, columns, pre=None, first_jet_column=None):
+        """The model input. ``first_jet_column`` is the column of ``jet_vars[0]``
+        if the caller has already requested it."""
+        pre = pre or self._preprocessing()
+        jets = {
+            var: (
+                first_jet_column
+                if (i == 0 and first_jet_column is not None)
+                else self._jet_column(columns, name)
+            )
+            for i, (name, var) in enumerate(zip(self.jet_vars, pre["jet_variables"]))
+        }
+        globals_ = {
+            var: _flat_global(columns[col])
+            for var, col in zip(
+                (str(c).replace(".", "_") for c in self.global_cols), self.global_cols
+            )
+        }
+        return _build_features(pre, jets, globals_)
 
     def run(self, columns, params):
         n_discs = len(self.output_cols)
+        n_classes = len(self.class_names)
 
         class ABCDiHiggsNetwork(torch_wrapper):
             def prepare_awkward(self, inputs):
@@ -70,32 +261,33 @@ class ABCDiHiggsInference(AnalyzerModule):
                 ], {}
 
             def postprocess_awkward(self, output, events):
-                ret = {f"Disc{i}": output[:, i] for i in range(n_discs)}
-                return ret
+                values = ak.to_numpy(output)
+                if values.ndim != 3 or values.shape[1:] != (n_discs, n_classes):
+                    raise ValueError(
+                        f"The model returned an output of shape {values.shape}; expected "
+                        f"(n_events, {n_discs} output_cols, {n_classes} class_names)"
+                    )
+                return {f"Disc{i}": values[:, i] for i in range(n_discs)}
 
-        model = ABCDiHiggsNetwork(self.model_path)
-        X = self.prepare_inputs(columns)
-        with open(self.scaler_path, "rb") as f:
-            scaler = torch.load(f, map_location="cpu", weights_only=False)["scaler"]
-        X = (X - scaler.mean_) / scaler.scale_
-
-        if len(X) == 0:
+        pre = self._preprocessing()
+        first_jet_column = self._jet_column(columns, self.jet_vars[0])
+        if len(first_jet_column) == 0:
             empty = np.array([], dtype="float32")
             for col in self.output_cols:
-                columns[col + Column("sig")] = ak.Array(empty)
-                columns[col + Column("qcd")] = ak.Array(empty)
-                columns[col + Column("tt")] = ak.Array(empty)
+                for name in self.class_names:
+                    columns[col + Column(name)] = ak.Array(empty)
             return columns, []
 
-        outputs = model(X)
+        model = ABCDiHiggsNetwork(self.model_path)
+        X = self.prepare_inputs(columns, pre, first_jet_column)
+        outputs = model(ak.Array(X))
         for i, col in enumerate(self.output_cols):
-            columns[col + Column("sig")] = outputs[f"Disc{i}"][:, 0]
-            columns[col + Column("qcd")] = outputs[f"Disc{i}"][:, 1]
-            columns[col + Column("tt")] = outputs[f"Disc{i}"][:, 2]
+            for k, name in enumerate(self.class_names):
+                columns[col + Column(name)] = ak.Array(outputs[f"Disc{i}"][:, k])
         return columns, []
 
     def neededResources(self, metadata):
-        return [self.model_path, self.scaler_path]
+        return [self.model_path, self.preprocessing_path]
 
     def outputs(self, metadata):
         return self.output_cols
@@ -103,9 +295,11 @@ class ABCDiHiggsInference(AnalyzerModule):
     def inputs(self, metadata):
         return [self.jet_col] + self.global_cols
 
+
 # ------------------------------------------ #
 # SPANet-related models for SPANet inference #
 # ------------------------------------------ #
+
 
 def _pad_and_convert(arr, n_real_jets, n_null_jets):
     padded = ak.pad_none(arr[:, :n_real_jets], n_real_jets + n_null_jets, clip=True)
@@ -114,10 +308,15 @@ def _pad_and_convert(arr, n_real_jets, n_null_jets):
 
 
 def _make_mask(jet_counts, n_real_jets, n_null_jets):
-    return np.array([
-        [True] * min(n, n_real_jets) + [False] * max(0, n_real_jets - n) + [True] * n_null_jets
-        for n in jet_counts
-    ], dtype=bool)
+    return np.array(
+        [
+            [True] * min(n, n_real_jets)
+            + [False] * max(0, n_real_jets - n)
+            + [True] * n_null_jets
+            for n in jet_counts
+        ],
+        dtype=bool,
+    )
 
 
 def _order_fields_btag_then_secondary(field_arrays, secondary_key):
@@ -137,7 +336,7 @@ def _order_fields_btag_then_secondary(field_arrays, secondary_key):
     """
     btag_sort_idx = ak.argsort(field_arrays["btag"], axis=1, ascending=False)
     partially_sorted = {k: v[btag_sort_idx] for k, v in field_arrays.items()}
- 
+
     secondary_indices = (
         ak.argsort(partially_sorted[secondary_key][:, 2:], axis=1, ascending=False) + 2
     )
@@ -168,10 +367,16 @@ def _build_source_data(pt, eta, phi, e, btag, qvg, extra_features=None):
     return np.stack(base, axis=-1).astype(np.float32)
 
 
-def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=256,
-                         assign_suffix="_assignment_probability",
-                         detect_suffix="_detection_probability",
-                         extra_output_names=None):
+def _run_onnx_inference(
+    session,
+    source_data,
+    mask,
+    particle_names,
+    batch_size=256,
+    assign_suffix="_assignment_probability",
+    detect_suffix="_detection_probability",
+    extra_output_names=None,
+):
     """
     Batched ONNX call. Looks up each particle's assignment/detection
     output BY NAME (via session.get_outputs()), not by fixed position --
@@ -186,8 +391,9 @@ def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=2
     unchanged.
     """
     output_names = [o.name for o in session.get_outputs()]
-    expected_names = [f"{name}{assign_suffix}" for name in particle_names] + \
-                      [f"{name}{detect_suffix}" for name in particle_names]
+    expected_names = [f"{name}{assign_suffix}" for name in particle_names] + [
+        f"{name}{detect_suffix}" for name in particle_names
+    ]
     missing = [n for n in expected_names if n not in output_names]
     if missing:
         raise KeyError(
@@ -200,10 +406,13 @@ def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=2
     n = len(source_data)
     collected = {name: [] for name in output_names}
     for i in range(0, n, batch_size):
-        out = session.run(output_names, {
-            "Source_data": source_data[i:i + batch_size],
-            "Source_mask": mask[i:i + batch_size],
-        })
+        out = session.run(
+            output_names,
+            {
+                "Source_data": source_data[i : i + batch_size],
+                "Source_mask": mask[i : i + batch_size],
+            },
+        )
         for name, arr in zip(output_names, out):
             collected[name].append(arr)
 
@@ -215,15 +424,21 @@ def _run_onnx_inference(session, source_data, mask, particle_names, batch_size=2
     if extra_output_names:
         absent = [n for n in extra_output_names if n not in output_names]
         if absent:
-            raise KeyError(f"Requested ONNX outputs not found: {absent}. Actual outputs: {output_names}")
+            raise KeyError(
+                f"Requested ONNX outputs not found: {absent}. Actual outputs: {output_names}"
+            )
         extras = {n: np.concatenate(collected[n], axis=0) for n in extra_output_names}
         return results, extras
     return results
 
 
-def _find_classification_output(output_names, particle_names, hint=None,
-                                assign_suffix="_assignment_probability",
-                                detect_suffix="_detection_probability"):
+def _find_classification_output(
+    output_names,
+    particle_names,
+    hint=None,
+    assign_suffix="_assignment_probability",
+    detect_suffix="_detection_probability",
+):
     """
     Name of the ONNX output that holds the event-classification scores.
 
@@ -235,12 +450,21 @@ def _find_classification_output(output_names, particle_names, hint=None,
     """
     if hint:
         if hint not in output_names:
-            raise KeyError(f"classification_output {hint!r} is not an output of the model. "
-                           f"Actual model output names: {output_names}")
+            raise KeyError(
+                f"classification_output {hint!r} is not an output of the model. "
+                f"Actual model output names: {output_names}"
+            )
         return hint
-    taken = {f"{n}{assign_suffix}" for n in particle_names} | {f"{n}{detect_suffix}" for n in particle_names}
-    rest = [n for n in output_names
-            if n not in taken and not n.endswith((assign_suffix, detect_suffix)) and "regress" not in n.lower()]
+    taken = {f"{n}{assign_suffix}" for n in particle_names} | {
+        f"{n}{detect_suffix}" for n in particle_names
+    }
+    rest = [
+        n
+        for n in output_names
+        if n not in taken
+        and not n.endswith((assign_suffix, detect_suffix))
+        and "regress" not in n.lower()
+    ]
     if len(rest) == 1:
         return rest[0]
     named = [n for n in rest if "classif" in n.lower()]
@@ -250,7 +474,8 @@ def _find_classification_output(output_names, particle_names, hint=None,
         f"Could not tell which ONNX output holds the classification scores (candidates after removing "
         f"assignment/detection/regression outputs: {rest}). Actual model output names: {output_names}. "
         f"If the model has no classification output, the stock export may not include one; otherwise set "
-        f"classification_output to the exact name.")
+        f"classification_output to the exact name."
+    )
 
 
 def _to_class_probabilities(raw, mode="auto"):
@@ -262,12 +487,22 @@ def _to_class_probabilities(raw, mode="auto"):
     """
     raw = np.asarray(raw, dtype=np.float64)
     if raw.ndim != 2:
-        raise ValueError(f"classification output must be 2D (n_events, n_classes), got shape {raw.shape}")
+        raise ValueError(
+            f"classification output must be 2D (n_events, n_classes), got shape {raw.shape}"
+        )
     if mode not in ("auto", "logits", "probabilities"):
-        raise ValueError(f"classification_scores must be 'auto', 'logits' or 'probabilities', got {mode!r}")
+        raise ValueError(
+            f"classification_scores must be 'auto', 'logits' or 'probabilities', got {mode!r}"
+        )
     if mode == "auto":
-        looks_prob = bool(raw.size == 0 or (raw.min() >= 0.0 and raw.max() <= 1.0
-                                            and np.allclose(raw.sum(axis=1), 1.0, atol=1e-3)))
+        looks_prob = bool(
+            raw.size == 0
+            or (
+                raw.min() >= 0.0
+                and raw.max() <= 1.0
+                and np.allclose(raw.sum(axis=1), 1.0, atol=1e-3)
+            )
+        )
         mode = "probabilities" if looks_prob else "logits"
     if mode == "logits":
         z = raw - raw.max(axis=1, keepdims=True)
@@ -327,7 +562,9 @@ def _extract_pairs_exclusive(assign_tensors):
             confidences = [np.max(tensors[k]) for k in remaining]
             winner = remaining.pop(int(np.argmax(confidences)))
 
-            pred_idx = np.unravel_index(np.argmax(tensors[winner]), tensors[winner].shape)
+            pred_idx = np.unravel_index(
+                np.argmax(tensors[winner]), tensors[winner].shape
+            )
             preds[winner][i] = pred_idx
 
             for jet_index in pred_idx:
@@ -337,7 +574,7 @@ def _extract_pairs_exclusive(assign_tensors):
     return preds
 
 
-def _gather_assigned_jets(pt, eta, phi, e, preds):
+def _gather_assigned_jets(pt, eta, phi, mass, preds):
     """
     Gather each particle's jet collection from the padded source arrays,
     using the network's predicted indices -- generalized from the
@@ -366,18 +603,21 @@ def _gather_assigned_jets(pt, eta, phi, e, preds):
 
     Returns
     -------
-    list of ak.Array, one Momentum4D jet collection per particle, in the
-    SAME order as preds.
+    list of ak.Array, one PtEtaPhiMLorentzVector jet collection per particle,
+    in the SAME order as preds.
     """
     p4 = ak.zip(
-        {"pt": ak.Array(pt), "eta": ak.Array(eta), "phi": ak.Array(phi), "energy": ak.Array(e)},
-        with_name="Momentum4D",
-    )
-    p4 = ak.zip(
-        {"pt": p4.pt, "eta": p4.eta, "phi": p4.phi, "energy": p4.energy, "mass": p4.mass},
-        with_name="Momentum4D",
+        {
+            "pt": ak.Array(pt),
+            "eta": ak.Array(eta),
+            "phi": ak.Array(phi),
+            "mass": ak.Array(mass),
+        },
+        with_name="PtEtaPhiMLorentzVector",
+        behavior=coffea_vector.behavior,
     )
     return [p4[ak.from_regular(ak.Array(pred), axis=1)] for pred in preds]
+
 
 @define
 class SPANetDiHiggsInference(AnalyzerModule):
@@ -482,12 +722,22 @@ class SPANetDiHiggsInference(AnalyzerModule):
     classification_names: list = None
     classification_scores: str = "auto"
 
-    btag_working_point: str = "M"  # official WP ("L"/"M"/"T") used when btag_mode="label"
-    btag_mode: str = "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Must match whichever mode the .onnx model was actually trained with.
-    qvg_mode: str = "label"  # "score" or "label", applied to whichever qvg_field is configured (PNet QvG for any model trained after UParT QvG was removed from skimming.py)
-    qvg_label_threshold: float = 0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG. Must match skimming.py's value exactly for label-mode models.
+    btag_working_point: str = (
+        "M"  # official WP ("L"/"M"/"T") used when btag_mode="label"
+    )
+    btag_mode: str = (
+        "label"  # "score" (continuous discriminant) or "label" (boolean WP decision). Must match whichever mode the .onnx model was actually trained with.
+    )
+    qvg_mode: str = (
+        "label"  # "score" or "label", applied to whichever qvg_field is configured (PNet QvG for any model trained after UParT QvG was removed from skimming.py)
+    )
+    qvg_label_threshold: float = (
+        0.3  # UNOFFICIAL -- no correctionlib/official WP source exists for QvG. Must match skimming.py's value exactly for label-mode models.
+    )
     ctag_working_point: str = "M"  # official WP used when ctag_mode="label"
-    ctag_mode: str = "label"  # "score" (2 independent columns: CvB, CvL), "label" (1 boolean column: CvB AND CvL both pass), or "none" (no ctag columns at all, and c-tagging metadata is never even resolved -- safe for checkpoints trained before c-tagging existed, e.g. the original region1-5 study). Changes Source WIDTH -- must match the specific .onnx model's actual trained shape, not just its physics content.
+    ctag_mode: str = (
+        "label"  # "score" (2 independent columns: CvB, CvL), "label" (1 boolean column: CvB AND CvL both pass), or "none" (no ctag columns at all, and c-tagging metadata is never even resolved -- safe for checkpoints trained before c-tagging existed, e.g. the original region1-5 study). Changes Source WIDTH -- must match the specific .onnx model's actual trained shape, not just its physics content.
+    )
 
     __wp_cache: dict = field(factory=dict)
     __ctag_wp_cache: dict = field(factory=dict)
@@ -548,20 +798,25 @@ class SPANetDiHiggsInference(AnalyzerModule):
             if self.btag_field != "btag"
             else columns.metadata["era"]["btag_scale_factors"]["tagger"]
         )
-        pt   = columns[self.jet_col + Column(self.pt_field)]
-        eta  = columns[self.jet_col + Column(self.eta_field)]
-        phi  = columns[self.jet_col + Column(self.phi_field)]
+        pt = columns[self.jet_col + Column(self.pt_field)]
+        eta = columns[self.jet_col + Column(self.eta_field)]
+        phi = columns[self.jet_col + Column(self.phi_field)]
         mass = columns[self.jet_col + Column(self.mass_field)]
-        p4 = ak.zip({"pt": pt, "eta": eta, "phi": phi, "mass": mass}, with_name="Momentum4D")
+        p4 = ak.zip(
+            {"pt": pt, "eta": eta, "phi": phi, "mass": mass},
+            with_name="PtEtaPhiMLorentzVector",
+            behavior=coffea_vector.behavior,
+        )
         e = p4.energy
 
         raw_fields = {
-            "pt":   pt,
-            "eta":  eta,
-            "phi":  phi,
-            "e":    e,
+            "pt": pt,
+            "eta": eta,
+            "phi": phi,
+            "e": e,
+            "mass": mass,
             "btag": columns[self.jet_col + btag_col],
-            "qvg":  columns[self.jet_col + Column(self.qvg_field)],
+            "qvg": columns[self.jet_col + Column(self.qvg_field)],
         }
 
         # ctag_mode="none": for checkpoints trained before c-tagging existed
@@ -585,7 +840,9 @@ class SPANetDiHiggsInference(AnalyzerModule):
                 f"fields genuinely fetched into raw_fields; anything else "
                 f"would silently KeyError deep inside the sort."
             )
-        sorted_fields = _order_fields_btag_then_secondary(raw_fields, self.secondary_order_field)
+        sorted_fields = _order_fields_btag_then_secondary(
+            raw_fields, self.secondary_order_field
+        )
 
         # btag/qvg/ctag FEATURES fed to the model can each independently be
         # the continuous score or a boolean WP decision, per
@@ -597,49 +854,74 @@ class SPANetDiHiggsInference(AnalyzerModule):
             _, wps = self.getWPs(columns.metadata)
             sorted_fields["btag"] = sorted_fields["btag"] > wps[self.btag_working_point]
         elif self.btag_mode != "score":
-            raise ValueError(f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}")
+            raise ValueError(
+                f"btag_mode must be 'score' or 'label', got {self.btag_mode!r}"
+            )
 
         if self.qvg_mode == "label":
             sorted_fields["qvg"] = sorted_fields["qvg"] > self.qvg_label_threshold
         elif self.qvg_mode != "score":
-            raise ValueError(f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}")
+            raise ValueError(
+                f"qvg_mode must be 'score' or 'label', got {self.qvg_mode!r}"
+            )
 
         extra_features = []
         if self.ctag_mode == "none":
             pass  # no ctag columns at all -- matches pre-ctagging checkpoints' 6-column Source exactly
         elif self.ctag_mode == "label":
             _, ctag_wps = self.getCTagWPs(columns.metadata)
-            cvb_pass = sorted_fields["ctag_cvb"] > ctag_wps["CvB"][self.ctag_working_point]
-            cvl_pass = sorted_fields["ctag_cvl"] > ctag_wps["CvL"][self.ctag_working_point]
+            cvb_pass = (
+                sorted_fields["ctag_cvb"] > ctag_wps["CvB"][self.ctag_working_point]
+            )
+            cvl_pass = (
+                sorted_fields["ctag_cvl"] > ctag_wps["CvL"][self.ctag_working_point]
+            )
             ctag_feature = cvb_pass & cvl_pass
-            extra_features = [_pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)]
+            extra_features = [
+                _pad_and_convert(ctag_feature, self.n_real_jets, self.n_null_jets)
+            ]
         elif self.ctag_mode == "score":
             extra_features = [
-                _pad_and_convert(sorted_fields["ctag_cvb"], self.n_real_jets, self.n_null_jets),
-                _pad_and_convert(sorted_fields["ctag_cvl"], self.n_real_jets, self.n_null_jets),
+                _pad_and_convert(
+                    sorted_fields["ctag_cvb"], self.n_real_jets, self.n_null_jets
+                ),
+                _pad_and_convert(
+                    sorted_fields["ctag_cvl"], self.n_real_jets, self.n_null_jets
+                ),
             ]
         else:
-            raise ValueError(f"ctag_mode must be 'score', 'label', or 'none', got {self.ctag_mode!r}")
+            raise ValueError(
+                f"ctag_mode must be 'score', 'label', or 'none', got {self.ctag_mode!r}"
+            )
 
-        mask = _make_mask(ak.num(sorted_fields["pt"]), self.n_real_jets, self.n_null_jets)
+        mask = _make_mask(
+            ak.num(sorted_fields["pt"]), self.n_real_jets, self.n_null_jets
+        )
         source = {"MASK": mask, "_extra_features": extra_features}
-        for key in ("pt", "eta", "phi", "e", "btag", "qvg"):
-            source[key] = _pad_and_convert(sorted_fields[key], self.n_real_jets, self.n_null_jets)
+        for key in ("pt", "eta", "phi", "e", "mass", "btag", "qvg"):
+            source[key] = _pad_and_convert(
+                sorted_fields[key], self.n_real_jets, self.n_null_jets
+            )
         return source
- 
+
     def _detection_cols(self):
         """Per-particle detection-score columns."""
-        return {name: self.output_prefix + Column(f"{name}_detection") for name in self.particle_names}
+        return {
+            name: self.output_prefix + Column(f"{name}_detection")
+            for name in self.particle_names
+        }
 
     def _classification_cols(self):
         """Per-class probability columns (empty unless use_classification)."""
         if not self.use_classification:
             return {}
-        return {name: self.output_prefix + Column(f"classification_{name}") for name in self.classification_names}
+        return {
+            name: self.output_prefix + Column(f"classification_{name}")
+            for name in self.classification_names
+        }
 
     def run(self, columns, params):
-        source = self.prepare_inputs(columns)
-        n_events = len(source["pt"])
+        n_events = len(columns[self.jet_col + Column(self.pt_field)])
         detect_cols = self._detection_cols()
         class_cols = self._classification_cols()
 
@@ -650,9 +932,13 @@ class SPANetDiHiggsInference(AnalyzerModule):
         }
         mass_cols = {
             name: self.output_prefix + Column(_MASS_COL_NAMES[name])
-            for name in self.particle_names if name in _MASS_COL_NAMES
+            for name in self.particle_names
+            if name in _MASS_COL_NAMES
         }
-        jets_cols = {name: self.output_prefix + Column(f"{name}_jets") for name in self.particle_names}
+        jets_cols = {
+            name: self.output_prefix + Column(f"{name}_jets")
+            for name in self.particle_names
+        }
 
         if n_events == 0:
             empty = np.array([], dtype="float32")
@@ -662,38 +948,57 @@ class SPANetDiHiggsInference(AnalyzerModule):
                 columns[detect_cols[name]] = ak.Array(empty)
             for name in class_cols:
                 columns[class_cols[name]] = ak.Array(empty)
-            empty_2d = np.zeros((0, self.n_real_jets + self.n_null_jets), dtype="float32")
+            empty_2d = np.zeros(
+                (0, self.n_real_jets + self.n_null_jets), dtype="float32"
+            )
             empty_p4 = ak.zip(
                 {
-                    "pt": ak.Array(empty_2d), "eta": ak.Array(empty_2d),
-                    "phi": ak.Array(empty_2d), "energy": ak.Array(empty_2d),
+                    "pt": ak.Array(empty_2d),
+                    "eta": ak.Array(empty_2d),
+                    "phi": ak.Array(empty_2d),
                     "mass": ak.Array(empty_2d),
                 },
-                with_name="Momentum4D",
+                with_name="PtEtaPhiMLorentzVector",
+                behavior=coffea_vector.behavior,
             )
             for name in self.particle_names:
                 width = self.daughter_counts[name]
-                empty_idx = ak.from_regular(ak.Array(np.zeros((0, width), dtype=int)), axis=1)
+                empty_idx = ak.from_regular(
+                    ak.Array(np.zeros((0, width), dtype=int)), axis=1
+                )
                 columns[jets_cols[name]] = empty_p4[empty_idx]
             return columns, []
 
+        source = self.prepare_inputs(columns)
         session = onnxruntime.InferenceSession(self.model_path)
 
         source_data = _build_source_data(
-            source["pt"], source["eta"], source["phi"],
-            source["e"], source["btag"], source["qvg"],
+            source["pt"],
+            source["eta"],
+            source["phi"],
+            source["e"],
+            source["btag"],
+            source["qvg"],
             extra_features=source["_extra_features"],
         )
         extras = {}
         if self.use_classification:
             cls_name = _find_classification_output(
-                [o.name for o in session.get_outputs()], self.particle_names, hint=self.classification_output
+                [o.name for o in session.get_outputs()],
+                self.particle_names,
+                hint=self.classification_output,
             )
             assign_detect, extras = _run_onnx_inference(
-                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size,
+                session,
+                source_data,
+                source["MASK"],
+                self.particle_names,
+                batch_size=self.batch_size,
                 extra_output_names=[cls_name],
             )
-            probs = _to_class_probabilities(extras[cls_name], self.classification_scores)
+            probs = _to_class_probabilities(
+                extras[cls_name], self.classification_scores
+            )
             if probs.shape[1] != len(self.classification_names):
                 raise ValueError(
                     f"the model's classification output {cls_name!r} has {probs.shape[1]} classes but "
@@ -705,25 +1010,31 @@ class SPANetDiHiggsInference(AnalyzerModule):
                 columns[class_cols[name]] = ak.Array(probs[:, k])
         else:
             assign_detect = _run_onnx_inference(
-                session, source_data, source["MASK"], self.particle_names, batch_size=self.batch_size
+                session,
+                source_data,
+                source["MASK"],
+                self.particle_names,
+                batch_size=self.batch_size,
             )
         assign_tensors = [assign_detect[name][0] for name in self.particle_names]
         preds = _extract_pairs_exclusive(assign_tensors)
         jets = _gather_assigned_jets(
-            source["pt"], source["eta"], source["phi"], source["e"], preds
+            source["pt"], source["eta"], source["phi"], source["mass"], preds
         )
         jets_by_name = dict(zip(self.particle_names, jets))
 
         for name, jet_col in jets_by_name.items():
             columns[jets_cols[name]] = jet_col
             if name in mass_cols:
-                columns[mass_cols[name]] = ak.sum(jet_col, axis=1).mass
+                columns[mass_cols[name]] = jet_col.sum(axis=1).mass
 
         # Detection probabilities (already sigmoid'ed by the ONNX export; one value per event per
         # particle). reshape handles an (n,) or (n, 1) output alike.
         detections = {}
         for name in self.particle_names:
-            det = np.asarray(assign_detect[name][1], dtype="float32").reshape(n_events, -1)[:, 0]
+            det = np.asarray(assign_detect[name][1], dtype="float32").reshape(
+                n_events, -1
+            )[:, 0]
             detections[name] = det
             columns[detect_cols[name]] = ak.Array(det)
 
@@ -740,9 +1051,12 @@ class SPANetDiHiggsInference(AnalyzerModule):
         }
         outs = [
             self.output_prefix + Column(_MASS_COL_NAMES[name])
-            for name in self.particle_names if name in _MASS_COL_NAMES
+            for name in self.particle_names
+            if name in _MASS_COL_NAMES
         ]
-        outs += [self.output_prefix + Column(f"{name}_jets") for name in self.particle_names]
+        outs += [
+            self.output_prefix + Column(f"{name}_jets") for name in self.particle_names
+        ]
         detect_cols = self._detection_cols()
         outs += list(detect_cols.values())
         outs += list(self._classification_cols().values())
@@ -751,7 +1065,6 @@ class SPANetDiHiggsInference(AnalyzerModule):
     def inputs(self, metadata):
         return [self.jet_col]
 
-vector.register_awkward()
 
 @define
 class DiHiggsMassMultiplicitySplit(AnalyzerModule):
@@ -797,7 +1110,7 @@ class DiHiggsMassMultiplicitySplit(AnalyzerModule):
 
         real_mask = jets.pt != 0
         n_real = ak.sum(real_mask, axis=1)
-        mass = ak.sum(jets[real_mask], axis=1).mass
+        mass = jets[real_mask].sum(axis=1).mass
 
         is_three = n_real == 3
         is_four = n_real == 4
