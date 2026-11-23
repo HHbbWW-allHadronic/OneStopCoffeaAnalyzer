@@ -348,183 +348,7 @@ def remap_target_indices(target_arr, inv_perms, null_idx):
         if v != null_idx and v != -1:
             out[i] = inv_perms[i, v]
     return out
-
-
-def _measure_truncation_loss(jets, jets_sorted, n_real_jets, reco_mode, outdir=".", chunk_label="chunk"):
-    """Measures how often a genuinely gen-matched signal jet exists in
-    an event but gets truncated away before ever reaching the final
-    Source array -- NOT detectable from an already-built H5 file, since
-    a target index can only ever point at a position that survived
-    truncation (targets and Source are built from the same
-    post-truncation signal_arr), and a truncated-away jet looks
-    identical to a genuinely-unmatched one once truncation has
-    happened -- both simply resolve to null. This instead compares the
-    pre-truncation `jets` collection against the post-sort
-    `jets_sorted`, both already live here in run(), which is the only
-    place this distinction is actually visible.
-
-    Named with a leading underscore, distinct from the
-    check_truncation_loss boolean field on SPANetGenMatch -- different
-    namespaces (instance attribute vs. module-level function) so this
-    wouldn't actually collide, but named differently anyway to avoid
-    any confusion reading the two side by side.
-    """
-    import os
-
-    full_signal = jets.signal
-    truncated_signal = jets_sorted[:, :n_real_jets].signal
-
-    # FIXED: this used to hardcode an "H2" group (pooling signal==2 and
-    # signal==3, expecting 4 daughters) regardless of reco_mode. In
-    # onshell_w mode, signal==3 is never assigned at all (there's no
-    # offshell-W branch there), so that pooled group could never
-    # legitimately reach 4 -- it silently, always reported "0 events had
-    # all 4 daughters matched," which isn't a real finding, just a
-    # groups dict describing the wrong particle for this mode. Branch
-    # groups/n_daughters_expected on reco_mode, same split good_event_mask
-    # and make_targets already use, so onshell_w runs report on W1 (2
-    # daughters, signal==2 only) instead of a meaningless "H2".
-    if reco_mode == "full_hww":
-        # H1=1 only (unambiguous); H2 pools 2+3 (same packing ambiguity
-        # established for trace_event -- can't attribute loss to one
-        # specific slot once truncation reshuffles which daughter lands
-        # where); ISR=4 alone.
-        groups = {"H1": [1], "H2": [2, 3], "ISR": [4]}
-        n_daughters_expected = {"H1": 2, "H2": 4, "ISR": 1}
-    else:  # onshell_w
-        groups = {"H1": [1], "W1": [2], "ISR": [4]}
-        n_daughters_expected = {"H1": 2, "W1": 2, "ISR": 1}
-
-    os.makedirs(outdir, exist_ok=True)
-    summary_path = os.path.join(outdir, "truncation_loss_running_totals.txt")
-
-    results = {}
-    with open(summary_path, "a") as f:
-        for group_name, signal_values in groups.items():
-            n_matched_full = ak.sum(sum((full_signal == v) for v in signal_values), axis=1)
-            n_matched_survived = ak.sum(sum((truncated_signal == v) for v in signal_values), axis=1)
-            n_lost = ak.to_numpy(n_matched_full - n_matched_survived)
-            n_matched_full_np = ak.to_numpy(n_matched_full)
-
-            n_events = len(n_lost)
-            n_events_with_loss = int(np.sum(n_lost > 0))
-            n_events_with_any_match = int(np.sum(n_matched_full_np > 0))
-            n_lost_total = int(np.sum(n_lost[n_lost > 0]))
-
-            f.write(f"{chunk_label}\t{group_name}\t{n_events}\t{n_events_with_any_match}\t"
-                    f"{n_events_with_loss}\t{n_lost_total}\n")
-
-            pct = 100 * n_events_with_loss / max(n_events_with_any_match, 1)
-            print(f"[{chunk_label}] {group_name}: {n_events_with_any_match} events had >=1 gen-matched "
-                  f"{group_name} jet, {n_events_with_loss} lost >=1 to truncation ({pct:.2f}%)")
-
-            results[group_name] = {
-                "n_events": n_events, "n_events_with_any_match": n_events_with_any_match,
-                "n_events_with_loss": n_events_with_loss, "n_lost_total": n_lost_total,
-            }
-
-            # The highest-risk slice: events where ALL of this
-            # particle's daughters were genuinely gen-matched BEFORE
-            # truncation -- of those (not the survivorship-biased "all
-            # targets already real in the finished file" subset, which
-            # can never show loss by construction), how many lost at
-            # least one anyway.
-            n_expected = n_daughters_expected.get(group_name)
-            if n_expected is not None:
-                full_strength_mask = n_matched_full_np == n_expected
-                n_full_strength = int(np.sum(full_strength_mask))
-                n_full_strength_that_lost = int(np.sum(full_strength_mask & (n_lost > 0)))
-                pct_fs = 100 * n_full_strength_that_lost / max(n_full_strength, 1)
-                f.write(f"{chunk_label}\t{group_name}_FULLSTRENGTH\t{n_events}\t{n_full_strength}\t"
-                        f"{n_full_strength_that_lost}\t0\n")
-                print(f"[{chunk_label}] {group_name} (highest-risk slice): {n_full_strength} events had "
-                      f"ALL {n_expected} daughters genuinely matched pre-truncation, "
-                      f"{n_full_strength_that_lost} lost >=1 anyway ({pct_fs:.2f}%)")
-                results[f"{group_name}_full_strength"] = {
-                    "n_full_strength": n_full_strength, "n_full_strength_that_lost": n_full_strength_that_lost,
-                }
-
-    return results
-
-
-def _audit_n_real_jets_recovery(jets, jets_sorted, reco_mode, n_values, outdir=".", chunk_label="chunk", n_sample_events=5):
-    """Directly audits whether widening n_real_jets recovers GENUINE
-    events (real gen-matched jets that simply rank below the old
-    cutoff) versus something suspicious. Replicates
-    good_event_mask_full_hww/good_event_mask_onshell_w's
-    own logic inline (simple enough -- two ak.sum comparisons -- to
-    safely reimplement rather than needing a closure extracted from
-    run() itself), parameterized by reco_mode to match both the
-    full_hww and onshell_w variants exactly as they appear in run().
-
-    Checks, for each pair of consecutive n values in n_values:
-      1. MONOTONICITY: every event passing at the smaller n must also
-         pass at the larger n (a wider window is strictly a superset,
-         so this should ALWAYS hold by construction -- if it doesn't,
-         that's a genuine bug signal, not a truncation-related finding).
-      2. For events that fail at the smaller n but pass at the larger
-         one ("recovered" events): samples a few and reports exactly
-         which rank (post-sort position) their matched jets fall at,
-         directly showing whether they're genuine matches just beyond
-         the old cutoff.
-    """
-    import os
-
-    full_signal = jets.signal
-
-    def passes_at(n):
-        window_signal = jets_sorted[:, :n].signal
-        h1_count = ak.sum(window_signal == 1, axis=1)
-        if reco_mode == "full_hww":
-            hww_count = ak.sum(window_signal == 2, axis=1) + ak.sum(window_signal == 3, axis=1)
-            return ak.to_numpy((h1_count >= 2) & (hww_count >= 3))
-        else:  # onshell_w
-            w_count = ak.sum(window_signal == 2, axis=1)
-            return ak.to_numpy((h1_count >= 2) & (w_count >= 2))
-
-    os.makedirs(outdir, exist_ok=True)
-    log_path = os.path.join(outdir, "n_real_jets_audit_log.txt")
-
-    with open(log_path, "a") as f:
-        for i in range(len(n_values) - 1):
-            n_small, n_large = n_values[i], n_values[i + 1]
-            pass_small = passes_at(n_small)
-            pass_large = passes_at(n_large)
-
-            # Monotonicity: nobody should pass at n_small but fail at n_large.
-            violations = int(np.sum(pass_small & ~pass_large))
-            recovered = pass_large & ~pass_small
-            n_recovered = int(np.sum(recovered))
-
-            line = (f"[{chunk_label}] n={n_small}->n={n_large}: {n_recovered} events recovered, "
-                    f"{violations} monotonicity violations")
-            print(line)
-            f.write(line + "\n")
-
-            if violations > 0:
-                print(f"  *** WARNING: {violations} events passed at n={n_small} but FAILED at n={n_large}. "
-                      f"This should be structurally impossible (a wider window is a superset) and points "
-                      f"to a genuine bug, not a truncation effect. ***")
-                f.write(f"  *** WARNING: {violations} monotonicity violations -- investigate directly ***\n")
-
-            # Sample a few recovered events and show exactly where their
-            # matched jets rank -- direct, per-event evidence rather than
-            # just an aggregate count.
-            recovered_idx = np.where(ak.to_numpy(recovered))[0]
-            second_group_label = "H2" if reco_mode == "full_hww" else "W1"
-            second_group_values = (2, 3) if reco_mode == "full_hww" else (2,)
-            for idx in recovered_idx[:n_sample_events]:
-                event_signal_sorted = ak.to_numpy(jets_sorted[idx].signal)
-                h1_ranks = [r for r, s in enumerate(event_signal_sorted) if s == 1]
-                second_group_ranks = [r for r, s in enumerate(event_signal_sorted) if s in second_group_values]
-                detail = (f"  event[{idx}]: H1 matched jets at ranks {h1_ranks}, "
-                          f"{second_group_label} matched jets at ranks {second_group_ranks} "
-                          f"(0-indexed, post btag+secondary sort)")
-                print(detail)
-                f.write(detail + "\n")
-
-    return log_path
-
+    
 # ---------------------------------------------------------------------------
 # Per-stage gen-matching cutflow
 # ---------------------------------------------------------------------------
@@ -551,19 +375,6 @@ def _hw_ok(signal, reco_mode):
     else:
         w_ok = c2 >= 2
     return h_ok, w_ok
-
-
-def _log_stage_counts(stage_masks, outdir, chunk_label):
-    """Append one line per stage -- chunk, stage, n_events, n_H_ok, n_W_ok, n_both -- to gen_match_stage_counts.txt.
-    UNWEIGHTED raw event counts per chunk; sum the lines of a stage over chunks. n_H_ok / n_W_ok are the two halves
-    of the criterion separately, so the file also shows WHICH particle is lost at each stage."""
-    import os
-    os.makedirs(outdir, exist_ok=True)
-    with open(os.path.join(outdir, "gen_match_stage_counts.txt"), "a") as f:
-        for name, (h_ok, w_ok, both) in stage_masks.items():
-            f.write(f"{chunk_label}\t{name}\t{len(both)}\t{int(np.sum(ak.to_numpy(h_ok)))}\t"
-                    f"{int(np.sum(ak.to_numpy(w_ok)))}\t{int(np.sum(ak.to_numpy(both)))}\n")
-
 
 # ============================================================
 # Module 1: gen-level matching + target/source construction
@@ -900,28 +711,6 @@ class SPANetGenMatch(AnalyzerModule):
         pt_idx = ak.argsort(secondary_field, axis=1, ascending=False) + 2
         jets_sorted = ak.concatenate([jets_partial[:, :2], jets_partial[pt_idx]], axis=1)
 
-        if self.check_truncation_loss and not (self.skip_gen_matching or self.ttbar_matching):
-            # chunk_label uses id(columns) purely to guarantee uniqueness
-            # across calls within one process (so accumulation can't
-            # accidentally merge unrelated chunks into one line) -- NOT
-            # a meaningful, human-readable identifier. If columns/this
-            # module carries an actual filename or chunk index, worth
-            # swapping that in here instead. Skipped entirely when
-            # skip_gen_matching is set: every jet is background (signal=-1)
-            # by construction in that mode, so there's no genuine
-            # truncation-loss question to measure -- it would just report
-            # zero matched jets everywhere, which isn't a real diagnostic.
-            _measure_truncation_loss(
-                jets, jets_sorted, self.n_real_jets, self.reco_mode,
-                outdir=self.truncation_loss_outdir, chunk_label=f"chunk_{id(columns)}",
-            )
-
-        if self.audit_n_real_jets_values and not (self.skip_gen_matching or self.ttbar_matching):
-            _audit_n_real_jets_recovery(
-                jets, jets_sorted, self.reco_mode, self.audit_n_real_jets_values,
-                outdir=self.audit_n_real_jets_outdir, chunk_label=f"chunk_{id(columns)}",
-            )
-
         # FIXED: good_event was previously evaluated on the full, untruncated
         # `jets` collection -- but signal_arr (and therefore make_targets)
         # only ever sees the top n_real_jets after this same sort, via
@@ -1115,10 +904,6 @@ class SPANetGenMatch(AnalyzerModule):
             stage_masks["gm_in_window"] = (h_win, w_win, good_event_window)
             for name, (_, _, both) in stage_masks.items():
                 columns[Column(("Selection", name))] = both
-            if self.log_stage_counts:
-                to_log = dict(stage_masks)
-                to_log["good_event"] = (h_win, w_win, good_event)   # differs from gm_in_window only if strip_bjets is on
-                _log_stage_counts(to_log, self.stage_counts_outdir, f"chunk_{id(columns)}")
 
         return columns, []
 

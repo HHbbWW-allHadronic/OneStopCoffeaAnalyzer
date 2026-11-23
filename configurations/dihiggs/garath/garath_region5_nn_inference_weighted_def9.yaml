@@ -95,52 +95,6 @@ analyzer:
           bins: 50
           unit: GeV
 
-  spanet_baseline_2d_histograms: &spanet_baseline_2d_histograms
-    - module_name: SimpleHistogram
-      hist_name: m_HWW_nontop2b_threejet_m_W1_SPANet_2d
-      input_cols: [Baseline.H2_threejet.mass, SPANet.m_W1_SPANet]
-      axes:
-        - name: nontop2b_threejet mass (HWW)
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-        - name: Won SPANet assignment mass
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-
-    - module_name: SimpleHistogram
-      hist_name: m_HWW_nontop2b_threejet_m_Hbb_SPANet_2d
-      input_cols: [Baseline.H2_threejet.mass, SPANet.m_Hbb_SPANet]
-      axes:
-        - name: nontop2b_threejet mass (HWW)
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-        - name: Hbb SPANet assignment mass
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-
-    - module_name: SimpleHistogram
-      hist_name: m_W1_SPANet_m_Hbb_SPANet_2d
-      input_cols: [SPANet.m_W1_SPANet, SPANet.m_Hbb_SPANet]
-      axes:
-        - name: Won SPANet assignment mass
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-        - name: Hbb SPANet assignment mass
-          start: 0
-          stop: 600
-          bins: 50
-          unit: GeV
-
   baseline_only_2d_histograms: &baseline_only_2d_histograms
     - module_name: SimpleHistogram
       hist_name: m_HWW_nontop2b_threejet_m_W1_nontop2b_dijet_2d
@@ -233,8 +187,8 @@ analyzer:
       axes:
         - name: Won SPANet assignment mass
           start: 0
-          stop: 200
-          bins: 40
+          stop: 250
+          bins: 50
           unit: GeV
         - name: W1 detection score
           start: 0
@@ -256,8 +210,8 @@ analyzer:
           unit: GeV
         - name: Won SPANet assignment mass
           start: 0
-          stop: 200
-          bins: 40
+          stop: 250
+          bins: 50
           unit: GeV
         - name: H1 detection score
           start: 0
@@ -265,24 +219,166 @@ analyzer:
           bins: 100
           unit: ""
 
-  region5_9jet_tag_label: &region5_9jet_tag_label
-    - *spanet_common_prefix_tiered
-    - module_name: NObjFilter
-      input_col: goodJetTiered
-      selection_name: njets
-      min_count: 6
-    - *spanet_medb_requirement
-    - module_name: SelectOnColumns
-      sel_name: selection
+  # ---- Multi-distribution-fit histograms (significance-selected model, job004): (m_Hbb, m_W1, m_HWW_threejet, detection score), coarse on purpose
+  # (25 x 25 x 25 x 25 = 390k bins). Windows / score cuts / projections are all done offline by slicing these.
+  # One per candidate detection score (H1, W1) so the better discriminant can be picked afterwards. No classifier-score
+  # histograms: the classification head is untrained (classification_loss_scale = 0).
+  fit_4d_histograms: &fit_4d_histograms
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_m_W1_m_HWW_threejet_H1_detection_4d
+      input_cols: [SPANet.m_Hbb_SPANet, SPANet.m_W1_SPANet, Baseline.H2_threejet.mass, SPANet.H1_detection]
+      axes:
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: H1 detection score
+          start: 0
+          stop: 1
+          bins: 25
+          unit: ""
+
+    - module_name: SimpleHistogram
+      hist_name: m_Hbb_m_W1_m_HWW_threejet_W1_detection_4d
+      input_cols: [SPANet.m_Hbb_SPANet, SPANet.m_W1_SPANet, Baseline.H2_threejet.mass, SPANet.W1_detection]
+      axes:
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 250
+          bins: 25
+          unit: GeV
+        - name: W1 detection score
+          start: 0
+          stop: 1
+          bins: 25
+          unit: ""
+
+  spanet_baseline_2d_histograms_nocls: &spanet_baseline_2d_histograms_nocls
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_W1_SPANet_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.m_W1_SPANet]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_m_Hbb_SPANet_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.m_Hbb_SPANet]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    - module_name: SimpleHistogram
+      hist_name: m_W1_SPANet_m_Hbb_SPANet_2d
+      input_cols: [SPANet.m_W1_SPANet, SPANet.m_Hbb_SPANet]
+      axes:
+        - name: Won SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+        - name: Hbb SPANet assignment mass
+          start: 0
+          stop: 600
+          bins: 50
+          unit: GeV
+
+    # HWW mass vs. score: lets a detection / classifier cut be applied offline to the HWW mass
+    # (the inclusive 1D HWW histograms cannot be cut on a score after the fact)
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_H1_detection_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.H1_detection]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 250
+          bins: 50
+          unit: GeV
+        - name: H1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+    - module_name: SimpleHistogram
+      hist_name: m_HWW_nontop2b_threejet_W1_detection_2d
+      input_cols: [Baseline.H2_threejet.mass, SPANet.W1_detection]
+      axes:
+        - name: nontop2b_threejet mass (HWW)
+          start: 0
+          stop: 250
+          bins: 50
+          unit: GeV
+        - name: W1 detection score
+          start: 0
+          stop: 1
+          bins: 100
+          unit: ""
+
+  # ======================= def9 pipelines =======================
+  # def9 = withHLT_ObjDef9 in core.yaml: HLT (250HT4J2B) + HT>300, event-level filters, zero tight e/mu,
+  # >=4 goodJet (pT>25), >=6 lowJet (pT>15), >=2 MedB_low. lowJet / MedB_low are the core.yaml definitions.
+  #
+  # SKIMMED samples (*_def9skim): selection already applied by the skim and lowJet is stored in the nano,
+  # so no object building and no selections are repeated here. Only the b-jet collections that JetCombos needs
+  # are rebuilt (HBQuarkMaker on lowJet, identical to MedB_low / nontop2b_med_low in core.yaml).
+  def9_bjets: &def9_bjets
+    - module_name: HBQuarkMaker
+      input_col: lowJet
+      output_col: MedB_low
+      working_point: M
+      nontop2b: True
+      nontop2b_col: nontop2b_med_low
+
+  # Shared by the skimmed and the unskimmed pipelines: SPANet (significance-selected model job004, classification head
+  # untrained -> not used), SPANet histograms, baseline combos, baseline histograms, 4D fit histograms.
+  def9_spanet_tail: &def9_spanet_tail
     - module_name: SPANetDiHiggsInference
-      jet_col: goodJetTiered
+      jet_col: lowJet
       pt_field: pt
       eta_field: eta
       phi_field: phi
       mass_field: mass
       btag_field: btag
       qvg_field: btagPNetQvG
-      model_path: onnx_models/spanet_v18-NRP-region5-H1_W1_targets_9jet_1null-tiered_pt_cut-btag_pnet-qvg_ordering-acc-0p680.onnx   # <-- must match the exported file name
+      model_path: onnx_models/spanet_seed-sweep_20261026-1_job004-validation-significance-0p01389.onnx   # <-- must match the exported file name
       output_prefix: SPANet
       n_real_jets: 9
       n_null_jets: 1
@@ -297,6 +393,7 @@ analyzer:
       qvg_mode: label
       ctag_mode: label
       ctag_working_point: M
+      use_classification: false
     - module_name: SimpleHistogram
       hist_name: m_Hbb_SPANet_1d
       input_cols: [SPANet.m_Hbb_SPANet]
@@ -318,10 +415,10 @@ analyzer:
     - *detection_histograms
     - module_name: JetCombos
       input_cols:
-        - MedBTiered
-        - NonTop2BTiered
-        - NonTop2BTiered
-        - NonTop2BTiered
+        - MedB_low
+        - nontop2b_med_low
+        - nontop2b_med_low
+        - nontop2b_med_low
       order_by:
         - btagPNetQvG
         - btagPNetQvG
@@ -338,24 +435,36 @@ analyzer:
         - Baseline.H2_threejet
         - Baseline.H2_fourjet
     - *baseline_histograms
-    - *spanet_baseline_2d_histograms
+    - *spanet_baseline_2d_histograms_nocls
     - *baseline_only_2d_histograms
+    - *fit_4d_histograms   # uses Baseline.H2_threejet, so it must come AFTER JetCombos
+
+  # SKIMMED ttbar / QCD: nothing is selected or built beyond the b-jet collections.
+  region5_9jet_def9_bkg: &region5_9jet_def9_bkg
+    - *def9_bjets
+    - *def9_spanet_tail
+
+  # UNSKIMMED samples (e.g. signal eval): the full core.yaml def9 selection, then the identical tail,
+  # so every sample ends up with the same selection (including the HT>300 cut).
+  region5_9jet_def9_sig: &region5_9jet_def9_sig
+    - *withHLT_ObjDef9
+    - *def9_spanet_tail
 
 location_priorities: [".*FNAL.*", ".*US.*", ".*(DE|IT|CH|FR).*", ".*(T0|T1|T2).*","eos"]
 
 event_collections:
-  - dataset: 'ggHH2b2V6q_2024_eval_deduped'
+  # Skimmed backgrounds (def9 skim already applied). Dataset patterns assume the dataset names inside the
+  # *_def9skim yamls contain "def9skim" -- check; do NOT use broad globs like 'qcd*2024*' / 'tt_hadronic*2024*',
+  # which would also match the unskimmed datasets if both are loaded (double counting).
+  - dataset: 'tt_hadronic*def9skim*'
     pipelines:
-      - region5_9jet_tag_label
+      - region5_9jet_def9_bkg
 
-#  - dataset: 'qcd*2024*'
+#  - dataset: 'qcd*def9skim*'
 #    pipelines:
-#      - region5_9jet_tag_label
+#      - region5_9jet_def9_bkg
 
-#  - dataset: 'tt_hadronic*2024*'
+  # Signal EVAL set (independent of the training signal), NOT skimmed -> needs the full def9 selection.
+#  - dataset: 'ggHH2b2V6q_2024_eval_deduped'
 #    pipelines:
-#      - region5_9jet_tag_label
-
-#  - dataset: 'tt_semilep*2024'
-#    pipelines:
-#      - region5_9jet_tag_label
+#      - region5_9jet_def9_sig
