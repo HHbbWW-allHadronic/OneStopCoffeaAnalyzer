@@ -30,6 +30,7 @@ dependencies = [
     "textual>=6.7.1",
     "textual-plotext>=1.0.1",
     "tritonclient[grpc,http]>=2.70.0",
+    "onnxruntime==1.20.1",
 ]
 
 [dependency-groups]
